@@ -46,10 +46,11 @@ func main() {
 	// The way back in. Nothing about this runs a server.
 	setPw := flag.String("set-password", "", "create or reset an account as NAME:PASSWORD, then exit")
 	setRole := flag.String("set-role", "admin", "the role a new -set-password account gets")
+	weak := flag.Bool("allow-weak-password", false, "let -set-password set a password below the minimum, for a local demo account")
 	flag.Parse()
 
 	if *setPw != "" {
-		if err := setPassword(*dir, *setPw, *setRole); err != nil {
+		if err := setPassword(*dir, *setPw, *setRole, *weak); err != nil {
 			log.Fatalf("costcrew: %v", err)
 		}
 		return
@@ -69,7 +70,7 @@ func main() {
 // It never starts the listener, so it is safe to run against a directory a
 // server is already serving: SQLite takes the write, and the running process
 // reads the new hash on the next sign-in.
-func setPassword(dir, spec, role string) error {
+func setPassword(dir, spec, role string, weak bool) error {
 	name, pw, ok := strings.Cut(spec, ":")
 	if !ok {
 		return fmt.Errorf("-set-password wants NAME:PASSWORD, got %q", spec)
@@ -83,7 +84,7 @@ func setPassword(dir, spec, role string) error {
 	if err != nil {
 		return err
 	}
-	created, err := au.SetPassword(name, pw, role)
+	created, err := au.SetPassword(name, pw, role, weak)
 	if err != nil {
 		return err
 	}
@@ -91,6 +92,10 @@ func setPassword(dir, spec, role string) error {
 		fmt.Printf("created %s as %s\n", name, role)
 	} else {
 		fmt.Printf("reset the password for %s; any session it had is now signed out\n", name)
+	}
+	if len(pw) < auth.MinPassword {
+		fmt.Printf("WARNING: %q is %d characters, below the %d this console asks for.\n"+
+			"Serve this installation on loopback only.\n", name, len(pw), auth.MinPassword)
 	}
 	return nil
 }

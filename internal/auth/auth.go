@@ -176,8 +176,17 @@ func (a *Auth) Count() (int, error) {
 }
 
 func (a *Auth) Create(username, password, role string) (bool, error) {
+	if strings.TrimSpace(username) == "" || len(password) < MinPassword || !validRole(role) {
+		return false, nil
+	}
+	return a.create(username, password, role)
+}
+
+// create is Create without the length check, so the command line can make a
+// demo account and the web forms still cannot.
+func (a *Auth) create(username, password, role string) (bool, error) {
 	username = strings.TrimSpace(username)
-	if username == "" || len(password) < MinPassword || !validRole(role) {
+	if username == "" || !validRole(role) {
 		return false, nil
 	}
 	if u, err := a.Get(username); err != nil || u != nil {
@@ -208,12 +217,15 @@ func (a *Auth) Create(username, password, role string) (bool, error) {
 //
 // The reset is journalled like every other change, so a password that changed
 // is visible in the audit chain even though the password itself never is.
-func (a *Auth) SetPassword(username, password, role string) (created bool, err error) {
+// allowWeak lets a demo account exist with a password nobody would accept on
+// anything reachable. It is a parameter rather than a package flag so the
+// weakening is visible at every call site, and there is exactly one.
+func (a *Auth) SetPassword(username, password, role string, allowWeak bool) (created bool, err error) {
 	username = strings.TrimSpace(username)
 	if username == "" {
 		return false, errors.New("the account needs a name")
 	}
-	if len(password) < MinPassword {
+	if len(password) < MinPassword && !allowWeak {
 		return false, fmt.Errorf("the password must be at least %d characters", MinPassword)
 	}
 	u, err := a.Get(username)
@@ -224,7 +236,7 @@ func (a *Auth) SetPassword(username, password, role string) (created bool, err e
 		if !validRole(role) {
 			role = "admin"
 		}
-		return a.Create(username, password, role)
+		return a.create(username, password, role)
 	}
 	h, err := HashPassword(password)
 	if err != nil {
