@@ -219,6 +219,54 @@ $ enforce -cloud http://127.0.0.1:8791 -apply 151b53cce6d9
   151b53cce6d9 and is now a68bf415d2cb.
 ```
 
+### Proven against a real gateway, and the two switches it needs
+
+Verified on 2026-08-22 with a gateway actually running, not just the control
+plane. The whole chain: this console's budget, to the control plane, to a
+gateway that polls it, to a call that is refused.
+
+```
+  budget in the control plane: 0.01 USD
+  call 1 -> HTTP 200
+  call 2 -> HTTP 402
+     {"error":{"type":"unit_budget_exceeded","budget_usd":0.01,
+               "spent_usd":0.0525,"reason":"unit 'ml-platform' monthly budget exceeded",
+               "retryable":false}}
+```
+
+and then back the other way, which is the half that shows who is in control:
+
+```
+  $ enforce -apply <fingerprint>       # this console's own figure
+    ml-platform is now 22,880.28 USD
+  the same call -> HTTP 200
+```
+
+**Nothing could spend, structurally rather than by promise.** With no
+`TOKENFUSE_UPSTREAM` the gateway answers from a built-in stub and never
+contacts a provider, and it says so itself at startup in the strongest terms
+("Every figure it reports from now on is fictional"). No provider credential
+existed in that environment. The fictional token counts are irrelevant to what
+was being tested, which is the refusal.
+
+Two switches this took to find, and neither is the obvious one:
+
+1. **`TOKENFUSE_MODE=enforce`.** The default is `shadow`, which records the
+   unit spend and does not block. With it on shadow the cloud showed the unit
+   fifteen times over its budget while every call still returned 200. The cap
+   is checked in `Mode::Enforce` only, and the default being safe is right:
+   a proxy dropped in front of production should not start refusing traffic
+   because somebody set a number in another console.
+2. **The identity map**, `TOKENFUSE_IDENTITY_MAP`, which binds the credential
+   to the agents it may present and those agents to a unit. Without it a call
+   resolves to no unit and the cap is skipped entirely. `TOKENFUSE_IDENTITY_STRICT`
+   is a different control and does NOT gate this: it governs the binding check.
+
+So the honest statement of what this console can do is: **it decides the
+number.** Whether that number refuses anything is a decision made in the
+gateway's own configuration, by whoever runs the perimeter, and that is the
+right place for it.
+
 ### What it deliberately does not push
 
 Per-agent budgets, though this console has them. TokenFuse binds an agent to a
