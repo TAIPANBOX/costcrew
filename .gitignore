@@ -1,0 +1,4 @@
+parity/captures/
+*.db
+*.duckdb
+bin/
