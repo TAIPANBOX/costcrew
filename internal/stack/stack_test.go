@@ -515,3 +515,58 @@ func TestTheConsoleNeverClaimsToHaveDeniedAnything(t *testing.T) {
 		t.Errorf("the event does not say the guard was not enforced: %v", data["enforced"])
 	}
 }
+
+// An attested runtime lends its identity to the agents inside it, and says so.
+//
+// Thirty-nine analysts run in one process. A workload attestor checks the user,
+// the binary's path and its SHA-256, so it cannot tell triage-aws from
+// forecaster: at the level it looks at, they are the same process. What the
+// passport can therefore say truthfully is "this agent runs inside a workload
+// whose identity was attested, and here is that workload's SPIFFE ID", and the
+// labels have to say that it is the RUNTIME's identity rather than letting
+// thirty-nine passports imply thirty-nine SVIDs.
+func TestAnAttestedRuntimeLendsItsIdentityAndSaysSo(t *testing.T) {
+	dir := t.TempDir()
+	em, err := stack.Open(stack.Config{
+		EventsPath: filepath.Join(dir, "e.ndjson"), Host: "costcrew.local", Owner: "yurii",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer em.Close()
+
+	a := crew.Analyst{Name: "triage-aws", Role: "triage", Desk: "aws", State: "active",
+		Owner: "yurii", Attestation: "none"}
+
+	// Unattested process: the passport says none, and an identity graph is
+	// right to flag it.
+	if got := em.PassportFor(a); got.Attestation.Method != "none" {
+		t.Errorf("with no SVID the passport claims %q", got.Attestation.Method)
+	}
+
+	em.SetRuntimeIdentity("spiffe://costcrew.local/console")
+	p := em.PassportFor(a)
+	if p.Attestation.Method != "spiffe-svid" {
+		t.Errorf("inside an attested runtime the passport says %q", p.Attestation.Method)
+	}
+	if p.Attestation.Detail != "spiffe://costcrew.local/console" {
+		t.Errorf("the detail names %q, not the workload it runs in", p.Attestation.Detail)
+	}
+	if p.Labels["attested"] != "the runtime, not this agent" {
+		t.Errorf("the passport does not say whose identity this is: %q", p.Labels["attested"])
+	}
+
+	// And an agent that records its OWN attestation keeps it: the runtime's
+	// identity is a fallback for agents bound to nothing, never an overwrite
+	// of something somebody recorded.
+	own := a
+	own.Attestation = "oidc"
+	own.AttestationDetail = "https://login.example.com"
+	q := em.PassportFor(own)
+	if q.Attestation.Method != "oidc" || q.Attestation.Detail != "https://login.example.com" {
+		t.Errorf("a recorded attestation was overwritten by the runtime's: %+v", q.Attestation)
+	}
+	if _, claims := q.Labels["attested"]; claims {
+		t.Error("a passport with its own attestation still claims the runtime's")
+	}
+}

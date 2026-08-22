@@ -50,6 +50,9 @@ type Config struct {
 	// Attestation is how the ids are bound to a workload. "none" is the honest
 	// default and says the id is a name this installation chose.
 	Attestation string
+
+	// SpiffeSocket is the workload API this process asks for its own identity.
+	SpiffeSocket string
 }
 
 func (c Config) On() bool { return c.EventsPath != "" }
@@ -60,9 +63,11 @@ func (c Config) On() bool { return c.EventsPath != "" }
 // Two goroutines appending would interleave and fork it, which a verifier
 // then reports as tampering rather than as concurrency.
 type Emitter struct {
-	cfg Config
-	mu  sync.Mutex
-	w   *event.ChainedWriter
+	// runtimeID is the SPIFFE ID this process was issued, empty when it holds none.
+	runtimeID string
+	cfg       Config
+	mu        sync.Mutex
+	w         *event.ChainedWriter
 }
 
 func Open(cfg Config) (*Emitter, error) {
@@ -170,7 +175,46 @@ func Severity(excess money.Cents) string {
 // person reads on the agent's card is the SAME document that is published.
 // Two builders would drift, and the drift would be invisible: the page would
 // keep saying spiffe-svid while the file on disk said none.
+// SetRuntimeIdentity records the SPIFFE ID this process was issued, so
+// passports can say what the agents inside it run as.
+func (e *Emitter) SetRuntimeIdentity(id string) { e.runtimeID = id }
+
+// withRuntimeIdentity builds the passport for an agent that has no attestation
+// of its own, inside a process that does.
+func (e *Emitter) withRuntimeIdentity(a crew.Analyst) passport.Passport {
+	saved := a.Attestation
+	a.Attestation = "spiffe-svid"
+	a.AttestationDetail = e.runtimeID
+	p := e.build(a)
+	a.Attestation = saved
+	p.Labels["attested"] = "the runtime, not this agent"
+	p.Labels["attested_workload"] = e.runtimeID
+	return p
+}
+
 func (e *Emitter) PassportFor(a crew.Analyst) passport.Passport {
+	return e.build(a)
+}
+
+func (e *Emitter) build(a crew.Analyst) passport.Passport {
+	// The RUNTIME's attested identity, when this process holds one, and only
+	// where the analyst records none of its own.
+	//
+	// This is derived, and the difference from the derivation removed earlier
+	// today is the whole point: that one read a permission list and wrote a
+	// security claim. This one reads a CERTIFICATE this process was issued
+	// after a workload attestor checked the user, the binary's path and its
+	// SHA-256. It says "this agent runs inside a workload whose identity was
+	// attested, and here is that workload's SPIFFE ID", which is true and
+	// which anybody holding the trust bundle can check.
+	//
+	// It is the RUNTIME's identity, not the agent's. Thirty-nine analysts run
+	// in one process, and a workload attestor cannot tell them apart, so the
+	// label below says so rather than letting the count imply otherwise.
+	if (a.Attestation == "" || a.Attestation == "none") && e.runtimeID != "" {
+		return e.withRuntimeIdentity(a)
+	}
+
 	// The attestation comes from the ANALYST, not from the installation's
 	// flag. The flag is the default a hire form starts from; what was actually
 	// chosen at hire time is what the roster holds, and the passport is a

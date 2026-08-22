@@ -26,6 +26,7 @@ import (
 	"github.com/TAIPANBOX/costcrew/internal/estate"
 	"github.com/TAIPANBOX/costcrew/internal/finops"
 	"github.com/TAIPANBOX/costcrew/internal/history"
+	"github.com/TAIPANBOX/costcrew/internal/spiffe"
 	"github.com/TAIPANBOX/costcrew/internal/stack"
 	"github.com/TAIPANBOX/costcrew/internal/store"
 	"github.com/TAIPANBOX/costcrew/internal/web"
@@ -46,6 +47,12 @@ func main() {
 	attest := flag.String("stack-attestation", "none", "none|oidc|spiffe-svid|enclave-key|mtls-cert")
 
 	// The way back in. Nothing about this runs a server.
+	// Where the SPIFFE workload API listens. Empty means this console holds no
+	// attested identity and says so on every passport, which is the default
+	// and the honest one.
+	spiffeSock := flag.String("spiffe-socket", "",
+		"the SPIFFE Workload API socket; empty means this console is not attested")
+
 	setPw := flag.String("set-password", "", "create or reset an account as NAME:PASSWORD, then exit")
 	setRole := flag.String("set-role", "admin", "the role a new -set-password account gets")
 	weak := flag.Bool("allow-weak-password", false, "let -set-password set a password below the minimum, for a local demo account")
@@ -62,6 +69,7 @@ func main() {
 	cfg := stack.Config{
 		EventsPath: *events, PassportDir: *passports,
 		Host: *host, Owner: *owner, Attestation: *attest,
+		SpiffeSocket: *spiffeSock,
 	}
 	if *rebuild {
 		if err := rebuildFixture(*dir); err != nil {
@@ -236,6 +244,24 @@ func run(addr, dir string, scfg stack.Config) error {
 		return fmt.Errorf("opening the event stream: %w", err)
 	}
 	defer em.Close()
+
+	// The identity this process was issued, if it was issued one.
+	//
+	// A failure here STOPS the start. An operator who passed a socket path
+	// expects to be attested, and carrying on unattested would leave every
+	// passport saying "none" while they believed otherwise, which is the
+	// quietest way to be wrong about a security property.
+	if scfg.SpiffeSocket != "" {
+		src, err := spiffe.Open(context.Background(), scfg.SpiffeSocket)
+		if err != nil {
+			return fmt.Errorf("fetching this console's own SVID: %w", err)
+		}
+		defer src.Close()
+		id := src.Identity()
+		em.SetRuntimeIdentity(id.ID)
+		log.Printf("CostCrew: attested as %s, valid until %s (serial %s)",
+			id.ID, id.Expires.UTC().Format(time.RFC3339), id.Serial)
+	}
 	// The hash chain always records the work; the agent-event stream is added
 	// when the governance plane is switched on. The chain is the one that has
 	// to be complete, so it does not depend on a flag.

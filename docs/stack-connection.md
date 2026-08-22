@@ -303,6 +303,58 @@ number.** Whether that number refuses anything is a decision made in the
 gateway's own configuration, by whoever runs the perimeter, and that is the
 right place for it.
 
+## A real SPIFFE identity, and what it can honestly attest
+
+`-spiffe-socket <path>` makes this console fetch its own X.509-SVID from a
+SPIFFE Workload API. Verified on 2026-08-23 against SPIRE 1.15.3, built from
+source because the project publishes no macOS binary, with its own trust domain
+`costcrew.local` and the console registered as a workload by three selectors:
+the user it runs as, the binary's path, and that binary's SHA-256.
+
+```
+CostCrew: attested as spiffe://costcrew.local/console, valid until ... (serial 9f7d...)
+```
+
+Two things proved it is an attestation rather than a setting, both by trying to
+break it:
+
+- **A changed binary is refused.** Rebuilding the console changed its SHA-256,
+  the registration entry still named the old one, and the workload API issued
+  nothing: the start failed with "this binary matches no registration entry".
+- **Another binary gets nothing.** `spire-agent api fetch x509` on the same
+  socket answers `PermissionDenied: no identity issued`, because the CLI is not
+  the registered workload.
+
+### What it attests, said plainly
+
+**The console, not each agent.** Thirty-nine analysts run in one process, and a
+workload attestor checks a user, a path and a hash: at the level it looks at,
+triage-aws and forecaster are the same process. Anything claiming thirty-nine
+distinct SVIDs would be back to inventing identities.
+
+So a passport for an agent with no attestation of its own now says
+`{"method":"spiffe-svid","detail":"spiffe://costcrew.local/console"}` and
+carries `attested: the runtime, not this agent`. That is true, it is checkable
+by anybody holding the trust bundle, and it is more than "none" while being
+less than "each agent proved itself".
+
+An agent that records its OWN attestation keeps it. The runtime's identity is a
+fallback for agents bound to nothing, never an overwrite of something a person
+recorded.
+
+### The effect on idryx
+
+`bom_incomplete` went from 40 alerts to none. `stale_nhi` stayed at 32, which is
+a different and also correct finding: these identities carry a creation date
+and no observed activity.
+
+### And the difference from the derivation removed the same day
+
+Earlier today this console DERIVED an attestation from a permission list, and
+that was removed as a false claim. This is also derived, and the difference is
+the whole point: it is derived from a CERTIFICATE this process was issued after
+something checked it, and it stops the moment the process no longer holds one.
+
 ### What it deliberately does not push
 
 Per-agent budgets, though this console has them. TokenFuse binds an agent to a
