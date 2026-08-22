@@ -348,6 +348,18 @@ recorded.
 a different and also correct finding: these identities carry a creation date
 and no observed activity.
 
+### SPIRE is not installed on this machine
+
+It was built from source to prove the above, and removed the same day at the
+operator's word: the two binaries from `~/go/bin`, and SPIRE's own source from
+the shared Go module cache, leaving `go-spiffe/v2` which this console depends
+on. Nothing named spire remains on PATH or in the cache.
+
+So `-spiffe-socket` is a working feature with nothing to talk to here. Passed a
+socket that answers nothing, the console fails to start and says why, which is
+the behaviour that matters: an operator who asked to be attested is told when
+they are not, rather than running on with every passport quietly saying "none".
+
 ### And the difference from the derivation removed the same day
 
 Earlier today this console DERIVED an attestation from a permission list, and
