@@ -309,10 +309,16 @@ func (s *Server) overview(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// crew.Task.Open, not "anything that is not done".
+	//
+	// The two disagree and both appeared on screen: this page said 309 open
+	// tasks and the crew page said 77, because posted work is finished and
+	// only this page counted it as open. One definition, and it lives with the
+	// type it is about.
 	board, _ := crew.Tasks(s.db, crew.TaskFilter{})
 	openTasks := 0
 	for _, t := range board {
-		if t.State != "done" {
+		if t.Open() {
 			openTasks++
 		}
 	}

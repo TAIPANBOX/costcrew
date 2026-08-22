@@ -1264,6 +1264,20 @@ func TestTheCrewsCostIsTheSameOnEveryPageThatShowsIt(t *testing.T) {
 	if fromKPI != "" && fromKPI != fromStaff {
 		t.Errorf("the crew cost %s on /staff and %s on /kpis", fromStaff, fromKPI)
 	}
+
+	// And how many tasks are open. The overview counted everything that was
+	// not "done" and reported 309 while the crew page reported 77, because
+	// posted work is finished and only one page knew it.
+	_, overview, _ := h.get(t, "/")
+	openOnOverview := number(fragment(overview, `<div class="k">On the crew</div>`, 60))
+	openOnStaff := number(fragment(staff, `<div class="k">On the desks now</div>`, 60))
+	if openOnOverview == "" || openOnStaff == "" {
+		t.Fatalf("open tasks missing: overview %q, staff %q", openOnOverview, openOnStaff)
+	}
+	if openOnOverview != openOnStaff {
+		t.Errorf("open tasks: the overview says %s, the crew page says %s",
+			openOnOverview, openOnStaff)
+	}
 }
 
 // A team's spend on its own page is what the estate list says it spent.
