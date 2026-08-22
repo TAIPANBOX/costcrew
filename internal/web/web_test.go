@@ -71,12 +71,15 @@ func start(t *testing.T) *harness {
 	if err := finops.SeedRules(st.DB()); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := crew.SeedRoster(st.DB(), "owner"); err != nil {
+		t.Fatal(err)
+	}
 	au, err := auth.New(st, dir)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	srv := httptest.NewServer(web.New(st, au, nil, "costcrew.test", ""))
+	srv := httptest.NewServer(web.New(st, au, web.Stack{Host: "costcrew.test"}))
 	t.Cleanup(srv.Close)
 
 	jar, _ := cookiejar.New(nil)
@@ -165,7 +168,7 @@ func TestEveryPageRefusesAStranger(t *testing.T) {
 	for _, path := range []string{"/", "/anomalies", "/budgets", "/staff", "/board", "/sprints",
 		"/allocation", "/chargeback", "/results",
 		"/connectors", "/engines", "/accounts", "/audit",
-		"/kpis", "/utilisation", "/saas", "/ai"} {
+		"/kpis", "/utilisation", "/saas", "/ai", "/staff/new"} {
 		code, _, loc := stranger.get(t, path)
 		if code != http.StatusSeeOther || loc != "/login" {
 			t.Errorf("GET %s without a session: %d to %q, want 303 to /login", path, code, loc)
@@ -496,7 +499,7 @@ func TestAnUnclaimedInstallationSendsYouToSignUp(t *testing.T) {
 	for _, path := range []string{"/", "/anomalies", "/budgets", "/staff", "/board", "/sprints",
 		"/allocation", "/chargeback", "/results",
 		"/connectors", "/engines", "/accounts", "/audit",
-		"/kpis", "/utilisation", "/saas", "/ai"} {
+		"/kpis", "/utilisation", "/saas", "/ai", "/staff/new"} {
 		code, _, loc := h.get(t, path)
 		if code != http.StatusSeeOther || loc != "/signup" {
 			t.Errorf("GET %s on an unclaimed install: %d to %q, want 303 to /signup",
@@ -716,5 +719,179 @@ func TestTheAuditPageVerifiesTheChain(t *testing.T) {
 	}
 	if !strings.Contains(body, "user_registered") {
 		t.Error("the journal does not contain the registration that just happened")
+	}
+}
+
+// ------------------------------------------------------------------ hiring
+
+// The argument this form exists for: hiring an analyst and registering it with
+// the governance stack are the SAME act. In the original they were two, and
+// the second one mostly did not happen.
+func TestHiringAsksForGovernanceOnTheSameForm(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+
+	_, body, _ := h.get(t, "/staff/new")
+	for _, want := range []string{
+		"agent://", "Acts on behalf of", "Attestation",
+		"none is the honest default", "Rights", "Per task",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the hire form does not ask about %q", want)
+		}
+	}
+}
+
+func TestHiringWorksAndTheAnalystAppears(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+
+	form := url.Values{
+		"name": {"investigator-oracle"}, "role": {"Investigator (oracle desk)"},
+		"mission": {"Watch the Oracle estate."}, "desk": {"aws"},
+		"engine": {"openrouter"}, "per_task": {"15.00"}, "monthly": {"90.00"},
+		"cadence": {"weekly"}, "audience": {"the desk"},
+		"parent": {"supervisor"}, "attestation": {"none"},
+		"skills": {"variance-commentary", "anomaly-triage"},
+		"rights": {"figures-read", "propose-only"},
+		"csrf":   {h.csrf(t, "/staff/new")},
+	}
+	if _, loc := h.post(t, "/staff/create", form); strings.Contains(loc, "msg=") {
+		t.Fatalf("hiring was refused: %s", loc)
+	}
+	a, err := crew.GetAnalyst(h.st.DB(), "investigator-oracle")
+	if err != nil {
+		t.Fatalf("the analyst was not stored: %v", err)
+	}
+	if a.Owner != "owner" || a.Parent != "supervisor" || a.Attestation != "none" {
+		t.Errorf("governance was not recorded: owner %q, parent %q, attestation %q",
+			a.Owner, a.Parent, a.Attestation)
+	}
+	if len(a.Rights) != 2 || len(a.Skills) != 2 {
+		t.Errorf("rights %v, skills %v", a.Rights, a.Skills)
+	}
+	// It has to be assignable immediately: somebody hired this morning appears
+	// in this morning's menu, not after a restart.
+	_, body, _ := h.get(t, "/anomalies/"+h.anyAnomaly(t).ID)
+	if !strings.Contains(body, "investigator-oracle") {
+		t.Error("a newly hired analyst does not appear in the assign menu")
+	}
+}
+
+// A name becomes part of an agent:// URI, which other services parse.
+func TestAnUnusableNameIsRefused(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+	for _, bad := range []string{"Reporter (AWS desk)", "ab", "has spaces", "UPPER"} {
+		form := url.Values{
+			"name": {bad}, "role": {"x"}, "desk": {"aws"}, "engine": {"openrouter"},
+			"per_task": {"15.00"}, "monthly": {"90.00"}, "cadence": {"weekly"},
+			"attestation": {"none"}, "csrf": {h.csrf(t, "/staff/new")},
+		}
+		if _, loc := h.post(t, "/staff/create", form); !strings.Contains(loc, "msg=") {
+			t.Errorf("the name %q was accepted into an agent:// identity", bad)
+		}
+	}
+}
+
+// An analyst with no ceiling is one nothing can stop except somebody noticing,
+// and a per-task guard above the monthly one is a ceiling that can never bite.
+func TestTheGuardsMustBeCoherent(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+	cases := []struct{ perTask, monthly, why string }{
+		{"0.00", "90.00", "no per-task ceiling"},
+		{"15.00", "0.00", "no monthly ceiling"},
+		{"200.00", "90.00", "per-task above monthly"},
+	}
+	for _, c := range cases {
+		form := url.Values{
+			"name": {"guard-test"}, "role": {"x"}, "desk": {"aws"},
+			"engine": {"openrouter"}, "per_task": {c.perTask}, "monthly": {c.monthly},
+			"cadence": {"weekly"}, "attestation": {"none"},
+			"csrf": {h.csrf(t, "/staff/new")},
+		}
+		if _, loc := h.post(t, "/staff/create", form); !strings.Contains(loc, "msg=") {
+			t.Errorf("%s was accepted", c.why)
+		}
+	}
+}
+
+// Taking somebody off the rota is a decision, and a decision with no reason
+// cannot be told from an oversight.
+func TestSuspendingNeedsAReasonAndDoesNotUndoAnything(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+
+	before, err := crew.Tasks(h.st.DB(), crew.TaskFilter{Assignee: "triage-aws"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := "/staff/triage-aws/state"
+
+	if _, loc := h.post(t, path, url.Values{
+		"state": {"suspended"}, "reason": {"   "}, "csrf": {h.csrf(t, "/staff/triage-aws/edit")},
+	}); !strings.Contains(loc, "msg=") {
+		t.Fatal("an analyst was suspended with no reason")
+	}
+	a, _ := crew.GetAnalyst(h.st.DB(), "triage-aws")
+	if a.State != "active" {
+		t.Fatalf("a reasonless suspension went through: %q", a.State)
+	}
+
+	const why = "Tagging feed has been stale since the 9th; paused until it returns"
+	if _, loc := h.post(t, path, url.Values{
+		"state": {"suspended"}, "reason": {why}, "csrf": {h.csrf(t, "/staff/triage-aws/edit")},
+	}); strings.Contains(loc, "msg=") {
+		t.Fatalf("suspension with a reason was refused: %s", loc)
+	}
+	a, _ = crew.GetAnalyst(h.st.DB(), "triage-aws")
+	if a.State != "suspended" || a.Reason != why {
+		t.Fatalf("state %q, reason %q", a.State, a.Reason)
+	}
+
+	// A pause, never an undo: nothing it already did is touched.
+	after, _ := crew.Tasks(h.st.DB(), crew.TaskFilter{Assignee: "triage-aws"})
+	if len(after) != len(before) {
+		t.Fatalf("suspension changed the analyst's work: %d tasks then %d",
+			len(before), len(after))
+	}
+	// And it leaves the rota.
+	for _, n := range mustActive(t, h) {
+		if n == "triage-aws" {
+			t.Fatal("a suspended analyst is still assignable")
+		}
+	}
+}
+
+func mustActive(t *testing.T, h *harness) []string {
+	t.Helper()
+	names, err := crew.ActiveNames(h.st.DB())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return names
+}
+
+func TestAViewerCannotHire(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+	if ok, err := h.au.Create("reader", "reader-password-2026", "viewer"); err != nil || !ok {
+		t.Fatalf("creating a viewer: %v %v", ok, err)
+	}
+	v := &harness{srv: h.srv, au: h.au, st: h.st, c: &http.Client{
+		Jar: newJar(t),
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}}
+	if code, _ := v.post(t, "/login", url.Values{
+		"username": {"reader"}, "password": {"reader-password-2026"},
+		"csrf": {v.csrf(t, "/login")},
+	}); code != http.StatusSeeOther {
+		t.Fatalf("the viewer could not sign in: %d", code)
+	}
+	if _, _, loc := v.get(t, "/staff/new"); !strings.Contains(loc, "msg=") {
+		t.Error("a viewer reached the hire form")
 	}
 }

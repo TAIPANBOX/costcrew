@@ -1,0 +1,100 @@
+{{define "content"}}
+<p class="crumb"><a href="/staff">Crew</a> / hire</p>
+<header class="page">
+  <h1>Hire an analyst</h1>
+  <p>Everything this form asks is a governance fact, so it is all asked once, here. In the original, hiring an analyst and registering it with the stack were two unrelated acts and the second one mostly did not happen.</p>
+</header>
+
+<form class="action" method="post" action="/staff/create">
+<input type="hidden" name="csrf" value="{{.CSRF}}">
+
+<div class="panel">
+  <h2>Identity</h2>
+  <div class="body">
+    <div class="row">
+      <div>
+        <label for="name">Name</label>
+        <input id="name" type="text" name="name" placeholder="investigator-azure" required>
+        <p class="note">Becomes part of an <code>agent://</code> identity, which other services parse. Lower-case letters, digits and hyphens.</p>
+      </div>
+      <div>
+        <label for="desk">Desk</label>
+        <select id="desk" name="desk">{{range .Desks}}<option value="{{.}}">{{.}}</option>{{end}}<option value="management">management</option></select>
+      </div>
+    </div>
+    <div>
+      <label for="role">Role</label>
+      <input id="role" type="text" name="role" placeholder="Investigator (azure desk)" required>
+    </div>
+    <div>
+      <label for="mission">Mission</label>
+      <textarea id="mission" name="mission" placeholder="What this analyst is for, in one or two sentences."></textarea>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>What it may do</h2>
+  <div class="body">
+    <div>
+      <label>Skills</label>
+      <div style="display:flex;flex-wrap:wrap;gap:8px 16px">
+        {{range .Skills}}<label style="font:400 13.5px var(--sans);text-transform:none;letter-spacing:0;color:var(--ink-2)"><input type="checkbox" name="skills" value="{{.}}" style="width:auto"> {{.}}</label>{{end}}
+      </div>
+    </div>
+    <div style="margin-top:14px">
+      <label>Rights</label>
+      <div style="display:flex;flex-wrap:wrap;gap:8px 16px">
+        {{range .Rights}}<label style="font:400 13.5px var(--sans);text-transform:none;letter-spacing:0;color:var(--ink-2)"><input type="checkbox" name="rights" value="{{.}}" style="width:auto"> {{.}}</label>{{end}}
+      </div>
+      <p class="note">A right that costs money or moves state is one somebody has to defend later. Grant the ones the mission needs, not the ones that look complete.</p>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Guards and reporting</h2>
+  <div class="body">
+    <div class="row">
+      <div><label for="pt">Per task</label><input id="pt" type="text" name="per_task" value="15.00"></div>
+      <div><label for="mo">Per month</label><input id="mo" type="text" name="monthly" value="75.00"></div>
+      <div>
+        <label for="cad">Reports</label>
+        <select id="cad" name="cadence">{{range .Cadences}}<option value="{{.}}" {{if eq . "weekly"}}selected{{end}}>{{.}}</option>{{end}}</select>
+      </div>
+      <div><label for="aud">To whom</label><input id="aud" type="text" name="audience" value="the desk"></div>
+    </div>
+    <p class="note">Both guards must be above zero, and the per-task one must sit under the monthly one. An analyst with no ceiling is one nothing can stop except somebody noticing.</p>
+  </div>
+</div>
+
+<div class="panel" style="border-left:3px solid var(--accent)">
+  <h2>Governance</h2>
+  <div class="body">
+    <p class="note">The same click that creates this analyst registers it. Nothing here is asked twice or invented later.</p>
+    <dl class="facts">
+      <dt>Identity</dt>
+      <dd><code>agent://{{.Host}}/&lt;name&gt;</code> <span class="sub">minted from the name above, never typed</span></dd>
+      <dt>Acts on behalf of</dt>
+      <dd>
+        <select name="parent">
+          <option value="supervisor">supervisor</option>
+          <option value="">nobody: it acts autonomously</option>
+        </select>
+        <span class="sub">The chain the whole stack reads is you, then this, then the analyst.</span>
+      </dd>
+      <dt>Attestation</dt>
+      <dd>
+        <select name="attestation">{{range .Attestations}}<option value="{{.}}">{{.}}</option>{{end}}</select>
+        <span class="sub"><strong>none is the honest default</strong>: it says the identity is a name this installation chose rather than something bound to a workload. Choosing another without the binding in place would be a claim, not a setting.</span>
+      </dd>
+      <dt>Engine</dt>
+      <dd><select name="engine">{{range .Engines}}<option value="{{.}}">{{.}}</option>{{end}}</select>
+        <span class="sub">Becomes the declared model on the passport.</span></dd>
+    </dl>
+  </div>
+</div>
+
+<div class="row"><button type="submit">Hire</button> <a class="clear" href="/staff">Cancel</a></div>
+</form>
+{{end}}

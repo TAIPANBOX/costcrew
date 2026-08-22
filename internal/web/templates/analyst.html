@@ -21,12 +21,20 @@
       <dd><span class="chip {{.Chip}}">{{.A.State}}</span>{{if .A.Reason}} <strong>{{.A.Reason}}</strong>{{end}}</dd>
       <dt>Desk</dt><dd>{{.A.Desk}}</dd>
       <dt>Engine</dt><dd>{{.A.Engine}}</dd>
-      <dt>Guards</dt><dd>{{.A.PerTaskUSD}} per task, {{.A.MonthlyUSD}} a month</dd>
+      <dt>Guards</dt><dd>{{.A.PerTask}} per task, {{.A.Monthly}} a month</dd>
+      <dt>Reports</dt><dd>{{.A.Cadence}} to {{.A.Audience}}</dd>
+      <dt>Rights</dt><dd>{{range .A.Rights}}<span class="chip grain">{{.}}</span> {{else}}<span class="note">none granted</span>{{end}}</dd>
+      <dt>Owner</dt><dd>{{.A.Owner}}, hired {{.A.Hired}}</dd>
+      <dt>Attestation</dt><dd><span class="chip grain">{{.A.Attestation}}</span>{{if eq .A.Attestation "none"}} <span class="sub">The identity is a name this installation chose, not something bound to a workload. Said plainly rather than implied.</span>{{end}}</dd>
       <dt>Skills</dt><dd>{{range .A.Skills}}<span class="chip grain">{{.}}</span> {{end}}</dd>
-      <dt>Identity</dt><dd><code>agent://{{$.Host}}/{{.A.Name}}</code>{{if ne .A.Name "supervisor"}}, acting under <code>agent://{{$.Host}}/supervisor</code>{{end}}</dd>
+      <dt>Identity</dt><dd><code>agent://{{$.Host}}/{{.A.Name}}</code>{{if .A.Parent}}, acting under <code>agent://{{$.Host}}/{{.A.Parent}}</code>{{end}}</dd>
     </dl>
   </div>
 </div>
+
+{{if .CanAct}}
+<p><a href="/staff/{{.A.Name}}/edit">Re-brief this analyst, or take it off the rota</a></p>
+{{end}}
 
 <div class="panel">
   <h2>Anomalies it caused</h2>

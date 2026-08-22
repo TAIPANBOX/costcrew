@@ -10,7 +10,6 @@ import (
 
 	"github.com/TAIPANBOX/costcrew/internal/anomaly"
 	"github.com/TAIPANBOX/costcrew/internal/crew"
-	"github.com/TAIPANBOX/costcrew/internal/world"
 )
 
 // Only the two constructs the crew's own output actually uses.
@@ -55,14 +54,14 @@ func views(ts []crew.Task) []taskView {
 	return out
 }
 
-func activeAnalysts() []string {
-	var out []string
-	for _, a := range world.Crew {
-		if a.State == world.Active {
-			out = append(out, a.Name)
-		}
+// activeAnalysts is the rota, read from the store rather than the fixture:
+// somebody hired this morning has to appear in the assign menu this morning.
+func (s *Server) activeAnalysts() []string {
+	names, err := crew.ActiveNames(s.db)
+	if err != nil {
+		return nil
 	}
-	return out
+	return names
 }
 
 // -------------------------------------------------------------------- board
@@ -140,7 +139,7 @@ func (s *Server) board(w http.ResponseWriter, r *http.Request) {
 		Analysts []string
 		Desk     string
 		Assignee string
-	}{s.shellFor(r, "Board", "board"), lanes, desks, activeAnalysts(),
+	}{s.shellFor(r, "Board", "board"), lanes, desks, s.activeAnalysts(),
 		f.Desk, f.Assignee})
 }
 
@@ -255,31 +254,32 @@ func (s *Server) taskPage(w http.ResponseWriter, r *http.Request) {
 		Analysts  []string
 		CanAct    bool
 	}{s.shellFor(r, t.Title, "board"), t, stateChip(t.State), av, notes,
-		activeAnalysts(), u.May("operator")})
+		s.activeAnalysts(), u.May("operator")})
 }
 
 // -------------------------------------------------------------------- staff
 
 type staffRow struct {
-	world.Agent
+	crew.Analyst
 	Score crew.Scoreboard
 	Chip  string
 }
 
-func agentChip(st world.AgentState) string {
-	switch st {
-	case world.Active:
+func agentChip(state string) string {
+	switch state {
+	case "active":
 		return "accepted"
-	case world.Suspended, world.OverGuard:
+	case "suspended", "over-guard":
 		return "open"
-	case world.Probation, world.Restricted:
+	case "probation", "restricted":
 		return "triaged"
 	}
 	return "explained"
 }
 
 func (s *Server) staff(w http.ResponseWriter, r *http.Request) {
-	if s.guard(w, r) == nil {
+	u := s.guard(w, r)
+	if u == nil {
 		return
 	}
 	scores, err := crew.Scoreboards(s.db)
@@ -287,28 +287,30 @@ func (s *Server) staff(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "store unavailable", http.StatusInternalServerError)
 		return
 	}
-	rows := make([]staffRow, 0, len(world.Crew))
-	for _, a := range world.Crew {
+	roster, err := crew.Roster(s.db)
+	if err != nil {
+		http.Error(w, "store unavailable", http.StatusInternalServerError)
+		return
+	}
+	rows := make([]staffRow, 0, len(roster))
+	for _, a := range roster {
 		rows = append(rows, staffRow{a, scores[a.Name], agentChip(a.State)})
 	}
 	s.render(w, tplStaff, struct {
 		shell
-		Rows []staffRow
-	}{s.shellFor(r, "Crew", "staff"), rows})
+		Rows   []staffRow
+		CanAct bool
+	}{s.shellFor(r, "Crew", "staff"), rows, u.May("operator")})
 }
 
 func (s *Server) analyst(w http.ResponseWriter, r *http.Request) {
-	if s.guard(w, r) == nil {
+	u := s.guard(w, r)
+	if u == nil {
 		return
 	}
 	name := r.PathValue("name")
-	var a world.Agent
-	for _, x := range world.Crew {
-		if x.Name == name {
-			a = x
-		}
-	}
-	if a.Name == "" {
+	a, err := crew.GetAnalyst(s.db, name)
+	if err != nil {
 		http.Error(w, "no such analyst", http.StatusNotFound)
 		return
 	}
@@ -318,14 +320,15 @@ func (s *Server) analyst(w http.ResponseWriter, r *http.Request) {
 
 	s.render(w, tplAnalyst, struct {
 		shell
-		A      world.Agent
+		A      crew.Analyst
 		Score  crew.Scoreboard
 		Chip   string
 		Tasks  []taskView
 		Caused []anomaly.Anomaly
 		Host   string
+		CanAct bool
 	}{s.shellFor(r, a.Name, "staff"), a, scores[name], agentChip(a.State),
-		views(ts), caused, s.host})
+		views(ts), caused, s.host, u.May("operator")})
 }
 
 // ------------------------------------------------------------------ actions

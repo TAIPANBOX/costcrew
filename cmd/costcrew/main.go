@@ -80,6 +80,11 @@ func run(addr, dir string, scfg stack.Config) error {
 	if err := finops.SeedRules(st.DB()); err != nil {
 		return fmt.Errorf("setting allocation rules: %w", err)
 	}
+	if n, err := crew.SeedRoster(st.DB(), scfg.Owner); err != nil {
+		return fmt.Errorf("seeding the roster: %w", err)
+	} else if n > 0 {
+		log.Printf("CostCrew: %d analysts on the roster", n)
+	}
 	em, err := stack.Open(scfg)
 	if err != nil {
 		return fmt.Errorf("opening the event stream: %w", err)
@@ -137,8 +142,11 @@ func run(addr, dir string, scfg stack.Config) error {
 	}
 
 	srv := &http.Server{
-		Addr:              addr,
-		Handler:           web.New(st, au, rec, scfg.Host, scfg.EventsPath),
+		Addr: addr,
+		Handler: web.New(st, au, web.Stack{
+			Recorder: rec, Host: scfg.Host, EventsPath: scfg.EventsPath,
+			Passports: em.WritePassports, Delegation: em.Delegation,
+		}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 

@@ -4,6 +4,10 @@
   <p>{{len .Rows}} analysts. First-pass acceptance is blank rather than perfect where nothing has been reviewed yet: a rate over no reviews is not a rate, and a hopeful default makes the newest analyst look like the best one.</p>
 </header>
 
+{{if .CanAct}}
+<p><a href="/staff/new"><strong>Hire an analyst</strong></a> — identity, rights, guards and governance in one form.</p>
+{{end}}
+
 <div class="panel">
   <div class="scroll">
   <table>

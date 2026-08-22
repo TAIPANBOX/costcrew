@@ -1,0 +1,58 @@
+{{define "content"}}
+<p class="crumb"><a href="/staff">Crew</a> / <a href="/staff/{{.A.Name}}">{{.A.Name}}</a> / re-brief</p>
+<header class="page">
+  <h1>Re-brief {{.A.Name}}</h1>
+  <p>Changing what an analyst is for. The identity and who it acts on behalf of are not editable here: those were decided at hire and changing them silently would break every event already emitted under them.</p>
+</header>
+
+<form class="action" method="post" action="/staff/{{.A.Name}}/update">
+<input type="hidden" name="csrf" value="{{.CSRF}}">
+<div class="panel">
+  <h2>The brief</h2>
+  <div class="body">
+    <div class="row">
+      <div><label for="role">Role</label><input id="role" type="text" name="role" value="{{.A.Role}}"></div>
+      <div><label for="desk">Desk</label>
+        <select id="desk" name="desk">{{range .Desks}}<option value="{{.}}" {{if eq . $.A.Desk}}selected{{end}}>{{.}}</option>{{end}}<option value="management" {{if eq "management" .A.Desk}}selected{{end}}>management</option></select>
+      </div>
+    </div>
+    <div><label for="mission">Mission</label><textarea id="mission" name="mission">{{.A.Mission}}</textarea></div>
+    <div class="row">
+      <div><label for="pt">Per task</label><input id="pt" type="text" name="per_task" value="{{.A.PerTask}}"></div>
+      <div><label for="mo">Per month</label><input id="mo" type="text" name="monthly" value="{{.A.Monthly}}"></div>
+      <div><label for="cad">Reports</label><select id="cad" name="cadence">{{range .Cadences}}<option value="{{.}}" {{if eq . $.A.Cadence}}selected{{end}}>{{.}}</option>{{end}}</select></div>
+      <div><label for="eng">Engine</label><select id="eng" name="engine">{{range .Engines}}<option value="{{.}}" {{if eq . $.A.Engine}}selected{{end}}>{{.}}</option>{{end}}</select></div>
+    </div>
+    <div style="margin-top:12px">
+      <label>Skills</label>
+      <div style="display:flex;flex-wrap:wrap;gap:8px 16px">
+        {{range .Skills}}<label style="font:400 13.5px var(--sans);text-transform:none;letter-spacing:0;color:var(--ink-2)"><input type="checkbox" name="skills" value="{{.}}" style="width:auto" {{if index $.Has .}}checked{{end}}> {{.}}</label>{{end}}
+      </div>
+    </div>
+    <div style="margin-top:12px">
+      <label>Rights</label>
+      <div style="display:flex;flex-wrap:wrap;gap:8px 16px">
+        {{range .Rights}}<label style="font:400 13.5px var(--sans);text-transform:none;letter-spacing:0;color:var(--ink-2)"><input type="checkbox" name="rights" value="{{.}}" style="width:auto" {{if index $.HasRight .}}checked{{end}}> {{.}}</label>{{end}}
+      </div>
+    </div>
+    <div class="row" style="margin-top:14px"><button type="submit">Save the brief</button></div>
+  </div>
+</div>
+</form>
+
+<div class="panel">
+  <h2>Take it off the rota</h2>
+  <div class="body">
+    <p class="note">Suspension is a pause, never an undo: nothing this analyst has already done is touched. The reason is shown on its card and in the journal.</p>
+    <form class="action" method="post" action="/staff/{{.A.Name}}/state">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <div class="row">
+        <div><label for="st">State</label><select id="st" name="state">{{range .States}}<option value="{{.}}" {{if eq . $.A.State}}selected{{end}}>{{.}}</option>{{end}}</select></div>
+      </div>
+      <label for="rs">Reason</label>
+      <textarea id="rs" name="reason" placeholder="Required for anything other than active.">{{.A.Reason}}</textarea>
+      <div class="row"><button class="quiet" type="submit">Set the state</button></div>
+    </form>
+  </div>
+</div>
+{{end}}

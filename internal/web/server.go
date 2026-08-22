@@ -19,6 +19,7 @@ import (
 	"github.com/TAIPANBOX/costcrew/internal/anomaly"
 	"github.com/TAIPANBOX/costcrew/internal/auth"
 	"github.com/TAIPANBOX/costcrew/internal/store"
+	"github.com/TAIPANBOX/costcrew/internal/world"
 )
 
 type Server struct {
@@ -28,17 +29,33 @@ type Server struct {
 	rec        anomaly.Recorder
 	host       string
 	eventsPath string
-	mux        *http.ServeMux
+
+	// Optional hooks into the governance stack. Nil when it is switched off,
+	// which is the default and a perfectly good answer.
+	passports func([]world.Agent) (int, error)
+	delegate  func(operator, analyst string) []string
+	mux       *http.ServeMux
 }
 
-// New builds the console. A nil recorder means the governance stack is
-// switched off, which is the default and a perfectly good answer.
-func New(st *store.Store, au *auth.Auth, rec anomaly.Recorder, host, eventsPath string) *Server {
+// Stack is the optional wiring into the governance plane.
+type Stack struct {
+	Recorder   anomaly.Recorder
+	Host       string
+	EventsPath string
+	Passports  func([]world.Agent) (int, error)
+	Delegation func(operator, analyst string) []string
+}
+
+// New builds the console. A zero Stack means the governance plane is switched
+// off, which is the default and a perfectly good answer.
+func New(st *store.Store, au *auth.Auth, sk Stack) *Server {
+	host := sk.Host
 	if host == "" {
 		host = "costcrew.local"
 	}
-	s := &Server{st: st, au: au, db: st.DB(), rec: rec, host: host,
-		eventsPath: eventsPath, mux: http.NewServeMux()}
+	s := &Server{st: st, au: au, db: st.DB(), rec: sk.Recorder, host: host,
+		eventsPath: sk.EventsPath, passports: sk.Passports,
+		delegate: sk.Delegation, mux: http.NewServeMux()}
 	s.routes()
 	return s
 }
@@ -80,7 +97,12 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /artifact/{id}/post", s.artifactAction("post"))
 	s.mux.HandleFunc("POST /artifact/{id}/return", s.artifactAction("return"))
 	s.mux.HandleFunc("GET /staff", s.staff)
+	s.mux.HandleFunc("GET /staff/new", s.hirePage)
+	s.mux.HandleFunc("POST /staff/create", s.hire)
 	s.mux.HandleFunc("GET /staff/{name}", s.analyst)
+	s.mux.HandleFunc("GET /staff/{name}/edit", s.rebriefPage)
+	s.mux.HandleFunc("POST /staff/{name}/update", s.rebrief)
+	s.mux.HandleFunc("POST /staff/{name}/state", s.setAnalystState)
 
 	s.mux.HandleFunc("GET /allocation", s.allocation)
 	s.mux.HandleFunc("POST /allocation/rule/{id}", s.setRule)

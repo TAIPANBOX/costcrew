@@ -211,13 +211,6 @@ func (s *Server) anomalyPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var analysts []string
-	for _, c := range world.Crew {
-		if c.State == world.Active {
-			analysts = append(analysts, c.Name)
-		}
-	}
-
 	s.render(w, tplAnomaly, struct {
 		shell
 		A          anomaly.Anomaly
@@ -230,7 +223,7 @@ func (s *Server) anomalyPage(w http.ResponseWriter, r *http.Request) {
 		a,
 		spark(days, vals, a.Day, a.Baseline, a.Direction),
 		strconv.FormatFloat(a.Z, 'f', 1, 64),
-		analysts,
+		s.activeAnalysts(),
 		a.State != anomaly.Accepted && a.State != anomaly.Dismissed,
 	})
 }
