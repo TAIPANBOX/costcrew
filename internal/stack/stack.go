@@ -200,7 +200,10 @@ func (e *Emitter) PassportFor(a crew.Analyst) passport.Passport {
 		Owner:       owner,
 		DisplayName: a.Role,
 		Runtime:     Source,
-		Attestation: &passport.Attestation{Method: method},
+		// The method AND what makes it checkable. A method alone is a word:
+		// see internal/crew/attestation.go for the twelve agents an identity
+		// graph stopped asking about because this console had written one.
+		Attestation: &passport.Attestation{Method: method, Detail: a.AttestationDetail},
 		Labels: map[string]string{
 			"desk":                a.Desk,
 			"state":               a.State,

@@ -133,29 +133,6 @@ func audienceFor(name, desk string) string {
 	return "the " + desk + " desk"
 }
 
-// attestationFor: how this agent's identity is proved, which is not a matter
-// of taste but of what it can reach.
-//
-// An agent that can close a period or move an allocation is one whose identity
-// somebody will eventually have to prove to an auditor, so those carry a real
-// method. The rest say "none" and the card says plainly what that means.
-func attestationFor(name string, rights []string) string {
-	for _, r := range rights {
-		if r == "close-covered" || r == "kpi-registry" {
-			return "spiffe-svid"
-		}
-	}
-	if name == "supervisor" {
-		return "oidc"
-	}
-	for _, r := range rights {
-		if r == "publish-explainer" || r == "channel-post" || r == "export-data" {
-			return "oidc"
-		}
-	}
-	return "none"
-}
-
 // parentFor builds a delegation tree with real depth.
 //
 // Every agent under one supervisor is a list drawn as a graph. A desk analyst
@@ -319,14 +296,13 @@ func BackfillMandate(db *sql.DB, owner string) (int, error) {
 			rights    = CASE WHEN COALESCE(rights,'')    = '' THEN ? ELSE rights END,
 			cadence   = CASE WHEN COALESCE(cadence,'')   IN ('','weekly') THEN ? ELSE cadence END,
 			audience  = CASE WHEN COALESCE(audience,'')  IN ('','the desk') THEN ? ELSE audience END,
-			attestation = CASE WHEN COALESCE(attestation,'') IN ('','none') THEN ? ELSE attestation END,
 			parent    = ?,
 			hired     = ?,
 			owner     = ?
 			WHERE name = ?`,
 			missionFor(a), strings.Join(rights, ","),
 			cadenceFor(r.name, r.role), audienceFor(r.name, r.desk),
-			attestationFor(r.name, rights), nullIf(parent), hired, owned, r.name); err != nil {
+			nullIf(parent), hired, owned, r.name); err != nil {
 			return n, err
 		}
 		n++

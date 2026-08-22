@@ -45,10 +45,11 @@ func (s *Server) hirePage(w http.ResponseWriter, r *http.Request) {
 	s.render(w, tplHire, struct {
 		shell
 		Desks, Engines, Cadences, Attestations, Skills, Rights []string
+		Needs                                                  map[string]string
 		Host                                                   string
 	}{s.shellFor(r, "Hire an analyst", "staff"),
 		deskNames(), engineNames(), crew.Cadences, crew.Attestations,
-		crew.SkillPool, crew.Rights, s.host})
+		crew.SkillPool, crew.Rights, crew.AttestationNeeds, s.host})
 }
 
 // parseAnalyst reads the form once, so hire and re-brief cannot drift apart in
@@ -63,19 +64,20 @@ func parseAnalyst(r *http.Request) (crew.Analyst, error) {
 		return crew.Analyst{}, err
 	}
 	return crew.Analyst{
-		Name:        r.PostFormValue("name"),
-		Role:        strings.TrimSpace(r.PostFormValue("role")),
-		Mission:     strings.TrimSpace(r.PostFormValue("mission")),
-		Desk:        r.PostFormValue("desk"),
-		Engine:      r.PostFormValue("engine"),
-		Skills:      r.PostForm["skills"],
-		Rights:      r.PostForm["rights"],
-		PerTask:     perTask,
-		Monthly:     monthly,
-		Cadence:     r.PostFormValue("cadence"),
-		Audience:    strings.TrimSpace(r.PostFormValue("audience")),
-		Parent:      r.PostFormValue("parent"),
-		Attestation: r.PostFormValue("attestation"),
+		Name:              r.PostFormValue("name"),
+		Role:              strings.TrimSpace(r.PostFormValue("role")),
+		Mission:           strings.TrimSpace(r.PostFormValue("mission")),
+		Desk:              r.PostFormValue("desk"),
+		Engine:            r.PostFormValue("engine"),
+		Skills:            r.PostForm["skills"],
+		Rights:            r.PostForm["rights"],
+		PerTask:           perTask,
+		Monthly:           monthly,
+		Cadence:           r.PostFormValue("cadence"),
+		Audience:          strings.TrimSpace(r.PostFormValue("audience")),
+		Parent:            r.PostFormValue("parent"),
+		Attestation:       r.PostFormValue("attestation"),
+		AttestationDetail: strings.TrimSpace(r.PostFormValue("attestation_detail")),
 	}, nil
 }
 

@@ -201,6 +201,15 @@ func run(addr, dir string, scfg stack.Config) error {
 	} else if n > 0 {
 		log.Printf("CostCrew: filled in the mandate for %d analysts", n)
 	}
+	// Attestations this console invented before it knew better. Only those
+	// with no evidence behind them; a recorded one survives.
+	if n, err := crew.ClearFabricated(st.DB()); err != nil {
+		return fmt.Errorf("clearing fabricated attestations: %w", err)
+	} else if n > 0 {
+		log.Printf("CostCrew: cleared %d attestation(s) this console had invented "+
+			"from permission lists; those agents now report as unattested, which they are", n)
+	}
+
 	// The ROSTER, not the fixture: an analyst hired through the console after
 	// the first start exists only here, and a passport run that read the
 	// fixture would quietly publish yesterday's crew.

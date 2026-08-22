@@ -88,6 +88,15 @@
         <select name="attestation">{{range .Attestations}}<option value="{{.}}">{{.}}</option>{{end}}</select>
         <span class="sub"><strong>none is the honest default</strong>: it says the identity is a name this installation chose rather than something bound to a workload. Choosing another without the binding in place would be a claim, not a setting.</span>
       </dd>
+      <dt>Its evidence</dt>
+      <dd>
+        <input type="text" name="attestation_detail" autocomplete="off"
+               placeholder="the issuer, the SPIFFE ID, the fingerprint">
+        <span class="sub">Required for anything but <code>none</code>, and refused alongside it.
+          A method on its own can be neither checked nor disproved, and an identity graph that
+          believes it stops asking about an agent bound to nothing.
+          {{range $m, $need := .Needs}}{{if $need}}<br><code>{{$m}}</code>: {{$need}}{{end}}{{end}}</span>
+      </dd>
       <dt>Engine</dt>
       <dd><select name="engine">{{range .Engines}}<option value="{{.}}">{{.}}</option>{{end}}</select>
         <span class="sub">Becomes the declared model on the passport.</span></dd>

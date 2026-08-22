@@ -368,6 +368,7 @@ func (s *Server) staff(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	byState = states["active"]
+	unattested, ofThose := crew.Unattested(roster)
 
 	// Analysts that have spent past the guard they were given, IN THE MONTH
 	// the guard is about.
@@ -418,10 +419,12 @@ func (s *Server) staff(w http.ResponseWriter, r *http.Request) {
 		OverBy                        money.Cents
 		Month                         string
 		ThisMonth                     money.Cents
+		Unattested                    int
+		OfThose                       int
 	}{s.shellFor(r, "Crew", "staff"), rows, u.May("operator"), srt,
 		totalSpent, totalGuard, tasks, open, posted, returned, byState,
 		firstPass, states, offRosterSpent, offRosterTasks, overGuard, overBy,
-		month, spentThisMonth})
+		month, spentThisMonth, unattested, ofThose})
 }
 
 // ------------------------------------------------------------------ actions

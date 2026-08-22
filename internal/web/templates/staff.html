@@ -13,6 +13,11 @@
     <div class="s">open tasks. <a href="/board">Open the board</a></div></div>
   <div class="tile wide"><div class="k">First pass</div><div class="v big">{{printf "%.0f%%" .FirstPass}}</div>
     <div class="s">{{.Posted}} posted, {{.Returned}} sent back for a rewrite</div></div>
+  <div class="tile wide"><div class="k">Bound to nothing</div>
+    <div class="v big {{if .Unattested}}up{{end}}">{{.Unattested}}</div>
+    <div class="s">of {{.OfThose}} on the rota carry no attestation: their identity is a name this
+      installation chose, not something bound to a workload. An identity graph reading our passports
+      flags every one, and is right to. Recording one needs the binding to exist first.</div></div>
   <div class="tile wide"><div class="k">Past their guard, {{.Month}}</div><div class="v big {{if .OverGuard}}up{{end}}">{{.OverGuard}}</div>
     <div class="s">{{if .OverGuard}}analysts over by {{.OverBy}} this month. The guard did not stop them, it recorded them.{{else}}every analyst is inside its guard this month.{{end}}
       A guard is monthly, so it is measured against the month. Setting it against everything the crew has ever spent would put most of the roster over budget and mean nothing.</div></div>

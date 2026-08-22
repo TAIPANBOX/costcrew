@@ -41,7 +41,33 @@ type Analyst struct {
 	Owner       string // the account that hired it
 	Parent      string // who it acts on behalf of
 	Attestation string // none, oidc, spiffe-svid, enclave-key, mtls-cert
-	Hired       string
+	// The evidence that makes the method checkable: an issuer, a SPIFFE ID, a
+	// fingerprint. Empty is only valid alongside "none"; see attestation.go
+	// for why a method without one is worse than no method at all.
+	AttestationDetail string
+	Hired             string
+}
+
+// ensureRoster creates the table and adds any column a newer build expects.
+//
+// CREATE TABLE IF NOT EXISTS does nothing to a table that already exists, so a
+// console installed before a column was added never gets it and every query
+// naming it fails. SQLite has no ADD COLUMN IF NOT EXISTS, and the duplicate
+// error is the normal path here rather than a problem: it means the column is
+// already where it should be.
+func ensureRoster(db *sql.DB) error {
+	if _, err := db.Exec(RosterSchema); err != nil {
+		return err
+	}
+	for _, col := range []string{
+		"attestation_detail TEXT",
+	} {
+		if _, err := db.Exec("ALTER TABLE analysts ADD COLUMN " + col); err != nil &&
+			!strings.Contains(err.Error(), "duplicate column") {
+			return fmt.Errorf("adding %s: %w", col, err)
+		}
+	}
+	return nil
 }
 
 const RosterSchema = `
@@ -49,14 +75,13 @@ CREATE TABLE IF NOT EXISTS analysts(
   name TEXT PRIMARY KEY, role TEXT, mission TEXT, desk TEXT, engine TEXT,
   state TEXT NOT NULL, reason TEXT, skills TEXT, rights TEXT,
   per_task_cents INTEGER, monthly_cents INTEGER, cadence TEXT, audience TEXT,
-  owner TEXT, parent TEXT, attestation TEXT, hired TEXT);
+  owner TEXT, parent TEXT, attestation TEXT, attestation_detail TEXT, hired TEXT);
 `
 
 var (
-	Cadences     = []string{"daily", "weekly", "fortnightly", "monthly", "on-request"}
-	Attestations = []string{"none", "oidc", "spiffe-svid", "enclave-key", "mtls-cert"}
-	States       = []string{"active", "suspended", "restricted", "probation", "onboarding"}
-	Rights       = []string{
+	Cadences = []string{"daily", "weekly", "fortnightly", "monthly", "on-request"}
+	States   = []string{"active", "suspended", "restricted", "probation", "onboarding"}
+	Rights   = []string{
 		"figures-read", "sql-readonly", "budgets-read", "requests-read",
 		"propose-only", "close-covered", "channel-post", "publish-explainer",
 		"export-data", "kpi-registry",
@@ -72,7 +97,7 @@ var (
 
 // SeedRoster copies the fixture's crew into the store, once.
 func SeedRoster(db *sql.DB, owner string) (int, error) {
-	if _, err := db.Exec(RosterSchema); err != nil {
+	if err := ensureRoster(db); err != nil {
 		return 0, err
 	}
 	var have int
@@ -105,15 +130,19 @@ func SeedRoster(db *sql.DB, owner string) (int, error) {
 		if _, err := tx.Exec(`INSERT INTO analysts
 			(name, role, mission, desk, engine, state, reason, skills, rights,
 			 per_task_cents, monthly_cents, cadence, audience, owner, parent,
-			 attestation, hired)
-			VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+			 attestation, attestation_detail, hired)
+			VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 			a.Name, a.Role, missionFor(a), a.Desk, a.Engine, string(a.State), nullIf(a.Reason),
 			strings.Join(a.Skills, ","), strings.Join(rights, ","),
 			int64(money.MustParse(a.PerTaskUSD)),
 			int64(money.MustParse(a.MonthlyUSD)),
 			cadenceFor(a.Name, a.Role), audienceFor(a.Name, a.Desk),
 			owner, nullIf(parentFor(a.Name, a.Desk, hasPartner)),
-			attestationFor(a.Name, rights), hiredOn(i)); err != nil {
+			// NOT derived. See attestation.go: reading a permission list and
+			// writing a security claim is how twelve agents came to be
+			// unflagged by an identity graph that had been told they were
+			// bound to something.
+			"none", "", hiredOn(i)); err != nil {
 			return n, err
 		}
 		n++
@@ -127,7 +156,8 @@ func Roster(db *sql.DB) ([]Analyst, error) {
 		COALESCE(skills,''), COALESCE(rights,''), COALESCE(per_task_cents,0),
 		COALESCE(monthly_cents,0), COALESCE(cadence,''), COALESCE(audience,''),
 		COALESCE(owner,''), COALESCE(parent,''), COALESCE(attestation,'none'),
-		COALESCE(hired,'') FROM analysts ORDER BY name`)
+		COALESCE(attestation_detail,''), COALESCE(hired,'')
+		FROM analysts ORDER BY name`)
 	if err != nil {
 		return nil, err
 	}
@@ -140,6 +170,7 @@ func Roster(db *sql.DB) ([]Analyst, error) {
 		if err := rows.Scan(&a.Name, &a.Role, &a.Mission, &a.Desk, &a.Engine,
 			&a.State, &a.Reason, &skills, &rights, &perTask, &monthly,
 			&a.Cadence, &a.Audience, &a.Owner, &a.Parent, &a.Attestation,
+			&a.AttestationDetail,
 			&a.Hired); err != nil {
 			return nil, err
 		}
@@ -220,8 +251,8 @@ func Hire(db *sql.DB, a Analyst) error {
 		return fmt.Errorf("the per-task guard (%s) is above the monthly one (%s), so "+
 			"the monthly ceiling could never be reached", a.PerTask, a.Monthly)
 	}
-	if !contains(Attestations, a.Attestation) {
-		return fmt.Errorf("attestation must be one of %s", strings.Join(Attestations, ", "))
+	if err := ValidAttestation(a.Attestation, a.AttestationDetail); err != nil {
+		return err
 	}
 	if !contains(Cadences, a.Cadence) {
 		return fmt.Errorf("cadence must be one of %s", strings.Join(Cadences, ", "))
@@ -232,18 +263,18 @@ func Hire(db *sql.DB, a Analyst) error {
 	if a.Parent == a.Name {
 		return fmt.Errorf("an analyst cannot act on its own behalf")
 	}
-	if _, err := db.Exec(RosterSchema); err != nil {
+	if err := ensureRoster(db); err != nil {
 		return err
 	}
 	_, err := db.Exec(`INSERT INTO analysts
 		(name, role, mission, desk, engine, state, reason, skills, rights,
 		 per_task_cents, monthly_cents, cadence, audience, owner, parent,
-		 attestation, hired)
-		VALUES (?,?,?,?,?,?,NULL,?,?,?,?,?,?,?,?,?,?)`,
+		 attestation, attestation_detail, hired)
+		VALUES (?,?,?,?,?,?,NULL,?,?,?,?,?,?,?,?,?,?,?)`,
 		a.Name, a.Role, a.Mission, a.Desk, a.Engine, "active",
 		strings.Join(a.Skills, ","), strings.Join(a.Rights, ","),
 		int64(a.PerTask), int64(a.Monthly), a.Cadence, a.Audience,
-		a.Owner, nullIf(a.Parent), a.Attestation,
+		a.Owner, nullIf(a.Parent), a.Attestation, strings.TrimSpace(a.AttestationDetail),
 		time.Now().UTC().Format("2006-01-02"))
 	return err
 }

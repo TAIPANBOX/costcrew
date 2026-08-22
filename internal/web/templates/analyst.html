@@ -36,7 +36,9 @@
       <dd>{{if .Passport.Parent}}<code>{{.Passport.Parent}}</code>{{if .A.Parent}} · <a href="/staff/{{.A.Parent}}">open {{.A.Parent}}</a>{{end}}{{else}}<span class="note">nobody, it is a root</span>{{end}}</dd>
       <dt>Attestation</dt>
       <dd><span class="chip grain">{{.Passport.Attestation.Method}}</span>
-        {{if eq .Passport.Attestation.Method "none"}}<span class="sub">The identity is a name this installation chose, not something bound to a workload. Said plainly rather than implied.</span>{{end}}</dd>
+        {{if .Passport.Attestation.Detail}}<code>{{.Passport.Attestation.Detail}}</code>{{end}}
+        {{if eq .Passport.Attestation.Method "none"}}<span class="sub">The identity is a name this installation chose, not something bound to a workload. Said plainly rather than implied, and an identity graph reading this passport will flag it, correctly.</span>
+        {{else}}<span class="sub">Recorded with its evidence. This console does not verify the issuer from here; it refuses to store a method without something that can be checked.</span>{{end}}</dd>
       <dt>Runtime</dt><dd>{{.Passport.Runtime}}</dd>
       {{if .Passport.Models}}<dt>Model</dt><dd>{{range .Passport.Models}}<span class="chip grain">{{.Provider}}</span> {{end}}</dd>{{end}}
       <dt>Schema</dt><dd><code>{{.Passport.Schema}}</code></dd>

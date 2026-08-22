@@ -1804,7 +1804,7 @@ func TestMovingDeskMovesTheDefaultParent(t *testing.T) {
 		State: "active", Skills: []string{"anomaly-triage"},
 		PerTask: money.Cents(1200), Monthly: money.Cents(9000),
 		Cadence: "daily", Audience: "the morning shift", Owner: "owner",
-		Parent: "partner-aws", Attestation: "oidc", Hired: "2026-08-22",
+		Parent: "partner-aws", Attestation: "none", Hired: "2026-08-22",
 	}
 	if err := crew.Hire(h.st.DB(), a); err != nil {
 		t.Fatal(err)
