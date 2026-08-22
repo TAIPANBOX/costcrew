@@ -1,0 +1,35 @@
+{{define "content"}}
+<header class="page">
+  <h1>Budgets</h1>
+  <p>Per team, per month, against what was actually spent. The open month is marked: a month-to-date total is not a month, and comparing one to a full budget makes every team look thrifty.</p>
+</header>
+
+<form class="filters" method="get" action="/budgets">
+  <select name="source" aria-label="Desk">
+    {{range .Sources}}<option value="{{.}}" {{if eq . $.Source}}selected{{end}}>{{.}}</option>{{end}}
+  </select>
+  <button type="submit">Show</button>
+  <a class="clear" href="/export/budget.csv?source={{.Source}}">Download CSV</a>
+</form>
+
+<div class="panel">
+  <div class="scroll">
+  <table>
+    <thead><tr><th class="tight">Month</th><th>Team</th><th class="num">Budget</th><th class="num">Actual</th><th class="num">Variance</th><th class="num">%</th><th></th></tr></thead>
+    <tbody>
+    {{range .Rows}}
+      <tr>
+        <td class="tight">{{.Month}}</td>
+        <td>{{.Team}}</td>
+        <td class="num">{{.Budget}}</td>
+        <td class="num">{{.Actual}}</td>
+        <td class="num {{if gt .Variance 0}}up{{else}}down{{end}}">{{.Variance}}</td>
+        <td class="num">{{if .HasPct}}{{printf "%.1f" .VariancePct}}{{else}}—{{end}}</td>
+        <td class="tight">{{if .Open}}<span class="chip triaged">open</span>{{end}}</td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+</div>
+{{end}}

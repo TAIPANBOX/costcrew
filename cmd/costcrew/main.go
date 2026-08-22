@@ -17,7 +17,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/TAIPANBOX/costcrew/internal/anomaly"
 	"github.com/TAIPANBOX/costcrew/internal/auth"
+	"github.com/TAIPANBOX/costcrew/internal/detect"
 	"github.com/TAIPANBOX/costcrew/internal/estate"
 	"github.com/TAIPANBOX/costcrew/internal/store"
 	"github.com/TAIPANBOX/costcrew/internal/web"
@@ -58,6 +60,13 @@ func run(addr, dir string) error {
 	if err := estate.SeedBudgets(st.DB()); err != nil {
 		return fmt.Errorf("setting budgets: %w", err)
 	}
+	// Detection runs on start and reconciles rather than replaces, so a
+	// restart never disturbs a decision somebody already made.
+	found, added, err := anomaly.Run(st.DB(), time.Now(), detect.Default())
+	if err != nil {
+		return fmt.Errorf("running detection: %w", err)
+	}
+	log.Printf("CostCrew: %d anomalies, %d of them new", found, added)
 
 	n, err := au.Count()
 	if err != nil {

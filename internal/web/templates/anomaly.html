@@ -1,0 +1,97 @@
+{{define "content"}}
+<p class="crumb"><a href="/anomalies">Anomalies</a> / {{.A.ID}}</p>
+
+<header class="page">
+  <h1 class="headline {{if eq .A.Direction "up"}}up{{else}}down{{end}}">
+    {{.A.Excess}} {{if eq .A.Direction "up"}}above{{else}}below{{end}} baseline
+  </h1>
+  <p class="subhead">{{.A.Source}} · {{.A.Service}} · {{if .A.Team}}{{.A.Team}}{{else}}untagged{{end}} · {{.A.Day}} · <span class="chip {{.A.State}}">{{.A.State}}</span></p>
+</header>
+
+<div class="panel">
+  <h2>The series, and the day in question</h2>
+  <div class="body">
+    {{.Spark}}
+    <p class="note">Dashed line is the baseline this day was judged against. The marked point is the day itself.</p>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>What was measured</h2>
+  <div class="body">
+    <dl class="facts">
+      <dt>The rule</dt><dd>{{.A.Rule}} <span class="chip grain">rule {{.A.RuleVer}}</span></dd>
+      <dt>Actual</dt><dd><strong>{{.A.Amount}}</strong> on {{.A.Day}}</dd>
+      <dt>Baseline</dt><dd><strong>{{.A.Baseline}}</strong>, median of comparable days</dd>
+      <dt>How far out</dt><dd>{{.ZText}} robust deviations</dd>
+      <dt>Known driver</dt>
+      <dd>{{if .A.Driver}}<strong>{{.A.Driver}}</strong>. A known cause annotates an anomaly; it never hides it, because somebody still has to confirm it cost what it was meant to.{{else}}Nothing in the registry covers this date.{{end}}</dd>
+    </dl>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Who</h2>
+  <div class="body">
+    <dl class="facts">
+      <dt>Caused by</dt>
+      <dd>
+        {{if .A.CausedBy}}<strong>{{.A.CausedBy}}</strong>{{else}}<strong>not established</strong>{{end}}
+        <span class="chip grain">grain: {{.A.CausedByKind}}</span>
+        {{if eq .A.CausedByKind "team"}}
+        <span class="sub">This is the finest grain that can be proven here. Naming an individual agent needs model calls to carry an agent header through the gateway.</span>
+        {{end}}
+      </dd>
+      <dt>Handled by</dt>
+      <dd>{{if .A.HandledBy}}<strong>{{.A.HandledBy}}</strong>{{else}}Nobody has taken this on.{{end}}</dd>
+      <dt>Detected</dt><dd>{{.A.DetectedAt}}</dd>
+      {{if .A.ClosedAt}}<dt>Closed</dt><dd>{{.A.ClosedAt}}</dd>{{end}}
+      {{if .A.Reason}}<dt>Reason given</dt><dd>{{.A.Reason}}</dd>{{end}}
+    </dl>
+  </div>
+</div>
+
+{{if .Actionable}}
+<div class="panel">
+  <h2>What you can do</h2>
+  <div class="body">
+    <form class="action" method="post" action="/anomalies/{{.A.ID}}/assign">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <div class="row">
+        <div>
+          <label for="an">Hand it to an analyst</label>
+          <select id="an" name="analyst">
+            {{range .Analysts}}<option value="{{.}}">{{.}}</option>{{end}}
+          </select>
+        </div>
+        <button type="submit">Assign</button>
+      </div>
+    </form>
+
+    <hr style="border:none;border-top:1px solid var(--line-soft);margin:18px 0">
+
+    <form class="action" method="post" action="/anomalies/{{.A.ID}}/explain">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <label for="ex">Explain it</label>
+      <textarea id="ex" name="reason" placeholder="What happened, and how you know."></textarea>
+      <div class="row"><button type="submit">Record the explanation</button></div>
+    </form>
+
+    <hr style="border:none;border-top:1px solid var(--line-soft);margin:18px 0">
+
+    <form class="action" method="post" action="/anomalies/{{.A.ID}}/dismiss">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <label for="di">Dismiss it</label>
+      <textarea id="di" name="reason" placeholder="Why this is not worth pursuing."></textarea>
+      <p class="note">A reason is required. A dismissal without one cannot be told apart from nobody having looked, and in six months that is the only thing anybody wants to know.</p>
+      <div class="row"><button class="quiet" type="submit">Dismiss</button></div>
+    </form>
+  </div>
+</div>
+{{else}}
+<div class="panel">
+  <h2>Closed</h2>
+  <div class="body"><p class="note">This anomaly is {{.A.State}} and takes no further decisions. Re-detection will not reopen it.</p></div>
+</div>
+{{end}}
+{{end}}

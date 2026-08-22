@@ -1,0 +1,38 @@
+{{define "content"}}
+<header class="page">
+  <h1>Overview</h1>
+  <p>{{.Month}}, month to date. What the estate cost, and what is waiting on a person.</p>
+</header>
+
+<div class="tiles">
+  {{range .Desks}}
+  <div class="tile">
+    <div class="k">{{.Name}}</div>
+    <div class="v">{{.Total}}</div>
+    <div class="s">{{.Kind}}</div>
+  </div>
+  {{end}}
+</div>
+
+<div class="panel">
+  <h2>Waiting on somebody</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th class="num">Money</th><th>What</th><th class="tight">Day</th><th>Caused by</th><th class="tight">State</th></tr></thead>
+    <tbody>
+    {{range .Open}}
+      <tr>
+        <td class="num {{if eq .Direction "up"}}up{{else}}down{{end}}"><a href="/anomalies/{{.ID}}">{{.Excess}}</a></td>
+        <td><a href="/anomalies/{{.ID}}">{{.Service}}</a><span class="sub">{{.Source}} · {{if .Team}}{{.Team}}{{else}}untagged{{end}}</span></td>
+        <td class="tight">{{.Day}}</td>
+        <td>{{if .CausedBy}}{{.CausedBy}}{{else}}not established{{end}} <span class="chip grain">{{.CausedByKind}}</span></td>
+        <td class="tight"><span class="chip {{.State}}">{{.State}}</span></td>
+      </tr>
+    {{else}}
+      <tr><td colspan="5" class="empty">Nothing open. Either a quiet week or the detector needs looking at.</td></tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+</div>
+{{end}}

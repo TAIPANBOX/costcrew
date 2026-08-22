@@ -1,0 +1,72 @@
+{{define "content"}}
+<header class="page">
+  <h1>Anomalies</h1>
+  <p>Every irregularity the estate has produced, ranked by money rather than by how far out it sits. A four-sigma move worth three dollars is real and is not worth your morning.</p>
+</header>
+
+<div class="tiles">
+  {{range .Counts}}
+  <div class="tile">
+    <div class="k">{{.State}}</div>
+    <div class="v"><a href="/anomalies?state={{.State}}">{{.N}}</a></div>
+    <div class="s">{{.Hint}}</div>
+  </div>
+  {{end}}
+  <div class="tile">
+    <div class="k">Open, in money</div>
+    <div class="v">{{.OpenMoney}}</div>
+    <div class="s">total of what is still unexplained</div>
+  </div>
+</div>
+
+<form class="filters" method="get" action="/anomalies">
+  <select name="state" aria-label="State">
+    <option value="">Any state</option>
+    {{range .States}}<option value="{{.}}" {{if eq . $.F.State}}selected{{end}}>{{.}}</option>{{end}}
+  </select>
+  <select name="source" aria-label="Desk">
+    <option value="">Any desk</option>
+    {{range .Sources}}<option value="{{.}}" {{if eq . $.F.Source}}selected{{end}}>{{.}}</option>{{end}}
+  </select>
+  <select name="direction" aria-label="Direction">
+    <option value="">Up and down</option>
+    <option value="up" {{if eq "up" .F.Direction}}selected{{end}}>Spend rose</option>
+    <option value="down" {{if eq "down" .F.Direction}}selected{{end}}>Spend fell</option>
+  </select>
+  <button type="submit">Filter</button>
+  <a class="clear" href="/anomalies">Clear</a>
+</form>
+
+<div class="panel">
+  <div class="scroll">
+  <table>
+    <thead><tr>
+      <th class="num">Money</th><th>What</th><th class="tight">Day</th>
+      <th>Caused by</th><th>Handled by</th><th class="tight">State</th>
+    </tr></thead>
+    <tbody>
+    {{range .Rows}}
+      <tr>
+        <td class="num {{if eq .Direction "up"}}up{{else}}down{{end}}">
+          <a href="/anomalies/{{.ID}}">{{.Excess}}</a>
+        </td>
+        <td>
+          <a href="/anomalies/{{.ID}}">{{.Service}}</a>
+          <span class="sub">{{.Source}} · {{if .Team}}{{.Team}}{{else}}untagged{{end}}{{if .Driver}} · {{.Driver}}{{end}}</span>
+        </td>
+        <td class="tight">{{.Day}}</td>
+        <td>
+          {{if .CausedBy}}{{.CausedBy}}{{else}}not established{{end}}
+          <span class="sub"><span class="chip grain">{{.CausedByKind}}</span></span>
+        </td>
+        <td>{{if .HandledBy}}{{.HandledBy}}{{else}}<span class="note">nobody yet</span>{{end}}</td>
+        <td class="tight"><span class="chip {{.State}}">{{.State}}</span></td>
+      </tr>
+    {{else}}
+      <tr><td colspan="6" class="empty">Nothing matches. That is either good news or a filter.</td></tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+</div>
+{{end}}

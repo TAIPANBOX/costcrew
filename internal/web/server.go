@@ -52,7 +52,16 @@ func (s *Server) routes() {
 
 	s.mux.HandleFunc("GET /intake/template/{name}", s.intakeTemplate)
 	s.mux.HandleFunc("GET /export/budget.csv", s.exportBudget)
-	s.mux.HandleFunc("GET /static/style.css", s.styleCSS)
+
+	s.mux.HandleFunc("GET /{$}", s.overview)
+	s.mux.HandleFunc("GET /anomalies", s.anomalies)
+	s.mux.HandleFunc("GET /anomalies/{id}", s.anomalyPage)
+	s.mux.HandleFunc("POST /anomalies/{id}/assign", s.anomalyAction("assign"))
+	s.mux.HandleFunc("POST /anomalies/{id}/explain", s.anomalyAction("explain"))
+	s.mux.HandleFunc("POST /anomalies/{id}/dismiss", s.anomalyAction("dismiss"))
+	s.mux.HandleFunc("GET /budgets", s.budgets)
+	s.mux.HandleFunc("GET /crew", s.crew)
+	s.mux.HandleFunc("GET /static/app.css", s.styleCSS)
 }
 
 // ------------------------------------------------------------------ session
@@ -130,11 +139,11 @@ func (s *Server) intakeTemplate(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, body)
 }
 
-// The stylesheet is embedded rather than read from disk so the binary stays
-// self-contained, and it is the original's file verbatim: the gate compares it
-// like any other surface, so a "tidied" copy would show up as a difference.
+// The stylesheet is embedded so the binary stays self-contained: one file to
+// copy to a server, and no chance of a page rendering unstyled because an
+// asset directory did not travel with it.
 //
-//go:embed assets/style.css
+//go:embed assets/app.css
 var styleSheet string
 
 func (s *Server) styleCSS(w http.ResponseWriter, r *http.Request) {
@@ -150,17 +159,17 @@ func (s *Server) styleCSS(w http.ResponseWriter, r *http.Request) {
 const authPage = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>CostCrew</title><link rel="stylesheet" href="/static/style.css"></head>
-<body class="auth"><main>
-<h1>CostCrew</h1>
-<p class="lede">%s</p>
+<title>CostCrew</title><link rel="stylesheet" href="/static/app.css"></head>
+<body><main style="max-width:380px;margin:9vh auto;padding:0 20px">
+<h1 style="font-size:27px;letter-spacing:-.02em;margin:0 0 8px">CostCrew</h1>
+<p style="color:var(--ink-2);margin:0 0 22px">%s</p>
 %s
-<form method="post" action="%s">
+<form class="action" method="post" action="%s">
 <input type="hidden" name="csrf" value="%s">
-<label>Name<input name="username" autocomplete="username" autofocus></label>
-<label>Password<input name="password" type="password" autocomplete="current-password"></label>
+<div><label for="u">Name</label><input id="u" type="text" name="username" autocomplete="username" autofocus></div>
+<div><label for="p">Password</label><input id="p" name="password" type="password" autocomplete="current-password"></div>
 %s
-<button type="submit">%s</button>
+<div class="row"><button type="submit">%s</button></div>
 </form>
 </main></body></html>
 `
@@ -175,7 +184,7 @@ func (s *Server) authPage(w http.ResponseWriter, r *http.Request, signup bool) {
 	if signup {
 		code := ""
 		if auth.SignupCode() != "" {
-			code = `<label>Joining code<input name="code"></label>`
+			code = `<div><label for="c">Joining code</label><input id="c" type="text" name="code"></div>`
 		}
 		fmt.Fprintf(w, authPage,
 			"The first account created becomes the admin of this installation.",
