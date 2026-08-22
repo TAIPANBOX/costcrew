@@ -11,6 +11,7 @@ import (
 	"github.com/TAIPANBOX/costcrew/internal/auth"
 	"github.com/TAIPANBOX/costcrew/internal/connectors"
 	"github.com/TAIPANBOX/costcrew/internal/engines"
+	"github.com/TAIPANBOX/costcrew/internal/world"
 )
 
 var (
@@ -84,13 +85,24 @@ func (s *Server) connectorPage(w http.ResponseWriter, r *http.Request) {
 			env[in.EnvVar] = strings.TrimSpace(os.Getenv(in.EnvVar)) != ""
 		}
 	}
+	// Whether this connector's provider is one of the estate's own desks, so
+	// the crumb can open it. "kubernetes" is a provider and not a desk, and
+	// linking it would offer a page that does not exist.
+	isDesk := false
+	for _, d := range world.Desks {
+		if d.Name == c.Provider {
+			isDesk = true
+			break
+		}
+	}
 	s.render(w, tplConnector, struct {
 		shell
 		C      connectors.Connector
 		Conn   connectors.Connection
 		Env    map[string]bool
 		CanAct bool
-	}{s.shellFor(r, c.Name, "connectors"), c, conn, env, u.May("operator")})
+		IsDesk bool
+	}{s.shellFor(r, c.Name, "connectors"), c, conn, env, u.May("operator"), isDesk})
 }
 
 func (s *Server) connectorAction(kind string) http.HandlerFunc {

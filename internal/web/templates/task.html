@@ -12,7 +12,8 @@
     <dl class="facts">
       <dt>State</dt><dd><span class="chip {{.StateChip}}">{{.T.State}}</span>{{if .T.Reason}} <strong>{{.T.Reason}}</strong>{{end}}</dd>
       <dt>Analyst</dt><dd>{{if .T.Assignee}}<a href="/staff/{{.T.Assignee}}">{{.T.Assignee}}</a>{{else}}Nobody has taken this on.{{end}}</dd>
-      <dt>Desk</dt><dd>{{if .T.Desk}}{{.T.Desk}}{{else}}not on a desk{{end}}</dd>
+      <dt>Desk</dt><dd>{{if .T.Desk}}<a href="/desk/{{.T.Desk}}">{{.T.Desk}}</a>{{else}}<span class="note">not on a desk</span>{{end}}</dd>
+      <dt>Sprint</dt><dd>{{if .T.Sprint}}<a href="/sprint/{{.T.Sprint}}">{{.SprintLabel}}</a>{{else}}<span class="note">not in a sprint</span>{{end}}</dd>
       <dt>What it cost</dt>
       <dd class="{{if .T.OverGuard}}up{{end}}">
         <strong>{{.T.Spent}}</strong> against a per-task guard of {{.T.Budget}}

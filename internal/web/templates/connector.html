@@ -2,7 +2,7 @@
 <p class="crumb"><a href="/connectors">Connectors</a> / {{.C.ID}}</p>
 <header class="page">
   <h1>{{.C.Name}}</h1>
-  <p>{{.C.Provider}} · fills <strong>{{.C.Feeds}}</strong></p>
+  <p>{{if .IsDesk}}<a href="/desk/{{.C.Provider}}">{{.C.Provider}}</a>{{else}}{{.C.Provider}}{{end}} · fills <strong>{{.C.Feeds}}</strong></p>
 </header>
 
 {{if .C.Metered}}

@@ -1472,11 +1472,15 @@ func TestEveryNameOnAPageIsALinkIntoIt(t *testing.T) {
 	// that merely shares its spelling.
 	rowRe := regexp.MustCompile(`(?s)<tr[^>]*>.*?</tr>`)
 	cell := regexp.MustCompile(`<td[^>]*>([a-z0-9][a-z0-9._-]{2,})</td>`)
+	// Definition lists too: the task page prints its desk in a <dd>, so a
+	// check that only reads table cells passed it for three commits.
+	dd := regexp.MustCompile(`<dd[^>]*>([a-z0-9][a-z0-9._-]{2,})</dd>`)
 	for _, path := range []string{
 		"/", "/anomalies", "/budgets", "/staff", "/board", "/sprints",
 		"/allocation", "/chargeback", "/utilisation", "/saas", "/ai",
 		"/forecast", "/teams", "/desks", "/team/ml-platform", "/desk/aws",
-		"/sprint/plan", "/connectors",
+		"/sprint/plan", "/connectors", "/sprint/1", "/task/1",
+		"/connectors/aws-cost-explorer", "/staff/triage-aws", "/explainers",
 	} {
 		code, body, _ := h.get(t, path)
 		if code != http.StatusOK {
@@ -1490,6 +1494,12 @@ func TestEveryNameOnAPageIsALinkIntoIt(t *testing.T) {
 					continue
 				}
 				t.Errorf("%s prints %q as plain text; it should open %s", path, m[1], to)
+			}
+		}
+		for _, m := range dd.FindAllStringSubmatch(body, -1) {
+			if to, ok := known[m[1]]; ok && !strings.Contains(body, `href="`+to+`"`) {
+				t.Errorf("%s prints %q as plain text in a definition list; it should open %s",
+					path, m[1], to)
 			}
 		}
 	}

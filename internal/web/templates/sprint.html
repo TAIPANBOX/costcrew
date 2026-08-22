@@ -23,7 +23,7 @@
 <div class="panel">
   <div class="scroll">
   <table>
-    <thead><tr><th>Task</th><th>Analyst</th><th class="tight">Desk</th><th class="num">Spent</th><th class="tight">State</th></tr></thead>
+    <thead><tr>{{.Sort.Header "task" "Task" "" false}}{{.Sort.Header "analyst" "Analyst" "" false}}{{.Sort.Header "desk" "Desk" "tight" false}}{{.Sort.Header "spent" "Spent" "num" true}}{{.Sort.Header "state" "State" "tight" false}}</tr></thead>
     <tbody>
     {{range .Tasks}}
       <tr>

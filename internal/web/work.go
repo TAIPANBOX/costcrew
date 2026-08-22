@@ -201,12 +201,22 @@ func (s *Server) sprintPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ts, _ := crew.Tasks(s.db, crew.TaskFilter{Sprint: id})
+	rows := views(ts)
+	srt := readSort(r, "state", false)
+	applySort(rows, srt, map[string]func(a, b taskView) int{
+		"task":    func(a, b taskView) int { return cmpString(a.Title, b.Title) },
+		"analyst": func(a, b taskView) int { return cmpString(a.Assignee, b.Assignee) },
+		"desk":    func(a, b taskView) int { return cmpString(a.Desk, b.Desk) },
+		"spent":   func(a, b taskView) int { return cmpInt64(int64(a.Spent), int64(b.Spent)) },
+		"state":   func(a, b taskView) int { return cmpString(string(a.State), string(b.State)) },
+	}, "state")
 	s.render(w, tplSprint, struct {
 		shell
 		S      crew.Sprint
 		Tasks  []taskView
 		CanAct bool
-	}{s.shellFor(r, found.Label, "sprints"), found, views(ts), u.May("operator")})
+		Sort   sortSpec
+	}{s.shellFor(r, found.Label, "sprints"), found, rows, u.May("operator"), srt})
 }
 
 // --------------------------------------------------------------------- task
@@ -262,15 +272,27 @@ func (s *Server) taskPage(w http.ResponseWriter, r *http.Request) {
 	for _, a := range arts {
 		av = append(av, artView{a, renderBody(a.Body)})
 	}
+	// The sprint's label, so the page can link the week this belongs to
+	// rather than printing a row id nobody can look up.
+	label := ""
+	if sprints, err := crew.Sprints(s.db); err == nil {
+		for _, sp := range sprints {
+			if sp.ID == t.Sprint {
+				label = sp.Label
+				break
+			}
+		}
+	}
 	s.render(w, tplTask, struct {
 		shell
-		T         crew.Task
-		StateChip string
-		Arts      []artView
-		Notes     []crew.Comment
-		Analysts  []string
-		CanAct    bool
-	}{s.shellFor(r, t.Title, "board"), t, stateChip(t.State), av, notes,
+		T           crew.Task
+		StateChip   string
+		SprintLabel string
+		Arts        []artView
+		Notes       []crew.Comment
+		Analysts    []string
+		CanAct      bool
+	}{s.shellFor(r, t.Title, "board"), t, stateChip(t.State), label, av, notes,
 		s.activeAnalysts(), u.May("operator")})
 }
 
