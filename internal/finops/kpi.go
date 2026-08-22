@@ -94,11 +94,30 @@ func KPIs(db *sql.DB, period string) ([]KPI, error) {
 		HasVal: hasFP, Meets: hasFP && fp >= 80,
 		Blocked: blockedIf(!hasFP, "nothing has been reviewed yet, and a rate over no reviews is not a rate"),
 	})
+	// What the crew cost, judged against what it found.
+	//
+	// This carried Meets: true, hard-coded, so it reported that it met its
+	// target whatever the numbers said, on a page whose own headline is that
+	// a library where everything reports a number is one where several are
+	// invented. A KPI that cannot fail is one of those.
+	var found money.Cents
+	if err := db.QueryRow(`SELECT COALESCE(SUM(ABS(excess_cents)),0) FROM anomalies
+		WHERE state IN ('explained','accepted')`).Scan(&found); err != nil {
+		return nil, err
+	}
+	ratio, hasRatio := 0.0, spent > 0
+	if hasRatio {
+		ratio = float64(found) / float64(spent)
+	}
 	add(KPI{
 		ID: "crew-cost", Name: "What the crew cost", Group: "The crew",
-		Value: money.Cents(spent).String(), Unit: "USD", Target: "against what it found",
-		HasVal: true, Meets: true,
-		Note: fmt.Sprintf("Across %d tasks.", tasks),
+		Value: money.Cents(spent).String(), Unit: "USD",
+		Target: "less than it finds",
+		HasVal: true, Meets: hasRatio && ratio >= 1,
+		Note: fmt.Sprintf("Across %d tasks, against %s found and either explained or accepted: "+
+			"a return of %.2fx.", tasks, found, ratio),
+		Blocked: blockedIf(!hasRatio,
+			"the crew has been charged nothing yet, so there is no ratio to report"),
 	})
 
 	// -------------------------------------------------- commitments

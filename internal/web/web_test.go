@@ -1460,3 +1460,51 @@ func TestEveryNameOnAPageIsALinkIntoIt(t *testing.T) {
 		}
 	}
 }
+
+// No KPI may be incapable of failing.
+//
+// The page's own headline is that a library where everything reports a number
+// is one where several are invented. "What the crew cost" carried a hard-coded
+// pass, so it announced that it met its target while the crew was returning
+// forty pence in the pound.
+//
+// The check is structural rather than about one KPI: every reported KPI must
+// have a target it could miss, and the way to prove that here is that not all
+// of them pass. A library where every single one meets is either a very good
+// practice or a set of assertions, and this fixture is deliberately not the
+// former.
+func TestNotEveryKPIPasses(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+
+	_, body, _ := h.get(t, "/kpis")
+	rows := regexp.MustCompile(`(?s)<tr id="kpi-([a-z-]+)">(.*?)</tr>`).FindAllStringSubmatch(body, -1)
+	if len(rows) < 5 {
+		t.Fatalf("the KPI page has %d rows, so this measured nothing", len(rows))
+	}
+	var meets, below, blocked int
+	for _, r := range rows {
+		switch {
+		case strings.Contains(r[2], "cannot be computed"):
+			blocked++
+		case strings.Contains(r[2], ">meets<"):
+			meets++
+		case strings.Contains(r[2], ">below<"):
+			below++
+		}
+	}
+	if below == 0 {
+		t.Error("every KPI that reports a number meets its target, which is a library of assertions")
+	}
+	if blocked == 0 {
+		t.Error("no KPI refuses; the refusals are the part that shows the rest are measured")
+	}
+	// And the crew-cost one specifically, because it is the one that lied.
+	crew := regexp.MustCompile(`(?s)<tr id="kpi-crew-cost">(.*?)</tr>`).FindStringSubmatch(body)
+	if crew == nil {
+		t.Fatal("the crew-cost KPI is missing")
+	}
+	if !strings.Contains(crew[1], "return of") {
+		t.Error("the crew-cost KPI does not say what it returned, so its verdict cannot be checked")
+	}
+}
