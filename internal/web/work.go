@@ -155,11 +155,23 @@ func (s *Server) sprints(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "store unavailable", http.StatusInternalServerError)
 		return
 	}
+	spec := readSort(r, "label", true)
+	applySort(sp, spec, map[string]func(x, y crew.Sprint) int{
+		"label":  func(x, y crew.Sprint) int { return cmpString(x.Label, y.Label) },
+		"goal":   func(x, y crew.Sprint) int { return cmpString(x.Goal, y.Goal) },
+		"tasks":  func(x, y crew.Sprint) int { return cmpInt(x.Tasks, y.Tasks) },
+		"open":   func(x, y crew.Sprint) int { return cmpInt(x.Open, y.Open) },
+		"posted": func(x, y crew.Sprint) int { return cmpInt(x.Posted, y.Posted) },
+		"spent":  func(x, y crew.Sprint) int { return cmpInt64(int64(x.Spent), int64(y.Spent)) },
+		"budget": func(x, y crew.Sprint) int { return cmpInt64(int64(x.Budget), int64(y.Budget)) },
+		"state":  func(x, y crew.Sprint) int { return cmpString(x.State, y.State) },
+	}, "label")
 	s.render(w, tplSprints, struct {
 		shell
 		Sprints []crew.Sprint
 		CanAct  bool
-	}{s.shellFor(r, "Sprints", "sprints"), sp, u.May("operator")})
+		Sort    sortSpec
+	}{s.shellFor(r, "Sprints", "sprints"), sp, u.May("operator"), spec})
 }
 
 func (s *Server) sprintPage(w http.ResponseWriter, r *http.Request) {

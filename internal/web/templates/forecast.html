@@ -36,7 +36,7 @@
       <p class="note">Nothing has been scored yet. A month has to be frozen and then finish before its accuracy means anything, and the KPI page reports this as a refusal rather than as a zero, because a zero would read as a perfect forecast.</p>
     {{end}}
     <div class="scroll"><table>
-      <thead><tr><th class="tight">Month</th><th class="tight">Desk</th><th class="num">Forecast</th><th class="num">Actual</th><th class="num">Error</th><th class="tight">Grade</th><th>Frozen</th></tr></thead>
+      <thead><tr>{{$.Sort.Header "period" "Month" "tight" false}}{{$.Sort.Header "desk" "Desk" "tight" false}}{{$.Sort.Header "forecast" "Forecast" "num" true}}{{$.Sort.Header "actual" "Actual" "num" true}}{{$.Sort.Header "error" "Error" "num" true}}{{$.Sort.Header "grade" "Grade" "tight" false}}<th>Frozen</th></tr></thead>
       <tbody>{{range .Rows}}
         <tr>
           <td class="tight">{{.Period}}</td>

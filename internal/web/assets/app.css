@@ -355,3 +355,15 @@ th[aria-sort] { background: var(--surface); }
 .bar { width: 100%; min-width: 60px; height: 6px; background: var(--surface-2);
   border-radius: 3px; overflow: hidden; }
 .bar span { display: block; height: 100%; background: var(--accent); opacity: .55; }
+
+/* The overview's headline row: four numbers that answer "how are we doing"
+   before any table is read. They are wider than a desk tile because each
+   carries a sentence, not just a figure. */
+.tiles.summary { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+.tile.wide .v.big { font-size: 1.75rem; line-height: 1.15; }
+.tile.wide .s { line-height: 1.45; }
+.tile.wide .s a { white-space: nowrap; }
+
+/* Two panels side by side on a wide screen, stacked on a narrow one. */
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); }
+@media (max-width: 900px) { .two { grid-template-columns: 1fr; } }

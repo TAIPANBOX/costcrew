@@ -44,11 +44,21 @@ func (s *Server) connectors(w http.ResponseWriter, r *http.Request) {
 		conn, _ := connectors.Load(s.db, c.ID)
 		rows = append(rows, connectorRow{c, conn.LastTest, conn.LastResult, conn.OK})
 	}
+	spec := readSort(r, "name", false)
+	applySort(rows, spec, map[string]func(x, y connectorRow) int{
+		"name":     func(x, y connectorRow) int { return cmpString(x.Name, y.Name) },
+		"feeds":    func(x, y connectorRow) int { return cmpString(x.Feeds, y.Feeds) },
+		"kind":     func(x, y connectorRow) int { return cmpString(string(x.Kind), string(y.Kind)) },
+		"provider": func(x, y connectorRow) int { return cmpString(x.Provider, y.Provider) },
+		"status":   func(x, y connectorRow) int { return cmpString(string(x.Status), string(y.Status)) },
+		"lasttest": func(x, y connectorRow) int { return cmpString(x.LastTest, y.LastTest) },
+	}, "name")
 	s.render(w, tplConnectors, struct {
 		shell
 		Rows                       []connectorRow
 		Built, Documented, Metered int
-	}{s.shellFor(r, "Connectors", "connectors"), rows, built, documented, metered})
+		Sort                       sortSpec
+	}{s.shellFor(r, "Connectors", "connectors"), rows, built, documented, metered, spec})
 }
 
 func (s *Server) connectorPage(w http.ResponseWriter, r *http.Request) {

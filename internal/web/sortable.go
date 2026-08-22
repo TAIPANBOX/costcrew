@@ -176,3 +176,13 @@ func abs64(v int64) int64 {
 	}
 	return v
 }
+
+// absf is abs64 for a percentage: a forecast that missed by -12% and one that
+// missed by +12% are equally wrong, and a table sorted by "worst" should put
+// them next to each other.
+func absf(v float64) float64 {
+	if v < 0 {
+		return -v
+	}
+	return v
+}

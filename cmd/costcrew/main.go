@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -41,7 +42,18 @@ func main() {
 	host := flag.String("stack-host", "costcrew.local", "the agent:// authority for this installation")
 	owner := flag.String("stack-owner", "", "the owning team or human on every passport")
 	attest := flag.String("stack-attestation", "none", "none|oidc|spiffe-svid|enclave-key|mtls-cert")
+
+	// The way back in. Nothing about this runs a server.
+	setPw := flag.String("set-password", "", "create or reset an account as NAME:PASSWORD, then exit")
+	setRole := flag.String("set-role", "admin", "the role a new -set-password account gets")
 	flag.Parse()
+
+	if *setPw != "" {
+		if err := setPassword(*dir, *setPw, *setRole); err != nil {
+			log.Fatalf("costcrew: %v", err)
+		}
+		return
+	}
 
 	cfg := stack.Config{
 		EventsPath: *events, PassportDir: *passports,
@@ -50,6 +62,37 @@ func main() {
 	if err := run(*addr, *dir, cfg); err != nil {
 		log.Fatalf("costcrew: %v", err)
 	}
+}
+
+// setPassword opens the store, changes one account and exits.
+//
+// It never starts the listener, so it is safe to run against a directory a
+// server is already serving: SQLite takes the write, and the running process
+// reads the new hash on the next sign-in.
+func setPassword(dir, spec, role string) error {
+	name, pw, ok := strings.Cut(spec, ":")
+	if !ok {
+		return fmt.Errorf("-set-password wants NAME:PASSWORD, got %q", spec)
+	}
+	st, err := store.Open(dir)
+	if err != nil {
+		return fmt.Errorf("opening the store in %s: %w", dir, err)
+	}
+	defer st.Close()
+	au, err := auth.New(st, dir)
+	if err != nil {
+		return err
+	}
+	created, err := au.SetPassword(name, pw, role)
+	if err != nil {
+		return err
+	}
+	if created {
+		fmt.Printf("created %s as %s\n", name, role)
+	} else {
+		fmt.Printf("reset the password for %s; any session it had is now signed out\n", name)
+	}
+	return nil
 }
 
 func run(addr, dir string, scfg stack.Config) error {

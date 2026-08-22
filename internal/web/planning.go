@@ -52,6 +52,16 @@ func (s *Server) forecast(w http.ResponseWriter, r *http.Request) {
 	}
 	acc, scored, hasAcc, _ := finops.Accuracy(s.db, open)
 
+	spec := readSortNamed(r, "hsort", "period", true)
+	applySort(history, spec, map[string]func(x, y finops.Forecast) int{
+		"period":   func(x, y finops.Forecast) int { return cmpString(x.Period, y.Period) },
+		"desk":     func(x, y finops.Forecast) int { return cmpString(x.Source, y.Source) },
+		"forecast": func(x, y finops.Forecast) int { return cmpInt64(int64(x.Forecast), int64(y.Forecast)) },
+		"actual":   func(x, y finops.Forecast) int { return cmpInt64(int64(x.Actual), int64(y.Actual)) },
+		"error":    func(x, y finops.Forecast) int { return cmpFloat(absf(x.ErrorPct), absf(y.ErrorPct)) },
+		"grade":    func(x, y finops.Forecast) int { return cmpString(x.Grade, y.Grade) },
+	}, "period")
+
 	s.render(w, tplForecast, struct {
 		shell
 		Period      string
@@ -64,8 +74,9 @@ func (s *Server) forecast(w http.ResponseWriter, r *http.Request) {
 		HasAccuracy bool
 		Ladder      string
 		CanAct      bool
+		Sort        sortSpec
 	}{s.shellFor(r, "Forecast", "forecast"), open, basis, rows, history,
-		frozen, acc, scored, hasAcc, finops.LadderText(), u.May("operator")})
+		frozen, acc, scored, hasAcc, finops.LadderText(), u.May("operator"), spec})
 }
 
 func (s *Server) freezeForecast(w http.ResponseWriter, r *http.Request) {

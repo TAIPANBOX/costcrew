@@ -197,6 +197,51 @@ func (a *Auth) Create(username, password, role string) (bool, error) {
 	return true, err
 }
 
+// SetPassword creates the account if it does not exist and resets it if it
+// does, and it is deliberately reachable ONLY from the command line.
+//
+// A console with no email, no SMS and no recovery question still has to answer
+// "I am locked out of my own machine", and the honest answer on a local
+// installation is the shell: whoever can run the binary already owns the
+// database it reads. Putting the same power behind a web form would be a
+// different thing entirely, which is why there is no handler for it.
+//
+// The reset is journalled like every other change, so a password that changed
+// is visible in the audit chain even though the password itself never is.
+func (a *Auth) SetPassword(username, password, role string) (created bool, err error) {
+	username = strings.TrimSpace(username)
+	if username == "" {
+		return false, errors.New("the account needs a name")
+	}
+	if len(password) < MinPassword {
+		return false, fmt.Errorf("the password must be at least %d characters", MinPassword)
+	}
+	u, err := a.Get(username)
+	if err != nil {
+		return false, err
+	}
+	if u == nil {
+		if !validRole(role) {
+			role = "admin"
+		}
+		return a.Create(username, password, role)
+	}
+	h, err := HashPassword(password)
+	if err != nil {
+		return false, err
+	}
+	if _, err := a.st.DB().Exec(`UPDATE users SET pw_hash=? WHERE username=?`, h, username); err != nil {
+		return false, err
+	}
+	// Every session signed in under the old password ends here. A reset that
+	// leaves the old sessions alive has not locked anybody out of anything.
+	if _, err := a.st.DB().Exec(`DELETE FROM sessions WHERE username=?`, username); err != nil {
+		return false, err
+	}
+	_, err = a.st.Journal("password_reset", 0, map[string]any{"username": username, "by": "command line"})
+	return false, err
+}
+
 // ------------------------------------------------------------------ signup
 
 func SignupCode() string { return strings.TrimSpace(os.Getenv("COSTCREW_SIGNUP_CODE")) }

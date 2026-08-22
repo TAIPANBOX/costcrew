@@ -9,7 +9,7 @@
 <div class="panel">
   <div class="scroll">
   <table>
-    <thead><tr><th class="tight">Sprint</th><th>Goal</th><th class="num">Tasks</th><th class="num">Open</th><th class="num">Posted</th><th class="num">Spent</th><th class="num">Guard</th><th class="tight">State</th></tr></thead>
+    <thead><tr>{{$.Sort.Header "label" "Sprint" "tight" false}}{{$.Sort.Header "goal" "Goal" "" false}}{{$.Sort.Header "tasks" "Tasks" "num" true}}{{$.Sort.Header "open" "Open" "num" true}}{{$.Sort.Header "posted" "Posted" "num" true}}{{$.Sort.Header "spent" "Spent" "num" true}}{{$.Sort.Header "budget" "Guard" "num" true}}{{$.Sort.Header "state" "State" "tight" false}}</tr></thead>
     <tbody>
     {{range .Sprints}}
       <tr>

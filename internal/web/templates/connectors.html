@@ -13,7 +13,7 @@
 <div class="panel">
   <div class="scroll">
   <table>
-    <thead><tr><th>Connector</th><th class="tight">Feeds</th><th class="tight">Running it</th><th class="tight">Status</th><th>Last test</th></tr></thead>
+    <thead><tr>{{$.Sort.Header "name" "Connector" "" false}}{{$.Sort.Header "feeds" "Feeds" "tight" false}}{{$.Sort.Header "kind" "Running it" "tight" false}}{{$.Sort.Header "status" "Status" "tight" false}}{{$.Sort.Header "lasttest" "Last test" "" false}}</tr></thead>
     <tbody>
     {{range .Rows}}
       <tr>

@@ -1,38 +1,126 @@
 {{define "content"}}
 <header class="page">
   <h1>Overview</h1>
-  <p>{{.Month}}, month to date. What the estate cost, and what is waiting on a person.</p>
+  <p>{{.Month}}, the first {{.Through}} days, against the same {{.Through}} days of {{.Prev}}.
+     What the estate cost, what moved, and what is waiting on a person.</p>
 </header>
 
-<div class="tiles">
-  {{range .Desks}}
-  <div class="tile">
-    <div class="k"><a href="/desk/{{.Name}}">{{.Name}}</a></div>
-    <div class="v">{{.Total}}</div>
-    <div class="s">{{.Kind}}</div>
+<div class="tiles summary">
+  <div class="tile wide">
+    <div class="k">Spent this month</div>
+    <div class="v big">{{.ThisMonth}}</div>
+    <div class="s">
+      {{if .HasPct}}
+        against {{.LastMonth}} over the same days of {{.Prev}},
+        <strong class="{{if gt .Change 0}}up{{else}}down{{end}}">{{if gt .Change 0}}+{{end}}{{printf "%.1f%%" .Pct}}</strong>
+      {{else}}nothing to compare it to yet{{end}}
+    </div>
   </div>
-  {{end}}
+  <div class="tile wide">
+    <div class="k">Waiting on somebody</div>
+    <div class="v big {{if .OpenN}}up{{end}}">{{.Waiting}}</div>
+    <div class="s">{{.OpenN}} open {{if eq .OpenN 1}}anomaly{{else}}anomalies{{end}}, nobody has looked yet.
+      <a href="/anomalies?state=open">Work through them</a></div>
+  </div>
+  <div class="tile wide">
+    <div class="k">Over the guard, {{.Prev}}</div>
+    <div class="v big {{if .Over}}up{{end}}">{{.Over}}</div>
+    <div class="s">{{if .Over}}teams over by {{.OverBy}} in total, {{.Under}} inside.{{else}}every team was inside its budget.{{end}}
+      Measured on the last month that finished, because a monthly guard against a part-month is not a comparison.
+      <a href="/budgets">See the budgets</a></div>
+  </div>
+  <div class="tile wide">
+    <div class="k">On the crew</div>
+    <div class="v big">{{.OpenTasks}}</div>
+    <div class="s">open tasks{{if .Stamps}}, {{.Stamps}} waiting for a person to sign off{{end}}.
+      <a href="/board">Open the board</a></div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Desks</h2>
+  <p class="note">Each desk's month to date, and how it moved against the same {{.Through}} days of {{.Prev}}. The name opens the desk.</p>
+  <div class="tiles">
+    {{range .Desks}}
+    <div class="tile">
+      <div class="k"><a href="/desk/{{.Name}}">{{.Name}}</a></div>
+      <div class="v">{{.Total}}</div>
+      <div class="s">
+        {{.Kind}}
+        {{if .HasChg}} · <span class="{{if gt .Change 0}}up{{else}}down{{end}}">{{if gt .Change 0}}+{{end}}{{.Change}}</span>{{end}}
+      </div>
+    </div>
+    {{end}}
+  </div>
+</div>
+
+<div class="two">
+<div class="panel">
+  <h2>What moved</h2>
+  <p class="note">The eight services whose bill changed most, largest move first, in either direction.
+     Both columns cover the first {{.Through}} days of their month, so the change is a change in spending and not in the calendar.</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Service</th><th class="num">{{.Prev}}, 1-{{.Through}}</th><th class="num">{{.Month}}, 1-{{.Through}}</th><th class="num">Change</th></tr></thead>
+    <tbody>
+    {{range .Movers}}
+      <tr>
+        <td><strong>{{.Service}}</strong><span class="sub"><a href="/desk/{{.Source}}">{{.Source}}</a></span></td>
+        <td class="num">{{.Was}}</td>
+        <td class="num">{{.Now}}</td>
+        <td class="num {{if gt .Change 0}}up{{else}}down{{end}}"><strong>{{if gt .Change 0}}+{{end}}{{.Change}}</strong></td>
+      </tr>
+    {{else}}
+      <tr><td colspan="4" class="empty">Only one month of data, so nothing to compare.</td></tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Anomalies by state</h2>
+  <p class="note">Where every finding the detector has ever raised currently sits.</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>State</th><th class="num">Count</th><th></th></tr></thead>
+    <tbody>
+    {{range .Counts}}
+      <tr>
+        <td><a href="/anomalies?state={{.State}}"><span class="chip {{.State}}">{{.State}}</span></a></td>
+        <td class="num"><strong>{{.N}}</strong></td>
+        <td><a href="/anomalies?state={{.State}}">open the list</a></td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+</div>
 </div>
 
 <div class="panel">
   <h2>Waiting on somebody</h2>
+  <p class="note">Open findings, largest first. Every cell here is a way in: the money opens the anomaly, the desk and team open their own pages, and the cause opens whoever or whatever caused it.</p>
   <div class="scroll">
   <table>
-    <thead><tr><th class="num">Money</th><th>What</th><th class="tight">Day</th><th>Caused by</th><th class="tight">State</th></tr></thead>
+    <thead><tr><th class="num">Money</th><th>What</th><th class="tight">Day</th><th class="tight">Rule</th><th>Caused by</th><th class="tight">State</th></tr></thead>
     <tbody>
     {{range .Open}}
       <tr>
         <td class="num {{if eq .Direction "up"}}up{{else}}down{{end}}"><a href="/anomalies/{{.ID}}">{{.Excess}}</a></td>
         <td><a href="/anomalies/{{.ID}}">{{.Service}}</a><span class="sub"><a href="/desk/{{.Source}}">{{.Source}}</a>{{if .Team}} · <a href="/team/{{.Team}}">{{.Team}}</a>{{end}}</span></td>
         <td class="tight">{{.Day}}</td>
-        <td>{{if .CausedBy}}{{.CausedBy}}{{else}}not established{{end}} <span class="chip grain">{{.CausedByKind}}</span></td>
+        <td class="tight"><span class="chip grain">{{.Rule}}</span></td>
+        <td>{{if .CausedBy}}{{if eq .CausedByKind "agent"}}<a href="/staff/{{.CausedBy}}">{{.CausedBy}}</a>{{else if eq .CausedByKind "team"}}<a href="/team/{{.CausedBy}}">{{.CausedBy}}</a>{{else}}{{.CausedBy}}{{end}}{{else}}<span class="note">not established</span>{{end}}
+          <span class="chip grain">{{.CausedByKind}}</span></td>
         <td class="tight"><span class="chip {{.State}}">{{.State}}</span></td>
       </tr>
     {{else}}
-      <tr><td colspan="5" class="empty">Nothing open. Either a quiet week or the detector needs looking at.</td></tr>
+      <tr><td colspan="6" class="empty">Nothing open. Either a quiet week or the detector needs looking at.</td></tr>
     {{end}}
     </tbody>
   </table>
   </div>
+  {{if gt .OpenN 8}}<p class="note">Showing the eight largest of {{.OpenN}}. <a href="/anomalies?state=open">See all of them</a>.</p>{{end}}
 </div>
 {{end}}

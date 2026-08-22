@@ -1,16 +1,20 @@
 package web
 
 import (
+	"database/sql"
 	"embed"
 	"fmt"
 	"html/template"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/TAIPANBOX/costcrew/internal/anomaly"
 	"github.com/TAIPANBOX/costcrew/internal/auth"
+	"github.com/TAIPANBOX/costcrew/internal/crew"
 	"github.com/TAIPANBOX/costcrew/internal/estate"
 	"github.com/TAIPANBOX/costcrew/internal/money"
 	"github.com/TAIPANBOX/costcrew/internal/world"
@@ -102,30 +106,222 @@ type deskLine struct {
 	Total      money.Cents
 }
 
+// mover is one service whose bill moved between the last two months.
+//
+// The number people ask for first is never the total, it is what CHANGED, and
+// a total on its own answers a question nobody had.
+type mover struct {
+	Service string
+	Source  string
+	Now     money.Cents
+	Was     money.Cents
+	Change  money.Cents
+}
+
+// movers compares the two most recent months, per desk and service.
+//
+// Both months are read in the SAME query so a service that appeared this month
+// and one that vanished last month are both present, with the missing side at
+// zero rather than absent. A join would have dropped exactly the rows the page
+// exists to show.
+//
+// through cuts the earlier month at the same day of the month the current one
+// has reached. Eleven days against a whole month is not a comparison; it is a
+// minus sign in front of every row on the page, and a reader who acts on it
+// congratulates a team for a saving that is just the calendar.
+func movers(db *sql.DB, now, prev, through string) ([]mover, error) {
+	rows, err := db.Query(`SELECT source, service,
+			SUM(CASE WHEN substr(day,1,7)=? THEN billed_cents ELSE 0 END),
+			SUM(CASE WHEN substr(day,1,7)=? AND substr(day,9,2)<=? THEN billed_cents ELSE 0 END)
+		FROM charges WHERE substr(day,1,7) IN (?,?)
+		GROUP BY 1,2`, now, prev, through, now, prev)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []mover
+	for rows.Next() {
+		var m mover
+		var a, b int64
+		if err := rows.Scan(&m.Source, &m.Service, &a, &b); err != nil {
+			return nil, err
+		}
+		m.Now, m.Was = money.Cents(a), money.Cents(b)
+		m.Change = m.Now - m.Was
+		out = append(out, m)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return abs64(int64(out[i].Change)) > abs64(int64(out[j].Change))
+	})
+	if len(out) > 8 {
+		out = out[:8]
+	}
+	return out, nil
+}
+
+// totalsThrough is estate.Totals for a month cut at a day of the month.
+//
+// It exists so an open month can be set beside the same span of the month
+// before, which is the only comparison a part-month supports.
+func totalsThrough(db *sql.DB, month, through string) (map[string]money.Cents, error) {
+	rows, err := db.Query(`SELECT source, SUM(billed_cents) FROM charges
+		WHERE substr(day,1,7)=? AND substr(day,9,2)<=? GROUP BY 1`, month, through)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]money.Cents{}
+	for rows.Next() {
+		var k string
+		var v int64
+		if err := rows.Scan(&k, &v); err != nil {
+			return nil, err
+		}
+		out[k] = money.Cents(v)
+	}
+	return out, rows.Err()
+}
+
+// prevMonth is the calendar month before a "2006-01" string.
+func prevMonth(m string) string {
+	t, err := time.Parse("2006-01", m)
+	if err != nil {
+		return m
+	}
+	return t.AddDate(0, -1, 0).Format("2006-01")
+}
+
+type deskTile struct {
+	deskLine
+	Was    money.Cents
+	Change money.Cents
+	HasChg bool
+}
+
 func (s *Server) overview(w http.ResponseWriter, r *http.Request) {
 	if s.guard(w, r) == nil {
 		return
 	}
 	month := world.LastDay[:7]
+	prev := prevMonth(month)
 	totals, err := estate.Totals(s.db, month)
 	if err != nil {
 		http.Error(w, "store unavailable", http.StatusInternalServerError)
 		return
 	}
-	var desks []deskLine
+	// The month before, cut at the same day of the month, so every tile
+	// carries a direction and not just a size, and the direction is real.
+	//
+	// The open month is a part-month. Set beside a whole one it loses by the
+	// length of the calendar, which would paint the whole page green and tell
+	// a reader the estate had halved its bill overnight.
+	through := world.LastDay[8:]
+	was, err := totalsThrough(s.db, prev, through)
+	if err != nil {
+		http.Error(w, "store unavailable", http.StatusInternalServerError)
+		return
+	}
+
+	var desks []deskTile
+	var thisMonth, lastMonth money.Cents
 	for _, d := range world.Desks {
-		desks = append(desks, deskLine{d.Name, d.Kind, totals[d.Name]})
+		t := deskTile{deskLine{d.Name, d.Kind, totals[d.Name]}, was[d.Name], 0, false}
+		t.Change = t.Total - t.Was
+		t.HasChg = t.Was != 0
+		thisMonth += t.Total
+		lastMonth += t.Was
+		desks = append(desks, t)
 	}
+
 	open, _ := anomaly.List(s.db, anomaly.Filter{State: anomaly.Open})
-	if len(open) > 8 {
-		open = open[:8]
+	var waiting money.Cents
+	for _, a := range open {
+		waiting += a.Excess
 	}
+	counts, _ := anomaly.Counts(s.db)
+	top := open
+	if len(top) > 8 {
+		top = top[:8]
+	}
+
+	mv, err := movers(s.db, month, prev, through)
+	if err != nil {
+		http.Error(w, "store unavailable", http.StatusInternalServerError)
+		return
+	}
+
+	// Budget health is measured on the last CLOSED month, not the open one.
+	//
+	// A monthly guard against eleven days of spending is not exceeded yet by
+	// arithmetic, so the open month reports zero over budget however badly it
+	// is going. Zero is the number somebody would quote in a meeting, so the
+	// page must not show it: it reports the last month that actually finished,
+	// and says which month that was.
+	var over, under int
+	var overBy money.Cents
+	for _, d := range world.Desks {
+		lines, err := estate.BudgetVsActual(s.db, d.Name)
+		if err != nil {
+			continue
+		}
+		for _, b := range lines {
+			if b.Month != prev {
+				continue
+			}
+			if b.Variance > 0 {
+				over++
+				overBy += b.Variance
+			} else {
+				under++
+			}
+		}
+	}
+
+	board, _ := crew.Tasks(s.db, crew.TaskFilter{})
+	openTasks := 0
+	for _, t := range board {
+		if t.State != "done" {
+			openTasks++
+		}
+	}
+	pending, _ := crew.AwaitingStamp(s.db)
+	stamps := len(pending)
+
+	change := thisMonth - lastMonth
+	pct := 0.0
+	if lastMonth != 0 {
+		pct = float64(change) / float64(lastMonth) * 100
+	}
+
 	s.render(w, tplOverview, struct {
 		shell
-		Month string
-		Desks []deskLine
-		Open  []anomaly.Anomaly
-	}{s.shellFor(r, "Overview", "overview"), month, desks, open})
+		Month, Prev string
+		Through     string
+		Desks       []deskTile
+		Open        []anomaly.Anomaly
+		OpenN       int
+		Waiting     money.Cents
+		Counts      []struct {
+			State anomaly.State
+			N     int
+		}
+		Movers    []mover
+		ThisMonth money.Cents
+		LastMonth money.Cents
+		Change    money.Cents
+		Pct       float64
+		HasPct    bool
+		Over      int
+		Under     int
+		OverBy    money.Cents
+		OpenTasks int
+		Stamps    int
+	}{s.shellFor(r, "Overview", "overview"), month, prev, through, desks, top, len(open),
+		waiting, counts, mv, thisMonth, lastMonth, change, pct, lastMonth != 0,
+		over, under, overBy, openTasks, stamps})
 }
 
 // --------------------------------------------------------------- anomalies
