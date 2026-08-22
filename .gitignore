@@ -2,3 +2,5 @@ parity/captures/
 *.db
 *.duckdb
 bin/
+passports/
+events/
