@@ -19,6 +19,7 @@ import (
 	"github.com/TAIPANBOX/costcrew/internal/detect"
 	"github.com/TAIPANBOX/costcrew/internal/estate"
 	"github.com/TAIPANBOX/costcrew/internal/finops"
+	"github.com/TAIPANBOX/costcrew/internal/history"
 	"github.com/TAIPANBOX/costcrew/internal/store"
 	"github.com/TAIPANBOX/costcrew/internal/web"
 	"github.com/TAIPANBOX/costcrew/internal/world"
@@ -36,7 +37,16 @@ type harness struct {
 	c   *http.Client
 }
 
-func start(t *testing.T) *harness {
+// start is the console as somebody finds it: seeded, and with a past.
+func start(t *testing.T) *harness { return startWith(t, true) }
+
+// startBare is the console on its very first morning, before anything has been
+// decided. Two behaviours only exist there: a KPI that refuses because nothing
+// has been frozen, and the first freeze of a month. Weakening those tests to
+// fit a seeded harness would delete the only coverage that state has.
+func startBare(t *testing.T) *harness { return startWith(t, false) }
+
+func startWith(t *testing.T, withHistory bool) *harness {
 	t.Helper()
 	dir := t.TempDir()
 	st, err := store.Open(dir)
@@ -75,6 +85,14 @@ func start(t *testing.T) *harness {
 	}
 	if _, err := crew.SeedRoster(st.DB(), "owner"); err != nil {
 		t.Fatal(err)
+	}
+	// And the past, because production has one. A harness whose anomalies are
+	// all open and whose forecast table is empty cannot see a page that only
+	// goes wrong once something has been decided.
+	if withHistory {
+		if _, err := history.Seed(st.DB(), nil); err != nil {
+			t.Fatal(err)
+		}
 	}
 	au, err := auth.New(st, dir)
 	if err != nil {
@@ -907,7 +925,7 @@ func TestAViewerCannotHire(t *testing.T) {
 // The loop worth having: a KPI that refuses until the practice does the thing
 // it measures, and then reports.
 func TestFreezingAForecastTurnsARefusingKPIIntoAReportingOne(t *testing.T) {
-	h := start(t)
+	h := startBare(t)
 	h.signUp(t, "owner", "owner-password-2026")
 
 	_, body, _ := h.get(t, "/kpis")
@@ -944,7 +962,7 @@ func TestFreezingAForecastTurnsARefusingKPIIntoAReportingOne(t *testing.T) {
 
 // Re-freezing would move a number somebody has already been shown.
 func TestAFrozenForecastCannotBeRefrozen(t *testing.T) {
-	h := start(t)
+	h := startBare(t)
 	h.signUp(t, "owner", "owner-password-2026")
 	if _, loc := h.post(t, "/forecast/freeze", url.Values{
 		"period": {"2026-08"}, "csrf": {h.csrf(t, "/forecast")},
@@ -1128,5 +1146,60 @@ func TestTwoTablesOnAPageSortIndependently(t *testing.T) {
 	if a, b := cellsIn(base, pat), cellsIn(moved, pat); len(a) > 1 && strings.Join(a, "|") != strings.Join(b, "|") {
 		t.Errorf("sorting the commitments table also reordered the licence table:\n %v\n %v",
 			a[:min(4, len(a))], b[:min(4, len(b))])
+	}
+}
+
+// ------------------------------------------------- one question, one answer
+
+// number pulls the first decimal figure out of a fragment.
+func number(s string) string {
+	m := regexp.MustCompile(`-?[0-9][0-9,]*\.[0-9]+|-?[0-9][0-9,]*`).FindString(s)
+	return strings.ReplaceAll(m, ",", "")
+}
+
+// fragment returns the text around the first occurrence of a marker.
+func fragment(body, marker string, n int) string {
+	i := strings.Index(body, marker)
+	if i < 0 {
+		return ""
+	}
+	end := i + len(marker) + n
+	if end > len(body) {
+		end = len(body)
+	}
+	return body[i+len(marker) : end]
+}
+
+// The same question asked on two pages gets the same answer.
+//
+// This is not a style point. Forecast accuracy read 11.7% over 84 month-desks
+// on one page and 11.9% over 78 on another, and both were arithmetically
+// correct: one had been handed the page's filter where the estate's open month
+// belonged. Two right answers that disagree are worse than one wrong one,
+// because a reader cannot tell which to act on and quietly stops trusting
+// both.
+func TestTwoPagesNeverDisagreeAboutOneNumber(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+
+	// Forecast accuracy: the forecast page against the KPI page.
+	_, fc, _ := h.get(t, "/forecast")
+	_, kp, _ := h.get(t, "/kpis")
+
+	fAcc := number(fragment(fc, "Average error across", 40))         // the count
+	fPct := number(fragment(fc, "scored month-desks: <strong>", 20)) // the percentage
+
+	row := fragment(kp, `id="kpi-forecast-accuracy"`, 700)
+	kAcc := number(fragment(row, "Across", 40))
+	kPct := number(fragment(row, `<td class="num">`, 40))
+
+	if fAcc == "" || kAcc == "" {
+		t.Skip("nothing has been scored in this fixture, so there is no number to compare")
+	}
+	if fAcc != kAcc {
+		t.Errorf("scored month-desks: the forecast page says %s, the KPI page says %s", fAcc, kAcc)
+	}
+	if fPct != "" && kPct != "" && fPct != kPct {
+		t.Errorf("average error: the forecast page says %s%%, the KPI page says %s%%", fPct, kPct)
 	}
 }

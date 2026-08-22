@@ -10,7 +10,7 @@
     <thead><tr><th class="tight">Group</th><th>KPI</th><th class="num">Value</th><th class="tight">Target</th><th></th></tr></thead>
     <tbody>
     {{range .KPIs}}
-      <tr>
+      <tr id="kpi-{{.ID}}">
         <td class="tight">{{.Group}}</td>
         <td><strong>{{.Name}}</strong>{{if .Note}}<span class="sub">{{.Note}}</span>{{end}}{{if .Blocked}}<span class="sub">{{.Blocked}}</span>{{end}}</td>
         <td class="num">{{if .HasVal}}{{.Value}}{{if .Unit}} {{.Unit}}{{end}}{{else}}—{{end}}</td>

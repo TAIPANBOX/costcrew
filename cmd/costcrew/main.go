@@ -47,6 +47,7 @@ func main() {
 	setPw := flag.String("set-password", "", "create or reset an account as NAME:PASSWORD, then exit")
 	setRole := flag.String("set-role", "admin", "the role a new -set-password account gets")
 	weak := flag.Bool("allow-weak-password", false, "let -set-password set a password below the minimum, for a local demo account")
+	rebuild := flag.Bool("rebuild-fixture", false, "drop the seeded estate, crew and history and build them again, then serve")
 	flag.Parse()
 
 	if *setPw != "" {
@@ -59,6 +60,11 @@ func main() {
 	cfg := stack.Config{
 		EventsPath: *events, PassportDir: *passports,
 		Host: *host, Owner: *owner, Attestation: *attest,
+	}
+	if *rebuild {
+		if err := rebuildFixture(*dir); err != nil {
+			log.Fatalf("costcrew: %v", err)
+		}
 	}
 	if err := run(*addr, *dir, cfg); err != nil {
 		log.Fatalf("costcrew: %v", err)
@@ -97,6 +103,46 @@ func setPassword(dir, spec, role string, weak bool) error {
 		fmt.Printf("WARNING: %q is %d characters, below the %d this console asks for.\n"+
 			"Serve this installation on loopback only.\n", name, len(pw), auth.MinPassword)
 	}
+	return nil
+}
+
+// rebuildFixture empties everything this binary seeds, so the next start
+// builds it again from the current fixture.
+//
+// Accounts, sessions and the journal are NOT touched. The journal is a hash
+// chain and deleting from it would break the chain the audit page verifies;
+// the accounts are the one thing in the database a person put there.
+//
+// It exists because the fixture is code: when the crew grows or a plane starts
+// being derived from the ledger, an installation seeded last week keeps the
+// old one, and the seeders correctly refuse to overwrite what is already
+// there. This is the way to ask for the new one on purpose.
+func rebuildFixture(dir string) error {
+	st, err := store.Open(dir)
+	if err != nil {
+		return fmt.Errorf("opening the store in %s: %w", dir, err)
+	}
+	defer st.Close()
+	seeded := []string{
+		"comments", "artifacts", "tasks", "sprints",
+		"attribution", "anomalies", "drivers",
+		"explainers", "forecasts", "chargeback",
+		"budgets", "allocation_rules", "charges", "analysts",
+	}
+	for _, t := range seeded {
+		// A table this build does not know about is not an error: an older
+		// database simply does not have it.
+		if _, err := st.DB().Exec("DELETE FROM " + t); err != nil &&
+			!strings.Contains(err.Error(), "no such table") {
+			return fmt.Errorf("emptying %s: %w", t, err)
+		}
+	}
+	if _, err := st.Journal("fixture_rebuilt", 0, map[string]any{
+		"tables": strings.Join(seeded, ","),
+	}); err != nil {
+		return err
+	}
+	log.Printf("CostCrew: emptied the seeded tables; accounts and the journal are untouched")
 	return nil
 }
 

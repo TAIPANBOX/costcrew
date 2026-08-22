@@ -138,7 +138,14 @@ func KPIs(db *sql.DB, period string) ([]KPI, error) {
 	// This one stops refusing the moment a frozen month finishes, which is the
 	// loop worth having: the KPI is not switched on by a setting, it is earned
 	// by the practice doing the thing it measures.
-	acc, scored, hasAcc, err := Accuracy(db, period)
+	// The estate's open month, NOT the period this page is filtered to.
+	// Accuracy is a property of the practice, and a practice does not forecast
+	// better because somebody changed a dropdown.
+	openMonth, err := OpenPeriod(db)
+	if err != nil {
+		return nil, err
+	}
+	acc, scored, hasAcc, err := Accuracy(db, openMonth)
 	if err != nil {
 		return nil, err
 	}
@@ -291,7 +298,8 @@ func forecastLevel(db *sql.DB, period string) int {
 	if err != nil {
 		return 0
 	}
-	acc, _, has, _ := Accuracy(db, period)
+	openMonth, _ := OpenPeriod(db)
+	acc, _, has, _ := Accuracy(db, openMonth)
 	switch {
 	case has && acc <= LadderTrusted:
 		return 3

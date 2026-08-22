@@ -236,6 +236,23 @@ func grade(errPct float64) string {
 // It returns ok=false when nothing has been scored, which is what the KPI
 // library reports as a refusal rather than as a zero. A zero would read as a
 // perfect forecast.
+// OpenPeriod is the month the estate is still in.
+//
+// It is a fact about the CHARGES, not about whatever month a page happens to
+// be filtered to, and confusing the two is how two pages came to report the
+// same accuracy as 11.7% over 84 month-desks and 11.9% over 78. Both were
+// arithmetically right and they disagreed on screen, which is worse than one
+// of them being wrong: a reader cannot tell which to believe.
+func OpenPeriod(db *sql.DB) (string, error) {
+	var m string
+	err := db.QueryRow(`SELECT COALESCE(MAX(substr(day,1,7)),'') FROM charges`).Scan(&m)
+	return m, err
+}
+
+// Accuracy scores every forecast whose month has finished.
+//
+// openPeriod is the month still running, from OpenPeriod. Pass a page's filter
+// here and the score silently changes with the filter.
 func Accuracy(db *sql.DB, openPeriod string) (float64, int, bool, error) {
 	fs, err := Forecasts(db, openPeriod)
 	if err != nil {
