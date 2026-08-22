@@ -1996,3 +1996,79 @@ func TestSearchFindsAcrossEveryKind(t *testing.T) {
 		t.Error("a search with no matches does not say so")
 	}
 }
+
+// The links an alert carries have to land.
+//
+// heraldyx watches the agent-event stream this console writes and mails a
+// person when something needs them tonight. Every message ends with three
+// links into "the operator's own console", addressed by what the stack knows -
+// an agent:// URI, an owner - rather than by this console's row ids. All three
+// answered 404, which makes an alert that arrives at two in the morning worse
+// than no alert: somebody is awake, worried, and has to find it by hand.
+func TestTheLinksAnAlertCarriesLand(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+
+	for _, tc := range []struct{ path, wantPrefix string }{
+		// Exactly as heraldyx writes them, unescaped, because that is what
+		// arrives and the console does not get to require otherwise.
+		{"/a/agent://costcrew.test/triage-aws", "/staff/triage-aws"},
+		{"/a/agent:/costcrew.test/triage-aws", "/staff/triage-aws"}, // after the mux collapses //
+		{"/i/anomaly_triaged:agent://costcrew.test/triage-aws", "/"},
+		{"/o/owner", "/o/owner"},
+	} {
+		code, _, loc := h.get(t, tc.path)
+		switch code {
+		case http.StatusOK:
+			if tc.wantPrefix != tc.path {
+				t.Errorf("GET %s answered directly; expected a redirect to %s", tc.path, tc.wantPrefix)
+			}
+		case http.StatusSeeOther:
+			if !strings.HasPrefix(loc, tc.wantPrefix) {
+				t.Errorf("GET %s went to %s, wanted %s", tc.path, loc, tc.wantPrefix)
+			}
+		default:
+			t.Errorf("GET %s: %d, so an alert's own link is broken", tc.path, code)
+		}
+	}
+
+	// An agent named in an old alert and since removed says so, rather than
+	// answering 404, which reads as a broken console instead of a decision.
+	_, _, loc := h.get(t, "/a/agent://costcrew.test/nobody-by-that-name")
+	if !strings.Contains(loc, "/staff") || !strings.Contains(loc, "msg=") {
+		t.Errorf("a link to a removed agent went to %q with no explanation", loc)
+	}
+}
+
+// The owner page is the third link, and a view the console did not have.
+func TestAnOwnerPageShowsEverythingTheyAnswerFor(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+
+	code, body, _ := h.get(t, "/o/owner")
+	if code != http.StatusOK {
+		t.Fatalf("GET /o/owner: %d", code)
+	}
+	roster, err := crew.Roster(h.st.DB())
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := 0
+	for _, a := range roster {
+		if a.Owner == "owner" {
+			want++
+		}
+	}
+	if want == 0 {
+		t.Skip("nobody on this roster is owned by the signed-in account")
+	}
+	got := number(fragment(body, `<div class="k">Agents</div><div class="v big">`, 30))
+	if got != strconv.Itoa(want) {
+		t.Errorf("the owner page counts %s agents, the roster says %d", got, want)
+	}
+	// Every one of them is a link, because that is the point of the page.
+	links := regexp.MustCompile(`href="/staff/[a-z0-9-]+"`).FindAllString(body, -1)
+	if len(links) < want {
+		t.Errorf("%d agents listed and %d of them open", want, len(links))
+	}
+}

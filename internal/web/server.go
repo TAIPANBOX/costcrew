@@ -69,7 +69,29 @@ func New(st *store.Store, au *auth.Auth, sk Stack) *Server {
 	return s
 }
 
-func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.mux.ServeHTTP(w, r) }
+// ServeHTTP routes, and handles the three inbound link shapes BEFORE the mux
+// sees them.
+//
+// http.ServeMux cleans a path before matching, which collapses the // in an
+// agent:// URI and answers 307 to the tidied form. It does eventually land,
+// and "eventually" is doing work there: the link is in an email, and a mail
+// client that does not follow a redirect, or a person copying the URL out of
+// a plain-text message, gets a round trip that did not have to exist. These
+// are addresses somebody else's software builds; the console accommodates
+// them rather than requiring them to be escaped.
+func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	switch {
+	case strings.HasPrefix(r.URL.Path, "/a/"):
+		r.SetPathValue("uri", strings.TrimPrefix(r.URL.Path, "/a/"))
+		s.byAgentURI(w, r)
+		return
+	case strings.HasPrefix(r.URL.Path, "/i/"):
+		r.SetPathValue("ref", strings.TrimPrefix(r.URL.Path, "/i/"))
+		s.byIncident(w, r)
+		return
+	}
+	s.mux.ServeHTTP(w, r)
+}
 
 func (s *Server) routes() {
 	s.mux.HandleFunc("GET /healthz", s.healthz)
@@ -154,6 +176,12 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /desks", s.desks)
 	s.mux.HandleFunc("GET /services", s.services)
 	s.mux.HandleFunc("GET /search", s.search)
+
+	// Where an alert's links land. heraldyx addresses things by what the
+	// stack knows - an agent:// URI, an owner - rather than by this
+	// console's row ids, and all three answered 404 until these existed.
+	// /a/ and /i/ are handled in ServeHTTP, before the mux cleans the path.
+	s.mux.HandleFunc("GET /o/{name}", s.owner)
 	s.mux.HandleFunc("GET /service/{name}", s.service)
 	s.mux.HandleFunc("GET /desk/{name}", s.desk)
 

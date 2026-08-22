@@ -1,0 +1,47 @@
+{{define "content"}}
+<p class="crumb"><a href="/staff">Crew</a> / owner / {{.Who}}</p>
+<header class="page">
+  <h1>{{.Who}}</h1>
+  <p>Everything this person answers for.
+    {{if .HasAccount}}An account on this installation, role <span class="chip grain">{{.Role}}</span>.
+    {{else}}<strong>No account by this name.</strong> The agents below still name it as their owner, which is worth fixing:
+      an agent whose owner cannot sign in is an agent nobody can be asked about.{{end}}</p>
+</header>
+
+<div class="tiles summary">
+  <div class="tile wide"><div class="k">Agents</div><div class="v big">{{len .Agents}}</div>
+    <div class="s">{{range $s, $n := .States}}{{$n}} {{$s}} · {{end}}across {{len .Desks}} {{plural (len .Desks) "desk" "desks"}}</div></div>
+  <div class="tile wide"><div class="k">What they cost</div><div class="v big">{{.Spent}}</div>
+    <div class="s">since the board opened. {{.ThisMonth}} of it in {{.Month}}, against {{.Guard}} a month of guards,
+      and {{if .OverGuard}}<strong>{{.OverGuard}} of them past it</strong>{{else}}none of them past it{{end}}.</div></div>
+  <div class="tile wide"><div class="k">Open work</div><div class="v big">{{.Open}}</div>
+    <div class="s">tasks on their desks now</div></div>
+  <div class="tile wide"><div class="k">Findings attributed</div><div class="v big {{if .Findings}}up{{end}}">{{.Findings}}</div>
+    <div class="s">anomalies the detector put on one of these agents</div></div>
+</div>
+
+<div class="panel">
+  <h2>What they run</h2>
+  <p class="note">Dearest first. This is the question somebody asks the moment one agent misbehaves: what else is this person running, and is any of it doing the same thing.</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Agent</th><th>Role</th><th class="tight">Desk</th><th class="num">Open</th>
+      <th class="num">Spent</th><th class="num">Guard</th><th class="num">Findings</th><th class="tight">State</th></tr></thead>
+    <tbody>{{range .Agents}}
+      <tr>
+        <td><a href="/staff/{{.Name}}"><strong>{{.Name}}</strong></a></td>
+        <td>{{.Role}}</td>
+        <td class="tight"><a href="/desk/{{.Desk}}">{{.Desk}}</a></td>
+        <td class="num">{{.Open}}</td>
+        <td class="num">{{.Spent}}</td>
+        <td class="num">{{.Monthly}}</td>
+        <td class="num {{if .Anomalies}}up{{end}}">{{if .Anomalies}}<a href="/anomalies?caused_by={{.Name}}">{{.Anomalies}}</a>{{else}}0{{end}}</td>
+        <td class="tight"><span class="chip {{if eq .State "active"}}accepted{{else if eq .State "suspended"}}dismissed{{else}}triaged{{end}}">{{.State}}</span></td>
+      </tr>
+    {{else}}
+      <tr><td colspan="8" class="empty">Nobody on the roster names {{$.Who}} as their owner.</td></tr>
+    {{end}}</tbody>
+  </table>
+  </div>
+</div>
+{{end}}
