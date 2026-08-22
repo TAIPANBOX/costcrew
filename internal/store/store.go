@@ -201,14 +201,24 @@ func writeValue(b *strings.Builder, v any) error {
 	return nil
 }
 
-// pyFloat renders a float the way Python's json does: repr() shortest
-// round-trip, but a value that is integral still carries its ".0", which Go's
-// strconv drops.
+// pyFloat renders a float the way Python's json does, which is repr(), which
+// is the shortest string that round-trips. Three rules, and each one was a
+// failing vector before it was a line of code:
+//
+//  1. an integral value keeps its ".0", which Go's shortest form drops;
+//  2. everything else is POSITIONAL, not %g. Go's %g renders 1780301400.123
+//     as 1.780301400123e+09, and every journal timestamp is in that range;
+//  3. Python does switch to scientific below 1e-4 or at 1e17 and above. No
+//     journal value has ever been near either, so this branch is defensive
+//     rather than exercised, and it is written out instead of left to chance.
 func pyFloat(f float64) string {
 	if f == math.Trunc(f) && math.Abs(f) < 1e16 {
 		return strconv.FormatFloat(f, 'f', 1, 64)
 	}
-	return strconv.FormatFloat(f, 'g', -1, 64)
+	if a := math.Abs(f); a != 0 && (a < 1e-4 || a >= 1e17) {
+		return strconv.FormatFloat(f, 'e', -1, 64)
+	}
+	return strconv.FormatFloat(f, 'f', -1, 64)
 }
 
 func writeString(b *strings.Builder, s string) {
