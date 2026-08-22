@@ -15,13 +15,13 @@
       <div>
         <label for="name">Name</label>
         <input id="name" type="text" name="name" placeholder="investigator-azure" required>
-        <p class="note">Becomes part of an <code>agent://</code> identity, which other services parse. Lower-case letters, digits and hyphens.</p>
       </div>
       <div>
         <label for="desk">Desk</label>
         <select id="desk" name="desk">{{range .Desks}}<option value="{{.}}">{{.}}</option>{{end}}<option value="management">management</option></select>
       </div>
     </div>
+    <p class="note">The name becomes part of an <code>agent://</code> identity, which other services parse. Lower-case letters, digits and hyphens.</p>
     <div>
       <label for="role">Role</label>
       <input id="role" type="text" name="role" placeholder="Investigator (azure desk)" required>

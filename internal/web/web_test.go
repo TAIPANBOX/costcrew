@@ -1402,3 +1402,61 @@ func TestTheChainRecordsDecisionsAndNotOnlySignIns(t *testing.T) {
 		t.Errorf("the chain no longer verifies after two decisions: %v at %s", err, breakAt)
 	}
 }
+
+// Every name the console prints is a way in.
+//
+// The rule is the one the estate pages were built for: a cell that names a
+// team, a desk or an analyst and does not open it makes the reader go back to
+// the top and filter by hand. It kept being half-true, because each new page
+// had to remember, so this checks every page at once.
+func TestEveryNameOnAPageIsALinkIntoIt(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+
+	// Names that exist, and the page that should open for each.
+	known := map[string]string{}
+	for _, tm := range world.Teams {
+		known[tm.Name] = "/team/" + tm.Name
+	}
+	for _, d := range world.Desks {
+		known[d.Name] = "/desk/" + d.Name
+	}
+	roster, err := crew.Roster(h.st.DB())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, a := range roster {
+		known[a.Name] = "/staff/" + a.Name
+	}
+
+	// A bare cell is one whose whole content is a known name, in a row that
+	// does not already link that name.
+	//
+	// The per-ROW check matters: the desks table has a "kind" column whose
+	// value for the SaaS desk is the word "saas", which is also a desk name.
+	// Flagging it would be asking the page to link a category to an entity
+	// that merely shares its spelling.
+	rowRe := regexp.MustCompile(`(?s)<tr[^>]*>.*?</tr>`)
+	cell := regexp.MustCompile(`<td[^>]*>([a-z0-9][a-z0-9._-]{2,})</td>`)
+	for _, path := range []string{
+		"/", "/anomalies", "/budgets", "/staff", "/board", "/sprints",
+		"/allocation", "/chargeback", "/utilisation", "/saas", "/ai",
+		"/forecast", "/teams", "/desks", "/team/ml-platform", "/desk/aws",
+		"/sprint/plan", "/connectors",
+	} {
+		code, body, _ := h.get(t, path)
+		if code != http.StatusOK {
+			t.Errorf("GET %s: %d", path, code)
+			continue
+		}
+		for _, row := range rowRe.FindAllString(body, -1) {
+			for _, m := range cell.FindAllStringSubmatch(row, -1) {
+				to, ok := known[m[1]]
+				if !ok || strings.Contains(row, `href="`+to+`"`) {
+					continue
+				}
+				t.Errorf("%s prints %q as plain text; it should open %s", path, m[1], to)
+			}
+		}
+	}
+}

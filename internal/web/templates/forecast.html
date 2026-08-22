@@ -11,7 +11,7 @@
     <div class="scroll"><table>
       <thead><tr><th class="tight">Desk</th><th class="num">Projected</th></tr></thead>
       <tbody>{{range .Projection}}
-        <tr><td class="tight">{{.Source}}</td><td class="num">{{.Amount}}</td></tr>
+        <tr><td class="tight"><a href="/desk/{{.Source}}">{{.Source}}</a></td><td class="num">{{.Amount}}</td></tr>
       {{end}}</tbody>
     </table></div>
     {{if .Frozen}}
@@ -40,7 +40,7 @@
       <tbody>{{range .Rows}}
         <tr>
           <td class="tight">{{.Period}}</td>
-          <td class="tight">{{.Source}}</td>
+          <td class="tight"><a href="/desk/{{.Source}}">{{.Source}}</a></td>
           <td class="num">{{.Forecast}}</td>
           <td class="num">{{if .HasAct}}{{.Actual}}{{else}}<span class="note">still running</span>{{end}}</td>
           <td class="num">{{if .HasAct}}{{printf "%.1f%%" .ErrorPct}}{{else}}—{{end}}</td>
