@@ -1,0 +1,68 @@
+{{define "content"}}
+<p class="crumb"><a href="/staff">Crew</a> / {{.A.Name}}</p>
+<header class="page">
+  <h1>{{.A.Name}}</h1>
+  <p>{{.A.Role}}</p>
+</header>
+
+<div class="tiles">
+  <div class="tile"><div class="k">On the desk now</div><div class="v">{{.Score.Open}}</div><div class="s">open tasks</div></div>
+  <div class="tile"><div class="k">Posted</div><div class="v">{{.Score.Posted}}</div><div class="s">work that counted</div></div>
+  <div class="tile"><div class="k">First pass</div><div class="v">{{if .Score.HasRate}}{{printf "%.0f%%" .Score.FirstPass}}{{else}}—{{end}}</div><div class="s">accepted without a return</div></div>
+  <div class="tile"><div class="k">Its work cost</div><div class="v">{{.Score.Spent}}</div><div class="s">against {{.A.MonthlyUSD}} a month</div></div>
+  <div class="tile"><div class="k">Anomalies handled</div><div class="v">{{.Score.Anomalies}}</div><div class="s"><a href="/anomalies?handled_by={{.A.Name}}">see them</a></div></div>
+</div>
+
+<div class="panel">
+  <h2>The mandate</h2>
+  <div class="body">
+    <dl class="facts">
+      <dt>State</dt>
+      <dd><span class="chip {{.Chip}}">{{.A.State}}</span>{{if .A.Reason}} <strong>{{.A.Reason}}</strong>{{end}}</dd>
+      <dt>Desk</dt><dd>{{.A.Desk}}</dd>
+      <dt>Engine</dt><dd>{{.A.Engine}}</dd>
+      <dt>Guards</dt><dd>{{.A.PerTaskUSD}} per task, {{.A.MonthlyUSD}} a month</dd>
+      <dt>Skills</dt><dd>{{range .A.Skills}}<span class="chip grain">{{.}}</span> {{end}}</dd>
+      <dt>Identity</dt><dd><code>agent://{{$.Host}}/{{.A.Name}}</code>{{if ne .A.Name "supervisor"}}, acting under <code>agent://{{$.Host}}/supervisor</code>{{end}}</dd>
+    </dl>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Anomalies it caused</h2>
+  <div class="body">
+    {{if .Caused}}
+    <div class="scroll"><table>
+      <thead><tr><th class="num">Money</th><th>What</th><th class="tight">Day</th><th class="tight">State</th></tr></thead>
+      <tbody>{{range .Caused}}
+      <tr><td class="num up"><a href="/anomalies/{{.ID}}">{{.Excess}}</a></td>
+          <td>{{.Service}}<span class="sub">{{.Source}} · {{.Team}}</span></td>
+          <td class="tight">{{.Day}}</td>
+          <td class="tight"><span class="chip {{.State}}">{{.State}}</span></td></tr>
+      {{end}}</tbody>
+    </table></div>
+    {{else}}
+    <p class="note">None attributed to this analyst. That is either true or the limit of what attribution can prove today, and the anomaly page says which.</p>
+    {{end}}
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Its work</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Task</th><th class="tight">Sprint</th><th class="num">Spent</th><th class="tight">State</th></tr></thead>
+    <tbody>
+    {{range .Tasks}}
+      <tr><td><a href="/task/{{.ID}}">{{.Title}}</a>{{if .Reason}}<span class="sub">{{.Reason}}</span>{{end}}</td>
+          <td class="tight">{{.Sprint}}</td>
+          <td class="num {{if .OverGuard}}up{{end}}">{{.Spent}}</td>
+          <td class="tight"><span class="chip {{.StateChip}}">{{.State}}</span></td></tr>
+    {{else}}
+      <tr><td colspan="4" class="empty">Nothing on this desk yet.</td></tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+</div>
+{{end}}

@@ -32,7 +32,6 @@ var (
 	tplAnomalies = page("anomalies.html")
 	tplAnomaly   = page("anomaly.html")
 	tplBudgets   = page("budgets.html")
-	tplCrew      = page("crew.html")
 )
 
 // shell is what every page needs regardless of what it shows.
@@ -308,17 +307,6 @@ func (s *Server) budgets(w http.ResponseWriter, r *http.Request) {
 		Sources []string
 		Source  string
 	}{s.shellFor(r, "Budgets", "budgets"), rows, sources, source})
-}
-
-func (s *Server) crew(w http.ResponseWriter, r *http.Request) {
-	if s.guard(w, r) == nil {
-		return
-	}
-	s.render(w, tplCrew, struct {
-		shell
-		Crew      []world.Agent
-		DeskCount int
-	}{s.shellFor(r, "Crew", "crew"), world.Crew, len(world.Desks)})
 }
 
 // ---------------------------------------------------------------- sparkline

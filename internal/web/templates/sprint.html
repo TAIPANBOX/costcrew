@@ -1,0 +1,35 @@
+{{define "content"}}
+<p class="crumb"><a href="/sprints">Sprints</a> / {{.S.Label}}</p>
+<header class="page">
+  <h1>{{.S.Label}}</h1>
+  <p>{{.S.Goal}}</p>
+</header>
+
+<div class="tiles">
+  <div class="tile"><div class="k">Tasks</div><div class="v">{{.S.Tasks}}</div><div class="s">{{.S.Start}} to {{.S.End}}</div></div>
+  <div class="tile"><div class="k">Still open</div><div class="v">{{.S.Open}}</div><div class="s">not yet stamped</div></div>
+  <div class="tile"><div class="k">Posted</div><div class="v">{{.S.Posted}}</div><div class="s">counted</div></div>
+  <div class="tile"><div class="k">The crew cost</div><div class="v">{{.S.Spent}}</div><div class="s">against {{.S.Budget}} of guards</div></div>
+</div>
+
+<div class="panel">
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Task</th><th>Analyst</th><th class="tight">Desk</th><th class="num">Spent</th><th class="tight">State</th></tr></thead>
+    <tbody>
+    {{range .Tasks}}
+      <tr>
+        <td><a href="/task/{{.ID}}">{{.Title}}</a>{{if .Reason}}<span class="sub">{{.Reason}}</span>{{end}}</td>
+        <td>{{if .Assignee}}{{.Assignee}}{{else}}<span class="note">unassigned</span>{{end}}</td>
+        <td class="tight">{{.Desk}}</td>
+        <td class="num {{if .OverGuard}}up{{end}}">{{.Spent}}</td>
+        <td class="tight"><span class="chip {{.StateChip}}">{{.State}}</span></td>
+      </tr>
+    {{else}}
+      <tr><td colspan="5" class="empty">No tasks in this sprint.</td></tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+</div>
+{{end}}

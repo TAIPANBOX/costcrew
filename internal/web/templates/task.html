@@ -1,0 +1,99 @@
+{{define "content"}}
+<p class="crumb"><a href="/board">Board</a> / task {{.T.ID}}{{if .T.Anomaly}} / <a href="/anomalies/{{.T.Anomaly}}">{{.T.Anomaly}}</a>{{end}}</p>
+
+<header class="page">
+  <h1>{{.T.Title}}</h1>
+  <p>{{.T.Goal}}</p>
+</header>
+
+<div class="panel">
+  <h2>Where it stands</h2>
+  <div class="body">
+    <dl class="facts">
+      <dt>State</dt><dd><span class="chip {{.StateChip}}">{{.T.State}}</span>{{if .T.Reason}} <strong>{{.T.Reason}}</strong>{{end}}</dd>
+      <dt>Analyst</dt><dd>{{if .T.Assignee}}<a href="/staff/{{.T.Assignee}}">{{.T.Assignee}}</a>{{else}}Nobody has taken this on.{{end}}</dd>
+      <dt>Desk</dt><dd>{{if .T.Desk}}{{.T.Desk}}{{else}}not on a desk{{end}}</dd>
+      <dt>What it cost</dt>
+      <dd class="{{if .T.OverGuard}}up{{end}}">
+        <strong>{{.T.Spent}}</strong> against a per-task guard of {{.T.Budget}}
+        {{if .T.OverGuard}} · over the guard{{end}}
+      </dd>
+      {{if .T.Anomaly}}<dt>Came from</dt><dd><a href="/anomalies/{{.T.Anomaly}}">anomaly {{.T.Anomaly}}</a></dd>{{end}}
+      <dt>Opened</dt><dd>{{.T.Created}}</dd>
+    </dl>
+  </div>
+</div>
+
+{{range .Arts}}
+<div class="panel">
+  <h2>Deliverable · {{.State}}{{if .Author}} · {{.Author}}{{end}}</h2>
+  <div class="body">
+    {{if .Reason}}<p class="msg">Returned: {{.Reason}}</p>{{end}}
+    <div class="doc">{{.Rendered}}</div>
+    {{if .Stamped}}<p class="note">Stamped {{.Stamped}} by {{.Stamper}}. Only the stamp changes anything.</p>{{end}}
+    {{if $.CanAct}}{{if ne .State "posted"}}
+    <hr style="border:none;border-top:1px solid var(--line-soft);margin:16px 0">
+    <div class="row" style="align-items:flex-start">
+      <form class="action" method="post" action="/artifact/{{.ID}}/post">
+        <input type="hidden" name="csrf" value="{{$.CSRF}}">
+        <button type="submit">Post it</button>
+      </form>
+      <form class="action" method="post" action="/artifact/{{.ID}}/return" style="flex:1 1 320px">
+        <input type="hidden" name="csrf" value="{{$.CSRF}}">
+        <label for="r{{.ID}}">Send it back</label>
+        <textarea id="r{{.ID}}" name="reason" placeholder="What has to change before this can be posted."></textarea>
+        <button class="quiet" type="submit">Return</button>
+      </form>
+    </div>
+    {{end}}{{end}}
+  </div>
+</div>
+{{else}}
+<div class="panel"><h2>Deliverable</h2><div class="body"><p class="note">Nothing written yet.</p></div></div>
+{{end}}
+
+<div class="panel">
+  <h2>Thread</h2>
+  <div class="body">
+    {{range .Notes}}
+      <p><strong>{{.Author}}</strong> <span class="note">{{.Created}}</span><br>{{.Body}}</p>
+    {{else}}
+      <p class="note">No notes on this task.</p>
+    {{end}}
+    {{if .CanAct}}
+    <hr style="border:none;border-top:1px solid var(--line-soft);margin:16px 0">
+    <form class="action" method="post" action="/task/{{.T.ID}}/comment">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <label for="c">Add a note</label>
+      <textarea id="c" name="body" placeholder="A note is not a decision, which is why it needs no reason."></textarea>
+      <div class="row"><button class="quiet" type="submit">Add</button></div>
+    </form>
+    {{end}}
+  </div>
+</div>
+
+{{if .CanAct}}
+<div class="panel">
+  <h2>Move it</h2>
+  <div class="body">
+    <form class="action" method="post" action="/task/{{.T.ID}}/assign">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <div class="row">
+        <div>
+          <label for="a">Hand it to</label>
+          <select id="a" name="analyst">{{range .Analysts}}<option value="{{.}}" {{if eq . $.T.Assignee}}selected{{end}}>{{.}}</option>{{end}}</select>
+        </div>
+        <button type="submit">Assign</button>
+      </div>
+    </form>
+    <hr style="border:none;border-top:1px solid var(--line-soft);margin:16px 0">
+    <form class="action" method="post" action="/task/{{.T.ID}}/block">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <label for="b">Block it</label>
+      <textarea id="b" name="reason" placeholder="What is stopping this, and who can unstop it."></textarea>
+      <div class="row"><button class="quiet" type="submit">Block</button></div>
+    </form>
+  </div>
+</div>
+{{end}}
+{{end}}

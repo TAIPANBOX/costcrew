@@ -14,8 +14,12 @@
   <a href="/anomalies" {{if eq .Nav "anomalies"}}aria-current="page"{{end}}>
     Anomalies {{if .OpenCount}}<span class="count">{{.OpenCount}}</span>{{end}}
   </a>
+  <div class="group">Work</div>
+  <a href="/board" {{if eq .Nav "board"}}aria-current="page"{{end}}>Board</a>
+  <a href="/sprints" {{if eq .Nav "sprints"}}aria-current="page"{{end}}>Sprints</a>
+  <a href="/staff" {{if eq .Nav "staff"}}aria-current="page"{{end}}>Crew</a>
+  <div class="group">Money</div>
   <a href="/budgets" {{if eq .Nav "budgets"}}aria-current="page"{{end}}>Budgets</a>
-  <a href="/crew" {{if eq .Nav "crew"}}aria-current="page"{{end}}>Crew</a>
   <div class="group">Account</div>
   <a href="/logout" onclick="event.preventDefault();document.getElementById('lo').submit()">Sign out</a>
   <form id="lo" method="post" action="/logout" hidden>

@@ -1,0 +1,31 @@
+{{define "content"}}
+<header class="page">
+  <h1>Crew</h1>
+  <p>{{len .Rows}} analysts. First-pass acceptance is blank rather than perfect where nothing has been reviewed yet: a rate over no reviews is not a rate, and a hopeful default makes the newest analyst look like the best one.</p>
+</header>
+
+<div class="panel">
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Analyst</th><th class="tight">Desk</th><th class="num">Open</th><th class="num">Posted</th><th class="num">Returned</th><th class="num">First pass</th><th class="num">Spent</th><th>State</th></tr></thead>
+    <tbody>
+    {{range .Rows}}
+      <tr>
+        <td><a href="/staff/{{.Name}}"><strong>{{.Name}}</strong></a><span class="sub">{{.Role}}</span></td>
+        <td class="tight">{{.Desk}}</td>
+        <td class="num">{{.Score.Open}}</td>
+        <td class="num">{{.Score.Posted}}</td>
+        <td class="num {{if .Score.Returned}}up{{end}}">{{.Score.Returned}}</td>
+        <td class="num">{{if .Score.HasRate}}{{printf "%.0f%%" .Score.FirstPass}}{{else}}<span class="note">not yet</span>{{end}}</td>
+        <td class="num">{{.Score.Spent}}</td>
+        <td>
+          <span class="chip {{.Chip}}">{{.State}}</span>
+          {{if .Reason}}<span class="sub">{{.Reason}}</span>{{end}}
+        </td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+</div>
+{{end}}

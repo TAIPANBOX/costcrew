@@ -19,6 +19,7 @@ import (
 
 	"github.com/TAIPANBOX/costcrew/internal/anomaly"
 	"github.com/TAIPANBOX/costcrew/internal/auth"
+	"github.com/TAIPANBOX/costcrew/internal/crew"
 	"github.com/TAIPANBOX/costcrew/internal/detect"
 	"github.com/TAIPANBOX/costcrew/internal/estate"
 	"github.com/TAIPANBOX/costcrew/internal/stack"
@@ -99,6 +100,25 @@ func run(addr, dir string, scfg stack.Config) error {
 	}
 	log.Printf("CostCrew: %d anomalies, %d of them new", found, added)
 
+	// The board is seeded from the anomalies, so every finding arrives with
+	// its investigation already open rather than as a row nobody owns.
+	var seeds []crew.AnomalySeed
+	if list, err := anomaly.List(st.DB(), anomaly.Filter{}); err == nil {
+		for _, a := range list {
+			seeds = append(seeds, crew.AnomalySeed{
+				ID: a.ID, Source: a.Source, Service: a.Service,
+				Day: a.Day, Direction: a.Direction, Excess: a.Excess,
+			})
+		}
+	}
+	sp, tk, ar, err := crew.Seed(st.DB(), seeds)
+	if err != nil {
+		return fmt.Errorf("seeding the board: %w", err)
+	}
+	if sp > 0 {
+		log.Printf("CostCrew: %d sprints, %d tasks, %d deliverables", sp, tk, ar)
+	}
+
 	n, err := au.Count()
 	if err != nil {
 		return err
@@ -114,7 +134,7 @@ func run(addr, dir string, scfg stack.Config) error {
 
 	srv := &http.Server{
 		Addr:              addr,
-		Handler:           web.New(st, au, rec),
+		Handler:           web.New(st, au, rec, scfg.Host),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 

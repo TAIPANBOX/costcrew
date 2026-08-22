@@ -13,6 +13,7 @@ import (
 
 	"github.com/TAIPANBOX/costcrew/internal/anomaly"
 	"github.com/TAIPANBOX/costcrew/internal/auth"
+	"github.com/TAIPANBOX/costcrew/internal/crew"
 	"github.com/TAIPANBOX/costcrew/internal/detect"
 	"github.com/TAIPANBOX/costcrew/internal/estate"
 	"github.com/TAIPANBOX/costcrew/internal/store"
@@ -49,12 +50,28 @@ func start(t *testing.T) *harness {
 	if _, _, err := anomaly.Run(st.DB(), time.Now(), detect.Default(), nil); err != nil {
 		t.Fatal(err)
 	}
+	// The harness seeds what production seeds. A test store that is missing a
+	// plane the real one always has does not test the real one.
+	var seeds []crew.AnomalySeed
+	list, err := anomaly.List(st.DB(), anomaly.Filter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, a := range list {
+		seeds = append(seeds, crew.AnomalySeed{
+			ID: a.ID, Source: a.Source, Service: a.Service,
+			Day: a.Day, Direction: a.Direction, Excess: a.Excess,
+		})
+	}
+	if _, _, _, err := crew.Seed(st.DB(), seeds); err != nil {
+		t.Fatal(err)
+	}
 	au, err := auth.New(st, dir)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	srv := httptest.NewServer(web.New(st, au, nil))
+	srv := httptest.NewServer(web.New(st, au, nil, "costcrew.test"))
 	t.Cleanup(srv.Close)
 
 	jar, _ := cookiejar.New(nil)
@@ -140,7 +157,7 @@ func TestEveryPageRefusesAStranger(t *testing.T) {
 			return http.ErrUseLastResponse
 		},
 	}}
-	for _, path := range []string{"/", "/anomalies", "/budgets", "/crew"} {
+	for _, path := range []string{"/", "/anomalies", "/budgets", "/staff", "/board", "/sprints"} {
 		code, _, loc := stranger.get(t, path)
 		if code != http.StatusSeeOther || loc != "/login" {
 			t.Errorf("GET %s without a session: %d to %q, want 303 to /login", path, code, loc)
@@ -161,7 +178,9 @@ func TestSignedInPagesRender(t *testing.T) {
 		{"/", "Overview"},
 		{"/anomalies", "Anomalies"},
 		{"/budgets", "Budgets"},
-		{"/crew", "Crew"},
+		{"/staff", "Crew"},
+		{"/board", "Board"},
+		{"/sprints", "Sprints"},
 	} {
 		code, body, _ := h.get(t, tc.path)
 		if code != http.StatusOK {
@@ -455,7 +474,7 @@ func TestTheCSVExportCarriesTheOpenMonthHonestly(t *testing.T) {
 func TestAnUnclaimedInstallationSendsYouToSignUp(t *testing.T) {
 	h := start(t) // no signUp: nobody has claimed it
 
-	for _, path := range []string{"/", "/anomalies", "/budgets", "/crew"} {
+	for _, path := range []string{"/", "/anomalies", "/budgets", "/staff", "/board", "/sprints"} {
 		code, _, loc := h.get(t, path)
 		if code != http.StatusSeeOther || loc != "/signup" {
 			t.Errorf("GET %s on an unclaimed install: %d to %q, want 303 to /signup",

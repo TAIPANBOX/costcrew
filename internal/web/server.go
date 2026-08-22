@@ -22,17 +22,21 @@ import (
 )
 
 type Server struct {
-	st  *store.Store
-	au  *auth.Auth
-	db  *sql.DB
-	rec anomaly.Recorder
-	mux *http.ServeMux
+	st   *store.Store
+	au   *auth.Auth
+	db   *sql.DB
+	rec  anomaly.Recorder
+	host string
+	mux  *http.ServeMux
 }
 
 // New builds the console. A nil recorder means the governance stack is
 // switched off, which is the default and a perfectly good answer.
-func New(st *store.Store, au *auth.Auth, rec anomaly.Recorder) *Server {
-	s := &Server{st: st, au: au, db: st.DB(), rec: rec, mux: http.NewServeMux()}
+func New(st *store.Store, au *auth.Auth, rec anomaly.Recorder, host string) *Server {
+	if host == "" {
+		host = "costcrew.local"
+	}
+	s := &Server{st: st, au: au, db: st.DB(), rec: rec, host: host, mux: http.NewServeMux()}
 	s.routes()
 	return s
 }
@@ -64,7 +68,17 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /anomalies/{id}/explain", s.anomalyAction("explain"))
 	s.mux.HandleFunc("POST /anomalies/{id}/dismiss", s.anomalyAction("dismiss"))
 	s.mux.HandleFunc("GET /budgets", s.budgets)
-	s.mux.HandleFunc("GET /crew", s.crew)
+	s.mux.HandleFunc("GET /board", s.board)
+	s.mux.HandleFunc("GET /sprints", s.sprints)
+	s.mux.HandleFunc("GET /sprint/{id}", s.sprintPage)
+	s.mux.HandleFunc("GET /task/{id}", s.taskPage)
+	s.mux.HandleFunc("POST /task/{id}/assign", s.taskAction("assign"))
+	s.mux.HandleFunc("POST /task/{id}/block", s.taskAction("block"))
+	s.mux.HandleFunc("POST /task/{id}/comment", s.taskAction("comment"))
+	s.mux.HandleFunc("POST /artifact/{id}/post", s.artifactAction("post"))
+	s.mux.HandleFunc("POST /artifact/{id}/return", s.artifactAction("return"))
+	s.mux.HandleFunc("GET /staff", s.staff)
+	s.mux.HandleFunc("GET /staff/{name}", s.analyst)
 	s.mux.HandleFunc("GET /static/app.css", s.styleCSS)
 }
 

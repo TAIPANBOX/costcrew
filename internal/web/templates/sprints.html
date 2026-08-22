@@ -1,0 +1,28 @@
+{{define "content"}}
+<header class="page">
+  <h1>Sprints</h1>
+  <p>{{len .Sprints}} weeks of work. A sprint's spend is what its analysts actually cost, against the guards they ran under.</p>
+</header>
+
+<div class="panel">
+  <div class="scroll">
+  <table>
+    <thead><tr><th class="tight">Sprint</th><th>Goal</th><th class="num">Tasks</th><th class="num">Open</th><th class="num">Posted</th><th class="num">Spent</th><th class="num">Guard</th><th class="tight">State</th></tr></thead>
+    <tbody>
+    {{range .Sprints}}
+      <tr>
+        <td class="tight"><a href="/sprint/{{.ID}}"><strong>{{.Label}}</strong></a><span class="sub">{{.Start}} to {{.End}}</span></td>
+        <td>{{.Goal}}</td>
+        <td class="num">{{.Tasks}}</td>
+        <td class="num">{{.Open}}</td>
+        <td class="num">{{.Posted}}</td>
+        <td class="num {{if gt .Spent .Budget}}up{{end}}">{{.Spent}}</td>
+        <td class="num">{{.Budget}}</td>
+        <td class="tight"><span class="chip {{if eq .State "active"}}triaged{{else}}accepted{{end}}">{{.State}}</span></td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+</div>
+{{end}}
