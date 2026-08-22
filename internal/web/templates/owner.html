@@ -25,8 +25,7 @@
   <p class="note">Dearest first. This is the question somebody asks the moment one agent misbehaves: what else is this person running, and is any of it doing the same thing.</p>
   <div class="scroll">
   <table>
-    <thead><tr><th>Agent</th><th>Role</th><th class="tight">Desk</th><th class="num">Open</th>
-      <th class="num">Spent</th><th class="num">Guard</th><th class="num">Findings</th><th class="tight">State</th></tr></thead>
+    <thead><tr>{{.Sort.Header "agent" "Agent" "" false}}{{.Sort.Header "role" "Role" "" false}}{{.Sort.Header "desk" "Desk" "tight" false}}{{.Sort.Header "open" "Open" "num" true}}{{.Sort.Header "spent" "Spent" "num" true}}{{.Sort.Header "guard" "Guard" "num" true}}{{.Sort.Header "anomalies" "Findings" "num" true}}{{.Sort.Header "state" "State" "tight" false}}</tr></thead>
     <tbody>{{range .Agents}}
       <tr>
         <td><a href="/staff/{{.Name}}"><strong>{{.Name}}</strong></a></td>

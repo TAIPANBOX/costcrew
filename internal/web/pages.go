@@ -281,6 +281,16 @@ func (s *Server) overview(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "store unavailable", http.StatusInternalServerError)
 		return
 	}
+	msrt := readSortNamed(r, "msort", "change", true)
+	applySort(mv, msrt, map[string]func(a, b mover) int{
+		"service": func(a, b mover) int { return cmpString(a.Service, b.Service) },
+		"desk":    func(a, b mover) int { return cmpString(a.Source, b.Source) },
+		"was":     func(a, b mover) int { return cmpInt64(int64(a.Was), int64(b.Was)) },
+		"now":     func(a, b mover) int { return cmpInt64(int64(a.Now), int64(b.Now)) },
+		// By the SIZE of the move, either way. A page about what changed is
+		// not a page about what went up.
+		"change": func(a, b mover) int { return cmpInt64(abs64(int64(a.Change)), abs64(int64(b.Change))) },
+	}, "change")
 
 	// Budget health is measured on the last CLOSED month, not the open one.
 	//
@@ -343,20 +353,21 @@ func (s *Server) overview(w http.ResponseWriter, r *http.Request) {
 			State anomaly.State
 			N     int
 		}
-		Movers    []mover
-		ThisMonth money.Cents
-		LastMonth money.Cents
-		Change    money.Cents
-		Pct       float64
-		HasPct    bool
-		Over      int
-		Under     int
-		OverBy    money.Cents
-		OpenTasks int
-		Stamps    int
+		Movers     []mover
+		ThisMonth  money.Cents
+		LastMonth  money.Cents
+		Change     money.Cents
+		Pct        float64
+		HasPct     bool
+		SortMovers sortSpec
+		Over       int
+		Under      int
+		OverBy     money.Cents
+		OpenTasks  int
+		Stamps     int
 	}{s.shellFor(r, "Overview", "overview"), month, prev, through, desks, top, len(open),
 		waiting, counts, mv, thisMonth, lastMonth, change, pct, lastMonth != 0,
-		over, under, overBy, openTasks, stamps})
+		msrt, over, under, overBy, openTasks, stamps})
 }
 
 // --------------------------------------------------------------- anomalies

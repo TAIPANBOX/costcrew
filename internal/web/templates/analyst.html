@@ -116,7 +116,7 @@
   <p class="note">Its work by sprint, newest first. A run of four, four, none reads differently from twelve and then nothing.</p>
   <div class="scroll">
   <table>
-    <thead><tr><th class="tight">Sprint</th><th class="num">Tasks</th><th class="num">Posted</th><th class="num">Spent</th></tr></thead>
+    <thead><tr>{{$.SortRhythm.Header "sprint" "Sprint" "tight" false}}{{$.SortRhythm.Header "tasks" "Tasks" "num" true}}{{$.SortRhythm.Header "posted" "Posted" "num" true}}{{$.SortRhythm.Header "spent" "Spent" "num" true}}</tr></thead>
     <tbody>
     {{range .Rhythm}}
       <tr><td class="tight">{{.Sprint}}</td><td class="num">{{.Tasks}}</td>
@@ -173,7 +173,7 @@
   <h2>Its work</h2>
   <div class="scroll">
   <table>
-    <thead><tr><th>Task</th><th class="tight">Sprint</th><th class="num">Spent</th><th class="tight">State</th></tr></thead>
+    <thead><tr>{{$.SortWork.Header "task" "Task" "" false}}{{$.SortWork.Header "sprint" "Sprint" "tight" false}}{{$.SortWork.Header "spent" "Spent" "num" true}}{{$.SortWork.Header "state" "State" "tight" false}}</tr></thead>
     <tbody>
     {{range .Tasks}}
       <tr><td><a href="/task/{{.ID}}">{{.Title}}</a>{{if .Reason}}<span class="sub">{{.Reason}}</span>{{end}}</td>

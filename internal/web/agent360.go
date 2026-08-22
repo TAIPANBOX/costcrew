@@ -331,6 +331,22 @@ func (s *Server) analyst(w http.ResponseWriter, r *http.Request) {
 		rows.Close()
 	}
 
+	rsrt := readSortNamed(r, "rsort", "sprint", true)
+	applySort(rhythm, rsrt, map[string]func(a, b sprintWork) int{
+		"sprint": func(a, b sprintWork) int { return cmpString(a.Sprint, b.Sprint) },
+		"tasks":  func(a, b sprintWork) int { return cmpInt(a.Tasks, b.Tasks) },
+		"posted": func(a, b sprintWork) int { return cmpInt(a.Posted, b.Posted) },
+		"spent":  func(a, b sprintWork) int { return cmpInt64(int64(a.Spent), int64(b.Spent)) },
+	}, "sprint")
+	work := views(ts)
+	wsrt := readSortNamed(r, "wsort", "state", false)
+	applySort(work, wsrt, map[string]func(a, b taskView) int{
+		"task":   func(a, b taskView) int { return cmpString(a.Title, b.Title) },
+		"sprint": func(a, b taskView) int { return cmpInt(a.Sprint, b.Sprint) },
+		"spent":  func(a, b taskView) int { return cmpInt64(int64(a.Spent), int64(b.Spent)) },
+		"state":  func(a, b taskView) int { return cmpString(string(a.State), string(b.State)) },
+	}, "state")
+
 	sc := scores[name]
 	// What its work has cost against what it was allowed, as a percentage, so
 	// the bar on the page is a real proportion and not a guess.
@@ -341,36 +357,38 @@ func (s *Server) analyst(w http.ResponseWriter, r *http.Request) {
 
 	s.render(w, tplAnalyst, struct {
 		shell
-		A         crew.Analyst
-		Score     crew.Scoreboard
-		Chip      string
-		Tasks     []taskView
-		Caused    []anomaly.Anomaly
-		Handled   []anomaly.Anomaly
-		Events    []eventRow
-		Children  []childRow
-		Rhythm    []sprintWork
-		Rights    []struct{ Right, Means string }
-		Cannot    []string
-		Engine    engines.Engine
-		Passport  *passport.Passport
-		JSON      string
-		DeskSpend money.Cents
-		Month     string
-		GuardUsed float64
-		Host      string
-		CanAct    bool
-		MayManage bool
-		Desks     []string
-		Owners    []string
-		Others    []string
-		OpenWork  int
-		Elsewhere map[string]money.Cents
+		A          crew.Analyst
+		Score      crew.Scoreboard
+		Chip       string
+		Tasks      []taskView
+		Caused     []anomaly.Anomaly
+		Handled    []anomaly.Anomaly
+		Events     []eventRow
+		Children   []childRow
+		Rhythm     []sprintWork
+		Rights     []struct{ Right, Means string }
+		Cannot     []string
+		Engine     engines.Engine
+		Passport   *passport.Passport
+		JSON       string
+		DeskSpend  money.Cents
+		Month      string
+		GuardUsed  float64
+		Host       string
+		CanAct     bool
+		MayManage  bool
+		Desks      []string
+		Owners     []string
+		Others     []string
+		OpenWork   int
+		Elsewhere  map[string]money.Cents
+		SortRhythm sortSpec
+		SortWork   sortSpec
 	}{s.shellFor(r, a.Name, "staff"), a, sc, agentChip(a.State),
-		views(ts), caused, handled, events, children, rhythm, rights, cannotEver,
+		work, caused, handled, events, children, rhythm, rights, cannotEver,
 		engine, doc, docJSON, spend, month, guardUsed, s.host, u.May("operator"),
 		mayManage(u, a), append(deskNames(), "management"), owners, others,
-		openWork, elsewhere})
+		openWork, elsewhere, rsrt, wsrt})
 }
 
 // analystPassport serves the document itself.

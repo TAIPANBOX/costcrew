@@ -61,7 +61,7 @@
      Both columns cover the first {{.Through}} days of their month, so the change is a change in spending and not in the calendar.</p>
   <div class="scroll">
   <table>
-    <thead><tr><th>Service</th><th class="num">{{.Prev}}, 1-{{.Through}}</th><th class="num">{{.Month}}, 1-{{.Through}}</th><th class="num">Change</th></tr></thead>
+    <thead><tr>{{$.SortMovers.Header "service" "Service" "" false}}{{$.SortMovers.Header "was" (printf "%s, 1-%s" $.Prev $.Through) "num" true}}{{$.SortMovers.Header "now" (printf "%s, 1-%s" $.Month $.Through) "num" true}}{{$.SortMovers.Header "change" "Change" "num" true}}</tr></thead>
     <tbody>
     {{range .Movers}}
       <tr>
@@ -82,7 +82,7 @@
   <h2>Anomalies by state</h2>
   <p class="note">Where every finding the detector has ever raised currently sits.</p>
   <div class="scroll">
-  <table>
+  <table data-order="the lifecycle, from nobody has looked to closed. Sorting it by count would lose the one thing the column means.">
     <thead><tr><th>State</th><th class="num">Count</th><th></th></tr></thead>
     <tbody>
     {{range .Counts}}

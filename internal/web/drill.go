@@ -101,6 +101,34 @@ func breakdown(db *sql.DB, where string, arg any, keyCol string) ([]spendRow, mo
 	return out, total, rows.Err()
 }
 
+// The two tables a team page and a desk page both carry, so their comparators
+// are written once. A breakdown sorts by money or by name; a trend sorts by
+// month, by cost, or by how much it moved, which is the column somebody scans
+// a trend for.
+func spendSort(r *http.Request, param string) (sortSpec, map[string]func(a, b spendRow) int) {
+	return readSortNamed(r, param, "amount", true), map[string]func(a, b spendRow) int{
+		"name":   func(a, b spendRow) int { return cmpString(a.Key, b.Key) },
+		"amount": func(a, b spendRow) int { return cmpInt64(int64(a.Amount), int64(b.Amount)) },
+	}
+}
+
+func trendSort(r *http.Request, param string) (sortSpec, map[string]func(a, b monthRow) int) {
+	return readSortNamed(r, param, "month", true), map[string]func(a, b monthRow) int{
+		"month":  func(a, b monthRow) int { return cmpString(a.Month, b.Month) },
+		"amount": func(a, b monthRow) int { return cmpInt64(int64(a.Amount), int64(b.Amount)) },
+		"change": func(a, b monthRow) int { return cmpInt64(abs64(int64(a.Change)), abs64(int64(b.Change))) },
+	}
+}
+
+func utilSort(r *http.Request, param string) (sortSpec, map[string]func(a, b world.Utilisation) int) {
+	return readSortNamed(r, param, "monthly", true), map[string]func(a, b world.Utilisation) int{
+		"resource": func(a, b world.Utilisation) int { return cmpString(a.Resource, b.Resource) },
+		"cpu":      func(a, b world.Utilisation) int { return cmpFloat(a.P95CPU, b.P95CPU) },
+		"monthly":  func(a, b world.Utilisation) int { return cmpInt64(int64(a.Monthly), int64(b.Monthly)) },
+		"saving":   func(a, b world.Utilisation) int { return cmpInt64(int64(a.Saving), int64(b.Saving)) },
+	}
+}
+
 // -------------------------------------------------------------------- team
 
 func (s *Server) team(w http.ResponseWriter, r *http.Request) {
@@ -173,6 +201,13 @@ func (s *Server) team(w http.ResponseWriter, r *http.Request) {
 		"share":   func(a, b spendRow) int { return cmpFloat(a.Share, b.Share) },
 	}, "amount")
 
+	tsrt, tcmp := trendSort(r, "tsort")
+	applySort(trend, tsrt, tcmp, "month")
+	usrt, ucmp := utilSort(r, "usort")
+	applySort(util, usrt, ucmp, "monthly")
+	dsrt, dcmp := spendSort(r, "dsort")
+	applySort(byDesk, dsrt, dcmp, "amount")
+
 	s.render(w, tplTeam, struct {
 		shell
 		T         world.Team
@@ -191,9 +226,12 @@ func (s *Server) team(w http.ResponseWriter, r *http.Request) {
 		SeatWaste money.Cents
 		Util      []world.Utilisation
 		Sort      sortSpec
+		SortTrend sortSpec
+		SortUtil  sortSpec
+		SortDesk  sortSpec
 	}{s.shellFor(r, name, "teams"), team, period, months, byService, byDesk,
 		trend, total, direct, allocated, direct + allocated, mine, openMoney,
-		licences, seatWaste, util, srt})
+		licences, seatWaste, util, srt, tsrt, usrt, dsrt})
 }
 
 // -------------------------------------------------------------------- desk
@@ -257,6 +295,32 @@ func (s *Server) desk(w http.ResponseWriter, r *http.Request) {
 		"share":  func(a, b spendRow) int { return cmpFloat(a.Share, b.Share) },
 	}, "amount")
 
+	tsrt, tcmp := trendSort(r, "tsort")
+	applySort(trend, tsrt, tcmp, "month")
+	vsrt, vcmp := spendSort(r, "vsort")
+	applySort(byService, vsrt, vcmp, "amount")
+	msrt, mcmp := spendSort(r, "msort")
+	applySort(byTeam, msrt, mcmp, "amount")
+	bsrt := readSortNamed(r, "bsort", "var", true)
+	applySort(budgets, bsrt, map[string]func(a, b budgetLine) int{
+		"team":   func(a, b budgetLine) int { return cmpString(a.Team, b.Team) },
+		"budget": func(a, b budgetLine) int { return cmpInt64(int64(a.Budget), int64(b.Budget)) },
+		"actual": func(a, b budgetLine) int { return cmpInt64(int64(a.Actual), int64(b.Actual)) },
+		// Signed, not by size: on a budget table the sign is the whole point,
+		// and the end somebody opens it for is the over one.
+		"var": func(a, b budgetLine) int { return cmpInt64(int64(a.Var), int64(b.Var)) },
+		"pct": func(a, b budgetLine) int { return cmpFloat(a.VarPct, b.VarPct) },
+	}, "var")
+	asrt := readSortNamed(r, "asort", "spent", true)
+	applySort(analysts, asrt, map[string]func(a, b staffRow) int{
+		"analyst": func(a, b staffRow) int { return cmpString(a.Name, b.Name) },
+		"open":    func(a, b staffRow) int { return cmpInt(a.Score.Open, b.Score.Open) },
+		"posted":  func(a, b staffRow) int { return cmpInt(a.Score.Posted, b.Score.Posted) },
+		"rate":    func(a, b staffRow) int { return cmpFloat(a.Score.FirstPass, b.Score.FirstPass) },
+		"spent":   func(a, b staffRow) int { return cmpInt64(int64(a.Score.Spent), int64(b.Score.Spent)) },
+		"state":   func(a, b staffRow) int { return cmpString(a.State, b.State) },
+	}, "spent")
+
 	s.render(w, tplDesk, struct {
 		shell
 		D           world.Desk
@@ -273,9 +337,14 @@ func (s *Server) desk(w http.ResponseWriter, r *http.Request) {
 		Commitments []world.Commitment
 		Budgets     []budgetLine
 		Sort        sortSpec
+		SortTrend   sortSpec
+		SortService sortSpec
+		SortTeam    sortSpec
+		SortStaff   sortSpec
+		SortBudget  sortSpec
 	}{s.shellFor(r, name, "desks"), desk, period, months, byTeam, byService,
 		trend, total, anoms, openMoney, analysts, views(tasks), commitments,
-		budgets, srt})
+		budgets, srt, tsrt, vsrt, msrt, asrt, bsrt})
 }
 
 type budgetLine struct {

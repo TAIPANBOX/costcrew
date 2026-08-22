@@ -45,7 +45,7 @@
   <h2>By service</h2>
   <div class="scroll">
   <table>
-    <thead><tr><th>Service</th><th class="num">Cost</th><th class="num">Share</th></tr></thead>
+    <thead><tr>{{$.SortService.Header "name" "Service" "" false}}{{$.SortService.Header "amount" "Cost" "num" true}}<th class="num">Share</th></tr></thead>
     <tbody>{{range .ByService}}
       <tr><td><a href="/service/{{.Key}}">{{.Key}}</a></td><td class="num">{{.Amount}}</td><td class="num">{{printf "%.1f%%" .Share}}</td></tr>
     {{end}}</tbody>
@@ -57,7 +57,7 @@
   <h2>Budgets this month</h2>
   <div class="scroll">
   <table>
-    <thead><tr><th>Team</th><th class="num">Budget</th><th class="num">Actual</th><th class="num">Variance</th><th class="num">%</th></tr></thead>
+    <thead><tr>{{$.SortBudget.Header "team" "Team" "" false}}{{$.SortBudget.Header "budget" "Budget" "num" true}}{{$.SortBudget.Header "actual" "Actual" "num" true}}{{$.SortBudget.Header "var" "Variance" "num" true}}{{$.SortBudget.Header "pct" "%" "num" true}}</tr></thead>
     <tbody>{{range .Budgets}}
       <tr><td><a href="/team/{{.Team}}">{{.Team}}</a></td>
           <td class="num">{{.Budget}}</td><td class="num">{{.Actual}}</td>
@@ -74,7 +74,7 @@
   <h2>Month by month</h2>
   <div class="scroll">
   <table>
-    <thead><tr><th class="tight">Month</th><th class="num">Cost</th><th class="num">Change</th></tr></thead>
+    <thead><tr>{{$.SortTrend.Header "month" "Month" "tight" false}}{{$.SortTrend.Header "amount" "Cost" "num" true}}{{$.SortTrend.Header "change" "Change" "num" true}}</tr></thead>
     <tbody>{{range .Trend}}
       <tr><td class="tight">{{.Month}}</td><td class="num">{{.Amount}}</td>
           <td class="num {{if .HasChg}}{{if gt .Change 0}}up{{else}}down{{end}}{{end}}">{{if .HasChg}}{{.Change}}{{else}}—{{end}}</td></tr>
@@ -87,7 +87,7 @@
   <h2>Who watches it</h2>
   <div class="scroll">
   <table>
-    <thead><tr><th>Analyst</th><th class="num">Open</th><th class="num">Posted</th><th class="num">First pass</th><th>State</th></tr></thead>
+    <thead><tr>{{$.SortStaff.Header "analyst" "Analyst" "" false}}{{$.SortStaff.Header "open" "Open" "num" true}}{{$.SortStaff.Header "posted" "Posted" "num" true}}{{$.SortStaff.Header "rate" "First pass" "num" true}}{{$.SortStaff.Header "state" "State" "" false}}</tr></thead>
     <tbody>{{range .Analysts}}
       <tr><td><a href="/staff/{{.Name}}">{{.Name}}</a><span class="sub">{{.Role}}</span></td>
           <td class="num">{{.Score.Open}}</td><td class="num">{{.Score.Posted}}</td>

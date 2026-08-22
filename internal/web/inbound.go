@@ -165,6 +165,18 @@ func (s *Server) owner(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	srt := readSort(r, "spent", true)
+	applySort(mine, srt, map[string]func(a, b ownerAgent) int{
+		"agent":     func(a, b ownerAgent) int { return cmpString(a.Name, b.Name) },
+		"role":      func(a, b ownerAgent) int { return cmpString(a.Role, b.Role) },
+		"desk":      func(a, b ownerAgent) int { return cmpString(a.Desk, b.Desk) },
+		"open":      func(a, b ownerAgent) int { return cmpInt(a.Open, b.Open) },
+		"spent":     func(a, b ownerAgent) int { return cmpInt64(int64(a.Spent), int64(b.Spent)) },
+		"guard":     func(a, b ownerAgent) int { return cmpInt64(int64(a.Monthly), int64(b.Monthly)) },
+		"anomalies": func(a, b ownerAgent) int { return cmpInt(a.Anomalies, b.Anomalies) },
+		"state":     func(a, b ownerAgent) int { return cmpString(a.State, b.State) },
+	}, "spent")
+
 	// Whether this is an account at all, said plainly. An owner name in an
 	// alert can outlive the account it named.
 	account, _ := s.au.Get(who)
@@ -189,9 +201,10 @@ func (s *Server) owner(w http.ResponseWriter, r *http.Request) {
 		Month        string
 		ThisMonth    money.Cents
 		OverGuard    int
+		Sort         sortSpec
 	}{s.shellFor(r, who, "staff"), who, account != nil,
 		roleOf(account), mine, totalSpent, totalGuard, open, findings, byState, desks,
-		month, thisMonth, overGuard})
+		month, thisMonth, overGuard, srt})
 }
 
 func roleOf(u *auth.User) string {

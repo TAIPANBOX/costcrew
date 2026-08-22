@@ -48,7 +48,7 @@
   <h2>By desk</h2>
   <div class="scroll">
   <table>
-    <thead><tr><th>Desk</th><th class="num">Cost</th><th class="num">Share</th></tr></thead>
+    <thead><tr>{{$.SortDesk.Header "name" "Desk" "" false}}{{$.SortDesk.Header "amount" "Cost" "num" true}}<th class="num">Share</th></tr></thead>
     <tbody>{{range .ByDesk}}
       <tr><td><a href="/desk/{{.Key}}">{{.Key}}</a></td><td class="num">{{.Amount}}</td><td class="num">{{printf "%.1f%%" .Share}}</td></tr>
     {{end}}</tbody>
@@ -60,7 +60,7 @@
   <h2>Month by month</h2>
   <div class="scroll">
   <table>
-    <thead><tr><th class="tight">Month</th><th class="num">Cost</th><th class="num">Change</th></tr></thead>
+    <thead><tr>{{$.SortTrend.Header "month" "Month" "tight" false}}{{$.SortTrend.Header "amount" "Cost" "num" true}}{{$.SortTrend.Header "change" "Change" "num" true}}</tr></thead>
     <tbody>{{range .Trend}}
       <tr>
         <td class="tight">{{.Month}}</td>
@@ -96,7 +96,7 @@
   <h2>Resources worth resizing</h2>
   <div class="scroll">
   <table>
-    <thead><tr><th>Resource</th><th class="num">p95 CPU</th><th class="num">Costs now</th><th>Recommendation</th></tr></thead>
+    <thead><tr>{{$.SortUtil.Header "resource" "Resource" "" false}}{{$.SortUtil.Header "cpu" "p95 CPU" "num" true}}{{$.SortUtil.Header "monthly" "Costs now" "num" true}}{{$.SortUtil.Header "saving" "Recommendation" "" true}}</tr></thead>
     <tbody>{{range .Util}}
       <tr><td>{{.Resource}}<span class="sub">{{.Service}}</span></td>
           <td class="num {{if lt .P95CPU 20.0}}up{{end}}">{{printf "%.1f%%" .P95CPU}}</td>

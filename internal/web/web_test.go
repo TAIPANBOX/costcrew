@@ -2072,3 +2072,72 @@ func TestAnOwnerPageShowsEverythingTheyAnswerFor(t *testing.T) {
 		t.Errorf("%d agents listed and %d of them open", want, len(links))
 	}
 }
+
+// A table somebody will scan is a table they can sort.
+//
+// This kept being remembered per page and forgotten per page: the audit, the
+// KPIs, the accounts and the sprint plan each shipped unsortable and each was
+// found by looking rather than by anything that would have said so.
+//
+// The bar is four data rows. Below that the order is not a question anybody
+// has, and a two-row breakdown with clickable headings is noise; above it,
+// somebody is looking for the largest, the newest or the one name they came
+// for, and a fixed order answers none of the three.
+func TestATableWorthScanningCanBeSorted(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+
+	const bar = 4
+	// Any table, however it is opened. Matching only the bare <table> tag
+	// would let a table opt out of this check by carrying any attribute at
+	// all, which is the opposite of what the exemption below is for.
+	table := regexp.MustCompile(`(?s)<table([^>]*)>(.*?)</table>`)
+	// A table may declare that its order IS its meaning, and it has to say
+	// why. The anomaly-state table is a lifecycle from "nobody has looked" to
+	// closed; sorting it by count would lose the only thing the column says.
+	// Requiring a reason is what stops this becoming a way to skip the check.
+	declared := regexp.MustCompile(`data-order="([^"]{20,})"`)
+	row := regexp.MustCompile(`<tr[ >]`)
+	head := regexp.MustCompile(`<thead>`)
+	sortable := regexp.MustCompile(`class="sortcol"`)
+	empty := regexp.MustCompile(`class="empty"`)
+
+	for _, path := range []string{
+		"/", "/anomalies", "/budgets", "/staff", "/sprints", "/allocation",
+		"/chargeback", "/kpis", "/utilisation", "/saas", "/ai", "/forecast",
+		"/connectors", "/accounts", "/audit", "/teams", "/desks", "/services",
+		"/team/ml-platform", "/desk/aws", "/staff/triage-aws", "/sprint/20",
+		"/sprint/plan", "/o/owner",
+	} {
+		code, body, _ := h.get(t, path)
+		if code != http.StatusOK {
+			t.Errorf("GET %s: %d", path, code)
+			continue
+		}
+		for i, m := range table.FindAllStringSubmatch(body, -1) {
+			attrs, inner := m[1], m[2]
+			if declared.MatchString(attrs) {
+				continue
+			}
+			if strings.Contains(attrs, "data-order") {
+				t.Errorf("%s: table %d declares data-order with no reason worth reading",
+					path, i+1)
+				continue
+			}
+			rows := len(row.FindAllString(inner, -1)) - len(head.FindAllString(inner, -1))
+			if rows < bar || empty.MatchString(inner) {
+				continue
+			}
+			if !sortable.MatchString(inner) {
+				// Name the first heading, so the failure says WHICH table.
+				h1 := regexp.MustCompile(`<th[^>]*>([^<]{1,24})`).FindStringSubmatch(inner)
+				which := "?"
+				if h1 != nil {
+					which = strings.TrimSpace(h1[1])
+				}
+				t.Errorf("%s: table %d (%q) has %d rows and no sortable heading",
+					path, i+1, which, rows)
+			}
+		}
+	}
+}

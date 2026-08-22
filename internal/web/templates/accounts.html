@@ -11,7 +11,7 @@
 <div class="panel">
   <div class="scroll">
   <table>
-    <thead><tr><th>Account</th><th class="tight">Role</th><th>Last signed in</th><th>Change the role</th><th>Remove</th></tr></thead>
+    <thead><tr>{{.Sort.Header "account" "Account" "" false}}{{.Sort.Header "role" "Role" "tight" true}}{{.Sort.Header "seen" "Last signed in" "" false}}<th>Change the role</th><th>Remove</th></tr></thead>
     <tbody>
     {{range .Users}}
       <tr>

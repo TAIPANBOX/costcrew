@@ -173,6 +173,19 @@ func (s *Server) engines(w http.ResponseWriter, r *http.Request) {
 
 // ---------------------------------------------------------------- accounts
 
+// roleWeight orders roles by what they can do, which is what the column means.
+func roleWeight(role string) int {
+	switch role {
+	case "admin":
+		return 3
+	case "operator":
+		return 2
+	case "viewer":
+		return 1
+	}
+	return 0
+}
+
 type accountRow struct {
 	Username  string
 	Role      string
@@ -193,7 +206,21 @@ func (s *Server) accounts(w http.ResponseWriter, r *http.Request) {
 	for _, x := range rows {
 		out = append(out, accountRow{x.Username, x.Role, x.LastLoginText()})
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Username < out[j].Username })
+	srt := readSort(r, "account", false)
+	applySort(out, srt, map[string]func(a, b accountRow) int{
+		"account": func(a, b accountRow) int { return cmpString(a.Username, b.Username) },
+		// By WEIGHT, not alphabetically. "admin, operator, viewer" happens to
+		// be reverse alphabetical and that is a coincidence; sorting a role
+		// column by its spelling would put them in a different order the
+		// moment a role is renamed, and the order somebody wants is by how
+		// much the role can do.
+		"role": func(a, b accountRow) int { return cmpInt(roleWeight(a.Role), roleWeight(b.Role)) },
+		// Never signed in sorts as the OLDEST rather than as the newest.
+		// An empty string sorts before every date, which is right: an account
+		// nobody has ever used is the far end of "least recently used", and
+		// it is the end somebody scanning this column is looking for.
+		"seen": func(a, b accountRow) int { return cmpString(a.LastLogin, b.LastLogin) },
+	}, "account")
 	s.render(w, tplAccounts, struct {
 		shell
 		Users   []accountRow
@@ -201,8 +228,9 @@ func (s *Server) accounts(w http.ResponseWriter, r *http.Request) {
 		Me      string
 		IsAdmin bool
 		Dummy   string
+		Sort    sortSpec
 	}{s.shellFor(r, "Accounts", "accounts"), out,
-		[]string{"viewer", "operator", "admin"}, u.Username, u.May("admin"), ""})
+		[]string{"viewer", "operator", "admin"}, u.Username, u.May("admin"), "", srt})
 }
 
 func (s *Server) accountAction(kind string) http.HandlerFunc {

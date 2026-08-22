@@ -9,7 +9,7 @@
   <div class="body">
     <p class="note">{{.Basis}}.</p>
     <div class="scroll"><table>
-      <thead><tr><th class="tight">Desk</th><th class="num">Projected</th></tr></thead>
+      <thead><tr>{{$.SortProjection.Header "desk" "Desk" "tight" false}}{{$.SortProjection.Header "amount" "Projected" "num" true}}</tr></thead>
       <tbody>{{range .Projection}}
         <tr><td class="tight"><a href="/desk/{{.Source}}">{{.Source}}</a></td><td class="num">{{.Amount}}</td></tr>
       {{end}}</tbody>

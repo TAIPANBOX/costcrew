@@ -14,7 +14,7 @@
   <h2>What it proposes, and why</h2>
   <div class="scroll">
   <table>
-    <thead><tr><th>Task</th><th>Analyst</th><th class="tight">Desk</th><th class="num">Guard</th><th>Because</th></tr></thead>
+    <thead><tr>{{$.Sort.Header "task" "Task" "" false}}{{$.Sort.Header "analyst" "Analyst" "" false}}{{$.Sort.Header "desk" "Desk" "tight" false}}{{$.Sort.Header "guard" "Guard" "num" true}}{{$.Sort.Header "because" "Because" "" false}}</tr></thead>
     <tbody>
     {{range .P.Items}}
       <tr>

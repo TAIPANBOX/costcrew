@@ -44,6 +44,11 @@ func (s *Server) forecast(w http.ResponseWriter, r *http.Request) {
 			rows = append(rows, projRow{d.Name, v})
 		}
 	}
+	psrt := readSortNamed(r, "psort", "amount", true)
+	applySort(rows, psrt, map[string]func(a, b projRow) int{
+		"desk":   func(a, b projRow) int { return cmpString(a.Source, b.Source) },
+		"amount": func(a, b projRow) int { return cmpInt64(int64(a.Amount), int64(b.Amount)) },
+	}, "amount")
 	frozen, _ := finops.IsFrozen(s.db, open)
 	history, err := finops.Forecasts(s.db, open)
 	if err != nil {
@@ -64,19 +69,20 @@ func (s *Server) forecast(w http.ResponseWriter, r *http.Request) {
 
 	s.render(w, tplForecast, struct {
 		shell
-		Period      string
-		Basis       string
-		Projection  []projRow
-		Rows        []finops.Forecast
-		Frozen      bool
-		Accuracy    float64
-		Scored      int
-		HasAccuracy bool
-		Ladder      string
-		CanAct      bool
-		Sort        sortSpec
+		Period         string
+		Basis          string
+		Projection     []projRow
+		Rows           []finops.Forecast
+		Frozen         bool
+		Accuracy       float64
+		Scored         int
+		HasAccuracy    bool
+		Ladder         string
+		CanAct         bool
+		Sort           sortSpec
+		SortProjection sortSpec
 	}{s.shellFor(r, "Forecast", "forecast"), open, basis, rows, history,
-		frozen, acc, scored, hasAcc, finops.LadderText(), u.May("operator"), spec})
+		frozen, acc, scored, hasAcc, finops.LadderText(), u.May("operator"), spec, psrt})
 }
 
 func (s *Server) freezeForecast(w http.ResponseWriter, r *http.Request) {
@@ -198,11 +204,22 @@ func (s *Server) planPage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "store unavailable", http.StatusInternalServerError)
 		return
 	}
+	// Default: the guard, biggest first. A plan is read to decide what to cut,
+	// and the thing you cut is the expensive one.
+	srt := readSort(r, "guard", true)
+	applySort(p.Items, srt, map[string]func(a, b crew.PlanItem) int{
+		"task":    func(a, b crew.PlanItem) int { return cmpString(a.Title, b.Title) },
+		"analyst": func(a, b crew.PlanItem) int { return cmpString(a.Assignee, b.Assignee) },
+		"desk":    func(a, b crew.PlanItem) int { return cmpString(a.Desk, b.Desk) },
+		"guard":   func(a, b crew.PlanItem) int { return cmpInt64(int64(a.Budget), int64(b.Budget)) },
+		"because": func(a, b crew.PlanItem) int { return cmpString(a.Why, b.Why) },
+	}, "guard")
 	s.render(w, tplPlan, struct {
 		shell
 		P      crew.Plan
 		CanAct bool
-	}{s.shellFor(r, "Plan a sprint", "sprints"), p, u.May("operator")})
+		Sort   sortSpec
+	}{s.shellFor(r, "Plan a sprint", "sprints"), p, u.May("operator"), srt})
 }
 
 // nextWeek is the Monday after the last sprint on the board, not after today:
