@@ -10,6 +10,7 @@
 package web
 
 import (
+	"database/sql"
 	_ "embed"
 	"fmt"
 	"net/http"
@@ -22,11 +23,12 @@ import (
 type Server struct {
 	st  *store.Store
 	au  *auth.Auth
+	db  *sql.DB
 	mux *http.ServeMux
 }
 
 func New(st *store.Store, au *auth.Auth) *Server {
-	s := &Server{st: st, au: au, mux: http.NewServeMux()}
+	s := &Server{st: st, au: au, db: st.DB(), mux: http.NewServeMux()}
 	s.routes()
 	return s
 }
@@ -49,6 +51,9 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /stats", s.redirect("/staff"))
 
 	s.mux.HandleFunc("GET /intake/template/{name}", s.intakeTemplate)
+	s.mux.HandleFunc("GET /export/budget.csv", s.exportBudget)
+	s.mux.HandleFunc("GET /export/requests.csv", s.exportRequests)
+	s.mux.HandleFunc("GET /api/figures", s.dumpFigures)
 	s.mux.HandleFunc("GET /static/style.css", s.styleCSS)
 }
 

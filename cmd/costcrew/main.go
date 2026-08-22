@@ -14,10 +14,12 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
 	"github.com/TAIPANBOX/costcrew/internal/auth"
+	"github.com/TAIPANBOX/costcrew/internal/estate"
 	"github.com/TAIPANBOX/costcrew/internal/store"
 	"github.com/TAIPANBOX/costcrew/internal/web"
 )
@@ -25,14 +27,15 @@ import (
 func main() {
 	addr := flag.String("addr", "127.0.0.1:8321", "listen address; loopback by default, put a proxy in front for TLS")
 	dir := flag.String("data", ".", "directory for the database, the journal and the signing key")
+	est := flag.String("estate", "", "directory of generated estate CSVs; ingested on start when the store is empty")
 	flag.Parse()
 
-	if err := run(*addr, *dir); err != nil {
+	if err := run(*addr, *dir, *est); err != nil {
 		log.Fatalf("costcrew: %v", err)
 	}
 }
 
-func run(addr, dir string) error {
+func run(addr, dir, estateDir string) error {
 	st, err := store.Open(dir)
 	if err != nil {
 		return fmt.Errorf("opening the store in %s: %w", dir, err)
@@ -42,6 +45,21 @@ func run(addr, dir string) error {
 	au, err := auth.New(st, dir)
 	if err != nil {
 		return fmt.Errorf("loading the signing key: %w", err)
+	}
+
+	if estateDir != "" {
+		var have int
+		_ = st.DB().QueryRow(`SELECT COUNT(*) FROM charges`).Scan(&have)
+		if have == 0 {
+			// Seeded once, never rebuilt: an existing estate is somebody's
+			// work, and a start-up that quietly regenerates it destroys that.
+			rows, err := estate.Ingest(st.DB(), filepath.Join(estateDir, "synth"),
+				filepath.Join(estateDir, "drivers.json"))
+			if err != nil {
+				return fmt.Errorf("building the estate: %w", err)
+			}
+			log.Printf("CostCrew: built the estate from %s, %d charge rows", estateDir, rows)
+		}
 	}
 
 	n, err := au.Count()
