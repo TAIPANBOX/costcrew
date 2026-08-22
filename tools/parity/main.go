@@ -289,9 +289,14 @@ type entry struct {
 	Path   string `json:"path"`
 	Status int    `json:"status"`
 	Type   string `json:"content_type"`
-	Bytes  int    `json:"bytes"`
-	SHA256 string `json:"sha256"`
-	File   string `json:"file"`
+	// Location is recorded for redirects because the body of a 303 or 307 is
+	// empty: without it, two redirects pointing at DIFFERENT pages compare as
+	// identical, and a port that sent every redirect to the wrong place would
+	// score full marks.
+	Location string `json:"location,omitempty"`
+	Bytes    int    `json:"bytes"`
+	SHA256   string `json:"sha256"`
+	File     string `json:"file"`
 }
 
 type manifest struct {
@@ -314,7 +319,7 @@ func safeName(p string) string {
 	return n
 }
 
-func capture(base, out string, perFamily int) error {
+func capture(base, out, from string, perFamily int) error {
 	s, err := newSession(base)
 	if err != nil {
 		return err
@@ -323,7 +328,24 @@ func capture(base, out string, perFamily int) error {
 		return fmt.Errorf("claiming the installation: %w", err)
 	}
 
-	paths := crawl(s, []string{"/", "/board", "/staff", "/connectors", "/results", "/sprints"}, perFamily)
+	var paths []string
+	if from != "" {
+		// Progress mode. Crawling a half-built server measures what it happens
+		// to link to, which shrinks as pages go missing and makes the number go
+		// UP as the port gets worse. Taking the golden's own path list asks the
+		// only question worth asking: of the surfaces the reference serves, how
+		// many does this one serve identically?
+		golden, err := load(from)
+		if err != nil {
+			return fmt.Errorf("reading the golden manifest to take its paths: %w", err)
+		}
+		for _, e := range golden.Entries {
+			paths = append(paths, e.Path)
+		}
+		sort.Strings(paths)
+	} else {
+		paths = crawl(s, []string{"/", "/board", "/staff", "/connectors", "/results", "/sprints"}, perFamily)
+	}
 
 	bodies := filepath.Join(out, "bodies")
 	if err := os.RemoveAll(out); err != nil {
@@ -347,15 +369,16 @@ func capture(base, out string, perFamily int) error {
 			return err
 		}
 		e := entry{
-			Path:   p,
-			Status: status,
-			Type:   strings.Split(hdr.Get("Content-Type"), ";")[0],
-			Bytes:  len(body),
-			SHA256: hex.EncodeToString(sum[:]),
-			File:   name,
+			Path:     p,
+			Status:   status,
+			Type:     strings.Split(hdr.Get("Content-Type"), ";")[0],
+			Location: hdr.Get("Location"),
+			Bytes:    len(body),
+			SHA256:   hex.EncodeToString(sum[:]),
+			File:     name,
 		}
 		m.Entries = append(m.Entries, e)
-		fmt.Fprintf(roll, "%s %d %s\n", e.Path, e.Status, e.SHA256)
+		fmt.Fprintf(roll, "%s %d %s %s\n", e.Path, e.Status, e.SHA256, e.Location)
 	}
 	m.Count = len(m.Entries)
 	m.Digest = hex.EncodeToString(roll.Sum(nil))
@@ -413,7 +436,14 @@ func clip(b []byte) string {
 	return s
 }
 
-func compare(dirA, dirB string) error {
+// partial reports progress instead of demanding completeness: a surface the
+// actual server answers 404 or 500 for, where the golden answers properly, is
+// counted as NOT YET BUILT rather than as a difference. Everything it does
+// serve is still held to the byte.
+//
+// The distinction matters because during a port the two failures need opposite
+// responses: "not yet" is a to-do list, "differs" is a bug.
+func compare(dirA, dirB string, partial bool) error {
 	ma, err := load(dirA)
 	if err != nil {
 		return err
@@ -443,15 +473,21 @@ func compare(dirA, dirB string) error {
 			added = append(added, p)
 		}
 	}
+	var notYet []string
 	for p, ea := range a {
 		eb, ok := b[p]
 		if !ok {
 			continue
 		}
-		if ea.Status != eb.Status || ea.SHA256 != eb.SHA256 {
+		if partial && ea.Status != eb.Status && (eb.Status == 404 || eb.Status == 405 || eb.Status >= 500) {
+			notYet = append(notYet, p)
+			continue
+		}
+		if ea.Status != eb.Status || ea.SHA256 != eb.SHA256 || ea.Location != eb.Location {
 			differ = append(differ, p)
 		}
 	}
+	sort.Strings(notYet)
 	sort.Strings(missing)
 	sort.Strings(added)
 	sort.Strings(differ)
@@ -465,6 +501,37 @@ func compare(dirA, dirB string) error {
 
 	fmt.Printf("golden %s  %d surfaces\n", dirA, ma.Count)
 	fmt.Printf("actual %s  %d surfaces\n", dirB, mb.Count)
+
+	if partial {
+		done := ma.Count - len(notYet) - len(differ) - len(missing)
+		pct := float64(done) / float64(ma.Count) * 100
+		fmt.Printf("\nPROGRESS: %d of %d surfaces identical (%.1f%%)\n", done, ma.Count, pct)
+		fmt.Printf("          %d not built yet, %d differing\n", len(notYet), len(differ))
+		if done == 0 {
+			return fmt.Errorf("measured nothing: not one surface matched")
+		}
+		if len(differ) > 0 {
+			for _, p := range differ {
+				ea, eb := a[p], b[p]
+				if ea.Status != eb.Status {
+					fmt.Printf("\nSTATUS   %s: golden %d, actual %d\n", p, ea.Status, eb.Status)
+					continue
+				}
+				if ea.Location != eb.Location {
+					fmt.Printf("\nREDIRECT %s: golden -> %q, actual -> %q\n", p, ea.Location, eb.Location)
+					continue
+				}
+				fmt.Printf("\nCONTENT  %s\n", p)
+				ba, e1 := os.ReadFile(filepath.Join(dirA, "bodies", ea.File))
+				bb, e2 := os.ReadFile(filepath.Join(dirB, "bodies", eb.File))
+				if e1 == nil && e2 == nil {
+					fmt.Printf("      %s\n", firstDiff(ba, bb))
+				}
+			}
+			return fmt.Errorf("%d surfaces are built but wrong", len(differ))
+		}
+		return nil
+	}
 
 	if len(missing) == 0 && len(added) == 0 && len(differ) == 0 {
 		fmt.Printf("\nPARITY: all %d surfaces identical\n", ma.Count)
@@ -482,6 +549,10 @@ func compare(dirA, dirB string) error {
 		ea, eb := a[p], b[p]
 		if ea.Status != eb.Status {
 			fmt.Printf("\nSTATUS   %s: golden %d, actual %d\n", p, ea.Status, eb.Status)
+			continue
+		}
+		if ea.Location != eb.Location {
+			fmt.Printf("\nREDIRECT %s: golden -> %q, actual -> %q\n", p, ea.Location, eb.Location)
 			continue
 		}
 		fmt.Printf("\nCONTENT  %s\n", p)
@@ -517,8 +588,9 @@ func main() {
 		base := fs.String("base", "http://127.0.0.1:8422", "running instance")
 		out := fs.String("out", "captures/py", "directory to write")
 		per := fs.Int("per-family", 25, "surfaces sampled per rendering family")
+		from := fs.String("from", "", "take the path list from this golden capture instead of crawling")
 		fs.Parse(os.Args[2:])
-		if err := capture(*base, *out, *per); err != nil {
+		if err := capture(*base, *out, *from, *per); err != nil {
 			fmt.Fprintln(os.Stderr, "capture failed:", err)
 			os.Exit(1)
 		}
@@ -526,12 +598,13 @@ func main() {
 		fs := flag.NewFlagSet("compare", flag.ExitOnError)
 		a := fs.String("a", "", "golden capture directory")
 		b := fs.String("b", "", "actual capture directory")
+		partial := fs.Bool("partial", false, "progress mode: count unbuilt surfaces separately from wrong ones")
 		fs.Parse(os.Args[2:])
 		if *a == "" || *b == "" {
 			usage()
 			os.Exit(2)
 		}
-		if err := compare(*a, *b); err != nil {
+		if err := compare(*a, *b, *partial); err != nil {
 			fmt.Fprintln(os.Stderr, "\nNO PARITY:", err)
 			os.Exit(1)
 		}
