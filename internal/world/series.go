@@ -154,8 +154,36 @@ func noise(key string, day time.Time) float64 {
 	return a + b - 1
 }
 
+// Shared is a cost with no team of its own: a commitment bought for a desk,
+// tax on the whole bill, a credit applied to the account.
+//
+// The estate needs these or allocation is a page with nothing to do. They are
+// also the honest part of a real bill: on most accounts somewhere between a
+// tenth and a quarter of the money arrives with nobody's name on it, and what
+// a FinOps team is actually asked to do is give it one.
+type Shared struct {
+	Source   string
+	Service  string
+	Category string // Purchase, Tax, Credit
+	Monthly  money.Cents
+	Day      int // day of the month it lands on
+}
+
+var SharedCosts = []Shared{
+	{"aws", "Savings Plan", "Purchase", money.Cents(420_000), 1},
+	{"aws", "Reserved Instances", "Purchase", money.Cents(180_000), 1},
+	{"aws", "Tax", "Tax", money.Cents(96_000), 28},
+	{"aws", "Enterprise Discount", "Credit", money.Cents(-140_000), 28},
+	{"gcp", "Committed Use Discount", "Purchase", money.Cents(260_000), 1},
+	{"gcp", "Tax", "Tax", money.Cents(52_000), 28},
+	{"azure", "Reservations", "Purchase", money.Cents(150_000), 1},
+	{"azure", "Tax", "Tax", money.Cents(38_000), 28},
+	{"onprem", "Depreciation", "Purchase", money.Cents(310_000), 1},
+	{"saas", "Annual platform fee", "Purchase", money.Cents(88_000), 15},
+}
+
 // Generate builds the whole estate: every series, every day, with the planted
-// events applied on top.
+// events applied on top, plus the shared costs that belong to nobody.
 func Generate() []Row {
 	first, _ := time.Parse("2006-01-02", FirstDay)
 	last, _ := time.Parse("2006-01-02", LastDay)
@@ -172,6 +200,21 @@ func Generate() []Row {
 		events := byKey[key]
 		for d := first; !d.After(last); d = d.AddDate(0, 0, 1) {
 			out = append(out, s.day(d, first, events, key))
+		}
+	}
+
+	// Shared cost lands once a month, with no team, which is exactly what
+	// makes it shared.
+	for d := first; !d.After(last); d = d.AddDate(0, 0, 1) {
+		for _, sc := range SharedCosts {
+			if d.Day() != sc.Day {
+				continue
+			}
+			out = append(out, Row{
+				Source: sc.Source, Day: d.Format("2006-01-02"),
+				Service: sc.Service, Team: "", Category: sc.Category,
+				Billed: sc.Monthly,
+			})
 		}
 	}
 	return out

@@ -1,0 +1,101 @@
+{{define "content"}}
+<header class="page">
+  <h1>Chargeback</h1>
+  <p>An allocation recomputed every time somebody opens the page cannot be charged to anybody: the number a team was told in March is not the number the page shows in April, and the team is right to refuse it. Closing a period is what stops the numbers moving.</p>
+</header>
+
+<form class="filters" method="get" action="/chargeback">
+  <select name="period" aria-label="Month">
+    {{range .Months}}<option value="{{.}}" {{if eq . $.Period}}selected{{end}}>{{.}}</option>{{end}}
+  </select>
+  <button type="submit">Show</button>
+  <a class="clear" href="/export/gl.csv?period={{.Period}}">General ledger CSV</a>
+</form>
+
+{{if .P.Closed}}
+<div class="panel">
+  <h2>{{.Period}} · closed</h2>
+  <div class="body">
+    <dl class="facts">
+      <dt>Frozen</dt><dd>{{.P.FrozenAt}} by <strong>{{.P.ClosedBy}}</strong></dd>
+      <dt>Charged</dt><dd><strong>{{.P.Total}}</strong> across {{len .P.Teams}} team-desk pairs</dd>
+    </dl>
+    {{if .CanAct}}
+    <hr style="border:none;border-top:1px solid var(--line-soft);margin:16px 0">
+    <form class="action" method="post" action="/chargeback/reopen">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <input type="hidden" name="period" value="{{.Period}}">
+      <label for="rr">Reopen it</label>
+      <textarea id="rr" name="reason" placeholder="Why the numbers a team was already told are being taken back."></textarea>
+      <p class="note">A reason is required. A team was told these figures, and taking them back without saying why is how a chargeback stops being believed.</p>
+      <div class="row"><button class="quiet" type="submit">Reopen</button></div>
+    </form>
+    {{end}}
+  </div>
+</div>
+
+{{if .TrueUp}}
+<div class="panel">
+  <h2>True-up: what moved after the close</h2>
+  <div class="body">
+    <p class="note">A closed month can still change: a provider issues a credit, a late charge lands, a tag is corrected. The difference is said out loud rather than folded back in.</p>
+    <div class="scroll"><table>
+      <thead><tr><th class="tight">Desk</th><th>Team</th><th class="num">Charged</th><th class="num">Now</th><th class="num">Difference</th></tr></thead>
+      <tbody>{{range .TrueUp}}
+        <tr><td class="tight">{{.Source}}</td><td>{{.Team}}</td>
+            <td class="num">{{.Frozen}}</td><td class="num">{{.Now}}</td>
+            <td class="num {{if gt .Delta 0}}up{{else}}down{{end}}">{{.Delta}}</td></tr>
+      {{end}}</tbody>
+    </table></div>
+  </div>
+</div>
+{{end}}
+
+<div class="panel">
+  <h2>What each team was charged</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th class="tight">Desk</th><th>Team</th><th class="num">Direct</th><th class="num">Allocated</th><th class="num">Charged</th></tr></thead>
+    <tbody>{{range .P.Teams}}
+      <tr><td class="tight">{{.Source}}</td><td>{{.Team}}</td>
+          <td class="num">{{.Direct}}</td><td class="num">{{.Allocated}}</td>
+          <td class="num"><strong>{{.Loaded}}</strong></td></tr>
+    {{end}}</tbody>
+  </table>
+  </div>
+</div>
+
+{{else}}
+<div class="panel">
+  <h2>{{.Period}} · open</h2>
+  <div class="body">
+    <p>Nothing is frozen for this month, so the figures below are today's answer and will change as the estate does.</p>
+    {{if .CanAct}}
+    <form class="action" method="post" action="/chargeback/close">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <input type="hidden" name="period" value="{{.Period}}">
+      <div class="row"><button type="submit">Close {{.Period}} and freeze the numbers</button></div>
+    </form>
+    {{else}}
+    <p class="note">Your account may read and export, but not close a period.</p>
+    {{end}}
+  </div>
+</div>
+
+<div class="panel">
+  <h2>What would be charged</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th class="tight">Desk</th><th>Team</th><th class="num">Direct</th><th class="num">Allocated</th><th class="num">Fully loaded</th></tr></thead>
+    <tbody>{{range .A.Teams}}
+      <tr><td class="tight">{{.Source}}</td><td>{{.Team}}</td>
+          <td class="num">{{.Direct}}</td><td class="num">{{.Allocated}}</td>
+          <td class="num"><strong>{{.Loaded}}</strong></td></tr>
+    {{else}}
+      <tr><td colspan="5" class="empty">Nothing in this month.</td></tr>
+    {{end}}</tbody>
+  </table>
+  </div>
+</div>
+{{end}}
+{{end}}

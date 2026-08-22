@@ -79,6 +79,21 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /artifact/{id}/return", s.artifactAction("return"))
 	s.mux.HandleFunc("GET /staff", s.staff)
 	s.mux.HandleFunc("GET /staff/{name}", s.analyst)
+
+	s.mux.HandleFunc("GET /allocation", s.allocation)
+	s.mux.HandleFunc("POST /allocation/rule/{id}", s.setRule)
+	s.mux.HandleFunc("GET /chargeback", s.chargeback)
+	s.mux.HandleFunc("POST /chargeback/close", s.closePeriod)
+	s.mux.HandleFunc("POST /chargeback/reopen", s.reopenPeriod)
+	s.mux.HandleFunc("GET /results", s.results)
+
+	s.mux.HandleFunc("GET /export/allocation.csv", s.exportAllocation)
+	s.mux.HandleFunc("GET /export/gl.csv", s.exportGL)
+	s.mux.HandleFunc("GET /export/showback.csv", s.exportShowback)
+	s.mux.HandleFunc("GET /export/results.csv", s.exportResultsCSV)
+	s.mux.HandleFunc("GET /export/results.md", s.exportResultsMD)
+	s.mux.HandleFunc("GET /export/crew.csv", s.exportCrewCSV)
+	s.mux.HandleFunc("GET /export/exec-packet.md", s.exportExecPacket)
 	s.mux.HandleFunc("GET /static/app.css", s.styleCSS)
 }
 

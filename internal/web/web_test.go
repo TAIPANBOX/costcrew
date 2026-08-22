@@ -16,6 +16,7 @@ import (
 	"github.com/TAIPANBOX/costcrew/internal/crew"
 	"github.com/TAIPANBOX/costcrew/internal/detect"
 	"github.com/TAIPANBOX/costcrew/internal/estate"
+	"github.com/TAIPANBOX/costcrew/internal/finops"
 	"github.com/TAIPANBOX/costcrew/internal/store"
 	"github.com/TAIPANBOX/costcrew/internal/web"
 )
@@ -64,6 +65,9 @@ func start(t *testing.T) *harness {
 		})
 	}
 	if _, _, _, err := crew.Seed(st.DB(), seeds); err != nil {
+		t.Fatal(err)
+	}
+	if err := finops.SeedRules(st.DB()); err != nil {
 		t.Fatal(err)
 	}
 	au, err := auth.New(st, dir)
@@ -157,7 +161,8 @@ func TestEveryPageRefusesAStranger(t *testing.T) {
 			return http.ErrUseLastResponse
 		},
 	}}
-	for _, path := range []string{"/", "/anomalies", "/budgets", "/staff", "/board", "/sprints"} {
+	for _, path := range []string{"/", "/anomalies", "/budgets", "/staff", "/board", "/sprints",
+		"/allocation", "/chargeback", "/results"} {
 		code, _, loc := stranger.get(t, path)
 		if code != http.StatusSeeOther || loc != "/login" {
 			t.Errorf("GET %s without a session: %d to %q, want 303 to /login", path, code, loc)
@@ -181,6 +186,9 @@ func TestSignedInPagesRender(t *testing.T) {
 		{"/staff", "Crew"},
 		{"/board", "Board"},
 		{"/sprints", "Sprints"},
+		{"/allocation", "Allocation"},
+		{"/chargeback", "Chargeback"},
+		{"/results", "Results"},
 	} {
 		code, body, _ := h.get(t, tc.path)
 		if code != http.StatusOK {
@@ -474,7 +482,8 @@ func TestTheCSVExportCarriesTheOpenMonthHonestly(t *testing.T) {
 func TestAnUnclaimedInstallationSendsYouToSignUp(t *testing.T) {
 	h := start(t) // no signUp: nobody has claimed it
 
-	for _, path := range []string{"/", "/anomalies", "/budgets", "/staff", "/board", "/sprints"} {
+	for _, path := range []string{"/", "/anomalies", "/budgets", "/staff", "/board", "/sprints",
+		"/allocation", "/chargeback", "/results"} {
 		code, _, loc := h.get(t, path)
 		if code != http.StatusSeeOther || loc != "/signup" {
 			t.Errorf("GET %s on an unclaimed install: %d to %q, want 303 to /signup",

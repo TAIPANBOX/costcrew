@@ -1,0 +1,48 @@
+{{define "content"}}
+<header class="page">
+  <h1>Results</h1>
+  <p>What the crew is for, in the order a stakeholder asks it. One word is load-bearing throughout: money is <strong>found</strong>, never saved. Nothing is saved until somebody acts.</p>
+</header>
+
+<div class="tiles">
+  <div class="tile"><div class="k">Found, monthly</div><div class="v">{{.R.FoundMonthly}}</div><div class="s">explained or accepted</div></div>
+  <div class="tile"><div class="k">Found, annualised</div><div class="v">{{.R.FoundAnnual}}</div><div class="s">the monthly figure, twelve times</div></div>
+  <div class="tile"><div class="k">The crew cost</div><div class="v">{{.R.CrewSpend}}</div><div class="s">across {{.R.Tasks}} tasks</div></div>
+  <div class="tile"><div class="k">Return</div><div class="v">{{if .HasReturn}}{{printf "%.0fx" .Return}}{{else}}—{{end}}</div><div class="s">found over what it cost</div></div>
+  <div class="tile"><div class="k">First pass</div><div class="v">{{if .HasFirstPass}}{{printf "%.0f%%" .FirstPass}}{{else}}—{{end}}</div><div class="s">accepted without a return</div></div>
+</div>
+
+<div class="panel">
+  <h2>The honest headline</h2>
+  <div class="body">
+    <dl class="facts">
+      <dt>Still unexplained</dt>
+      <dd>
+        <strong>{{.R.OpenAnomalies}}</strong> anomalies worth <strong>{{.R.OpenMoney}}</strong>.
+        {{if .R.OldestOpen}}The oldest is from {{.R.OldestOpen}}.{{end}}
+        <span class="sub">An anomaly nobody has looked at says more about a FinOps practice than one that closed.</span>
+      </dd>
+      <dt>Waiting on a stamp</dt>
+      <dd><strong>{{.R.AwaitingStamp}}</strong> deliverables written and not yet reviewed. <a href="/board">See the board</a>.</dd>
+      <dt>Waiting on a decision</dt>
+      <dd><strong>{{.R.AwaitingDecision}}</strong> anomalies have an answer and need somebody to accept or reject it. <a href="/anomalies?state=explained">See them</a>.</dd>
+      <dt>The estate</dt>
+      <dd><strong>{{.R.Estate}}</strong> in {{.R.Period}}.</dd>
+    </dl>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Take it away</h2>
+  <div class="body">
+    <p class="note">Everything here as a file, for a pack or a spreadsheet.</p>
+    <p>
+      <a href="/export/results.csv">Findings, CSV</a> ·
+      <a href="/export/results.md">Summary, Markdown</a> ·
+      <a href="/export/exec-packet.md">Executive packet, Markdown</a> ·
+      <a href="/export/crew.csv">Crew statistics, CSV</a> ·
+      <a href="/export/showback.csv?period={{.R.Period}}">Showback, CSV</a>
+    </p>
+  </div>
+</div>
+{{end}}

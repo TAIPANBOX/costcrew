@@ -1,0 +1,67 @@
+{{define "content"}}
+<header class="page">
+  <h1>Allocation</h1>
+  <p>Direct cost is easy and nobody needs a product for it. This page is about the part of the bill that arrived with nobody's name on it, and giving it one defensibly enough that the team it lands on does not simply refuse it.</p>
+</header>
+
+<form class="filters" method="get" action="/allocation">
+  <select name="period" aria-label="Month">
+    {{range .Months}}<option value="{{.}}" {{if eq . $.Period}}selected{{end}}>{{.}}</option>{{end}}
+  </select>
+  <button type="submit">Show</button>
+  <a class="clear" href="/export/allocation.csv?period={{.Period}}">Download CSV</a>
+</form>
+
+<div class="tiles">
+  <div class="tile"><div class="k">Direct</div><div class="v">{{.A.Direct}}</div><div class="s">already has a team</div></div>
+  <div class="tile"><div class="k">Shared</div><div class="v">{{.A.Shared}}</div><div class="s">arrived with nobody's name</div></div>
+  <div class="tile"><div class="k">Placed</div><div class="v">{{.A.Placed}}</div><div class="s">given an owner by a rule</div></div>
+  <div class="tile"><div class="k">Still unowned</div><div class="v {{if .A.Unallocated}}up{{end}}">{{.A.Unallocated}}</div><div class="s">counted, not hidden</div></div>
+  <div class="tile"><div class="k">Coverage</div><div class="v">{{printf "%.1f%%" .A.Coverage}}</div><div class="s">of the bill has an owner</div></div>
+</div>
+
+<div class="panel">
+  <h2>The rules</h2>
+  <div class="body">
+    <p class="note">A rule is a decision somebody has to defend. Each says what it does and why it is the default.</p>
+    {{range .Rules}}
+    <form class="action" method="post" action="/allocation/rule/{{.ID}}" style="margin-bottom:14px">
+      <input type="hidden" name="csrf" value="{{$.CSRF}}">
+      <div class="row">
+        <div>
+          <label for="m{{.ID}}">{{.Category}} on {{if eq .Source "*"}}every desk{{else}}{{.Source}}{{end}}</label>
+          <select id="m{{.ID}}" name="method">
+            {{$cur := .Method}}
+            {{range $.Methods}}<option value="{{.}}" {{if eq . $cur}}selected{{end}}>{{.}}</option>{{end}}
+          </select>
+        </div>
+        {{if $.CanAct}}<button class="quiet" type="submit">Change</button>{{end}}
+      </div>
+      <p class="note">{{.Note}}</p>
+    </form>
+    {{end}}
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Fully loaded, by team</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th class="tight">Desk</th><th>Team</th><th class="num">Direct</th><th class="num">Allocated</th><th class="num">Fully loaded</th></tr></thead>
+    <tbody>
+    {{range .A.Teams}}
+      <tr>
+        <td class="tight">{{.Source}}</td>
+        <td>{{.Team}}</td>
+        <td class="num">{{.Direct}}</td>
+        <td class="num">{{.Allocated}}</td>
+        <td class="num"><strong>{{.Loaded}}</strong></td>
+      </tr>
+    {{else}}
+      <tr><td colspan="5" class="empty">Nothing in this month.</td></tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+</div>
+{{end}}

@@ -102,9 +102,29 @@ func (s *Server) board(w http.ResponseWriter, r *http.Request) {
 		{"Waiting on a stamp", crew.Done},
 		{"Posted", crew.Posted},
 	}
+	// Waiting on a stamp is derived from the deliverables rather than from a
+	// task state, because a task can be "active" while its output is written
+	// and waiting. That lane is the reviewer's queue and it has to be right.
+	stamping, _ := crew.AwaitingStamp(s.db)
+	inLane := map[int]bool{}
+	for _, t := range stamping {
+		inLane[t.ID] = true
+	}
+
 	var lanes []lane
 	for _, o := range order {
 		ts := by[o.state]
+		if o.state == crew.Done {
+			ts = stamping
+		} else {
+			var keep []crew.Task
+			for _, t := range ts {
+				if !inLane[t.ID] {
+					keep = append(keep, t)
+				}
+			}
+			ts = keep
+		}
 		// The posted lane would otherwise be hundreds of rows nobody reads.
 		if o.state == crew.Posted && len(ts) > 12 {
 			ts = ts[:12]

@@ -535,3 +535,37 @@ func TaskOfArtifact(db *sql.DB, artifactID int) (int, error) {
 	}
 	return task, err
 }
+
+// AwaitingStamp is the work that is written and not yet judged.
+//
+// It is derived from ARTIFACTS, not from a task state. The two drift: a task
+// can sit in "active" while its deliverable is already written and waiting,
+// which is exactly the case a reviewer needs to see. Counting task states
+// instead measured a proxy and reported zero while six drafts sat unread.
+func AwaitingStamp(db *sql.DB) ([]Task, error) {
+	rows, err := db.Query(`SELECT DISTINCT t.id FROM tasks t
+		JOIN artifacts a ON a.task = t.id
+		WHERE a.state = 'draft' ORDER BY t.id DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []int
+	for rows.Next() {
+		var id int
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	var out []Task
+	for _, id := range ids {
+		if t, err := GetTask(db, id); err == nil {
+			out = append(out, t)
+		}
+	}
+	return out, nil
+}

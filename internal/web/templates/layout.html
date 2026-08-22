@@ -20,6 +20,9 @@
   <a href="/staff" {{if eq .Nav "staff"}}aria-current="page"{{end}}>Crew</a>
   <div class="group">Money</div>
   <a href="/budgets" {{if eq .Nav "budgets"}}aria-current="page"{{end}}>Budgets</a>
+  <a href="/allocation" {{if eq .Nav "allocation"}}aria-current="page"{{end}}>Allocation</a>
+  <a href="/chargeback" {{if eq .Nav "chargeback"}}aria-current="page"{{end}}>Chargeback</a>
+  <a href="/results" {{if eq .Nav "results"}}aria-current="page"{{end}}>Results</a>
   <div class="group">Account</div>
   <a href="/logout" onclick="event.preventDefault();document.getElementById('lo').submit()">Sign out</a>
   <form id="lo" method="post" action="/logout" hidden>

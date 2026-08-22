@@ -181,6 +181,10 @@ func TestAIRowsCarryConsumption(t *testing.T) {
 
 func TestNoNegativeCharges(t *testing.T) {
 	for _, r := range Generate() {
+		// A credit is negative by definition; everything else must not be.
+		if r.Category == "Credit" {
+			continue
+		}
 		if r.Billed < 0 {
 			t.Fatalf("%s %s %s on %s is negative: %s", r.Source, r.Team, r.Service, r.Day, r.Billed)
 		}
@@ -213,5 +217,51 @@ func TestDriversMatchTheirEvents(t *testing.T) {
 		if e.Driver != "" && !labels[e.Driver] {
 			t.Errorf("%s cites driver %q, which the registry does not contain", e.ID, e.Driver)
 		}
+	}
+}
+
+// Allocation is a page with nothing to do unless some cost belongs to nobody.
+// On a real account somewhere between a tenth and a quarter of the money
+// arrives without a team, and giving it one is the job.
+func TestSomeCostBelongsToNobody(t *testing.T) {
+	var withTeam, without money.Cents
+	cats := map[string]bool{}
+	for _, r := range Generate() {
+		if r.Team == "" {
+			without += r.Billed
+			cats[r.Category] = true
+		} else {
+			withTeam += r.Billed
+		}
+	}
+	if without == 0 {
+		t.Fatal("every row carries a team, so there is nothing to allocate")
+	}
+	share := float64(without) / float64(withTeam+without) * 100
+	if share < 5 || share > 40 {
+		t.Errorf("untagged cost is %.1f%% of the estate; that is not a plausible account", share)
+	}
+	for _, want := range []string{"Purchase", "Tax", "Credit"} {
+		if !cats[want] {
+			t.Errorf("no %s rows, so that allocation case is never exercised", want)
+		}
+	}
+}
+
+// A credit is negative and must stay negative: a credit that arrives as a
+// positive charge makes an estate look more expensive than it is.
+func TestCreditsAreNegative(t *testing.T) {
+	var seen bool
+	for _, r := range Generate() {
+		if r.Category != "Credit" {
+			continue
+		}
+		seen = true
+		if r.Billed >= 0 {
+			t.Errorf("a credit on %s is %s, which is not a credit", r.Day, r.Billed)
+		}
+	}
+	if !seen {
+		t.Error("no credits in the estate")
 	}
 }

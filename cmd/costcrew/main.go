@@ -22,6 +22,7 @@ import (
 	"github.com/TAIPANBOX/costcrew/internal/crew"
 	"github.com/TAIPANBOX/costcrew/internal/detect"
 	"github.com/TAIPANBOX/costcrew/internal/estate"
+	"github.com/TAIPANBOX/costcrew/internal/finops"
 	"github.com/TAIPANBOX/costcrew/internal/stack"
 	"github.com/TAIPANBOX/costcrew/internal/store"
 	"github.com/TAIPANBOX/costcrew/internal/web"
@@ -75,6 +76,9 @@ func run(addr, dir string, scfg stack.Config) error {
 	}
 	if err := estate.SeedBudgets(st.DB()); err != nil {
 		return fmt.Errorf("setting budgets: %w", err)
+	}
+	if err := finops.SeedRules(st.DB()); err != nil {
+		return fmt.Errorf("setting allocation rules: %w", err)
 	}
 	em, err := stack.Open(scfg)
 	if err != nil {
