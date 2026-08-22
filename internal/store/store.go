@@ -245,3 +245,89 @@ func writeString(b *strings.Builder, s string) {
 	}
 	b.WriteByte('"')
 }
+
+// ------------------------------------------------------------ journal read
+
+// Record is one journal entry as it was written.
+type Record struct {
+	TS    float64        `json:"ts"`
+	Event string         `json:"event"`
+	Data  map[string]any `json:"data"`
+	Prev  string         `json:"prev"`
+	Hash  string         `json:"hash"`
+}
+
+func (r Record) When() string {
+	return time.Unix(int64(r.TS), 0).UTC().Format("2006-01-02 15:04")
+}
+
+// JournalTail reads the last n entries, newest first.
+func (s *Store) JournalTail(n int) ([]Record, error) {
+	lines, err := s.journalLines()
+	if err != nil || len(lines) == 0 {
+		return nil, err
+	}
+	if len(lines) > n {
+		lines = lines[len(lines)-n:]
+	}
+	out := make([]Record, 0, len(lines))
+	for i := len(lines) - 1; i >= 0; i-- {
+		var r Record
+		if json.Unmarshal([]byte(lines[i]), &r) == nil {
+			out = append(out, r)
+		}
+	}
+	return out, nil
+}
+
+// VerifyChain walks the whole journal and re-derives every hash.
+//
+// It reports WHERE the chain first fails rather than a bare false. "Broken"
+// with no position is a sentence nobody can act on, and the position is the
+// only part that tells you what was edited.
+func (s *Store) VerifyChain() (ok bool, n int, breakAt string, err error) {
+	lines, err := s.journalLines()
+	if err != nil {
+		return false, 0, "", err
+	}
+	prev := "genesis"
+	for _, line := range lines {
+		var r Record
+		if err := json.Unmarshal([]byte(line), &r); err != nil {
+			return false, n, "a line that is not valid JSON", nil
+		}
+		n++
+		if r.Prev != prev && prev != "genesis" {
+			return false, n, r.When() + " (" + r.Event + ")", nil
+		}
+		body, err := canonical(map[string]any{
+			"ts": r.TS, "event": r.Event, "data": r.Data, "prev": r.Prev,
+		})
+		if err != nil {
+			return false, n, r.When(), nil
+		}
+		sum := sha256.Sum256(body)
+		if hex.EncodeToString(sum[:])[:16] != r.Hash {
+			return false, n, r.When() + " (" + r.Event + ")", nil
+		}
+		prev = r.Hash
+	}
+	return true, n, "", nil
+}
+
+func (s *Store) journalLines() ([]string, error) {
+	raw, err := os.ReadFile(s.journal)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var out []string
+	for _, l := range strings.Split(string(raw), "\n") {
+		if strings.TrimSpace(l) != "" {
+			out = append(out, l)
+		}
+	}
+	return out, nil
+}

@@ -138,7 +138,7 @@ func run(addr, dir string, scfg stack.Config) error {
 
 	srv := &http.Server{
 		Addr:              addr,
-		Handler:           web.New(st, au, rec, scfg.Host),
+		Handler:           web.New(st, au, rec, scfg.Host, scfg.EventsPath),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 

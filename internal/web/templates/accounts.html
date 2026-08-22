@@ -1,0 +1,55 @@
+{{define "content"}}
+<header class="page">
+  <h1>Accounts</h1>
+  <p>Three roles, and the line between them is drawn where money and state are: a viewer reads and exports, an operator acts, an admin manages accounts.</p>
+</header>
+
+{{if not .IsAdmin}}
+<p class="msg">Your account can see this page and cannot change it. Managing accounts is an admin's job.</p>
+{{end}}
+
+<div class="panel">
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Account</th><th class="tight">Role</th><th>Last signed in</th><th></th></tr></thead>
+    <tbody>
+    {{range .Users}}
+      <tr>
+        <td><strong>{{.Username}}</strong>{{if eq .Username $.Me}}<span class="sub">this is you</span>{{end}}</td>
+        <td class="tight"><span class="chip {{if eq .Role "admin"}}accepted{{else if eq .Role "operator"}}triaged{{else}}dismissed{{end}}">{{.Role}}</span></td>
+        <td>{{if .LastLogin}}{{.LastLogin}}{{else}}<span class="note">never</span>{{end}}</td>
+        <td class="tight">
+          {{if $.IsAdmin}}
+          <form method="post" action="/accounts/role" style="display:inline-flex;gap:6px">
+            <input type="hidden" name="csrf" value="{{$.CSRF}}">
+            <input type="hidden" name="username" value="{{.Username}}">
+            <select name="role">{{range $.Roles}}<option value="{{.}}" {{if eq . $.Dummy}}{{end}}>{{.}}</option>{{end}}</select>
+            <button class="quiet" type="submit">Set</button>
+          </form>
+          {{end}}
+        </td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+{{if .IsAdmin}}
+<div class="panel">
+  <h2>Add an account</h2>
+  <div class="body">
+    <form class="action" method="post" action="/accounts/create">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <div class="row">
+        <div><label for="nu">Name</label><input id="nu" type="text" name="username"></div>
+        <div><label for="np">Password</label><input id="np" type="password" name="password" placeholder="at least 10 characters"></div>
+        <div><label for="nr">Role</label><select id="nr" name="role">{{range .Roles}}<option value="{{.}}">{{.}}</option>{{end}}</select></div>
+        <button type="submit">Create</button>
+      </div>
+      <p class="note">A new account starts where you put it. Nothing is promoted automatically, and a joining code cannot hand out power.</p>
+    </form>
+  </div>
+</div>
+{{end}}
+{{end}}

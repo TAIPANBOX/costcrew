@@ -369,3 +369,63 @@ func (a *Auth) CSRFToken(session string) string {
 func (a *Auth) CSRFOK(session, given string) bool {
 	return subtle.ConstantTimeCompare([]byte(a.CSRFToken(session)), []byte(given)) == 1
 }
+
+// ---------------------------------------------------------------- listing
+
+// Summary is one account, without its hash.
+type Summary struct {
+	Username  string
+	Role      string
+	Created   float64
+	LastLogin sql.NullFloat64
+}
+
+// LastLoginText renders the timestamp, or says never rather than 1970.
+func (s Summary) LastLoginText() string {
+	if !s.LastLogin.Valid || s.LastLogin.Float64 == 0 {
+		return ""
+	}
+	return time.Unix(int64(s.LastLogin.Float64), 0).UTC().Format(time.RFC3339)
+}
+
+func (a *Auth) List() ([]Summary, error) {
+	rows, err := a.st.DB().Query(`SELECT username, role, created, last_login
+		FROM users ORDER BY username`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Summary
+	for rows.Next() {
+		var s Summary
+		if err := rows.Scan(&s.Username, &s.Role, &s.Created, &s.LastLogin); err != nil {
+			return nil, err
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
+}
+
+func (a *Auth) CountRole(role string) (int, error) {
+	var n int
+	err := a.st.DB().QueryRow(`SELECT COUNT(*) FROM users WHERE role=?`, role).Scan(&n)
+	return n, err
+}
+
+// SetRole changes what somebody may do. Journalled, because a change to who
+// can spend money is exactly the kind of thing somebody asks about later.
+func (a *Auth) SetRole(username, role string) error {
+	if !validRole(role) {
+		return fmt.Errorf("no such role: %q", role)
+	}
+	res, err := a.st.DB().Exec(`UPDATE users SET role=? WHERE username=?`, role, username)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return fmt.Errorf("no such account: %q", username)
+	}
+	_, err = a.st.Journal("user_role_changed", 0, map[string]any{
+		"username": username, "role": role})
+	return err
+}

@@ -13,6 +13,7 @@ import (
 
 	"github.com/TAIPANBOX/costcrew/internal/anomaly"
 	"github.com/TAIPANBOX/costcrew/internal/auth"
+	"github.com/TAIPANBOX/costcrew/internal/connectors"
 	"github.com/TAIPANBOX/costcrew/internal/crew"
 	"github.com/TAIPANBOX/costcrew/internal/detect"
 	"github.com/TAIPANBOX/costcrew/internal/estate"
@@ -75,7 +76,7 @@ func start(t *testing.T) *harness {
 		t.Fatal(err)
 	}
 
-	srv := httptest.NewServer(web.New(st, au, nil, "costcrew.test"))
+	srv := httptest.NewServer(web.New(st, au, nil, "costcrew.test", ""))
 	t.Cleanup(srv.Close)
 
 	jar, _ := cookiejar.New(nil)
@@ -162,7 +163,8 @@ func TestEveryPageRefusesAStranger(t *testing.T) {
 		},
 	}}
 	for _, path := range []string{"/", "/anomalies", "/budgets", "/staff", "/board", "/sprints",
-		"/allocation", "/chargeback", "/results"} {
+		"/allocation", "/chargeback", "/results",
+		"/connectors", "/engines", "/accounts", "/audit"} {
 		code, _, loc := stranger.get(t, path)
 		if code != http.StatusSeeOther || loc != "/login" {
 			t.Errorf("GET %s without a session: %d to %q, want 303 to /login", path, code, loc)
@@ -189,6 +191,10 @@ func TestSignedInPagesRender(t *testing.T) {
 		{"/allocation", "Allocation"},
 		{"/chargeback", "Chargeback"},
 		{"/results", "Results"},
+		{"/connectors", "Connectors"},
+		{"/engines", "Engines"},
+		{"/accounts", "Accounts"},
+		{"/audit", "Audit"},
 	} {
 		code, body, _ := h.get(t, tc.path)
 		if code != http.StatusOK {
@@ -483,7 +489,8 @@ func TestAnUnclaimedInstallationSendsYouToSignUp(t *testing.T) {
 	h := start(t) // no signUp: nobody has claimed it
 
 	for _, path := range []string{"/", "/anomalies", "/budgets", "/staff", "/board", "/sprints",
-		"/allocation", "/chargeback", "/results"} {
+		"/allocation", "/chargeback", "/results",
+		"/connectors", "/engines", "/accounts", "/audit"} {
 		code, _, loc := h.get(t, path)
 		if code != http.StatusSeeOther || loc != "/signup" {
 			t.Errorf("GET %s on an unclaimed install: %d to %q, want 303 to /signup",
@@ -532,4 +539,176 @@ func newJar(t *testing.T) *cookiejar.Jar {
 		t.Fatal(err)
 	}
 	return j
+}
+
+// ------------------------------------------------------------------- ops
+
+// The rule that matters most on the connectors page: a call that costs money
+// does not happen because somebody clicked past a screen.
+func TestAMeteredConnectorRefusesWithoutAnExplicitYes(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+
+	const metered = "aws-cost-explorer"
+	path := "/connectors/" + metered
+
+	_, body, _ := h.get(t, path)
+	if !strings.Contains(body, "costs money") {
+		t.Error("the page does not say the connector is billed per call")
+	}
+
+	// No confirmation: the refusal has to name the cost, not just say no.
+	_, loc := h.post(t, path+"/import", url.Values{"csrf": {h.csrf(t, path)}})
+	if !strings.Contains(loc, "msg=") {
+		t.Fatal("a metered import ran without confirmation")
+	}
+	if !strings.Contains(loc, "costs+money") && !strings.Contains(loc, "costs%20money") {
+		t.Errorf("the refusal does not say why: %s", loc)
+	}
+
+	// Configure it, so the next assertion is about the METERING rather than
+	// about a missing field: an unconfigured connector correctly says it is
+	// unconfigured, which is a different sentence.
+	if _, loc := h.post(t, path+"/save", url.Values{
+		"profile": {"stack-k8s"}, "csrf": {h.csrf(t, path)},
+	}); strings.Contains(loc, "msg=") {
+		t.Fatalf("saving the connector config failed: %s", loc)
+	}
+
+	// A test must not call it either. Free connectors get tested; billed ones
+	// get described.
+	if _, loc := h.post(t, path+"/test", url.Values{"csrf": {h.csrf(t, path)}}); strings.Contains(loc, "msg=") {
+		t.Errorf("testing a metered connector errored: %s", loc)
+	}
+	_, body, _ = h.get(t, path)
+	if !strings.Contains(body, "NOT called") {
+		t.Error("the test result does not say the metered connector was left alone")
+	}
+}
+
+// A documented connector must say so rather than look finished.
+func TestADocumentedConnectorSaysItIsNotBuilt(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+	path := "/connectors/opencost"
+	_, body, _ := h.get(t, path)
+	if !strings.Contains(body, "documented") {
+		t.Error("a documented connector does not say so on its own page")
+	}
+	if _, loc := h.post(t, path+"/import", url.Values{"csrf": {h.csrf(t, path)}}); !strings.Contains(loc, "msg=") {
+		t.Error("importing from a connector with no reader was accepted")
+	}
+}
+
+// Every connector answers the two questions that decide whether an
+// integration is a good idea, plus the one nobody else prints.
+func TestEveryConnectorSaysWhatItCannotDo(t *testing.T) {
+	for _, c := range connectors.Catalogue {
+		if strings.TrimSpace(c.Feeds) == "" {
+			t.Errorf("%s does not say what it fills; a connector that fills nothing is a demo", c.ID)
+		}
+		if strings.TrimSpace(c.CostNote) == "" {
+			t.Errorf("%s does not say what running it costs", c.ID)
+		}
+		if len(strings.TrimSpace(c.Cannot)) < 25 {
+			t.Errorf("%s does not say what it CANNOT do, which is the half that "+
+				"stops somebody planning around a limit they find later", c.ID)
+		}
+	}
+}
+
+// A secret must never reach the page, only whether it is set.
+func TestASecretIsNeverRendered(t *testing.T) {
+	t.Setenv("ANTHROPIC_ADMIN_KEY", "sk-ant-admin-thismustnotappear")
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+	_, body, _ := h.get(t, "/connectors/anthropic-usage")
+	if strings.Contains(body, "thismustnotappear") {
+		t.Fatal("the connector page rendered the secret itself")
+	}
+	if !strings.Contains(body, "It is set") {
+		t.Error("the page does not say whether the credential is present")
+	}
+}
+
+// Engines are grouped by how you pay, and the dry state is stated rather than
+// looking like a broken console.
+func TestEnginesExplainThemselves(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+	_, body, _ := h.get(t, "/engines")
+	for _, want := range []string{
+		"A subscription you already have",
+		"A key, billed per token",
+		"An assistant the organisation already pays for",
+		"When to pick it",
+		"What it costs",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the engines page does not contain %q", want)
+		}
+	}
+}
+
+// Managing accounts is a HIGHER bar than acting: an operator can spend the
+// budget and still not hand somebody else the ability to.
+func TestAnOperatorCannotManageAccounts(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+	if ok, err := h.au.Create("hands", "hands-password-2026", "operator"); err != nil || !ok {
+		t.Fatalf("creating an operator: %v %v", ok, err)
+	}
+	op := &harness{srv: h.srv, au: h.au, st: h.st, c: &http.Client{
+		Jar: newJar(t),
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}}
+	if code, loc := op.post(t, "/login", url.Values{
+		"username": {"hands"}, "password": {"hands-password-2026"},
+		"csrf": {op.csrf(t, "/login")},
+	}); code != http.StatusSeeOther || strings.Contains(loc, "msg=") {
+		t.Fatalf("the operator could not sign in: %d %s", code, loc)
+	}
+	_, loc := op.post(t, "/accounts/create", url.Values{
+		"username": {"smuggled"}, "password": {"smuggled-password-1"},
+		"role": {"admin"}, "csrf": {op.csrf(t, "/accounts")},
+	})
+	if !strings.Contains(loc, "msg=") {
+		t.Error("an operator created an account")
+	}
+	if u, _ := h.au.Get("smuggled"); u != nil {
+		t.Fatal("an operator created an ADMIN account")
+	}
+}
+
+// An installation with no admin cannot be managed by anybody, and the only
+// fix is the database.
+func TestTheLastAdminCannotDemoteThemselves(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+	_, loc := h.post(t, "/accounts/role", url.Values{
+		"username": {"owner"}, "role": {"viewer"}, "csrf": {h.csrf(t, "/accounts")},
+	})
+	if !strings.Contains(loc, "msg=") {
+		t.Fatal("the only admin demoted themselves")
+	}
+	u, err := h.au.Get("owner")
+	if err != nil || u == nil || u.Role != "admin" {
+		t.Fatalf("the owner is now %v", u)
+	}
+}
+
+// The audit page has to say verified or say where it broke. "Broken" with no
+// position is a sentence nobody can act on.
+func TestTheAuditPageVerifiesTheChain(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+	_, body, _ := h.get(t, "/audit")
+	if !strings.Contains(body, "verified") {
+		t.Error("the audit page does not report the chain as verified")
+	}
+	if !strings.Contains(body, "user_registered") {
+		t.Error("the journal does not contain the registration that just happened")
+	}
 }

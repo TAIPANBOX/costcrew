@@ -1,0 +1,41 @@
+{{define "content"}}
+<header class="page">
+  <h1>Audit</h1>
+  <p>Everything the console did, in order, each entry hashed against the one before it. Tamper-evidence, not tamper-proofing: a whole-file rewrite can re-chain, but a partial edit, a truncation or a reordering no longer passes silently.</p>
+</header>
+
+<div class="tiles">
+  <div class="tile">
+    <div class="k">The chain</div>
+    <div class="v {{if not .OK}}up{{end}}">{{if .OK}}verified{{else}}broken{{end}}</div>
+    <div class="s">{{.N}} events</div>
+  </div>
+  {{if .StackOn}}
+  <div class="tile"><div class="k">On the stack</div><div class="v">{{.Emitted}}</div><div class="s">agent-events emitted</div></div>
+  {{end}}
+</div>
+
+{{if not .OK}}
+<p class="msg">The chain does not verify from {{.BreakAt}}. That means the file was edited, truncated or reordered after it was written.</p>
+{{end}}
+
+<div class="panel">
+  <div class="scroll">
+  <table>
+    <thead><tr><th class="tight">When</th><th>Event</th><th>What</th><th class="tight">Hash</th></tr></thead>
+    <tbody>
+    {{range .Events}}
+      <tr>
+        <td class="tight">{{.When}}</td>
+        <td><strong>{{.Kind}}</strong></td>
+        <td>{{.Detail}}</td>
+        <td class="tight"><code>{{.Hash}}</code></td>
+      </tr>
+    {{else}}
+      <tr><td colspan="4" class="empty">Nothing in the journal yet.</td></tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+</div>
+{{end}}

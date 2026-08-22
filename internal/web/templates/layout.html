@@ -23,7 +23,12 @@
   <a href="/allocation" {{if eq .Nav "allocation"}}aria-current="page"{{end}}>Allocation</a>
   <a href="/chargeback" {{if eq .Nav "chargeback"}}aria-current="page"{{end}}>Chargeback</a>
   <a href="/results" {{if eq .Nav "results"}}aria-current="page"{{end}}>Results</a>
+  <div class="group">Set up</div>
+  <a href="/connectors" {{if eq .Nav "connectors"}}aria-current="page"{{end}}>Connectors</a>
+  <a href="/engines" {{if eq .Nav "engines"}}aria-current="page"{{end}}>Engines</a>
+  <a href="/audit" {{if eq .Nav "audit"}}aria-current="page"{{end}}>Audit</a>
   <div class="group">Account</div>
+  <a href="/accounts" {{if eq .Nav "accounts"}}aria-current="page"{{end}}>Accounts</a>
   <a href="/logout" onclick="event.preventDefault();document.getElementById('lo').submit()">Sign out</a>
   <form id="lo" method="post" action="/logout" hidden>
     <input type="hidden" name="csrf" value="{{.CSRF}}">

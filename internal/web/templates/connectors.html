@@ -1,0 +1,31 @@
+{{define "content"}}
+<header class="page">
+  <h1>Connectors</h1>
+  <p>Where the estate's numbers can come from. Every entry says which table it fills, what it needs, and whether <strong>running it costs money</strong>, because that last one is what decides whether an integration is a good idea.</p>
+</header>
+
+<div class="tiles">
+  <div class="tile"><div class="k">Built</div><div class="v">{{.Built}}</div><div class="s">a reader and a test exist</div></div>
+  <div class="tile"><div class="k">Documented</div><div class="v">{{.Documented}}</div><div class="s">endpoint established, code not written</div></div>
+  <div class="tile"><div class="k">Metered</div><div class="v {{if .Metered}}up{{end}}">{{.Metered}}</div><div class="s">cost money per call</div></div>
+</div>
+
+<div class="panel">
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Connector</th><th class="tight">Feeds</th><th class="tight">Running it</th><th class="tight">Status</th><th>Last test</th></tr></thead>
+    <tbody>
+    {{range .Rows}}
+      <tr>
+        <td><a href="/connectors/{{.ID}}"><strong>{{.Name}}</strong></a><span class="sub">{{.Provider}} · {{.Kind}}</span></td>
+        <td class="tight">{{.Feeds}}</td>
+        <td class="tight">{{if .Metered}}<span class="chip open">metered</span>{{else}}<span class="chip accepted">free</span>{{end}}</td>
+        <td class="tight"><span class="chip {{if eq .Status "built"}}accepted{{else}}dismissed{{end}}">{{.Status}}</span></td>
+        <td>{{if .LastResult}}{{.LastResult}}<span class="sub">{{.LastTest}}</span>{{else}}<span class="note">never</span>{{end}}</td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+</div>
+{{end}}

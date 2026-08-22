@@ -1,0 +1,76 @@
+{{define "content"}}
+<p class="crumb"><a href="/connectors">Connectors</a> / {{.C.ID}}</p>
+<header class="page">
+  <h1>{{.C.Name}}</h1>
+  <p>{{.C.Provider}} · fills <strong>{{.C.Feeds}}</strong></p>
+</header>
+
+{{if .C.Metered}}
+<div class="panel" style="border-left:3px solid var(--up)">
+  <h2>Running this costs money</h2>
+  <div class="body">
+    <p><strong>{{.C.CostNote}}</strong></p>
+    <p class="note">It will not be called by a test, and Import asks before it runs. Nothing here spends anything because somebody clicked past a screen.</p>
+  </div>
+</div>
+{{end}}
+
+<div class="panel">
+  <h2>What it is</h2>
+  <div class="body">
+    <dl class="facts">
+      <dt>Status</dt>
+      <dd><span class="chip {{if eq .C.Status "built"}}accepted{{else}}dismissed{{end}}">{{.C.Status}}</span>
+        {{if eq .C.Status "documented"}} The endpoint and its shape are established; the reader is not written. Nothing about this is pretending otherwise.{{end}}</dd>
+      <dt>Cost to run</dt><dd>{{.C.CostNote}}</dd>
+      <dt>Authentication</dt><dd>{{.C.Auth}}</dd>
+      {{if .C.Note}}<dt>Worth knowing</dt><dd>{{.C.Note}}</dd>{{end}}
+      <dt>What it cannot do</dt><dd><strong>{{.C.Cannot}}</strong></dd>
+      {{if .C.Doc}}<dt>Documentation</dt><dd><a href="{{.C.Doc}}" rel="noreferrer">{{.C.Doc}}</a></dd>{{end}}
+    </dl>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>What it needs</h2>
+  <div class="body">
+    <form class="action" method="post" action="/connectors/{{.C.ID}}/save">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      {{range .C.Inputs}}
+        <div>
+          <label for="i{{.Name}}">{{.Label}}</label>
+          {{if .Secret}}
+            <p class="note">Lives in the environment variable <code>{{.EnvVar}}</code>, never in this console's database. {{if index $.Env .EnvVar}}<strong>It is set.</strong>{{else}}<strong>Not set in this process.</strong>{{end}}</p>
+          {{else}}
+            <input id="i{{.Name}}" type="text" name="{{.Name}}" value="{{index $.Conn.Config .Name}}" placeholder="{{.Hint}}">
+          {{end}}
+        </div>
+      {{end}}
+      {{if .CanAct}}<div class="row"><button class="quiet" type="submit">Save</button></div>{{end}}
+    </form>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Try it</h2>
+  <div class="body">
+    {{if .Conn.LastResult}}<p class="{{if .Conn.OK}}note{{else}}msg{{end}}">{{.Conn.LastResult}}<br><span class="note">{{.Conn.LastTest}}</span></p>{{end}}
+    <p class="note">A test says WHAT it found, not just that it worked. A green tick tells nobody anything.</p>
+    {{if .CanAct}}
+    <div class="row" style="align-items:flex-start">
+      <form class="action" method="post" action="/connectors/{{.C.ID}}/test">
+        <input type="hidden" name="csrf" value="{{.CSRF}}">
+        <button class="quiet" type="submit">Test</button>
+      </form>
+      <form class="action" method="post" action="/connectors/{{.C.ID}}/import">
+        <input type="hidden" name="csrf" value="{{.CSRF}}">
+        {{if .C.Metered}}
+        <label><input type="checkbox" name="confirm" value="yes" style="width:auto"> I understand this call is billed</label>
+        {{end}}
+        <button type="submit">Import</button>
+      </form>
+    </div>
+    {{end}}
+  </div>
+</div>
+{{end}}

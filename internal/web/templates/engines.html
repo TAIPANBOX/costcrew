@@ -1,0 +1,35 @@
+{{define "content"}}
+<header class="page">
+  <h1>Engines</h1>
+  <p>Grouped by how you pay, because that is the question you actually have. Three answers to "what do I need", not a list of twelve providers.</p>
+</header>
+
+{{if .Dry}}
+<p class="msg">Nothing is configured, so the crew is in dry mode: every figure the engine computes is real and the analysts simply do not write. The console is not broken.</p>
+{{end}}
+
+{{range .Groups}}
+<div class="panel">
+  <h2>{{.Title}}</h2>
+  <div class="body">
+    <p class="note">{{.Note}}</p>
+    {{range .Engines}}
+    <div style="padding:14px 0;border-bottom:1px solid var(--line-soft)">
+      <div class="row" style="align-items:baseline">
+        <div style="flex:1 1 auto">
+          <strong>{{.Name}}</strong>
+          {{if .Ready}}<span class="chip accepted">ready</span>{{else}}<span class="chip dismissed">not set up</span>{{end}}
+        </div>
+      </div>
+      <dl class="facts" style="margin-top:8px">
+        <dt>When to pick it</dt><dd>{{.When}}</dd>
+        <dt>What it costs</dt><dd>{{.Cost}}</dd>
+        <dt>How to set it up</dt><dd>{{.How}}{{if .Doc}} <a href="{{.Doc}}" rel="noreferrer">docs</a>{{end}}</dd>
+        <dt>Right now</dt><dd>{{.Reason}}</dd>
+      </dl>
+    </div>
+    {{end}}
+  </div>
+</div>
+{{end}}
+{{end}}

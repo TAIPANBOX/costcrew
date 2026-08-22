@@ -22,21 +22,23 @@ import (
 )
 
 type Server struct {
-	st   *store.Store
-	au   *auth.Auth
-	db   *sql.DB
-	rec  anomaly.Recorder
-	host string
-	mux  *http.ServeMux
+	st         *store.Store
+	au         *auth.Auth
+	db         *sql.DB
+	rec        anomaly.Recorder
+	host       string
+	eventsPath string
+	mux        *http.ServeMux
 }
 
 // New builds the console. A nil recorder means the governance stack is
 // switched off, which is the default and a perfectly good answer.
-func New(st *store.Store, au *auth.Auth, rec anomaly.Recorder, host string) *Server {
+func New(st *store.Store, au *auth.Auth, rec anomaly.Recorder, host, eventsPath string) *Server {
 	if host == "" {
 		host = "costcrew.local"
 	}
-	s := &Server{st: st, au: au, db: st.DB(), rec: rec, host: host, mux: http.NewServeMux()}
+	s := &Server{st: st, au: au, db: st.DB(), rec: rec, host: host,
+		eventsPath: eventsPath, mux: http.NewServeMux()}
 	s.routes()
 	return s
 }
@@ -94,6 +96,17 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /export/results.md", s.exportResultsMD)
 	s.mux.HandleFunc("GET /export/crew.csv", s.exportCrewCSV)
 	s.mux.HandleFunc("GET /export/exec-packet.md", s.exportExecPacket)
+
+	s.mux.HandleFunc("GET /connectors", s.connectors)
+	s.mux.HandleFunc("GET /connectors/{id}", s.connectorPage)
+	s.mux.HandleFunc("POST /connectors/{id}/save", s.connectorAction("save"))
+	s.mux.HandleFunc("POST /connectors/{id}/test", s.connectorAction("test"))
+	s.mux.HandleFunc("POST /connectors/{id}/import", s.connectorAction("import"))
+	s.mux.HandleFunc("GET /engines", s.engines)
+	s.mux.HandleFunc("GET /accounts", s.accounts)
+	s.mux.HandleFunc("POST /accounts/create", s.accountAction("create"))
+	s.mux.HandleFunc("POST /accounts/role", s.accountAction("role"))
+	s.mux.HandleFunc("GET /audit", s.audit)
 	s.mux.HandleFunc("GET /static/app.css", s.styleCSS)
 }
 
