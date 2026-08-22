@@ -146,7 +146,8 @@ func (s *Server) board(w http.ResponseWriter, r *http.Request) {
 // ------------------------------------------------------------------ sprints
 
 func (s *Server) sprints(w http.ResponseWriter, r *http.Request) {
-	if s.guard(w, r) == nil {
+	u := s.guard(w, r)
+	if u == nil {
 		return
 	}
 	sp, err := crew.Sprints(s.db)
@@ -157,11 +158,13 @@ func (s *Server) sprints(w http.ResponseWriter, r *http.Request) {
 	s.render(w, tplSprints, struct {
 		shell
 		Sprints []crew.Sprint
-	}{s.shellFor(r, "Sprints", "sprints"), sp})
+		CanAct  bool
+	}{s.shellFor(r, "Sprints", "sprints"), sp, u.May("operator")})
 }
 
 func (s *Server) sprintPage(w http.ResponseWriter, r *http.Request) {
-	if s.guard(w, r) == nil {
+	u := s.guard(w, r)
+	if u == nil {
 		return
 	}
 	id, err := strconv.Atoi(r.PathValue("id"))
@@ -187,9 +190,10 @@ func (s *Server) sprintPage(w http.ResponseWriter, r *http.Request) {
 	ts, _ := crew.Tasks(s.db, crew.TaskFilter{Sprint: id})
 	s.render(w, tplSprint, struct {
 		shell
-		S     crew.Sprint
-		Tasks []taskView
-	}{s.shellFor(r, found.Label, "sprints"), found, views(ts)})
+		S      crew.Sprint
+		Tasks  []taskView
+		CanAct bool
+	}{s.shellFor(r, found.Label, "sprints"), found, views(ts), u.May("operator")})
 }
 
 // --------------------------------------------------------------------- task

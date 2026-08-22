@@ -1,0 +1,56 @@
+{{define "content"}}
+<header class="page">
+  <h1>Forecast</h1>
+  <p>A forecast is only a forecast once it is <strong>frozen</strong>. An unfrozen one is a number that improves every time somebody edits it, and accuracy measured against that is not a measurement, it is a compliment.</p>
+</header>
+
+<div class="panel">
+  <h2>{{.Period}}, as it stands</h2>
+  <div class="body">
+    <p class="note">{{.Basis}}.</p>
+    <div class="scroll"><table>
+      <thead><tr><th class="tight">Desk</th><th class="num">Projected</th></tr></thead>
+      <tbody>{{range .Projection}}
+        <tr><td class="tight">{{.Source}}</td><td class="num">{{.Amount}}</td></tr>
+      {{end}}</tbody>
+    </table></div>
+    {{if .Frozen}}
+      <p class="note">{{.Period}} is already frozen. Re-freezing it would move a number somebody has been shown.</p>
+    {{else if .CanAct}}
+      <form class="action" method="post" action="/forecast/freeze">
+        <input type="hidden" name="csrf" value="{{.CSRF}}">
+        <input type="hidden" name="period" value="{{.Period}}">
+        <div class="row"><button type="submit">Freeze {{.Period}}</button></div>
+      </form>
+    {{end}}
+  </div>
+</div>
+
+<div class="panel">
+  <h2>How the last ones did</h2>
+  <div class="body">
+    <p class="note">The ladder: {{.Ladder}}. A forecast inside five percent usually means somebody is forecasting the past.</p>
+    {{if .HasAccuracy}}
+      <p>Average error across {{.Scored}} scored month-desks: <strong>{{printf "%.1f%%" .Accuracy}}</strong>.</p>
+    {{else}}
+      <p class="note">Nothing has been scored yet. A month has to be frozen and then finish before its accuracy means anything, and the KPI page reports this as a refusal rather than as a zero, because a zero would read as a perfect forecast.</p>
+    {{end}}
+    <div class="scroll"><table>
+      <thead><tr><th class="tight">Month</th><th class="tight">Desk</th><th class="num">Forecast</th><th class="num">Actual</th><th class="num">Error</th><th class="tight">Grade</th><th>Frozen</th></tr></thead>
+      <tbody>{{range .Rows}}
+        <tr>
+          <td class="tight">{{.Period}}</td>
+          <td class="tight">{{.Source}}</td>
+          <td class="num">{{.Forecast}}</td>
+          <td class="num">{{if .HasAct}}{{.Actual}}{{else}}<span class="note">still running</span>{{end}}</td>
+          <td class="num">{{if .HasAct}}{{printf "%.1f%%" .ErrorPct}}{{else}}—{{end}}</td>
+          <td class="tight">{{if .Grade}}<span class="chip {{if eq .Grade "trusted"}}accepted{{else if eq .Grade "working"}}explained{{else if eq .Grade "starting"}}triaged{{else}}open{{end}}">{{.Grade}}</span>{{end}}</td>
+          <td>{{.FrozenBy}}<span class="sub">{{.FrozenAt}}</span></td>
+        </tr>
+      {{else}}
+        <tr><td colspan="7" class="empty">Nothing frozen yet.</td></tr>
+      {{end}}</tbody>
+    </table></div>
+  </div>
+</div>
+{{end}}

@@ -12,6 +12,14 @@
   <div class="tile"><div class="k">The crew cost</div><div class="v">{{.S.Spent}}</div><div class="s">against {{.S.Budget}} of guards</div></div>
 </div>
 
+{{if .CanAct}}{{if ne .S.State "closed"}}
+<form class="action" method="post" action="/sprint/{{.S.ID}}/close" style="margin-bottom:20px">
+  <input type="hidden" name="csrf" value="{{.CSRF}}">
+  <div class="row"><button class="quiet" type="submit">Close this sprint</button></div>
+  <p class="note">Open tasks stay open. A sprint that tidies itself up on the way out hides exactly what a retrospective needs.</p>
+</form>
+{{end}}{{end}}
+
 <div class="panel">
   <div class="scroll">
   <table>

@@ -569,3 +569,172 @@ func AwaitingStamp(db *sql.DB) ([]Task, error) {
 	}
 	return out, nil
 }
+
+// ------------------------------------------------------------- planning
+
+// Plan is a proposed sprint: what the crew would do next, routed to analysts
+// by desk, with the guards it would run under.
+//
+// It is a PROPOSAL. Nothing is created until an operator approves it, and the
+// approval is what materialises the tasks. A planner that writes straight to
+// the board is one that spends the budget before anybody agreed to the work.
+type Plan struct {
+	Label    string
+	Start    string
+	End      string
+	Goal     string
+	Items    []PlanItem
+	Budget   money.Cents
+	Existing bool // this sprint is already on the board
+}
+
+type PlanItem struct {
+	Title    string
+	Goal     string
+	Assignee string
+	Desk     string
+	Budget   money.Cents
+	Why      string
+}
+
+// Propose builds the next sprint from what the estate actually needs, which is
+// the difference between a plan and a template: every item names the thing it
+// came from.
+func Propose(db *sql.DB, label, start, end string) (Plan, error) {
+	p := Plan{Label: label, Start: start, End: end,
+		Goal: "Close what is open, and explain what is not."}
+
+	var exists int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM sprints WHERE label=?`, label).Scan(&exists); err != nil {
+		return p, err
+	}
+	p.Existing = exists > 0
+
+	// Open anomalies with nobody on them are the first call on the crew's
+	// time, largest first.
+	rows, err := db.Query(`SELECT id, source, service, day, excess_cents
+		FROM anomalies WHERE state='open' AND (handled_by IS NULL OR handled_by='')
+		ORDER BY ABS(excess_cents) DESC LIMIT 6`)
+	if err != nil {
+		return p, err
+	}
+	for rows.Next() {
+		var id, source, service, day string
+		var excess int64
+		if err := rows.Scan(&id, &source, &service, &day, &excess); err != nil {
+			rows.Close()
+			return p, err
+		}
+		p.Items = append(p.Items, PlanItem{
+			Title:    fmt.Sprintf("Explain the %s move on %s", service, day),
+			Goal:     fmt.Sprintf("%s against baseline on the %s desk.", money.Cents(excess), source),
+			Assignee: triageDesk(source),
+			Desk:     source,
+			Budget:   money.Cents(15_00),
+			Why:      "anomaly " + id + " is open and unowned",
+		})
+	}
+	rows.Close()
+
+	// Work that stopped, because a blocked task nobody revisits is the quiet
+	// way a sprint's capacity disappears.
+	blocked, err := Tasks(db, TaskFilter{State: Blocked})
+	if err != nil {
+		return p, err
+	}
+	for i, t := range blocked {
+		if i >= 3 {
+			break
+		}
+		p.Items = append(p.Items, PlanItem{
+			Title:    "Unblock: " + t.Title,
+			Goal:     t.Reason,
+			Assignee: t.Assignee,
+			Desk:     t.Desk,
+			Budget:   money.Cents(10_00),
+			Why:      fmt.Sprintf("task %d has been blocked since %s", t.ID, t.Updated),
+		})
+	}
+
+	for _, it := range p.Items {
+		p.Budget += it.Budget
+	}
+	return p, nil
+}
+
+func triageDesk(source string) string {
+	switch source {
+	case "aws", "gcp", "azure":
+		return "triage-" + source
+	case "ai":
+		return "triage-ai"
+	case "saas":
+		return "saas-manager"
+	}
+	return "investigator-onprem"
+}
+
+// Approve materialises a plan onto the board. This is the only thing that
+// creates the tasks, and it is a person's act.
+func Approve(db *sql.DB, p Plan) (int, error) {
+	if len(p.Items) == 0 {
+		return 0, fmt.Errorf("there is nothing to plan: no anomaly is unowned and " +
+			"nothing is blocked, which is a good week rather than a problem")
+	}
+	if p.Existing {
+		return 0, fmt.Errorf("%s is already on the board", p.Label)
+	}
+	tx, err := db.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+
+	res, err := tx.Exec(`INSERT INTO sprints(label, start, finish, state, goal)
+		VALUES (?,?,?,?,?)`, p.Label, p.Start, p.End, "planned", p.Goal)
+	if err != nil {
+		return 0, err
+	}
+	sid, _ := res.LastInsertId()
+
+	now := stamp()
+	n := 0
+	for _, it := range p.Items {
+		state := Queued
+		if it.Assignee != "" {
+			state = Active
+		}
+		if _, err := tx.Exec(`INSERT INTO tasks
+			(sprint, title, goal, assignee, desk, state, budget_cents, spent_cents,
+			 created, updated)
+			VALUES (?,?,?,?,?,?,?,0,?,?)`,
+			sid, it.Title, it.Goal, nullIf(it.Assignee), nullIf(it.Desk),
+			string(state), int64(it.Budget), now, now); err != nil {
+			return n, err
+		}
+		n++
+	}
+	return n, tx.Commit()
+}
+
+// CloseSprint stops a sprint accepting new work. Open tasks are NOT closed
+// with it: work that did not finish did not finish, and a sprint that tidies
+// itself up on the way out hides exactly the thing a retrospective needs.
+func CloseSprint(db *sql.DB, id int) (int, error) {
+	var state string
+	if err := db.QueryRow(`SELECT state FROM sprints WHERE id=?`, id).Scan(&state); err == sql.ErrNoRows {
+		return 0, fmt.Errorf("no such sprint")
+	} else if err != nil {
+		return 0, err
+	}
+	if state == "closed" {
+		return 0, fmt.Errorf("that sprint is already closed")
+	}
+	var stillOpen int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM tasks WHERE sprint=? AND
+		state IN ('queued','active','blocked','returned')`, id).Scan(&stillOpen); err != nil {
+		return 0, err
+	}
+	_, err := db.Exec(`UPDATE sprints SET state='closed' WHERE id=?`, id)
+	return stillOpen, err
+}

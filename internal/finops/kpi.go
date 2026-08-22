@@ -135,12 +135,23 @@ func KPIs(db *sql.DB, period string) ([]KPI, error) {
 	//
 	// Named, and refusing, because a library where everything reports a number
 	// is one where several are invented.
+	// This one stops refusing the moment a frozen month finishes, which is the
+	// loop worth having: the KPI is not switched on by a setting, it is earned
+	// by the practice doing the thing it measures.
+	acc, scored, hasAcc, err := Accuracy(db, period)
+	if err != nil {
+		return nil, err
+	}
 	add(KPI{
 		ID: "forecast-accuracy", Name: "Forecast accuracy", Group: "Forecasting",
-		Target: "within 12%",
-		Blocked: "no forecast has been frozen yet, so there is nothing to compare an " +
-			"actual against. Accuracy against an unfrozen forecast is a number that " +
-			"improves whenever somebody edits the forecast.",
+		Value: fmt.Sprintf("%.1f", acc), Unit: "% average error",
+		Target: fmt.Sprintf("within %.0f%%", LadderTrusted),
+		HasVal: hasAcc, Meets: hasAcc && acc <= LadderTrusted,
+		Note: fmt.Sprintf("Across %d scored month-desks. %s.", scored, LadderText()),
+		Blocked: blockedIf(!hasAcc,
+			"no frozen forecast has reached the end of its month yet, so there is "+
+				"nothing to compare an actual against. Accuracy against an unfrozen "+
+				"forecast is a number that improves whenever somebody edits the forecast."),
 	})
 	add(KPI{
 		ID: "cost-per-outcome", Name: "Cost per business outcome", Group: "Unit economics",
@@ -238,6 +249,12 @@ func Maturity(db *sql.DB, period string) ([]Capability, error) {
 			Next:     "Give every open anomaly an owner, so none of them ages quietly.",
 		},
 		{
+			Name:     "Forecasting",
+			Level:    forecastLevel(db, period),
+			Evidence: forecastEvidence(db, period),
+			Next:     "Freeze every month, and let the accuracy be scored against what happens rather than against a forecast that kept moving.",
+		},
+		{
 			Name:  "Unit economics",
 			Level: 1,
 			Evidence: "Token and GPU-hour volumes are held beside cost, so price is " +
@@ -267,4 +284,34 @@ func level(run, walk, crawl bool) int {
 		return 1
 	}
 	return 0
+}
+
+func forecastLevel(db *sql.DB, period string) int {
+	frozen, err := FrozenPeriods(db)
+	if err != nil {
+		return 0
+	}
+	acc, _, has, _ := Accuracy(db, period)
+	switch {
+	case has && acc <= LadderTrusted:
+		return 3
+	case has:
+		return 2
+	case len(frozen) > 0:
+		return 1
+	}
+	return 0
+}
+
+func forecastEvidence(db *sql.DB, period string) string {
+	frozen, _ := FrozenPeriods(db)
+	acc, scored, has, _ := Accuracy(db, period)
+	if has {
+		return fmt.Sprintf("%d months frozen, %d month-desks scored, average error %.1f%%.",
+			len(frozen), scored, acc)
+	}
+	if len(frozen) > 0 {
+		return fmt.Sprintf("%d months frozen, none finished yet, so nothing is scored.", len(frozen))
+	}
+	return "Nothing has been frozen, so no forecast has ever been held to what happened."
 }

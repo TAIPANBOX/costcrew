@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -168,7 +169,8 @@ func TestEveryPageRefusesAStranger(t *testing.T) {
 	for _, path := range []string{"/", "/anomalies", "/budgets", "/staff", "/board", "/sprints",
 		"/allocation", "/chargeback", "/results",
 		"/connectors", "/engines", "/accounts", "/audit",
-		"/kpis", "/utilisation", "/saas", "/ai", "/staff/new"} {
+		"/kpis", "/utilisation", "/saas", "/ai", "/staff/new",
+		"/forecast", "/explainers", "/sprint/plan"} {
 		code, _, loc := stranger.get(t, path)
 		if code != http.StatusSeeOther || loc != "/login" {
 			t.Errorf("GET %s without a session: %d to %q, want 303 to /login", path, code, loc)
@@ -203,6 +205,8 @@ func TestSignedInPagesRender(t *testing.T) {
 		{"/utilisation", "Utilisation"},
 		{"/saas", "SaaS"},
 		{"/ai", "AI spend"},
+		{"/forecast", "Forecast"},
+		{"/explainers", "Explainers"},
 	} {
 		code, body, _ := h.get(t, tc.path)
 		if code != http.StatusOK {
@@ -499,7 +503,8 @@ func TestAnUnclaimedInstallationSendsYouToSignUp(t *testing.T) {
 	for _, path := range []string{"/", "/anomalies", "/budgets", "/staff", "/board", "/sprints",
 		"/allocation", "/chargeback", "/results",
 		"/connectors", "/engines", "/accounts", "/audit",
-		"/kpis", "/utilisation", "/saas", "/ai", "/staff/new"} {
+		"/kpis", "/utilisation", "/saas", "/ai", "/staff/new",
+		"/forecast", "/explainers", "/sprint/plan"} {
 		code, _, loc := h.get(t, path)
 		if code != http.StatusSeeOther || loc != "/signup" {
 			t.Errorf("GET %s on an unclaimed install: %d to %q, want 303 to /signup",
@@ -893,5 +898,125 @@ func TestAViewerCannotHire(t *testing.T) {
 	}
 	if _, _, loc := v.get(t, "/staff/new"); !strings.Contains(loc, "msg=") {
 		t.Error("a viewer reached the hire form")
+	}
+}
+
+// ------------------------------------------------------- forecast, plan, tell
+
+// The loop worth having: a KPI that refuses until the practice does the thing
+// it measures, and then reports.
+func TestFreezingAForecastTurnsARefusingKPIIntoAReportingOne(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+
+	_, body, _ := h.get(t, "/kpis")
+	if !strings.Contains(body, "no frozen forecast has reached the end of its month") {
+		t.Fatal("forecast accuracy does not begin as a refusal")
+	}
+
+	// Freeze a month that has already finished, so it can be scored at once.
+	months, err := finops.Months(h.st.DB())
+	if err != nil || len(months) < 3 {
+		t.Fatalf("months: %v %v", months, err)
+	}
+	closedMonth := months[2]
+	if err := finops.Freeze(h.st.DB(), closedMonth, "owner"); err != nil {
+		t.Fatal(err)
+	}
+
+	acc, scored, has, err := finops.Accuracy(h.st.DB(), months[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !has || scored == 0 {
+		t.Fatal("a frozen month that has finished was not scored")
+	}
+	if acc < 0 || acc > 500 {
+		t.Fatalf("an implausible accuracy: %.1f%%", acc)
+	}
+
+	_, body, _ = h.get(t, "/kpis")
+	if strings.Contains(body, "no frozen forecast has reached the end of its month") {
+		t.Error("the KPI still refuses after a month was frozen and scored")
+	}
+}
+
+// Re-freezing would move a number somebody has already been shown.
+func TestAFrozenForecastCannotBeRefrozen(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+	if _, loc := h.post(t, "/forecast/freeze", url.Values{
+		"period": {"2026-08"}, "csrf": {h.csrf(t, "/forecast")},
+	}); strings.Contains(loc, "msg=") {
+		t.Fatalf("the first freeze was refused: %s", loc)
+	}
+	if _, loc := h.post(t, "/forecast/freeze", url.Values{
+		"period": {"2026-08"}, "csrf": {h.csrf(t, "/forecast")},
+	}); !strings.Contains(loc, "msg=") {
+		t.Error("a frozen month was frozen again")
+	}
+}
+
+// A plan is a proposal. Nothing reaches the board until somebody approves it.
+func TestPlanningIsAProposalUntilApproved(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+
+	before, err := crew.Sprints(h.st.DB())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, body, _ := h.get(t, "/sprint/plan")
+	if !strings.Contains(body, "Because") {
+		t.Error("the plan does not say why each item is proposed")
+	}
+	// Looking at a plan must not create it.
+	after, _ := crew.Sprints(h.st.DB())
+	if len(after) != len(before) {
+		t.Fatal("opening the planning page created a sprint")
+	}
+}
+
+// An explainer is written for a team, and nothing written in a team's name
+// reaches them until a person has read it.
+func TestAnExplainerIsPublishedByAPerson(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+
+	if _, loc := h.post(t, "/explainers/commission", url.Values{
+		"team": {"ml-platform"}, "author": {"reporter-aws"},
+		"topic": {"Why your EC2 bill moved in July"}, "amount": {"1840.00"},
+		"csrf": {h.csrf(t, "/explainers")},
+	}); strings.Contains(loc, "msg=") {
+		t.Fatalf("commissioning was refused: %s", loc)
+	}
+	list, err := crew.Explainers(h.st.DB())
+	if err != nil || len(list) == 0 {
+		t.Fatalf("no explainer was created: %v", err)
+	}
+	e := list[0]
+	if e.State != "draft" {
+		t.Errorf("a commissioned explainer arrived as %q, not a draft", e.State)
+	}
+	// It is written for the team, in the team's language.
+	for _, want := range []string{"not a criticism", "found", "one person could do"} {
+		if !strings.Contains(e.Body, want) {
+			t.Errorf("the draft does not contain %q, so it is not written for the team", want)
+		}
+	}
+
+	if err := crew.ReturnExplainer(h.st.DB(), e.ID, ""); err == nil {
+		t.Error("an explainer was returned with no reason")
+	}
+
+	if _, loc := h.post(t, "/explainers/"+strconv.Itoa(e.ID)+"/publish", url.Values{
+		"csrf": {h.csrf(t, "/explainers")},
+	}); strings.Contains(loc, "msg=") {
+		t.Fatalf("publishing was refused: %s", loc)
+	}
+	got, _ := crew.GetExplainer(h.st.DB(), e.ID)
+	if got.State != "published" || got.Publisher != "owner" {
+		t.Fatalf("state %q, published by %q: the stamp is a PERSON's act",
+			got.State, got.Publisher)
 	}
 }

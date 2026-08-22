@@ -4,6 +4,8 @@
   <p>{{len .Sprints}} weeks of work. A sprint's spend is what its analysts actually cost, against the guards they ran under.</p>
 </header>
 
+{{if .CanAct}}<p><a href="/sprint/plan"><strong>Plan the next sprint</strong></a> — a proposal built from what is open, approved before anything reaches the board.</p>{{end}}
+
 <div class="panel">
   <div class="scroll">
   <table>

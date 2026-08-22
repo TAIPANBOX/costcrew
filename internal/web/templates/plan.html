@@ -1,0 +1,46 @@
+{{define "content"}}
+<p class="crumb"><a href="/sprints">Sprints</a> / plan</p>
+<header class="page">
+  <h1>Plan {{.P.Label}}</h1>
+  <p>A proposal, not a sprint. Nothing is created until you approve it, and the approval is what puts the work on the board. A planner that writes straight to the board spends the budget before anybody agreed to the work.</p>
+</header>
+
+<div class="tiles">
+  <div class="tile"><div class="k">Items</div><div class="v">{{len .P.Items}}</div><div class="s">{{.P.Start}} to {{.P.End}}</div></div>
+  <div class="tile"><div class="k">Guards</div><div class="v">{{.P.Budget}}</div><div class="s">the ceiling this sprint would run under</div></div>
+</div>
+
+<div class="panel">
+  <h2>What it proposes, and why</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Task</th><th>Analyst</th><th class="tight">Desk</th><th class="num">Guard</th><th>Because</th></tr></thead>
+    <tbody>
+    {{range .P.Items}}
+      <tr>
+        <td><strong>{{.Title}}</strong><span class="sub">{{.Goal}}</span></td>
+        <td>{{if .Assignee}}{{.Assignee}}{{else}}<span class="note">unassigned</span>{{end}}</td>
+        <td class="tight">{{.Desk}}</td>
+        <td class="num">{{.Budget}}</td>
+        <td><span class="note">{{.Why}}</span></td>
+      </tr>
+    {{else}}
+      <tr><td colspan="5" class="empty">Nothing to plan: no anomaly is unowned and nothing is blocked. That is a good week rather than a problem.</td></tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+{{if .P.Existing}}
+<p class="msg">{{.P.Label}} is already on the board.</p>
+{{else if .CanAct}}{{if .P.Items}}
+<form class="action" method="post" action="/sprint/plan">
+  <input type="hidden" name="csrf" value="{{.CSRF}}">
+  <input type="hidden" name="label" value="{{.P.Label}}">
+  <input type="hidden" name="start" value="{{.P.Start}}">
+  <input type="hidden" name="end" value="{{.P.End}}">
+  <div class="row"><button type="submit">Approve and put it on the board</button></div>
+</form>
+{{end}}{{end}}
+{{end}}

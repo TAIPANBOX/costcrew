@@ -1,0 +1,55 @@
+{{define "content"}}
+<header class="page">
+  <h1>Explainers</h1>
+  <p>A cost story written for the team that has to act on it, not for the FinOps team that found it. This is the piece most consoles skip, and it is why findings do not turn into changes: a team reads "EC2 rose 34 percent", cannot tell whether it is their fault or what to do, and does nothing.</p>
+</header>
+
+{{if .CanAct}}
+<div class="panel">
+  <h2>Commission one</h2>
+  <div class="body">
+    <form class="action" method="post" action="/explainers/commission">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <div class="row">
+        <div><label for="tm">For which team</label>
+          <select id="tm" name="team">{{range .Teams}}<option value="{{.}}">{{.}}</option>{{end}}</select></div>
+        <div><label for="au">Written by</label>
+          <select id="au" name="author">{{range .Analysts}}<option value="{{.}}">{{.}}</option>{{end}}</select></div>
+        <div><label for="am">About how much</label><input id="am" type="text" name="amount" value="500.00"></div>
+      </div>
+      <div><label for="tp">Topic</label><input id="tp" type="text" name="topic" placeholder="Why your EC2 bill moved in July"></div>
+      <div class="row"><button type="submit">Commission</button></div>
+      <p class="note">It arrives as a draft. Nothing written in a team's name reaches them until somebody has read it.</p>
+    </form>
+  </div>
+</div>
+{{end}}
+
+{{range .Rows}}
+<div class="panel">
+  <h2>{{.Topic}} · {{.Team}} · <span class="chip {{if eq .State "published"}}accepted{{else if eq .State "returned"}}open{{else}}explained{{end}}">{{.State}}</span></h2>
+  <div class="body">
+    {{if .Reason}}<p class="msg">Returned: {{.Reason}}</p>{{end}}
+    <div class="doc">{{.Rendered}}</div>
+    <p class="note">Written by {{.Author}}{{if .Published}}, published {{.Published}} by {{.Publisher}}{{end}}.</p>
+    {{if $.CanAct}}{{if ne .State "published"}}
+    <hr style="border:none;border-top:1px solid var(--line-soft);margin:16px 0">
+    <div class="row" style="align-items:flex-start">
+      <form class="action" method="post" action="/explainers/{{.ID}}/publish">
+        <input type="hidden" name="csrf" value="{{$.CSRF}}">
+        <button type="submit">Publish to the team</button>
+      </form>
+      <form class="action" method="post" action="/explainers/{{.ID}}/return" style="flex:1 1 320px">
+        <input type="hidden" name="csrf" value="{{$.CSRF}}">
+        <label for="er{{.ID}}">Send it back</label>
+        <textarea id="er{{.ID}}" name="reason" placeholder="What has to change before a team sees this."></textarea>
+        <button class="quiet" type="submit">Return</button>
+      </form>
+    </div>
+    {{end}}{{end}}
+  </div>
+</div>
+{{else}}
+<div class="panel"><div class="empty">Nothing commissioned yet.</div></div>
+{{end}}
+{{end}}
