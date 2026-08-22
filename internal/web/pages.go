@@ -250,11 +250,11 @@ func (s *Server) anomalyAction(kind string) http.HandlerFunc {
 		var err error
 		switch kind {
 		case "assign":
-			err = anomaly.Assign(s.db, id, r.PostFormValue("analyst"))
+			err = anomaly.Assign(s.db, id, r.PostFormValue("analyst"), s.rec)
 		case "explain":
-			err = anomaly.Explain(s.db, id, r.PostFormValue("reason"))
+			err = anomaly.Explain(s.db, id, r.PostFormValue("reason"), s.rec)
 		case "dismiss":
-			err = anomaly.Dismiss(s.db, id, r.PostFormValue("reason"))
+			err = anomaly.Dismiss(s.db, id, r.PostFormValue("reason"), s.rec)
 		}
 		switch {
 		case err == nil:

@@ -30,7 +30,7 @@ func seeded(t *testing.T) *sql.DB {
 
 func run(t *testing.T, db *sql.DB) (found, added int) {
 	t.Helper()
-	f, a, err := anomaly.Run(db, time.Date(2026, 8, 16, 9, 0, 0, 0, time.UTC), detect.Default())
+	f, a, err := anomaly.Run(db, time.Date(2026, 8, 16, 9, 0, 0, 0, time.UTC), detect.Default(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,10 +99,10 @@ func TestASecondRunAddsNothingAndDisturbsNothing(t *testing.T) {
 	if len(before) == 0 {
 		t.Fatal("nothing to re-run against")
 	}
-	if err := anomaly.Assign(db, before[0].ID, "triage-aws"); err != nil {
+	if err := anomaly.Assign(db, before[0].ID, "triage-aws", nil); err != nil {
 		t.Fatal(err)
 	}
-	if err := anomaly.Dismiss(db, before[1].ID, "Known load test, agreed with the team on the 15th"); err != nil {
+	if err := anomaly.Dismiss(db, before[1].ID, "Known load test, agreed with the team on the 15th", nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -145,16 +145,16 @@ func TestClosingWithoutAReasonIsRefused(t *testing.T) {
 	}
 
 	for _, blank := range []string{"", "   ", "\t\n"} {
-		if err := anomaly.Dismiss(db, list[0].ID, blank); !errors.Is(err, anomaly.ErrNeedReason) {
+		if err := anomaly.Dismiss(db, list[0].ID, blank, nil); !errors.Is(err, anomaly.ErrNeedReason) {
 			t.Errorf("dismiss with %q was accepted (err=%v)", blank, err)
 		}
-		if err := anomaly.Explain(db, list[0].ID, blank); !errors.Is(err, anomaly.ErrNeedReason) {
+		if err := anomaly.Explain(db, list[0].ID, blank, nil); !errors.Is(err, anomaly.ErrNeedReason) {
 			t.Errorf("explain with %q was accepted (err=%v)", blank, err)
 		}
 	}
 	// Assigning needs no reason: taking something on is not a decision anybody
 	// has to justify afterwards.
-	if err := anomaly.Assign(db, list[0].ID, "investigator-aws"); err != nil {
+	if err := anomaly.Assign(db, list[0].ID, "investigator-aws", nil); err != nil {
 		t.Errorf("assign was refused: %v", err)
 	}
 }
@@ -165,13 +165,13 @@ func TestAClosedAnomalyCannotBeReopenedByAnotherDecision(t *testing.T) {
 	list, _ := anomaly.List(db, anomaly.Filter{})
 	id := list[0].ID
 
-	if err := anomaly.Dismiss(db, id, "Duplicate of the incident on the 12th"); err != nil {
+	if err := anomaly.Dismiss(db, id, "Duplicate of the incident on the 12th", nil); err != nil {
 		t.Fatal(err)
 	}
-	if err := anomaly.Assign(db, id, "someone-else"); !errors.Is(err, anomaly.ErrClosed) {
+	if err := anomaly.Assign(db, id, "someone-else", nil); !errors.Is(err, anomaly.ErrClosed) {
 		t.Errorf("a closed anomaly accepted a new owner: %v", err)
 	}
-	if err := anomaly.Explain(db, id, "second thoughts"); !errors.Is(err, anomaly.ErrClosed) {
+	if err := anomaly.Explain(db, id, "second thoughts", nil); !errors.Is(err, anomaly.ErrClosed) {
 		t.Errorf("a closed anomaly accepted a new explanation: %v", err)
 	}
 }
@@ -179,7 +179,7 @@ func TestAClosedAnomalyCannotBeReopenedByAnotherDecision(t *testing.T) {
 func TestUnknownAnomalyIsReported(t *testing.T) {
 	db := seeded(t)
 	run(t, db)
-	if err := anomaly.Dismiss(db, "A-deadbeefdead", "nope"); !errors.Is(err, anomaly.ErrNotFound) {
+	if err := anomaly.Dismiss(db, "A-deadbeefdead", "nope", nil); !errors.Is(err, anomaly.ErrNotFound) {
 		t.Errorf("dismissing a non-existent anomaly gave %v", err)
 	}
 }

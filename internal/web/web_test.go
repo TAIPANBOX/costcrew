@@ -46,7 +46,7 @@ func start(t *testing.T) *harness {
 	if err := estate.SeedBudgets(st.DB()); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := anomaly.Run(st.DB(), time.Now(), detect.Default()); err != nil {
+	if _, _, err := anomaly.Run(st.DB(), time.Now(), detect.Default(), nil); err != nil {
 		t.Fatal(err)
 	}
 	au, err := auth.New(st, dir)
@@ -54,7 +54,7 @@ func start(t *testing.T) *harness {
 		t.Fatal(err)
 	}
 
-	srv := httptest.NewServer(web.New(st, au))
+	srv := httptest.NewServer(web.New(st, au, nil))
 	t.Cleanup(srv.Close)
 
 	jar, _ := cookiejar.New(nil)

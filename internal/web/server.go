@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/TAIPANBOX/costcrew/internal/anomaly"
 	"github.com/TAIPANBOX/costcrew/internal/auth"
 	"github.com/TAIPANBOX/costcrew/internal/store"
 )
@@ -24,11 +25,14 @@ type Server struct {
 	st  *store.Store
 	au  *auth.Auth
 	db  *sql.DB
+	rec anomaly.Recorder
 	mux *http.ServeMux
 }
 
-func New(st *store.Store, au *auth.Auth) *Server {
-	s := &Server{st: st, au: au, db: st.DB(), mux: http.NewServeMux()}
+// New builds the console. A nil recorder means the governance stack is
+// switched off, which is the default and a perfectly good answer.
+func New(st *store.Store, au *auth.Auth, rec anomaly.Recorder) *Server {
+	s := &Server{st: st, au: au, db: st.DB(), rec: rec, mux: http.NewServeMux()}
 	s.routes()
 	return s
 }

@@ -21,6 +21,15 @@ import (
 	"github.com/TAIPANBOX/costcrew/internal/money"
 )
 
+// Recorder is how an anomaly's life reaches the outside world.
+//
+// An interface and not a direct dependency on the stack package, so this one
+// stays about anomalies: the store does not know what an agent-event is, and
+// a nil recorder is a perfectly good answer to "governance is switched off".
+type Recorder interface {
+	Emit(kind, actor, severity string, data map[string]any, onBehalfOf []string) error
+}
+
 // RuleVersion is part of the identity on purpose. Retune the detector and the
 // same day becomes a NEW anomaly rather than quietly changing the numbers
 // underneath a decision somebody already made about the old one.
@@ -100,7 +109,7 @@ func ID(source, team, service, day, ruleVersion string) string {
 // Reconcile, not replace. A run must not disturb a decision: a closed anomaly
 // stays closed, an owned one keeps its owner, and only genuinely new findings
 // arrive as open. Returns how many were new.
-func Run(db *sql.DB, now time.Time, cfg detect.Config) (found, added int, err error) {
+func Run(db *sql.DB, now time.Time, cfg detect.Config, rec Recorder) (found, added int, err error) {
 	if _, err := db.Exec(Schema); err != nil {
 		return 0, 0, err
 	}
@@ -159,6 +168,7 @@ func Run(db *sql.DB, now time.Time, cfg detect.Config) (found, added int, err er
 			}
 			if isNew {
 				added++
+				emit(rec, "anomaly_detected", "", a, nil)
 			}
 		}
 	}
@@ -219,6 +229,56 @@ func nullIf(s string) any {
 	return s
 }
 
+// emit reports one moment in an anomaly's life, and never gets in the way.
+//
+// A failure here is swallowed on purpose. The console's job is to show the
+// estate; if the event stream is unwritable the right outcome is a gap a
+// verifier can see, not a page that will not render.
+func emit(rec Recorder, kind, actor string, a Anomaly, extra map[string]any) {
+	if rec == nil {
+		return
+	}
+	data := map[string]any{
+		"anomaly":        a.ID,
+		"source":         a.Source,
+		"service":        a.Service,
+		"day":            a.Day,
+		"direction":      a.Direction,
+		"excess_cents":   int64(a.Excess),
+		"excess":         a.Excess.String(),
+		"rule_version":   a.RuleVer,
+		"caused_by":      a.CausedBy,
+		"caused_by_kind": a.CausedByKind,
+	}
+	if a.Team != "" {
+		data["team"] = a.Team
+	}
+	if a.Driver != "" {
+		data["driver"] = a.Driver
+	}
+	for k, v := range extra {
+		data[k] = v
+	}
+	_ = rec.Emit(kind, actor, severityOf(a.Excess), data, nil)
+}
+
+// severityOf is duplicated deliberately rather than imported from the stack
+// package: this one decides how loud an anomaly is, which is a product
+// judgement, and the stack package's is about the envelope. Tying them
+// together would make a change to one silently change the other.
+func severityOf(excess money.Cents) string {
+	switch a := excess.Abs(); {
+	case a >= money.Cents(5_000_00):
+		return "critical"
+	case a >= money.Cents(1_000_00):
+		return "high"
+	case a >= money.Cents(200_00):
+		return "medium"
+	default:
+		return "low"
+	}
+}
+
 // ------------------------------------------------------------- transitions
 
 var (
@@ -229,8 +289,8 @@ var (
 
 // Assign gives an anomaly an owner. The only transition that needs no reason,
 // because taking something on is not a decision anybody has to justify later.
-func Assign(db *sql.DB, id, analyst string) error {
-	return transition(db, id, Triaged, "", func(cur State) error {
+func Assign(db *sql.DB, id, analyst string, rec Recorder) error {
+	return transition(db, id, Triaged, "", rec, func(cur State) error {
 		if closed[cur] {
 			return ErrClosed
 		}
@@ -241,8 +301,8 @@ func Assign(db *sql.DB, id, analyst string) error {
 // Explain records an answer. The reason IS the deliverable here, so an empty
 // one is refused rather than stored as an empty string that reads, later, as
 // though nobody could think of anything.
-func Explain(db *sql.DB, id, reason string) error {
-	return transition(db, id, Explained, reason, func(cur State) error {
+func Explain(db *sql.DB, id, reason string, rec Recorder) error {
+	return transition(db, id, Explained, reason, rec, func(cur State) error {
 		if closed[cur] {
 			return ErrClosed
 		}
@@ -251,8 +311,8 @@ func Explain(db *sql.DB, id, reason string) error {
 }
 
 // Accept closes an anomaly with its explanation standing.
-func Accept(db *sql.DB, id, reason string) error {
-	return transition(db, id, Accepted, reason, func(cur State) error {
+func Accept(db *sql.DB, id, reason string, rec Recorder) error {
+	return transition(db, id, Accepted, reason, rec, func(cur State) error {
 		if cur != Explained && cur != Triaged {
 			return fmt.Errorf("%w: nothing has been explained yet", ErrNeedReason)
 		}
@@ -265,8 +325,8 @@ func Accept(db *sql.DB, id, reason string) error {
 // The reason is mandatory and it is the whole point: a dismissal without one
 // is indistinguishable from nobody having looked, and six months later that
 // difference is the only thing anybody wants to know.
-func Dismiss(db *sql.DB, id, reason string) error {
-	return transition(db, id, Dismissed, reason, func(cur State) error {
+func Dismiss(db *sql.DB, id, reason string, rec Recorder) error {
+	return transition(db, id, Dismissed, reason, rec, func(cur State) error {
 		if closed[cur] {
 			return ErrClosed
 		}
@@ -274,7 +334,7 @@ func Dismiss(db *sql.DB, id, reason string) error {
 	}, "")
 }
 
-func transition(db *sql.DB, id string, to State, reason string,
+func transition(db *sql.DB, id string, to State, reason string, rec Recorder,
 	allowed func(State) error, analyst string) error {
 
 	if to != Triaged && strings.TrimSpace(reason) == "" {
@@ -297,13 +357,31 @@ func transition(db *sql.DB, id string, to State, reason string,
 		closedAt = time.Now().UTC().Format(time.RFC3339)
 	}
 	if analyst != "" {
-		_, err = db.Exec(`UPDATE anomalies SET state=?, handled_by=?, closed_at=? WHERE id=?`,
-			string(to), analyst, closedAt, id)
+		if _, err = db.Exec(`UPDATE anomalies SET state=?, handled_by=?, closed_at=? WHERE id=?`,
+			string(to), analyst, closedAt, id); err != nil {
+			return err
+		}
+	} else if _, err = db.Exec(`UPDATE anomalies SET state=?, reason=?, closed_at=? WHERE id=?`,
+		string(to), reason, closedAt, id); err != nil {
 		return err
 	}
-	_, err = db.Exec(`UPDATE anomalies SET state=?, reason=?, closed_at=? WHERE id=?`,
-		string(to), reason, closedAt, id)
-	return err
+
+	// Read it back before reporting it: an event describing a state the store
+	// does not hold is worse than no event, because it is believed.
+	a, err := Get(db, id)
+	if err != nil {
+		return nil
+	}
+	actor := a.HandledBy
+	extra := map[string]any{"to": string(to), "from": cur}
+	if reason != "" {
+		extra["reason"] = reason
+	}
+	if analyst != "" {
+		extra["assigned_to"] = analyst
+	}
+	emit(rec, "anomaly_"+string(to), actor, a, extra)
+	return nil
 }
 
 // ------------------------------------------------------------------ queries

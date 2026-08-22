@@ -4,3 +4,5 @@ parity/captures/
 bin/
 passports/
 events/
+local/
+cover.out
