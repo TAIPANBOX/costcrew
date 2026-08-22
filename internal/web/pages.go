@@ -55,15 +55,29 @@ func (s *Server) shellFor(r *http.Request, title, nav string) shell {
 	}
 }
 
-// guard refuses anyone without a session and sends them to sign in. Returning
-// the user rather than a bool keeps the caller from having to look it up again.
+// guard refuses anyone without a session and sends them somewhere they can
+// actually do something. Returning the user rather than a bool keeps the
+// caller from having to look it up again.
+//
+// The distinction between /login and /signup is not a nicety. On a fresh
+// install there is no account, so sending somebody to a sign-in form is a dead
+// end: they stare at two fields with no credentials that could possibly work.
+// Found by handing the thing over and being asked what the password was.
 func (s *Server) guard(w http.ResponseWriter, r *http.Request) *auth.User {
 	u := s.current(r)
 	if u == nil {
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		http.Redirect(w, r, s.entryPoint(), http.StatusSeeOther)
 		return nil
 	}
 	return u
+}
+
+// entryPoint is /signup while the installation is unclaimed, /login after.
+func (s *Server) entryPoint() string {
+	if n, err := s.au.Count(); err == nil && n == 0 {
+		return "/signup"
+	}
+	return "/login"
 }
 
 func (s *Server) render(w http.ResponseWriter, t *template.Template, data any) {

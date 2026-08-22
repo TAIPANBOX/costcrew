@@ -211,7 +211,15 @@ func (s *Server) signupPage(w http.ResponseWriter, r *http.Request) {
 	s.authPage(w, r, true)
 }
 
-func (s *Server) loginPage(w http.ResponseWriter, r *http.Request) { s.authPage(w, r, false) }
+func (s *Server) loginPage(w http.ResponseWriter, r *http.Request) {
+	// Nobody has claimed this installation yet, so there is no account to sign
+	// in with. Showing the form anyway is how a first run becomes a dead end.
+	if n, err := s.au.Count(); err == nil && n == 0 {
+		http.Redirect(w, r, "/signup", http.StatusSeeOther)
+		return
+	}
+	s.authPage(w, r, false)
+}
 
 func (s *Server) signupSubmit(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {

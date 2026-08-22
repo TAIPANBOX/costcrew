@@ -434,3 +434,63 @@ func TestTheCSVExportCarriesTheOpenMonthHonestly(t *testing.T) {
 		t.Error("the export is not CRLF, which some spreadsheets will ask about")
 	}
 }
+
+// The first run must not be a dead end.
+//
+// With no account created, a sign-in form is two fields and no credentials
+// that could work. This was found by handing the console over and being asked
+// what the password was, which is the cheapest kind of test and the one no
+// suite here was running.
+func TestAnUnclaimedInstallationSendsYouToSignUp(t *testing.T) {
+	h := start(t) // no signUp: nobody has claimed it
+
+	for _, path := range []string{"/", "/anomalies", "/budgets", "/crew"} {
+		code, _, loc := h.get(t, path)
+		if code != http.StatusSeeOther || loc != "/signup" {
+			t.Errorf("GET %s on an unclaimed install: %d to %q, want 303 to /signup",
+				path, code, loc)
+		}
+	}
+	// And the sign-in page itself refuses to be a dead end.
+	code, _, loc := h.get(t, "/login")
+	if code != http.StatusSeeOther || loc != "/signup" {
+		t.Errorf("GET /login on an unclaimed install: %d to %q, want 303 to /signup", code, loc)
+	}
+	// The sign-up page is reachable and offers the form.
+	code, body, _ := h.get(t, "/signup")
+	if code != http.StatusOK || !strings.Contains(body, `name="username"`) {
+		t.Errorf("GET /signup: %d, form present: %v", code, strings.Contains(body, `name="username"`))
+	}
+}
+
+// Once somebody has claimed it, the doors swap over: sign-up closes and the
+// entry point becomes sign-in.
+func TestOnceClaimedTheEntryPointBecomesSignIn(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+
+	stranger := &harness{srv: h.srv, au: h.au, st: h.st, c: &http.Client{
+		Jar: newJar(t),
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}}
+	code, _, loc := stranger.get(t, "/")
+	if code != http.StatusSeeOther || loc != "/login" {
+		t.Errorf("GET / on a claimed install: %d to %q, want 303 to /login", code, loc)
+	}
+	// Sign-up is closed, so a second person cannot quietly claim admin.
+	_, _, loc = stranger.get(t, "/signup")
+	if loc != "/login?msg=registration+is+closed" && !strings.HasPrefix(loc, "/login") {
+		t.Errorf("GET /signup on a claimed install went to %q", loc)
+	}
+}
+
+func newJar(t *testing.T) *cookiejar.Jar {
+	t.Helper()
+	j, err := cookiejar.New(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return j
+}
