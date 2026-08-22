@@ -1,10 +1,12 @@
 package web
 
 import (
+	"bytes"
 	"database/sql"
 	"embed"
 	"fmt"
 	"html/template"
+	"log"
 	"net/http"
 	"net/url"
 	"sort"
@@ -83,13 +85,28 @@ func (s *Server) entryPoint() string {
 	return "/login"
 }
 
+// render builds the page into a buffer BEFORE any of it is sent.
+//
+// html/template reports a missing field at render time, not at compile time,
+// and writing straight to the ResponseWriter meant such a page went out as a
+// 200 that simply stopped mid-document. That is the worst possible failure for
+// a console about money: the reader sees a page, the figures above the break
+// are real, and nothing anywhere says the rest is missing. A test even passed
+// against one, because the number it looked for happened to sit above the
+// line that failed.
+//
+// Buffered, the same fault is a clean 500 with the error in the log, and the
+// page is either whole or absent.
 func (s *Server) render(w http.ResponseWriter, t *template.Template, data any) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := t.ExecuteTemplate(w, "layout", data); err != nil {
-		// The response is already partly written by now, so this cannot become
-		// a clean 500. Say so in the log rather than pretending it rendered.
-		fmt.Printf("costcrew: rendering %s: %v\n", t.Name(), err)
+	var buf bytes.Buffer
+	if err := t.ExecuteTemplate(&buf, "layout", data); err != nil {
+		log.Printf("costcrew: rendering %s: %v", t.Name(), err)
+		http.Error(w, "this page could not be built. The error is in the server log.",
+			http.StatusInternalServerError)
+		return
 	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = buf.WriteTo(w)
 }
 
 func redirectMsg(w http.ResponseWriter, r *http.Request, to, msg string) {

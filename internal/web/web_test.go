@@ -226,6 +226,12 @@ func TestSignedInPagesRender(t *testing.T) {
 		{"/ai", "AI spend"},
 		{"/forecast", "Forecast"},
 		{"/explainers", "Explainers"},
+		{"/teams", "Teams"},
+		{"/desks", "Desks"},
+		{"/team/ml-platform", "ml-platform"},
+		{"/desk/aws", "aws"},
+		{"/staff/triage-aws", "triage-aws"},
+		{"/sprint/plan", "sprint"},
 	} {
 		code, body, _ := h.get(t, tc.path)
 		if code != http.StatusOK {
@@ -234,6 +240,16 @@ func TestSignedInPagesRender(t *testing.T) {
 		}
 		if !strings.Contains(body, tc.wants) {
 			t.Errorf("GET %s does not mention %q", tc.path, tc.wants)
+		}
+		// WHOLE, not merely started.
+		//
+		// html/template reports a missing field while it is writing, so a page
+		// with one bad reference used to go out as a 200 that stopped
+		// mid-document, with every figure above the break intact. This test
+		// passed against exactly that, because the marker it looked for sat
+		// above the line that failed.
+		if !strings.HasSuffix(strings.TrimSpace(body), "</html>") {
+			t.Errorf("GET %s stopped mid-document: it does not end with </html>", tc.path)
 		}
 	}
 }

@@ -370,9 +370,11 @@ func (s *Server) staff(w http.ResponseWriter, r *http.Request) {
 		Active                        int
 		FirstPass                     float64
 		States                        map[string]int
+		OffRoster                     money.Cents
+		OffRosterTasks                int
 	}{s.shellFor(r, "Crew", "staff"), rows, u.May("operator"), srt,
 		totalSpent, totalGuard, tasks, open, posted, returned, byState,
-		firstPass, states})
+		firstPass, states, offRosterSpent, offRosterTasks})
 }
 
 // ------------------------------------------------------------------ actions
