@@ -1,9 +1,11 @@
 package web
 
 import (
+	"bufio"
 	"database/sql"
 	"encoding/json"
 	"net/http"
+	"os"
 	"sort"
 	"strings"
 
@@ -60,10 +62,18 @@ var cannotEver = []string{
 }
 
 type eventRow struct {
-	When   string
+	when   string // RFC 3339, as the stream writes it
 	Kind   string
 	Detail string
 	Sev    string
+}
+
+// When trims the stream's timestamp to what a person reads.
+func (e eventRow) When() string {
+	if len(e.when) >= 16 {
+		return strings.Replace(e.when[:16], "T", " ", 1)
+	}
+	return e.when
 }
 
 type childRow struct {
@@ -79,34 +89,92 @@ type sprintWork struct {
 	Spent  money.Cents
 }
 
-// analystEvents pulls this agent's rows out of the journal.
+// agentEvent is one line of the agent-event stream, as this console writes it.
+type agentEvent struct {
+	TS         string            `json:"ts"`
+	Type       string            `json:"type"`
+	AgentID    string            `json:"agent_id"`
+	Severity   string            `json:"severity"`
+	OnBehalfOf []string          `json:"on_behalf_of"`
+	Data       map[string]any    `json:"data"`
+	Extra      map[string]string `json:"-"`
+}
+
+// analystEvents is this agent's rows from the AGENT-EVENT stream.
 //
-// It matches on the analyst's NAME appearing in the payload rather than on a
-// dedicated column, because the journal is an append-only chain of whatever
-// each event carried and adding a column would mean rewriting history. The
-// match is on the whole word, so "capacity-aws" does not answer for "aws".
+// Not from the store's journal: that chain records who signed in and what
+// changed about the installation, and it never names an analyst. The agent
+// events are the record of what the agents did, they carry the delegation
+// chain, and they are the thing another service in the stack would read about
+// this agent. A card that showed the wrong log would be worse than one that
+// showed none, because it looks like an answer.
+//
+// The whole file is read and the tail kept. It is an append-only NDJSON stream
+// on local disk, sized by how much this console has done, and reading it in
+// one pass is simpler than an index that could go stale.
 func (s *Server) analystEvents(name string, limit int) ([]eventRow, error) {
-	tail, err := s.st.JournalTail(4000)
+	if s.eventsPath == "" {
+		return nil, nil
+	}
+	f, err := os.Open(s.eventsPath)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil // switched on, nothing written yet
+		}
 		return nil, err
 	}
+	defer f.Close()
+
+	want := "/" + name
 	var out []eventRow
-	for _, rec := range tail {
-		hit := false
-		for _, v := range rec.Data {
-			if str, ok := v.(string); ok && wordIn(str, name) {
-				hit = true
-				break
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
+	for sc.Scan() {
+		line := sc.Bytes()
+		if len(line) == 0 {
+			continue
+		}
+		var e agentEvent
+		if json.Unmarshal(line, &e) != nil {
+			continue
+		}
+		// The agent that acted, anyone it acted for, and anything the payload
+		// names it as: an analyst is as much part of an event that blames it
+		// as of one it emitted.
+		hit := strings.HasSuffix(e.AgentID, want)
+		for _, o := range e.OnBehalfOf {
+			hit = hit || strings.HasSuffix(o, want)
+		}
+		if !hit {
+			for _, v := range e.Data {
+				if str, ok := v.(string); ok && wordIn(str, name) {
+					hit = true
+					break
+				}
 			}
 		}
 		if !hit {
 			continue
 		}
-		sev, _ := rec.Data["severity"].(string)
-		out = append(out, eventRow{rec.When(), rec.Event, summarise(rec.Data), sev})
-		if len(out) >= limit {
-			break
+		who := e.AgentID
+		if i := strings.LastIndex(who, "/"); i >= 0 {
+			who = who[i+1:]
 		}
+		detail := summarise(e.Data)
+		if who != name {
+			detail = "by " + who + ": " + detail
+		}
+		out = append(out, eventRow{when: e.TS, Kind: e.Type, Detail: detail, Sev: e.Severity})
+	}
+	if err := sc.Err(); err != nil {
+		return nil, err
+	}
+	// Newest first, and only as many as the card can usefully show.
+	for i, j := 0, len(out)-1; i < j; i, j = i+1, j-1 {
+		out[i], out[j] = out[j], out[i]
+	}
+	if len(out) > limit {
+		out = out[:limit]
 	}
 	return out, nil
 }

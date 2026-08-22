@@ -189,17 +189,18 @@
 
 <div class="panel">
   <h2>Events</h2>
-  <p class="note">This agent's entries in the hash-chained journal, newest first. The <a href="/audit">audit page</a> carries the whole chain and whether it still verifies.</p>
+  <p class="note">This agent's rows in the agent-event stream, newest first: what it did, and what was done about it. Each line carries the delegation chain, so another service in the stack reads the same record. The <a href="/audit">audit page</a> carries the installation's own hash-chained journal, which is a different log answering a different question.</p>
   <div class="scroll">
   <table>
-    <thead><tr><th class="tight">When</th><th>Event</th><th>What</th></tr></thead>
+    <thead><tr><th class="tight">When</th><th>Event</th><th class="tight">Severity</th><th>What</th></tr></thead>
     <tbody>
     {{range .Events}}
       <tr><td class="tight">{{.When}}</td>
           <td><span class="chip grain">{{.Kind}}</span></td>
+          <td class="tight">{{if .Sev}}<span class="chip {{if eq .Sev "high"}}open{{else if eq .Sev "medium"}}explained{{else}}accepted{{end}}">{{.Sev}}</span>{{end}}</td>
           <td class="detail">{{.Detail}}</td></tr>
     {{else}}
-      <tr><td colspan="3" class="empty">Nothing in the journal names this agent yet.</td></tr>
+      <tr><td colspan="4" class="empty">Nothing in the stream names this agent yet.{{if not $.Passport}} The governance plane is switched off on this installation, so nothing is being written at all.{{end}}</td></tr>
     {{end}}
     </tbody>
   </table>

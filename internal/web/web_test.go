@@ -6,6 +6,8 @@ import (
 	"net/http/cookiejar"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -46,7 +48,17 @@ func start(t *testing.T) *harness { return startWith(t, true) }
 // fit a seeded harness would delete the only coverage that state has.
 func startBare(t *testing.T) *harness { return startWith(t, false) }
 
+// startStream is the console wired to a given agent-event stream, so a test
+// can put a known line in it and read the page back.
+func startStream(t *testing.T, path string) *harness {
+	return startFull(t, true, path)
+}
+
 func startWith(t *testing.T, withHistory bool) *harness {
+	return startFull(t, withHistory, "")
+}
+
+func startFull(t *testing.T, withHistory bool, eventsPath string) *harness {
 	t.Helper()
 	dir := t.TempDir()
 	st, err := store.Open(dir)
@@ -99,7 +111,9 @@ func startWith(t *testing.T, withHistory bool) *harness {
 		t.Fatal(err)
 	}
 
-	srv := httptest.NewServer(web.New(st, au, web.Stack{Host: "costcrew.test"}))
+	srv := httptest.NewServer(web.New(st, au, web.Stack{
+		Host: "costcrew.test", EventsPath: eventsPath,
+	}))
 	t.Cleanup(srv.Close)
 
 	jar, _ := cookiejar.New(nil)
@@ -1284,5 +1298,44 @@ func TestATeamsSpendAgreesWithTheEstateList(t *testing.T) {
 	}
 	if checked == 0 {
 		t.Fatal("no team could be compared, so this measured nothing")
+	}
+}
+
+// The agent card reads the AGENT-EVENT stream, not the installation's journal.
+//
+// They are two logs answering two questions. The store's chain records who
+// signed in and what changed about the installation and never names an
+// analyst; the agent events record what the agents did and carry the
+// delegation chain another service in the stack reads. A card showing the
+// wrong one looks like an answer and is not.
+func TestTheAgentCardReadsTheAgentEventStream(t *testing.T) {
+	dir := t.TempDir()
+	stream := filepath.Join(dir, "events.ndjson")
+	line := `{"schema":"taipanbox.dev/agent-event/v0.2","ts":"2026-08-20T09:15:00Z",` +
+		`"source":"costcrew","type":"anomaly_triaged","agent_id":"agent://costcrew.test/supervisor",` +
+		`"severity":"medium","on_behalf_of":["user://costcrew.test/owner"],` +
+		`"data":{"anomaly":"A-1234","assigned_to":"triage-aws"}}` + "\n"
+	if err := os.WriteFile(stream, []byte(line), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	h := startStream(t, stream)
+	h.signUp(t, "owner", "owner-password-2026")
+
+	code, body, _ := h.get(t, "/staff/triage-aws")
+	if code != http.StatusOK {
+		t.Fatalf("GET /staff/triage-aws: %d", code)
+	}
+	events := body[strings.Index(body, "<h2>Events"):]
+	if !strings.Contains(events, "anomaly_triaged") {
+		t.Error("the card does not show the event that names this agent")
+	}
+	// It was the supervisor that acted, and the card says so rather than
+	// letting the row read as this agent's own doing.
+	if !strings.Contains(events, "by supervisor") {
+		t.Error("the card does not say which agent emitted the event")
+	}
+	if !strings.Contains(events, "2026-08-20 09:15") {
+		t.Error("the card does not show the event's own timestamp")
 	}
 }
