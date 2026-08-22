@@ -1837,3 +1837,78 @@ func TestMovingDeskMovesTheDefaultParent(t *testing.T) {
 		t.Errorf("a chosen parent was overwritten by a desk move: it now answers to %q", got.Parent)
 	}
 }
+
+// Every table sits in something that scrolls.
+//
+// This is what keeps the console usable on a phone. A table of nine columns
+// in a 375px viewport has to scroll SIDEWAYS INSIDE ITS OWN BOX; without the
+// container it pushes the whole document wide instead, and then every page,
+// including the ones with no table on them, scrolls horizontally and the
+// headings run off the screen.
+//
+// It is a template invariant rather than a layout one, which is why a test can
+// hold it: the failure is always a new page whose author did not know, and it
+// is invisible on a desktop.
+func TestEveryTableCanScrollInsideItsOwnBox(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+
+	// The opening tag of a table, and what encloses it.
+	open := regexp.MustCompile(`(?s)<div class="scroll">\s*<table`)
+	any := regexp.MustCompile(`<table`)
+
+	for _, path := range []string{
+		"/", "/anomalies", "/budgets", "/staff", "/board", "/sprints", "/allocation",
+		"/chargeback", "/results", "/kpis", "/utilisation", "/saas", "/ai", "/forecast",
+		"/explainers", "/connectors", "/engines", "/accounts", "/audit", "/teams",
+		"/desks", "/team/ml-platform", "/desk/aws", "/staff/triage-aws", "/sprint/plan",
+	} {
+		code, body, _ := h.get(t, path)
+		if code != http.StatusOK {
+			t.Errorf("GET %s: %d", path, code)
+			continue
+		}
+		tables := len(any.FindAllString(body, -1))
+		wrapped := len(open.FindAllString(body, -1))
+		if tables != wrapped {
+			t.Errorf("%s has %d tables and %d of them are inside a scrolling box; "+
+				"the rest will push the whole page sideways on a phone", path, tables, wrapped)
+		}
+	}
+}
+
+// The light palette is defined where a viewer with no explicit choice will
+// find it.
+//
+// Most people never set a theme, so the browser reports "system" and nothing
+// is stamped on the document. A colour whose only definition sits inside a
+// prefers-color-scheme block or a [data-theme] selector simply does not apply
+// in that state, and the page renders one theme's text on the other's ground.
+func TestTheLightPaletteIsOnBareRoot(t *testing.T) {
+	css, err := os.ReadFile("assets/app.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(css)
+	i := strings.Index(s, ":root {")
+	if i < 0 {
+		t.Fatal("there is no bare :root block, so a viewer who has chosen nothing gets nothing")
+	}
+	end := strings.Index(s[i:], "}")
+	bare := s[i : i+end]
+
+	// Every token the dark block redefines must already exist on bare :root.
+	j := strings.Index(s, "@media (prefers-color-scheme: dark)")
+	if j < 0 {
+		t.Skip("this stylesheet does not define a dark theme")
+	}
+	darkEnd := strings.Index(s[j:], "\n  }")
+	dark := s[j : j+darkEnd]
+
+	for _, m := range regexp.MustCompile(`--([a-z0-9-]+):`).FindAllStringSubmatch(dark, -1) {
+		if !strings.Contains(bare, "--"+m[1]+":") {
+			t.Errorf("--%s is defined only for dark; a viewer on the default "+
+				"system setting in a light browser gets no value for it", m[1])
+		}
+	}
+}

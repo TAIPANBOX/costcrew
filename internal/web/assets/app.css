@@ -17,7 +17,11 @@
   --line-soft:  #E4E9ED;
   --ink:        #171E26;
   --ink-2:      #4A5560;
-  --ink-3:      #737E8A;
+  /* Measured, not chosen by eye: #737E8A gave 3.55:1 against --surface-2,
+     where the sort headers, the grain chips and every sub-line sit. Small
+     text needs 4.5:1. #5E6975 gives 4.67:1 there and 5.59:1 on the page
+     ground, so there is real slack rather than a pass by a hair. */
+  --ink-3:      #5E6975;
   --accent:     #0B6E77;
   --accent-bg:  #DCEDEF;
   --up:         #A4472C;   /* spend rose */
@@ -26,7 +30,10 @@
   --down-bg:    #DCEAF2;
   --ok:         #3D6B45;
   --ok-bg:      #DEEADF;
-  --warn:       #8A6410;
+  /* #8A6410 measured exactly 4.50:1 on --warn-bg, which is the threshold
+     itself and no margin at all. #7A5809 gives 5.13:1, so the chip has real
+     slack rather than passing by rounding. */
+  --warn:       #7A5809;
   --warn-bg:    #F5EAD2;
 
   --mono: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
@@ -42,7 +49,9 @@
     --line-soft: #232B34;
     --ink:       #E2E8EE;
     --ink-2:     #A7B3BF;
-    --ink-3:     #7A8794;
+    /* 4.17:1 against the dark --surface-2, which is under the 4.5 small text
+       needs. #859AA2 gives 4.79:1, so this one has slack too. */
+    --ink-3:     #859AA2;
     --accent:    #4EBAC4;
     --accent-bg: #102E33;
     --up:        #E08A6B;
@@ -64,7 +73,7 @@
   --line-soft: #232B34;
   --ink:       #E2E8EE;
   --ink-2:     #A7B3BF;
-  --ink-3:     #7A8794;
+  --ink-3:     #859AA2;
   --accent:    #4EBAC4;
   --accent-bg: #102E33;
   --up:        #E08A6B;
@@ -289,9 +298,26 @@ dl.facts > :nth-last-child(-n+2) { border-bottom: none; }
         border-right: none; border-bottom: 1px solid var(--line); }
   nav .brand { width: 100%; padding: 4px 10px 10px; }
   nav .group { display: none; }
-  nav a { padding: 6px 10px; border-radius: 5px; }
+  /* Tighter, because on a phone this is a header and not a sidebar: at the
+     desktop size it took 280px of an 812px screen, so a third of every page
+     was the way to other pages. */
+  nav a { padding: 5px 8px; border-radius: 5px; font-size: 13.5px; }
   nav a[aria-current="page"] { box-shadow: none; }
   main { padding: 20px 16px 60px; }
+
+  /* Two tiles to a row.
+     168px was six pixels too wide to fit twice in 343px of usable width, so
+     every tile took a full row and the anomalies page put five screens of
+     them above its table. */
+  .tiles { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+  .tiles.summary { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+  .tile .v.big { font-size: 1.4rem; }
+
+  /* A sort header is a link 11px tall, which is a fine target for a mouse and
+     a poor one for a thumb. It fills its own cell here, so the tappable area
+     is the header rather than the words in it. */
+  th a.sortcol { display: flex; padding: 7px 0; min-height: 24px; align-items: center; }
+  th.num a.sortcol { justify-content: flex-end; }
   dl.facts { grid-template-columns: 1fr; }
   dl.facts dt { padding-bottom: 0; border: none; }
 }
