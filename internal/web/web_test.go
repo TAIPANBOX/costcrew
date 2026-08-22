@@ -2141,3 +2141,81 @@ func TestATableWorthScanningCanBeSorted(t *testing.T) {
 		}
 	}
 }
+
+// ------------------------------------------------------------ the keyboard
+
+// The first thing focus lands on is the way past the navigation.
+//
+// Twenty-four links stand between the top of every page and its content, so
+// without this a keyboard user pressed Tab twenty-four times on every page
+// before reaching anything they came for. It is the single most-felt
+// accessibility fault a console with a sidebar has, and it is invisible to
+// anybody using a mouse, which is why it survived this long.
+func TestEveryPageOpensWithAWayPastTheNavigation(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+
+	// Anything focusable, in document order.
+	focusable := regexp.MustCompile(`<(a\s[^>]*href|button|select|textarea|input(?:\s[^>]*)?)[^>]*>`)
+
+	for _, path := range []string{
+		"/", "/anomalies", "/budgets", "/staff", "/board", "/sprints", "/services",
+		"/allocation", "/chargeback", "/results", "/kpis", "/utilisation", "/saas",
+		"/ai", "/forecast", "/explainers", "/connectors", "/accounts", "/audit",
+		"/teams", "/desks", "/team/ml-platform", "/desk/aws", "/staff/triage-aws",
+		"/service/BigQuery", "/o/owner", "/search", "/task/1", "/sprint/1",
+	} {
+		code, body, _ := h.get(t, path)
+		if code != http.StatusOK {
+			t.Errorf("GET %s: %d", path, code)
+			continue
+		}
+		first := focusable.FindString(body)
+		if !strings.Contains(first, `class="skip"`) {
+			t.Errorf("%s: the first thing focus reaches is %q, not the skip link",
+				path, strings.TrimSpace(first))
+			continue
+		}
+		// And it has to go somewhere. A skip link pointing at an id that is
+		// not on the page moves focus nowhere and is worse than none, because
+		// the person has now spent a keystroke believing it worked.
+		target := regexp.MustCompile(`class="skip" href="#([a-z-]+)"`).FindStringSubmatch(first)
+		if target == nil {
+			t.Errorf("%s: the skip link has no fragment target", path)
+			continue
+		}
+		if !strings.Contains(body, `id="`+target[1]+`"`) {
+			t.Errorf("%s: the skip link points at #%s, which is not on the page", path, target[1])
+		}
+		// The target has to be able to hold focus, or the browser moves the
+		// viewport and leaves the focus ring behind in the navigation.
+		anchor := regexp.MustCompile(`<[a-z]+ id="` + target[1] + `"[^>]*>`).FindString(body)
+		if !strings.Contains(anchor, `tabindex="-1"`) {
+			t.Errorf("%s: %q cannot take focus, so the skip scrolls without moving focus",
+				path, anchor)
+		}
+	}
+}
+
+// Nothing sets a positive tabindex.
+//
+// One positive tabindex anywhere reorders the WHOLE document: every element
+// carrying one comes before every element that does not, wherever it sits on
+// the page. It is the one authoring mistake that cannot be contained to the
+// component that made it.
+func TestNothingJumpsTheQueueWithAPositiveTabindex(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+
+	bad := regexp.MustCompile(`tabindex="([1-9][0-9]*)"`)
+	for _, path := range []string{
+		"/", "/anomalies", "/staff/new", "/accounts", "/explainers", "/task/1",
+		"/connectors/aws-cost-explorer", "/search", "/sprint/plan",
+	} {
+		_, body, _ := h.get(t, path)
+		if m := bad.FindStringSubmatch(body); m != nil {
+			t.Errorf("%s sets tabindex=%s, which reorders every focusable element "+
+				"on the page and not only its own", path, m[1])
+		}
+	}
+}

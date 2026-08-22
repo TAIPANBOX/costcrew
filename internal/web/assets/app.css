@@ -422,3 +422,30 @@ button.danger {
   border: 1px solid var(--up); font-weight: 600;
 }
 button.danger:hover { background: var(--up-bg); }
+
+/* The way past the navigation.
+   Off-screen until it has focus, which is the only time it is wanted: a
+   keyboard user gets it as the first Tab on every page, and a mouse user
+   never sees it. Not display:none, and not a zero size either, because both
+   take it out of the focus order and then it is not a skip link, it is a
+   comment.
+   `left` rather than `transform` so it is genuinely outside the viewport and
+   cannot be reached by a stray scroll. */
+.skip {
+  /* FIXED, not absolute. Absolute positions it against the document, so on a
+     scrolled page it appeared forty-two pixels above the viewport: focused,
+     announced by a screen reader, and off the screen. Measured, not guessed.
+     nowrap because at left:8px with nothing to size it against it shrank to
+     78px and broke "Skip to the content" over three lines. */
+  position: fixed; left: -9999px; top: 8px; z-index: 100;
+  white-space: nowrap;
+  background: var(--accent); color: var(--paper);
+  padding: 9px 14px; border-radius: 6px;
+  font: 600 13.5px var(--sans); text-decoration: none;
+}
+.skip:focus { left: 8px; }
+
+/* main takes focus when the skip link is used, and must not draw a ring for
+   it: the ring belongs on controls a person can act on, and a page-wide
+   outline round the whole content reads as an error state. */
+main:focus { outline: none; }

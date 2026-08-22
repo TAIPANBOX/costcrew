@@ -7,6 +7,11 @@
 <link rel="stylesheet" href="/static/app.css">
 </head>
 <body>
+<!-- Twenty-four links stand between the top of every page and its content.
+     A keyboard user pressed Tab twenty-four times, on every page, before
+     reaching anything they came for. This is the first thing focus lands on
+     and the only thing that is invisible until it does. -->
+<a class="skip" href="#content">Skip to the content</a>
 <div class="shell">
 <nav>
   <div class="brand">CostCrew</div>
@@ -46,7 +51,7 @@
     <input type="hidden" name="csrf" value="{{.CSRF}}">
   </form>
 </nav>
-<main>
+<main id="content" tabindex="-1">
 {{if .Msg}}<p class="msg">{{.Msg}}</p>{{end}}
 {{template "content" .}}
 </main>
