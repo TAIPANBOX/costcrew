@@ -129,14 +129,25 @@ func (h *harness) anyAnomaly(t *testing.T) anomaly.Anomaly {
 
 func TestEveryPageRefusesAStranger(t *testing.T) {
 	h := start(t)
+	// Claim the installation first. Where a stranger is SENT depends on
+	// whether anybody owns this console yet, and the thing under test here is
+	// that they are refused, not which door they are shown.
+	h.signUp(t, "owner", "owner-password-2026")
+
+	stranger := &harness{srv: h.srv, au: h.au, st: h.st, c: &http.Client{
+		Jar: newJar(t),
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}}
 	for _, path := range []string{"/", "/anomalies", "/budgets", "/crew"} {
-		code, _, loc := h.get(t, path)
+		code, _, loc := stranger.get(t, path)
 		if code != http.StatusSeeOther || loc != "/login" {
 			t.Errorf("GET %s without a session: %d to %q, want 303 to /login", path, code, loc)
 		}
 	}
 	// The anomaly page too: an id is not a credential.
-	code, _, loc := h.get(t, "/anomalies/A-anything")
+	code, _, loc := stranger.get(t, "/anomalies/A-anything")
 	if code != http.StatusSeeOther || loc != "/login" {
 		t.Errorf("GET an anomaly without a session: %d to %q", code, loc)
 	}
