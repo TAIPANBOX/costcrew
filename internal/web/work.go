@@ -10,6 +10,7 @@ import (
 
 	"github.com/TAIPANBOX/costcrew/internal/crew"
 	"github.com/TAIPANBOX/costcrew/internal/money"
+	"github.com/TAIPANBOX/costcrew/internal/world"
 )
 
 // Only the two constructs the crew's own output actually uses.
@@ -345,6 +346,25 @@ func (s *Server) staff(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	byState = states["active"]
+
+	// Analysts that have spent past the guard they were given, IN THE MONTH
+	// the guard is about.
+	//
+	// Setting a lifetime total against a monthly guard put twenty-one of
+	// thirty-nine over budget, which is not a finding, it is five months of
+	// work compared with one month of allowance.
+	month := world.LastDay[:7]
+	inMonth, _ := crew.SpendInMonth(s.db, month)
+	var overGuard int
+	var overBy, spentThisMonth money.Cents
+	for _, a := range roster {
+		v := inMonth[a.Name]
+		spentThisMonth += v
+		if a.Monthly > 0 && v > a.Monthly {
+			overGuard++
+			overBy += v - a.Monthly
+		}
+	}
 	firstPass := 0.0
 	if posted+returned > 0 {
 		firstPass = float64(posted) / float64(posted+returned) * 100
@@ -372,9 +392,14 @@ func (s *Server) staff(w http.ResponseWriter, r *http.Request) {
 		States                        map[string]int
 		OffRoster                     money.Cents
 		OffRosterTasks                int
+		OverGuard                     int
+		OverBy                        money.Cents
+		Month                         string
+		ThisMonth                     money.Cents
 	}{s.shellFor(r, "Crew", "staff"), rows, u.May("operator"), srt,
 		totalSpent, totalGuard, tasks, open, posted, returned, byState,
-		firstPass, states, offRosterSpent, offRosterTasks})
+		firstPass, states, offRosterSpent, offRosterTasks, overGuard, overBy,
+		month, spentThisMonth})
 }
 
 // ------------------------------------------------------------------ actions

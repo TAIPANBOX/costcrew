@@ -738,3 +738,34 @@ func CloseSprint(db *sql.DB, id int) (int, error) {
 	_, err := db.Exec(`UPDATE sprints SET state='closed' WHERE id=?`, id)
 	return stillOpen, err
 }
+
+// SpendInMonth is what each analyst's work cost inside one month.
+//
+// The guard on an analyst is MONTHLY, and its Scoreboard.Spent is everything
+// it has ever been charged with. Setting one against the other says most of
+// the crew is over budget when the truth is that the board covers five months
+// and the guard covers one. It is the same mistake as comparing a part-month
+// bill with a whole-month budget, from the other end.
+//
+// The month comes from the sprint the work sat in, because that is when the
+// work was done. A task with no sprint has no month and is left out rather
+// than being charged to whichever month somebody is looking at.
+func SpendInMonth(db *sql.DB, period string) (map[string]money.Cents, error) {
+	rows, err := db.Query(`SELECT COALESCE(t.assignee,''), COALESCE(SUM(t.spent_cents),0)
+		FROM tasks t JOIN sprints s ON s.id = t.sprint
+		WHERE substr(s.start,1,7) = ? GROUP BY 1`, period)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]money.Cents{}
+	for rows.Next() {
+		var who string
+		var v int64
+		if err := rows.Scan(&who, &v); err != nil {
+			return nil, err
+		}
+		out[who] = money.Cents(v)
+	}
+	return out, rows.Err()
+}
