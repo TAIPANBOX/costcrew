@@ -1,6 +1,7 @@
 package world_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/TAIPANBOX/costcrew/internal/money"
@@ -143,5 +144,66 @@ func TestAIUnitsTotalTheAIDesk(t *testing.T) {
 	// so the units are a subset and must never exceed the desk.
 	if got > desk["ai"] {
 		t.Errorf("AI units total %s, the AI desk billed %s", got, desk["ai"])
+	}
+}
+
+// The AI page's whole premise is that price and volume can be told apart.
+//
+// Every model priced at exactly 15.62 per million tokens, because the rate was
+// per unit rather than per model. With one price there is only volume, and a
+// page built to separate the two separates nothing.
+func TestModelsDoNotAllCostTheSame(t *testing.T) {
+	perMillion := map[string]money.Cents{}
+	for _, u := range world.AIUnits() {
+		if u.Model == "" || u.Tokens == 0 {
+			continue
+		}
+		if _, seen := perMillion[u.Model]; !seen {
+			perMillion[u.Model] = u.PerMillion()
+		}
+	}
+	if len(perMillion) < 2 {
+		t.Fatalf("only %d models in the estate, so this measured nothing", len(perMillion))
+	}
+	seen := map[money.Cents]string{}
+	for model, price := range perMillion {
+		if other, clash := seen[price]; clash {
+			t.Errorf("%s and %s both cost exactly %s per million", model, other, price)
+		}
+		seen[price] = model
+	}
+	// And they are apart by enough to be a different decision, not a rounding
+	// difference somebody would ignore.
+	var lo, hi money.Cents
+	for _, p := range perMillion {
+		if lo == 0 || p < lo {
+			lo = p
+		}
+		if p > hi {
+			hi = p
+		}
+	}
+	if hi < lo*2 {
+		t.Errorf("the dearest model is %s and the cheapest %s, less than twice apart: "+
+			"a routing decision between them would not be worth making", hi, lo)
+	}
+}
+
+// A licence's note must not argue with its own numbers.
+func TestALicenceNoteAgreesWithItsSeatCounts(t *testing.T) {
+	for _, l := range world.Licences {
+		if l.Issued == 0 {
+			continue
+		}
+		share := float64(l.Idle()) / float64(l.Issued) * 100
+		fully := strings.Contains(l.Note, "fully used") || strings.Contains(l.Note, "Every seat")
+		if fully && share >= 10 {
+			t.Errorf("%s / %s says %q with %d of %d seats idle (%.0f%%)",
+				l.Vendor, l.Team, l.Note, l.Idle(), l.Issued, share)
+		}
+		if !fully && share < 5 && l.Note != "" {
+			t.Errorf("%s / %s says %q with only %d of %d seats idle",
+				l.Vendor, l.Team, l.Note, l.Idle(), l.Issued)
+		}
 	}
 }

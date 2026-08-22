@@ -13,9 +13,9 @@
 </form>
 
 <div class="tiles">
-  <div class="tile"><div class="k">Over budget</div><div class="v up">{{.Over}}</div><div class="s">summed across every team-month</div></div>
-  <div class="tile"><div class="k">Under budget</div><div class="v down">{{.Under}}</div><div class="s">including months not finished</div></div>
-  <div class="tile"><div class="k">Rows</div><div class="v">{{len .Rows}}</div><div class="s">team-months on this desk</div></div>
+  <div class="tile"><div class="k">Over budget</div><div class="v up">{{.Over}}</div><div class="s">summed across the {{.Closed}} team-months that finished</div></div>
+  <div class="tile"><div class="k">Under budget</div><div class="v down">{{.Under}}</div><div class="s">the same {{.Closed}} months. A part-month is under budget by arithmetic, so the {{.OpenRows}} open {{plural .OpenRows "row" "rows"}} are listed below and left out here.</div></div>
+  <div class="tile"><div class="k">Rows</div><div class="v">{{len .Rows}}</div><div class="s">team-months on this desk, {{.OpenRows}} of them still running</div></div>
 </div>
 
 <div class="panel">

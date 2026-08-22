@@ -106,13 +106,31 @@ var seatPrice = map[string]money.Cents{
 	"NetSuite":   money.Cents(13_200),
 }
 
-var licenceNote = map[string]string{
-	"Zendesk":    "Bought for a support team that grew by nine, not nineteen.",
-	"Datadog":    "Close to fully used.",
-	"Figma":      "Half the seats were issued to engineers who only use the viewer.",
-	"GitHub":     "",
-	"Salesforce": "Renews in weeks. The largest single decision on this page.",
-	"NetSuite":   "",
+// noteFor says what the seat counts actually show.
+//
+// The notes used to be written out beside the row, and once the seats were
+// derived from the invoice they contradicted it: Datadog read "close to fully
+// used" with forty-one of eighty-four seats idle. A sentence that argues with
+// the number next to it is worse than no sentence, because the reader has to
+// decide which of the two the console is wrong about.
+func noteFor(l Licence) string {
+	idle := l.Idle()
+	if l.Issued == 0 {
+		return ""
+	}
+	share := float64(idle) / float64(l.Issued) * 100
+	switch {
+	case idle == 0:
+		return "Every seat signed in this month. Nothing to recover here."
+	case share >= 45:
+		return "Nearly half the seats have not been signed into in thirty days. " +
+			"The largest single decision on this page."
+	case share >= 25:
+		return "A quarter of the seats are idle. Worth asking the team who still needs one before it renews."
+	case share >= 10:
+		return "A handful of idle seats, which is normal churn rather than a finding."
+	}
+	return "Close to fully used."
 }
 
 var licenceProduct = map[string]string{
@@ -168,8 +186,8 @@ func buildLicences() []Licence {
 			Vendor: k.Service, Product: licenceProduct[k.Service], Team: k.Team,
 			Issued: issued, Active30: active, PerSeat: price,
 			Renews: licenceRenews[k.Service], Term: "annual",
-			Note: licenceNote[k.Service],
 		})
+		out[len(out)-1].Note = noteFor(out[len(out)-1])
 	}
 	return out
 }

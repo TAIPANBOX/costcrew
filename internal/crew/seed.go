@@ -319,6 +319,10 @@ func plannedWork(wk week, sprint int, sprintState string) []Task {
 			continue
 		}
 		title, goal := workFor(a)
+		skill := ""
+		if len(a.Skills) > 0 {
+			skill = a.Skills[0]
+		}
 		t := Task{
 			Sprint: sprint, Title: title + " (" + wk.label + ")",
 			Goal: goal, Assignee: a.Name, Desk: a.Desk,
@@ -331,7 +335,7 @@ func plannedWork(wk week, sprint int, sprintState string) []Task {
 			// The open sprint is a working week: mostly in flight.
 			switch pick(key+"state", 10) {
 			case 0:
-				t.State, t.Reason = Blocked, blockedReasons[pick(key, len(blockedReasons))]
+				t.State, t.Reason = Blocked, blockedReason(skill, key)
 			case 1:
 				t.State = Queued
 			case 2:
@@ -342,9 +346,9 @@ func plannedWork(wk week, sprint int, sprintState string) []Task {
 		default:
 			switch pick(key+"state", 12) {
 			case 0:
-				t.State, t.Reason = Returned, returnReasons[pick(key, len(returnReasons))]
+				t.State, t.Reason = Returned, returnedReason(skill, key)
 			case 1:
-				t.State, t.Reason = Blocked, blockedReasons[pick(key, len(blockedReasons))]
+				t.State, t.Reason = Blocked, blockedReason(skill, key)
 			default:
 				t.State = Posted
 			}
@@ -352,26 +356,112 @@ func plannedWork(wk week, sprint int, sprintState string) []Task {
 		// An analyst on probation genuinely has work coming back, rather than
 		// a poor rate asserted on a card.
 		if a.State == world.Probation && pick(key+"probation", 3) == 0 {
-			t.State, t.Reason = Returned, returnReasons[pick(key, len(returnReasons))]
+			t.State, t.Reason = Returned, returnedReason(skill, key)
 		}
 		out = append(out, t)
 	}
 	return out
 }
 
-var blockedReasons = []string{
-	"Tagging feed from the azure desk has been stale since the 9th; the numbers would be wrong.",
-	"Waiting on the platform team to confirm which account owns the untagged EC2.",
-	"Cost Explorer call is metered and has not been approved for this month yet.",
-	"The commitment inventory export has not landed; nothing to reconcile against.",
+// A reason has to fit the work it is on.
+//
+// These were picked at random from one pool, so "Plan the crew's week" was
+// blocked because a tagging feed was stale, and "Renewal preparation" came
+// back because "the saving is stated as saved" when it proposes no saving.
+// Prose that contradicts the row it sits on is the same fault as a number
+// taken from nowhere, and it is more obvious: a reader notices it first and
+// then stops believing the figures too.
+//
+// Keyed on what the work IS, from the analyst's first skill.
+
+var blockedByKind = map[string][]string{
+	"data": {
+		"Tagging feed from the azure desk has been stale since the 9th; the numbers would be wrong.",
+		"Waiting on the platform team to confirm which account owns the untagged EC2.",
+		"Cost Explorer call is metered and has not been approved for this month yet.",
+	},
+	"commitment": {
+		"The commitment inventory export has not landed; nothing to reconcile against.",
+		"The provider's utilisation report is two days behind, and a waterline from stale data is worse than none.",
+	},
+	"licence": {
+		"Waiting on the vendor for a seat-level usage export; the invoice alone cannot say who signed in.",
+		"The renewal quote has not arrived, so there is nothing to benchmark against.",
+	},
+	"people": {
+		"The team it reports to has nobody available this week; a briefing nobody attends is not a briefing.",
+		"Waiting on the finance systems team to confirm the cost centre before anything goes out in their name.",
+	},
+	"planning": {
+		"Half the desk is on the incident, so a plan made now would be re-made on Monday.",
+		"Waiting on the budget for the next quarter before committing anybody to a guard.",
+	},
+	"": {
+		"Waiting on the platform team to confirm which account owns the untagged EC2.",
+		"Blocked behind a question with the vendor that has been open for four days.",
+	},
 }
 
-var returnReasons = []string{
-	"Ranked by z-score rather than by money. Re-rank and resubmit.",
-	"The saving is stated as saved. It is found until somebody acts on it.",
-	"Two figures have no provenance id, so nobody can check them.",
-	"Says 'significant increase' without saying how much or against what.",
-	"The recommendation has no owner and no date, so it cannot be actioned.",
+var returnedByKind = map[string][]string{
+	"finding": {
+		"Ranked by z-score rather than by money. Re-rank and resubmit.",
+		"Says 'significant increase' without saying how much or against what.",
+		"Two figures have no provenance id, so nobody can check them.",
+	},
+	"saving": {
+		"The saving is stated as saved. It is found until somebody acts on it.",
+		"The recommendation has no owner and no date, so it cannot be actioned.",
+		"No coverage window given, so nobody can tell whether it was measured over a quiet week.",
+	},
+	"report": {
+		"Opens with the method. Open with what it cost them and what to do about it.",
+		"Three numbers with no source. A stakeholder cannot check a figure they cannot trace.",
+		"Written for the FinOps team rather than for the team paying the bill.",
+	},
+	"forecast": {
+		"No basis stated, so the number cannot be argued with or scored later.",
+		"The error on the last one is not mentioned. A forecast with no track record is a guess.",
+	},
+	"": {
+		"Two figures have no provenance id, so nobody can check them.",
+		"Says 'significant increase' without saying how much or against what.",
+	},
+}
+
+// workKind maps a skill onto the kind of reason that can be true about it.
+func workKind(skill string) (blocked, returned string) {
+	switch skill {
+	case "variance-commentary", "anomaly-triage", "driver-classification",
+		"data-quality-checks", "tag-coverage", "ai-spend-analysis":
+		return "data", "finding"
+	case "rightsizing-analysis", "depreciation-modelling", "capacity-estimation":
+		return "data", "saving"
+	case "commitment-modelling", "waterline-tracking":
+		return "commitment", "saving"
+	case "licence-reconciliation", "renewal-negotiation-prep", "renewal-calendar":
+		return "licence", "saving"
+	case "exec-reporting", "showback-narration", "unit-economics", "cost-per-outcome":
+		return "people", "report"
+	case "stakeholder-briefing", "policy-review", "evidence-assembly":
+		return "people", "report"
+	case "forecasting-commentary", "forecast-accuracy":
+		return "data", "forecast"
+	case "sprint-planning", "routing", "escalation":
+		return "planning", "report"
+	}
+	return "", ""
+}
+
+func blockedReason(skill, key string) string {
+	b, _ := workKind(skill)
+	pool := blockedByKind[b]
+	return pool[pick(key, len(pool))]
+}
+
+func returnedReason(skill, key string) string {
+	_, rk := workKind(skill)
+	pool := returnedByKind[rk]
+	return pool[pick(key, len(pool))]
 }
 
 // deliverableFor writes the analyst's output, when there is one.

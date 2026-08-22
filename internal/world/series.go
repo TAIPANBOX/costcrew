@@ -258,15 +258,35 @@ func (s Series) day(d, first time.Time, events []Event, key string) Row {
 		// Consumption is generated from the same level rather than divided out
 		// of the cost afterwards: a token count derived from a dollar amount
 		// is not a measurement.
-		r.Quantity = math.Round(float64(billed) * unitRate(s.Unit))
+		//
+		// The rate is per MODEL, not per unit. It was per unit, so every model
+		// on the AI page priced at exactly 15.62 per million tokens, which
+		// makes nonsense of the one thing that page is for: telling a bill
+		// that rose because the price rose from one that rose because twice as
+		// much was done. With one price there is only volume.
+		r.Quantity = math.Round(float64(billed) * unitRate(s.Unit, s.Model))
 	}
 	return r
 }
 
-func unitRate(unit string) float64 {
+// unitRate is how much of a unit one cent buys.
+//
+// Tokens per cent, so a CHEAPER model gives more of them. The three rates put
+// the models roughly an order of magnitude apart, which is where real ones
+// sit, and it is what lets the AI page separate a price move from a volume
+// move at all.
+func unitRate(unit, model string) float64 {
 	switch unit {
 	case "tokens":
-		return 640 // tokens per cent, roughly a cheap model's rate
+		switch model {
+		case "claude-strong":
+			return 180 // about 55.50 per million
+		case "kimi-standard":
+			return 640 // about 15.60 per million
+		case "gpt-mini":
+			return 2000 // about 5.00 per million
+		}
+		return 640
 	case "hours":
 		return 0.0004
 	}

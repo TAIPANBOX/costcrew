@@ -50,9 +50,19 @@ func Compute(db *sql.DB, period string) (Results, error) {
 	// Found money is the excess on anomalies that have been explained or
 	// accepted: an open one is not found yet, it is only noticed, and a
 	// dismissed one was decided against.
-	if err := db.QueryRow(`SELECT COALESCE(SUM(ABS(excess_cents)),0), COUNT(*)
+	if err := db.QueryRow(`SELECT COALESCE(SUM(ABS(excess_cents)),0)
 		FROM anomalies WHERE state IN ('explained','accepted')`).
-		Scan(&r.FoundMonthly, &r.AwaitingDecision); err != nil {
+		Scan(&r.FoundMonthly); err != nil {
+		return r, err
+	}
+	// EXPLAINED only.
+	//
+	// This counted explained and accepted together, which put "5 anomalies
+	// need somebody to accept or reject it" on the page while four of the five
+	// had already been accepted. An accepted finding is a decision somebody
+	// made, and listing it as waiting for one asks them to do it twice.
+	if err := db.QueryRow(`SELECT COUNT(*) FROM anomalies WHERE state='explained'`).
+		Scan(&r.AwaitingDecision); err != nil {
 		return r, err
 	}
 	// A daily excess repeats: a spike is one day, a step is every day after
@@ -92,8 +102,13 @@ func Compute(db *sql.DB, period string) (Results, error) {
 }
 
 // Return is the crew's own economics: money found against what the crew cost
-// to run. It is a ratio somebody will quote, so it refuses to exist rather
-// than divide by zero.
+// to run, both over the whole life of the board.
+//
+// Both sides are lifetime, which is the only way the ratio means anything.
+// It is a number somebody will quote, so it refuses to exist rather than
+// divide by zero, and the page prints a decimal: a crew that found forty
+// percent of what it cost is a real answer, and rounding it to "0x" reads as
+// "found nothing" instead.
 func (r Results) Return() (float64, bool) {
 	if r.CrewSpend == 0 {
 		return 0, false

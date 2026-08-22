@@ -5,10 +5,11 @@
 </header>
 
 <div class="tiles">
-  <div class="tile"><div class="k">Found, monthly</div><div class="v">{{.R.FoundMonthly}}</div><div class="s">explained or accepted</div></div>
-  <div class="tile"><div class="k">Found, annualised</div><div class="v">{{.R.FoundAnnual}}</div><div class="s">the monthly figure, twelve times</div></div>
+  <div class="tile"><div class="k">Found</div><div class="v">{{.R.FoundMonthly}}</div><div class="s">the excess on every finding explained or accepted, since the board opened</div></div>
+  <div class="tile"><div class="k">Found, annualised</div><div class="v">{{.R.FoundAnnual}}</div><div class="s">that figure, twelve times. A daily excess repeats, so this is right for a step and too high for a spike.</div></div>
   <div class="tile"><div class="k">The crew cost</div><div class="v">{{.R.CrewSpend}}</div><div class="s">across {{.R.Tasks}} tasks</div></div>
-  <div class="tile"><div class="k">Return</div><div class="v">{{if .HasReturn}}{{printf "%.0fx" .Return}}{{else}}—{{end}}</div><div class="s">found over what it cost</div></div>
+  <div class="tile"><div class="k">Return</div><div class="v {{if .HasReturn}}{{if lt .Return 1.0}}up{{end}}{{end}}">{{if .HasReturn}}{{printf "%.2fx" .Return}}{{else}}—{{end}}</div>
+    <div class="s">found over what it cost, both since the board opened.{{if .HasReturn}}{{if lt .Return 1.0}} Under one: the crew has cost more than it has found.{{end}}{{end}}</div></div>
   <div class="tile"><div class="k">First pass</div><div class="v">{{if .HasFirstPass}}{{printf "%.0f%%" .FirstPass}}{{else}}—{{end}}</div><div class="s">accepted without a return</div></div>
 </div>
 
@@ -18,14 +19,14 @@
     <dl class="facts">
       <dt>Still unexplained</dt>
       <dd>
-        <strong>{{.R.OpenAnomalies}}</strong> anomalies worth <strong>{{.R.OpenMoney}}</strong>.
+        <strong>{{.R.OpenAnomalies}}</strong> {{plural .R.OpenAnomalies "anomaly" "anomalies"}} worth <strong>{{.R.OpenMoney}}</strong>.
         {{if .R.OldestOpen}}The oldest is from {{.R.OldestOpen}}.{{end}}
         <span class="sub">An anomaly nobody has looked at says more about a FinOps practice than one that closed.</span>
       </dd>
       <dt>Waiting on a stamp</dt>
-      <dd><strong>{{.R.AwaitingStamp}}</strong> deliverables written and not yet reviewed. <a href="/board">See the board</a>.</dd>
+      <dd><strong>{{.R.AwaitingStamp}}</strong> {{plural .R.AwaitingStamp "deliverable" "deliverables"}} written and not yet reviewed. <a href="/board">See the board</a>.</dd>
       <dt>Waiting on a decision</dt>
-      <dd><strong>{{.R.AwaitingDecision}}</strong> anomalies have an answer and need somebody to accept or reject it. <a href="/anomalies?state=explained">See them</a>.</dd>
+      <dd><strong>{{.R.AwaitingDecision}}</strong> {{plural .R.AwaitingDecision "anomaly has" "anomalies have"}} an answer and {{plural .R.AwaitingDecision "needs" "need"}} somebody to accept or reject it. <a href="/anomalies?state=explained">See them</a>.</dd>
       <dt>The estate</dt>
       <dd><strong>{{.R.Estate}}</strong> in {{.R.Period}}.</dd>
     </dl>

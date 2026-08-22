@@ -29,8 +29,9 @@ var templateFS embed.FS
 // every page defines a block called "content" and a single set would let the
 // last one parsed win silently.
 func page(name string) *template.Template {
-	return template.Must(template.ParseFS(templateFS,
-		"templates/layout.html", "templates/"+name))
+	return template.Must(template.New("layout.html").
+		Funcs(template.FuncMap{"plural": plural}).
+		ParseFS(templateFS, "templates/layout.html", "templates/"+name))
 }
 
 var (
@@ -107,6 +108,17 @@ func (s *Server) render(w http.ResponseWriter, t *template.Template, data any) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = buf.WriteTo(w)
+}
+
+// plural picks the right word for a count.
+//
+// "1 anomalies have an answer" is the kind of sentence that makes a reader
+// wonder what else on the page was generated rather than written.
+func plural(n int, one, many string) string {
+	if n == 1 {
+		return one
+	}
+	return many
 }
 
 func redirectMsg(w http.ResponseWriter, r *http.Request, to, msg string) {
@@ -534,8 +546,20 @@ func (s *Server) budgets(w http.ResponseWriter, r *http.Request) {
 	// Over and under are kept apart rather than netted. A desk that is nine
 	// thousand over on one team and nine thousand under on another is not a
 	// desk on budget, and a single net figure says it is.
+	//
+	// The OPEN month is left out of both. A month-to-date total against a
+	// whole month's budget is under budget by arithmetic, and it dominated the
+	// tile: sixty-one thousand "under budget", most of it the calendar. The
+	// page still lists the open rows, marked as open, because the run rate is
+	// worth seeing; it is the summed headline that cannot carry them.
 	var over, under money.Cents
+	var closedRows, openRows int
 	for _, b := range rows {
+		if b.Open {
+			openRows++
+			continue
+		}
+		closedRows++
 		if b.Variance > 0 {
 			over += b.Variance
 		} else {
@@ -549,7 +573,10 @@ func (s *Server) budgets(w http.ResponseWriter, r *http.Request) {
 		Source      string
 		Over, Under money.Cents
 		Sort        sortSpec
-	}{s.shellFor(r, "Budgets", "budgets"), rows, sources, source, over, under, srt})
+		Closed      int
+		OpenRows    int
+	}{s.shellFor(r, "Budgets", "budgets"), rows, sources, source, over, under, srt,
+		closedRows, openRows})
 }
 
 // ---------------------------------------------------------------- sparkline
