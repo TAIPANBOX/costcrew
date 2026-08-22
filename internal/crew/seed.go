@@ -205,33 +205,123 @@ func sprintGoal(label string) string {
 	return goals[pick(label, len(goals))]
 }
 
-// plannedWork is what a desk does in a week.
-func plannedWork(wk week, sprint int, sprintState string) []Task {
-	type spec struct {
-		title, goal, assignee, desk string
+// workFor is the piece of work this analyst's first skill produces.
+//
+// Derived from the crew rather than written out, because a hard-coded list of
+// nine titles gave nine analysts a history and left the other thirty-one with
+// an empty card. An agent that never appears on the board cannot be judged,
+// which is the one thing a console like this exists to let somebody do.
+func workFor(a world.Agent) (title, goal string) {
+	skill := ""
+	if len(a.Skills) > 0 {
+		skill = a.Skills[0]
 	}
-	specs := []spec{
-		{"Variance commentary, aws", "Explain every team's month-on-month move above 5 percent.", "investigator-aws", "aws"},
-		{"Rightsizing candidates, aws", "Proven at p95 over 14 days, with the rule printed beside the finding.", "optimizer-aws", "aws"},
-		{"Desk report, gcp", "One page a stakeholder can act on, every number tied to its source.", "reporter-gcp", "gcp"},
-		{"Commitment waterline", "Utilisation against the 80 percent line, and what expires inside 90 days.", "commitments", "management"},
-		{"Allocation coverage", "How much cost still has no team, and which rule would give it one.", "chargeback", "management"},
-		{"AI spend review", "Tokens and GPU hours beside cost; price separated from volume.", "ai-spend", "ai"},
-		{"Azure tag coverage", "Which subscriptions are still untagged and who owns them.", "investigator-azure", "azure"},
-		{"SaaS seats against issued", "Money sitting in licences nobody signed into this quarter.", "saas-manager", "saas"},
-		{"Forecast freeze", "Freeze the month's forecast and record the accuracy of the last one.", "forecaster", "management"},
+	where := a.Desk
+	if where == "management" {
+		where = "the estate"
 	}
+	switch skill {
+	case "variance-commentary":
+		return "Variance commentary, " + a.Desk,
+			"Explain every team's month-on-month move above 5 percent, and say which were decisions."
+	case "rightsizing-analysis":
+		return "Rightsizing candidates, " + a.Desk,
+			"Proven at p95 over 14 days, with the rule printed beside the finding."
+	case "exec-reporting":
+		return "Desk report, " + a.Desk,
+			"One page a stakeholder can act on, every number tied to its source."
+	case "capacity-estimation":
+		return "Capacity outlook, " + a.Desk,
+			"What " + where + " needs next quarter, and how far the last such answer was out."
+	case "anomaly-triage":
+		return "Triage the week's findings, " + a.Desk,
+			"Every new finding read within the day, with a named cause or a plain 'none established'."
+	case "stakeholder-briefing":
+		return "Team briefings, " + a.Desk,
+			"Carry the teams' questions in and the answers back, in their own terms."
+	case "ai-spend-analysis":
+		return "AI spend review",
+			"Tokens and GPU hours beside cost; price separated from volume."
+	case "unit-economics":
+		return "Unit economics review",
+			"Cost per outcome, so a rising bill can be told from a rising workload."
+	case "licence-reconciliation":
+		return "SaaS seats against issued",
+			"Money sitting in licences nobody signed into this quarter."
+	case "renewal-negotiation-prep":
+		return "Renewal preparation",
+			"Every renewal inside 90 days, with usage evidence and a benchmark attached."
+	case "allocation-rules":
+		return "Allocation coverage",
+			"How much cost still has no team, and which rule would give it one."
+	case "commitment-modelling":
+		return "Commitment waterline",
+			"Utilisation against the 80 percent line, and what expires inside 90 days."
+	case "forecasting-commentary":
+		return "Forecast freeze",
+			"Freeze the month's forecast and record the accuracy of the last one."
+	case "kpi-benchmarking":
+		return "KPI review",
+			"Which KPIs can be reported this period, and which refuse and why."
+	case "policy-review":
+		return "Governance evidence",
+			"Assemble the evidence that the estate's rules held, and name where they did not."
+	case "data-quality-checks":
+		return "Data quality sweep",
+			"Every reported figure traced back to a charge, or the report stopped."
+	case "vendor-benchmarking":
+		return "Peer comparison",
+			"Compare this estate against its peers on the few measures where it is fair."
+	case "sustainability-reporting":
+		return "Energy and carbon",
+			"Report alongside cost, using the providers' own published factors."
+	case "sprint-planning":
+		return "Plan the crew's week",
+			"Route each open question to the desk that owns it, with a guard on each."
+	case "depreciation-modelling":
+		return "Depreciation review, onprem",
+			"What the estate still carries on the books against what it still runs."
+	}
+	if skill == "" {
+		return a.Role, "Standing work for " + where + "."
+	}
+	return strings.ToUpper(skill[:1]) + strings.ReplaceAll(skill[1:], "-", " ") + ", " + where,
+		"Standing work for " + where + ", from this analyst's brief."
+}
 
+// plannedWork is what the crew does in a week.
+//
+// Everybody who is on the rota can be given work; who actually is comes from a
+// hash of the week and the name, so the board is the same on every machine and
+// an analyst has a rhythm rather than a straight line.
+func plannedWork(wk week, sprint int, sprintState string) []Task {
 	var out []Task
-	for i, s := range specs {
-		key := wk.label + "|" + s.title
-		// Not every desk does everything every week.
-		if pick(key, 10) < 3 {
+	for _, a := range world.Crew {
+		// Off the rota means off the board. A suspended analyst with work in
+		// this week's sprint would contradict the reason on its own card.
+		if a.State == world.Suspended {
 			continue
 		}
+		key := wk.label + "|" + a.Name
+		// Roughly two weeks in five. Onboarding is slower to start, and the
+		// supervisor plans every week it is asked to.
+		threshold := 4
+		switch a.State {
+		case world.Onboarding:
+			threshold = 2
+		case world.Restricted:
+			threshold = 3
+		}
+		if a.Name == "supervisor" {
+			threshold = 7
+		}
+		if pick(key, 10) >= threshold {
+			continue
+		}
+		title, goal := workFor(a)
 		t := Task{
-			Sprint: sprint, Title: s.title + " (" + wk.label + ")",
-			Goal: s.goal, Assignee: s.assignee, Desk: s.desk,
+			Sprint: sprint, Title: title + " (" + wk.label + ")",
+			Goal: goal, Assignee: a.Name, Desk: a.Desk,
 			Budget: money.Cents(1500 + pick(key, 1500)),
 		}
 		t.Spent = money.Cents(pick(key+"spend", int(t.Budget)+400))
@@ -259,10 +349,9 @@ func plannedWork(wk week, sprint int, sprintState string) []Task {
 				t.State = Posted
 			}
 		}
-		// The analyst on probation genuinely has work coming back, rather than
-		// a rate asserted on a card.
-		if i%4 == 0 && pick(key+"probation", 5) == 0 {
-			t.Assignee = "intake-triage"
+		// An analyst on probation genuinely has work coming back, rather than
+		// a poor rate asserted on a card.
+		if a.State == world.Probation && pick(key+"probation", 3) == 0 {
 			t.State, t.Reason = Returned, returnReasons[pick(key, len(returnReasons))]
 		}
 		out = append(out, t)

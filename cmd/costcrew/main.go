@@ -24,10 +24,10 @@ import (
 	"github.com/TAIPANBOX/costcrew/internal/detect"
 	"github.com/TAIPANBOX/costcrew/internal/estate"
 	"github.com/TAIPANBOX/costcrew/internal/finops"
+	"github.com/TAIPANBOX/costcrew/internal/history"
 	"github.com/TAIPANBOX/costcrew/internal/stack"
 	"github.com/TAIPANBOX/costcrew/internal/store"
 	"github.com/TAIPANBOX/costcrew/internal/web"
-	"github.com/TAIPANBOX/costcrew/internal/world"
 )
 
 func main() {
@@ -133,6 +133,20 @@ func run(addr, dir string, scfg stack.Config) error {
 	} else if n > 0 {
 		log.Printf("CostCrew: %d analysts on the roster", n)
 	}
+	// An installation seeded before the mandate existed gets it now, without
+	// its roster being replaced: only blank columns are written.
+	if n, err := crew.BackfillMandate(st.DB(), scfg.Owner); err != nil {
+		return fmt.Errorf("filling in the roster's mandate: %w", err)
+	} else if n > 0 {
+		log.Printf("CostCrew: filled in the mandate for %d analysts", n)
+	}
+	// The ROSTER, not the fixture: an analyst hired through the console after
+	// the first start exists only here, and a passport run that read the
+	// fixture would quietly publish yesterday's crew.
+	roster, err := crew.Roster(st.DB())
+	if err != nil {
+		return fmt.Errorf("reading the roster: %w", err)
+	}
 	em, err := stack.Open(scfg)
 	if err != nil {
 		return fmt.Errorf("opening the event stream: %w", err)
@@ -142,7 +156,7 @@ func run(addr, dir string, scfg stack.Config) error {
 	if em.On() {
 		rec = em
 		log.Printf("CostCrew: emitting agent-events to %s", scfg.EventsPath)
-		if n, err := em.WritePassports(world.Crew); err != nil {
+		if n, err := em.WritePassports(roster); err != nil {
 			return fmt.Errorf("writing passports: %w", err)
 		} else if n > 0 {
 			log.Printf("CostCrew: published %d Agent Passports to %s", n, scfg.PassportDir)
@@ -174,6 +188,19 @@ func run(addr, dir string, scfg stack.Config) error {
 	}
 	if sp > 0 {
 		log.Printf("CostCrew: %d sprints, %d tasks, %d deliverables", sp, tk, ar)
+
+		// A fresh installation gets a past: findings that were worked, forecasts
+		// that were frozen and later scored, explainers in review, and a
+		// conversation on the board. Every part of it checks first whether it has
+		// already run, so a restart never moves a decision somebody made.
+		if hc, err := history.Seed(st.DB(), rec); err != nil {
+			return fmt.Errorf("seeding the history: %w", err)
+		} else if hc.Triaged+hc.Forecasts+hc.Explainers+hc.Comments > 0 {
+			log.Printf("CostCrew: history: %d findings taken, %d answered, %d accepted, %d dismissed; "+
+				"%d forecasts frozen, %d explainers, %d comments",
+				hc.Triaged, hc.Explained, hc.Accepted, hc.Dismissed,
+				hc.Forecasts, hc.Explainers, hc.Comments)
+		}
 	}
 
 	n, err := au.Count()
@@ -193,7 +220,8 @@ func run(addr, dir string, scfg stack.Config) error {
 		Addr: addr,
 		Handler: web.New(st, au, web.Stack{
 			Recorder: rec, Host: scfg.Host, EventsPath: scfg.EventsPath,
-			Passports: em.WritePassports, Delegation: em.Delegation,
+			Passports: em.WritePassports, PassportFor: em.PassportFor,
+			Delegation: em.Delegation,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}

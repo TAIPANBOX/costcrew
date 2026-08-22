@@ -1,40 +1,153 @@
 {{define "content"}}
 <p class="crumb"><a href="/staff">Crew</a> / {{.A.Name}}</p>
 <header class="page">
-  <h1>{{.A.Name}}</h1>
-  <p>{{.A.Role}}</p>
+  <h1>{{.A.Name}} <span class="chip {{.Chip}}">{{.A.State}}</span></h1>
+  <p>{{.A.Role}} on the <a href="/desk/{{.A.Desk}}">{{.A.Desk}}</a> desk{{if .A.Reason}}. <strong>{{.A.Reason}}</strong>{{end}}</p>
+  <p class="idline"><code>agent://{{$.Host}}/{{.A.Name}}</code>
+    {{if .Passport}}· <a href="/staff/{{.A.Name}}/passport.json">passport.json</a>{{end}}
+    {{if .CanAct}}· <a href="/staff/{{.A.Name}}/edit">re-brief</a>{{end}}</p>
 </header>
 
-<div class="tiles">
-  <div class="tile"><div class="k">On the desk now</div><div class="v">{{.Score.Open}}</div><div class="s">open tasks</div></div>
-  <div class="tile"><div class="k">Posted</div><div class="v">{{.Score.Posted}}</div><div class="s">work that counted</div></div>
-  <div class="tile"><div class="k">First pass</div><div class="v">{{if .Score.HasRate}}{{printf "%.0f%%" .Score.FirstPass}}{{else}}—{{end}}</div><div class="s">accepted without a return</div></div>
-  <div class="tile"><div class="k">Its work cost</div><div class="v">{{.Score.Spent}}</div><div class="s">against {{.A.MonthlyUSD}} a month</div></div>
-  <div class="tile"><div class="k">Anomalies handled</div><div class="v">{{.Score.Anomalies}}</div><div class="s"><a href="/anomalies?handled_by={{.A.Name}}">see them</a></div></div>
+<div class="tiles summary">
+  <div class="tile wide"><div class="k">On the desk now</div><div class="v big">{{.Score.Open}}</div>
+    <div class="s">open {{if eq .Score.Open 1}}task{{else}}tasks{{end}} of {{.Score.Tasks}} it has ever been given</div></div>
+  <div class="tile wide"><div class="k">Posted</div><div class="v big">{{.Score.Posted}}</div>
+    <div class="s">work that counted{{if .Score.Returned}}, {{.Score.Returned}} returned to it{{end}}{{if .Score.Blocked}}, {{.Score.Blocked}} blocked{{end}}</div></div>
+  <div class="tile wide"><div class="k">First pass</div>
+    <div class="v big">{{if .Score.HasRate}}{{printf "%.0f%%" .Score.FirstPass}}{{else}}—{{end}}</div>
+    <div class="s">{{if .Score.HasRate}}accepted without a return{{else}}nothing has been posted yet, so there is no rate to report{{end}}</div></div>
+  <div class="tile wide"><div class="k">Its work cost</div><div class="v big">{{.Score.Spent}}</div>
+    <div class="s">against {{.A.Monthly}} a month
+      {{if gt .GuardUsed 0.0}}<span class="bar"><span class="fill {{if gt .GuardUsed 90.0}}over{{end}}" style="width:{{printf "%.0f" .GuardUsed}}%"></span></span>
+      {{printf "%.0f%%" .GuardUsed}} of the guard{{end}}</div></div>
+</div>
+
+<div class="two">
+<div class="panel">
+  <h2>Passport</h2>
+  {{if .Passport}}
+  <p class="note">The document this installation publishes about this agent, byte for byte. Not a summary of it: the card and the file on disk are built by the same code, so they cannot drift.</p>
+  <div class="body">
+    <dl class="facts">
+      <dt>Identity</dt><dd><code>{{.Passport.ID}}</code></dd>
+      <dt>Owner</dt><dd>{{.Passport.Owner}}</dd>
+      <dt>Acts under</dt>
+      <dd>{{if .Passport.Parent}}<code>{{.Passport.Parent}}</code>{{if .A.Parent}} · <a href="/staff/{{.A.Parent}}">open {{.A.Parent}}</a>{{end}}{{else}}<span class="note">nobody, it is a root</span>{{end}}</dd>
+      <dt>Attestation</dt>
+      <dd><span class="chip grain">{{.Passport.Attestation.Method}}</span>
+        {{if eq .Passport.Attestation.Method "none"}}<span class="sub">The identity is a name this installation chose, not something bound to a workload. Said plainly rather than implied.</span>{{end}}</dd>
+      <dt>Runtime</dt><dd>{{.Passport.Runtime}}</dd>
+      {{if .Passport.Models}}<dt>Model</dt><dd>{{range .Passport.Models}}<span class="chip grain">{{.Provider}}</span> {{end}}</dd>{{end}}
+      <dt>Schema</dt><dd><code>{{.Passport.Schema}}</code></dd>
+    </dl>
+    <details class="raw">
+      <summary>The document itself</summary>
+      <pre><code>{{.JSON}}</code></pre>
+    </details>
+  </div>
+  {{else}}
+  <p class="note">The governance plane is switched off on this installation, so nothing is published about this agent. Start the console with <code>-stack-events</code> and <code>-stack-passports</code> and the document appears here and on disk together.</p>
+  {{end}}
 </div>
 
 <div class="panel">
   <h2>The mandate</h2>
   <div class="body">
+    {{if .A.Mission}}<p class="mission">{{.A.Mission}}</p>{{end}}
     <dl class="facts">
-      <dt>State</dt>
-      <dd><span class="chip {{.Chip}}">{{.A.State}}</span>{{if .A.Reason}} <strong>{{.A.Reason}}</strong>{{end}}</dd>
-      <dt>Desk</dt><dd>{{.A.Desk}}</dd>
-      <dt>Engine</dt><dd>{{.A.Engine}}</dd>
+      <dt>Desk</dt><dd><a href="/desk/{{.A.Desk}}">{{.A.Desk}}</a>, which cost {{.DeskSpend}} in {{.Month}}</dd>
+      <dt>Engine</dt>
+      <dd>{{if .Engine.ID}}<strong>{{.Engine.Name}}</strong><span class="sub">{{.Engine.Note}}</span>{{else}}{{.A.Engine}}{{end}}</dd>
       <dt>Guards</dt><dd>{{.A.PerTask}} per task, {{.A.Monthly}} a month</dd>
       <dt>Reports</dt><dd>{{.A.Cadence}} to {{.A.Audience}}</dd>
-      <dt>Rights</dt><dd>{{range .A.Rights}}<span class="chip grain">{{.}}</span> {{else}}<span class="note">none granted</span>{{end}}</dd>
-      <dt>Owner</dt><dd>{{.A.Owner}}, hired {{.A.Hired}}</dd>
-      <dt>Attestation</dt><dd><span class="chip grain">{{.A.Attestation}}</span>{{if eq .A.Attestation "none"}} <span class="sub">The identity is a name this installation chose, not something bound to a workload. Said plainly rather than implied.</span>{{end}}</dd>
-      <dt>Skills</dt><dd>{{range .A.Skills}}<span class="chip grain">{{.}}</span> {{end}}</dd>
-      <dt>Identity</dt><dd><code>agent://{{$.Host}}/{{.A.Name}}</code>{{if .A.Parent}}, acting under <code>agent://{{$.Host}}/{{.A.Parent}}</code>{{end}}</dd>
+      <dt>Hired</dt><dd>{{.A.Hired}} by {{.A.Owner}}</dd>
+      <dt>Skills</dt><dd>{{range .A.Skills}}<span class="chip grain">{{.}}</span> {{else}}<span class="note">none declared</span>{{end}}</dd>
     </dl>
   </div>
 </div>
+</div>
 
-{{if .CanAct}}
-<p><a href="/staff/{{.A.Name}}/edit">Re-brief this analyst, or take it off the rota</a></p>
-{{end}}
+<div class="two">
+<div class="panel">
+  <h2>What it may do</h2>
+  <p class="note">Every right it was granted, and what that right actually reaches.</p>
+  <div class="body">
+    {{if .Rights}}
+    <dl class="facts">
+      {{range .Rights}}<dt><span class="chip grain">{{.Right}}</span></dt><dd>{{.Means}}</dd>{{end}}
+    </dl>
+    {{else}}<p class="note">No rights granted. It can be given work, and it cannot reach anything to do it with.</p>{{end}}
+  </div>
+</div>
+
+<div class="panel">
+  <h2>What it may never do</h2>
+  <p class="note">The honest half. A capability list read on its own always reads longer than it is, so this one is on the card beside it.</p>
+  <div class="body">
+    <ul class="cannot">{{range .Cannot}}<li>{{.}}</li>{{end}}</ul>
+  </div>
+</div>
+</div>
+
+<div class="panel">
+  <h2>Delegation</h2>
+  <div class="body">
+    <p>
+      {{if .A.Parent}}It acts on behalf of <a href="/staff/{{.A.Parent}}">{{.A.Parent}}</a>, and every event it emits carries that chain, root first.
+      {{else}}It acts on nobody's behalf: it is a root of the delegation chain here.{{end}}
+    </p>
+    {{if .Children}}
+    <p>{{len .Children}} {{if eq (len .Children) 1}}agent acts{{else}}agents act{{end}} under it:</p>
+    <div class="scroll"><table>
+      <thead><tr><th>Agent</th><th>Role</th><th class="tight">State</th></tr></thead>
+      <tbody>{{range .Children}}
+        <tr><td><a href="/staff/{{.Name}}">{{.Name}}</a></td><td>{{.Role}}</td>
+            <td class="tight"><span class="chip">{{.State}}</span></td></tr>
+      {{end}}</tbody>
+    </table></div>
+    {{else}}<p class="note">Nothing acts under it.</p>{{end}}
+  </div>
+</div>
+
+<div class="two">
+<div class="panel">
+  <h2>Its rhythm</h2>
+  <p class="note">Its work by sprint, newest first. A run of four, four, none reads differently from twelve and then nothing.</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th class="tight">Sprint</th><th class="num">Tasks</th><th class="num">Posted</th><th class="num">Spent</th></tr></thead>
+    <tbody>
+    {{range .Rhythm}}
+      <tr><td class="tight">{{.Sprint}}</td><td class="num">{{.Tasks}}</td>
+          <td class="num">{{.Posted}}</td><td class="num">{{.Spent}}</td></tr>
+    {{else}}
+      <tr><td colspan="4" class="empty">No work has reached this agent yet.</td></tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Anomalies it handled</h2>
+  <p class="note">Findings this agent took on and answered.</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th class="num">Money</th><th>What</th><th class="tight">Day</th><th class="tight">State</th></tr></thead>
+    <tbody>
+    {{range .Handled}}
+      <tr><td class="num {{if eq .Direction "up"}}up{{else}}down{{end}}"><a href="/anomalies/{{.ID}}">{{.Excess}}</a></td>
+          <td><a href="/anomalies/{{.ID}}">{{.Service}}</a><span class="sub"><a href="/desk/{{.Source}}">{{.Source}}</a>{{if .Team}} · <a href="/team/{{.Team}}">{{.Team}}</a>{{end}}</span></td>
+          <td class="tight">{{.Day}}</td>
+          <td class="tight"><span class="chip {{.State}}">{{.State}}</span></td></tr>
+    {{else}}
+      <tr><td colspan="4" class="empty">Nothing assigned to it yet.</td></tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+</div>
+</div>
 
 <div class="panel">
   <h2>Anomalies it caused</h2>
@@ -44,13 +157,13 @@
       <thead><tr><th class="num">Money</th><th>What</th><th class="tight">Day</th><th class="tight">State</th></tr></thead>
       <tbody>{{range .Caused}}
       <tr><td class="num up"><a href="/anomalies/{{.ID}}">{{.Excess}}</a></td>
-          <td>{{.Service}}<span class="sub">{{.Source}} · {{.Team}}</span></td>
+          <td><a href="/anomalies/{{.ID}}">{{.Service}}</a><span class="sub"><a href="/desk/{{.Source}}">{{.Source}}</a>{{if .Team}} · <a href="/team/{{.Team}}">{{.Team}}</a>{{end}}</span></td>
           <td class="tight">{{.Day}}</td>
           <td class="tight"><span class="chip {{.State}}">{{.State}}</span></td></tr>
       {{end}}</tbody>
     </table></div>
     {{else}}
-    <p class="note">None attributed to this analyst. That is either true or the limit of what attribution can prove today, and the anomaly page says which.</p>
+    <p class="note">None attributed to this agent. That is either true or the limit of what attribution can prove today, and the anomaly page says which.</p>
     {{end}}
   </div>
 </div>
@@ -68,6 +181,25 @@
           <td class="tight"><span class="chip {{.StateChip}}">{{.State}}</span></td></tr>
     {{else}}
       <tr><td colspan="4" class="empty">Nothing on this desk yet.</td></tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Events</h2>
+  <p class="note">This agent's entries in the hash-chained journal, newest first. The <a href="/audit">audit page</a> carries the whole chain and whether it still verifies.</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th class="tight">When</th><th>Event</th><th>What</th></tr></thead>
+    <tbody>
+    {{range .Events}}
+      <tr><td class="tight">{{.When}}</td>
+          <td><span class="chip grain">{{.Kind}}</span></td>
+          <td class="detail">{{.Detail}}</td></tr>
+    {{else}}
+      <tr><td colspan="3" class="empty">Nothing in the journal names this agent yet.</td></tr>
     {{end}}
     </tbody>
   </table>

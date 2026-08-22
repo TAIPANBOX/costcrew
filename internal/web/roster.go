@@ -213,16 +213,10 @@ func (s *Server) publishPassports() {
 	if err != nil {
 		return
 	}
-	agents := make([]world.Agent, 0, len(roster))
-	for _, a := range roster {
-		agents = append(agents, world.Agent{
-			Name: a.Name, Role: a.Role, Desk: a.Desk,
-			State: world.AgentState(a.State), Reason: a.Reason,
-			Engine: a.Engine, Skills: a.Skills,
-			PerTaskUSD: a.PerTask.String(), MonthlyUSD: a.Monthly.String(),
-		})
-	}
-	_, _ = s.passports(agents)
+	// Straight through. The conversion that used to sit here dropped the
+	// owner, the parent and the attestation on the floor, which are exactly
+	// the three fields a passport exists to carry.
+	_, _ = s.passports(roster)
 }
 
 func (s *Server) delegation(operator, analyst string) []string {

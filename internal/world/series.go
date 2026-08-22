@@ -337,3 +337,16 @@ func Drivers() []Driver {
 	}
 	return out
 }
+
+// DayBefore is n days before a "2006-01-02" date, as the same string.
+//
+// It exists so a fixture can stagger dates without every caller re-deriving
+// the parse and the format, and so an unparseable input comes back unchanged
+// rather than as the zero time, which would render as year one.
+func DayBefore(day string, n int) string {
+	t, err := time.Parse("2006-01-02", day)
+	if err != nil {
+		return day
+	}
+	return t.AddDate(0, 0, -n).Format("2006-01-02")
+}

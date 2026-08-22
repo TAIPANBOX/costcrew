@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/TAIPANBOX/costcrew/internal/anomaly"
 	"github.com/TAIPANBOX/costcrew/internal/crew"
 )
 
@@ -329,34 +328,6 @@ func (s *Server) staff(w http.ResponseWriter, r *http.Request) {
 		CanAct bool
 		Sort   sortSpec
 	}{s.shellFor(r, "Crew", "staff"), rows, u.May("operator"), srt})
-}
-
-func (s *Server) analyst(w http.ResponseWriter, r *http.Request) {
-	u := s.guard(w, r)
-	if u == nil {
-		return
-	}
-	name := r.PathValue("name")
-	a, err := crew.GetAnalyst(s.db, name)
-	if err != nil {
-		http.Error(w, "no such analyst", http.StatusNotFound)
-		return
-	}
-	scores, _ := crew.Scoreboards(s.db)
-	ts, _ := crew.Tasks(s.db, crew.TaskFilter{Assignee: name})
-	caused, _ := anomaly.List(s.db, anomaly.Filter{CausedBy: name})
-
-	s.render(w, tplAnalyst, struct {
-		shell
-		A      crew.Analyst
-		Score  crew.Scoreboard
-		Chip   string
-		Tasks  []taskView
-		Caused []anomaly.Anomaly
-		Host   string
-		CanAct bool
-	}{s.shellFor(r, a.Name, "staff"), a, scores[name], agentChip(a.State),
-		views(ts), caused, s.host, u.May("operator")})
 }
 
 // ------------------------------------------------------------------ actions

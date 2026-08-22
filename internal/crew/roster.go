@@ -89,21 +89,30 @@ func SeedRoster(db *sql.DB, owner string) (int, error) {
 		return 0, err
 	}
 	defer tx.Rollback()
-	n := 0
+	// Which desks have a partner, so the delegation tree can route through one
+	// where it exists instead of flattening everything onto the supervisor.
+	hasPartner := map[string]bool{}
 	for _, a := range world.Crew {
-		parent := "supervisor"
-		if a.Name == "supervisor" {
-			parent = ""
+		if strings.HasPrefix(a.Name, "partner-") {
+			hasPartner[a.Desk] = true
 		}
+	}
+
+	n := 0
+	for i, a := range world.Crew {
+		rights := RightsFor(a.Skills, string(a.State))
 		if _, err := tx.Exec(`INSERT INTO analysts
 			(name, role, mission, desk, engine, state, reason, skills, rights,
 			 per_task_cents, monthly_cents, cadence, audience, owner, parent,
 			 attestation, hired)
 			VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-			a.Name, a.Role, "", a.Desk, a.Engine, string(a.State), nullIf(a.Reason),
-			strings.Join(a.Skills, ","), "", int64(money.MustParse(a.PerTaskUSD)),
-			int64(money.MustParse(a.MonthlyUSD)), "weekly", "the desk",
-			owner, nullIf(parent), "none", world.LastDay); err != nil {
+			a.Name, a.Role, missionFor(a), a.Desk, a.Engine, string(a.State), nullIf(a.Reason),
+			strings.Join(a.Skills, ","), strings.Join(rights, ","),
+			int64(money.MustParse(a.PerTaskUSD)),
+			int64(money.MustParse(a.MonthlyUSD)),
+			cadenceFor(a.Name, a.Role), audienceFor(a.Name, a.Desk),
+			owner, nullIf(parentFor(a.Name, a.Desk, hasPartner)),
+			attestationFor(a.Name, rights), hiredOn(i)); err != nil {
 			return n, err
 		}
 		n++

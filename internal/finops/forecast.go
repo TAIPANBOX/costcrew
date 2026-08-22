@@ -57,8 +57,24 @@ type Forecast struct {
 // simple: a forecast whose method nobody can explain is one nobody can argue
 // with, and the argument is the useful part.
 func Project(db *sql.DB, period string) (map[string]money.Cents, string, error) {
+	return ProjectAsAt(db, period, 31)
+}
+
+// ProjectAsAt is the projection somebody would have made on the Nth of the
+// month, from the days that had landed by then.
+//
+// A forecast for a month that has already finished, made from all of its days,
+// is not a forecast: it equals the actual, scores nothing, and would fill the
+// accuracy table with A+ for work nobody did. A history of forecasts is only
+// worth keeping if each was made while the answer was still unknown.
+func ProjectAsAt(db *sql.DB, period string, through int) (map[string]money.Cents, string, error) {
+	if through < 1 {
+		through = 1
+	}
+	cut := fmt.Sprintf("%02d", through)
 	rows, err := db.Query(`SELECT source, SUM(billed_cents), COUNT(DISTINCT day)
-		FROM charges WHERE substr(day,1,7)=? GROUP BY source ORDER BY source`, period)
+		FROM charges WHERE substr(day,1,7)=? AND substr(day,9,2)<=?
+		GROUP BY source ORDER BY source`, period, cut)
 	if err != nil {
 		return nil, "", err
 	}
@@ -106,6 +122,11 @@ func daysInMonth(period string) int {
 
 // Freeze writes the projection down and stops it moving.
 func Freeze(db *sql.DB, period, by string) error {
+	return FreezeAsAt(db, period, by, 31)
+}
+
+// FreezeAsAt records the forecast somebody made on the Nth of the month.
+func FreezeAsAt(db *sql.DB, period, by string, through int) error {
 	if _, err := db.Exec(ForecastSchema); err != nil {
 		return err
 	}
@@ -115,7 +136,7 @@ func Freeze(db *sql.DB, period, by string) error {
 		return fmt.Errorf("%s is already frozen: re-freezing it would move a number "+
 			"somebody has already been shown", period)
 	}
-	proj, basis, err := Project(db, period)
+	proj, basis, err := ProjectAsAt(db, period, through)
 	if err != nil {
 		return err
 	}

@@ -28,42 +28,6 @@ type Utilisation struct {
 	Why      string
 }
 
-// UtilisationRows is written out rather than derived, so a recommendation can
-// be argued with by reading it. Each carries the coverage it was measured over
-// AND its reason, because "downsize this" with no evidence is a sentence
-// nobody acts on.
-var UtilisationRows = []Utilisation{
-	{"aws", "Amazon EC2", "ml-platform", "i-0a3f training-worker-04", "compute",
-		6.2, 11.0, 30, money.Cents(84_000), "m6i.2xlarge from m6i.8xlarge",
-		money.Cents(63_000),
-		"Six percent p95 CPU over thirty days. Left running after the June training run finished."},
-	{"aws", "Amazon RDS", "data-eng", "warehouse-replica-02", "database",
-		9.4, 31.0, 30, money.Cents(61_000), "db.r6g.xlarge from db.r6g.4xlarge",
-		money.Cents(42_000),
-		"A read replica nothing reads. Connection count has been zero for 26 of 30 days."},
-	{"gcp", "Compute Engine", "research", "gke-pool-burst-3", "compute",
-		14.8, 22.0, 30, money.Cents(47_000), "n2-standard-8 from n2-standard-32",
-		money.Cents(31_000),
-		"Sized for a burst that has not happened since April."},
-	{"azure", "Virtual Machines", "support-tools", "vm-tools-prod-01", "compute",
-		38.5, 64.0, 30, money.Cents(29_000), "",
-		0,
-		"Comfortably used. Named here so the page shows what NOT downsizing looks like."},
-	{"aws", "Amazon EC2", "sre-platform", "i-07bd build-runner-01", "compute",
-		71.2, 58.0, 30, money.Cents(38_000), "",
-		0,
-		"Busy. A rightsizing page that only lists candidates hides its own false-negative rate."},
-	{"ai", "GPU training cluster", "research", "gpu-node-a100-02", "accelerator",
-		18.9, 44.0, 14, money.Cents(120_000), "two A100s from four",
-		money.Cents(58_000),
-		"Fourteen days of evidence only, because the node is new. Stated rather than " +
-			"rounded up to thirty, since a shorter window is a weaker case."},
-}
-
-// Licence is a SaaS subscription: what was bought against what is used.
-//
-// The gap is the finding, and it is the one nobody looks at because a licence
-// renews quietly and a cloud bill does not.
 type Licence struct {
 	Vendor   string
 	Product  string
@@ -81,21 +45,6 @@ func (l Licence) Idle() int { return l.Issued - l.Active30 }
 // Waste is money in seats nobody signed into. Monthly, at the per-seat price
 // actually being paid.
 func (l Licence) Waste() money.Cents { return l.PerSeat * money.Cents(l.Idle()) }
-
-var Licences = []Licence{
-	{"Zendesk", "Suite Professional", "support-tools", 60, 41, money.Cents(11_500),
-		"2026-11-01", "annual", "Bought for a support team that grew by nine, not nineteen."},
-	{"Datadog", "Pro", "sre-platform", 120, 113, money.Cents(2_300),
-		"2027-02-01", "annual", "Close to fully used."},
-	{"Figma", "Organization", "product-web", 45, 22, money.Cents(4_500),
-		"2026-10-15", "annual", "Half the seats were issued to engineers who use the viewer."},
-	{"GitHub", "Enterprise", "data-eng", 140, 131, money.Cents(2_100),
-		"2027-01-01", "annual", ""},
-	{"Salesforce", "Sales Cloud", "growth", 30, 12, money.Cents(16_500),
-		"2026-09-30", "annual", "Renews in weeks. The largest single decision on this page."},
-	{"NetSuite", "ERP", "finance-systems", 25, 24, money.Cents(13_200),
-		"2027-03-01", "annual", ""},
-}
 
 // Commitment is a discount bought in advance: cheaper per hour, and only if
 // you use it.
@@ -123,17 +72,6 @@ func (c Commitment) Wasted() money.Cents {
 	}
 	idle := (100 - c.Used) / 100
 	return money.Cents(float64(c.Hourly) * 730 * idle)
-}
-
-var Commitments = []Commitment{
-	{"aws", "Compute Savings Plan, 1yr", "savings-plan", money.Cents(580), 94.2,
-		"2026-11-30", "1 year", "Healthy."},
-	{"aws", "RDS Reserved, 3yr", "reserved", money.Cents(240), 61.5,
-		"2028-04-15", "3 years", "Bought for a workload that moved to Aurora. Two years left to run."},
-	{"gcp", "Committed Use Discount, 1yr", "cud", money.Cents(360), 88.1,
-		"2026-09-14", "1 year", "Expires inside 30 days. Renew, resize or let it lapse."},
-	{"azure", "Reserved VM Instances, 1yr", "reserved", money.Cents(210), 76.4,
-		"2027-01-20", "1 year", "Just under the line and drifting down."},
 }
 
 // ExpiringWithin is the calendar question: what has to be decided soon.

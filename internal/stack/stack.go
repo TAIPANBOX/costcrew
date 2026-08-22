@@ -23,8 +23,8 @@ import (
 	"github.com/TAIPANBOX/agent-stack-go/event"
 	"github.com/TAIPANBOX/agent-stack-go/passport"
 
+	"github.com/TAIPANBOX/costcrew/internal/crew"
 	"github.com/TAIPANBOX/costcrew/internal/money"
-	"github.com/TAIPANBOX/costcrew/internal/world"
 )
 
 // Source is what every event this product emits says it came from.
@@ -159,7 +159,71 @@ func Severity(excess money.Cents) string {
 // Nothing is invented to fill a field. Attestation defaults to "none", which
 // states plainly that the id is a name this installation chose rather than
 // something bound to a workload.
-func (e *Emitter) WritePassports(crew []world.Agent) (int, error) {
+// PassportFor builds one analyst's document.
+//
+// It is exported and used by the console as well as by the writer, so what a
+// person reads on the agent's card is the SAME document that is published.
+// Two builders would drift, and the drift would be invisible: the page would
+// keep saying spiffe-svid while the file on disk said none.
+func (e *Emitter) PassportFor(a crew.Analyst) passport.Passport {
+	// The attestation comes from the ANALYST, not from the installation's
+	// flag. The flag is the default a hire form starts from; what was actually
+	// chosen at hire time is what the roster holds, and the passport is a
+	// statement about this agent rather than about the server that runs it.
+	method := a.Attestation
+	if method == "" {
+		method = e.cfg.Attestation
+	}
+	if method == "" {
+		method = "none"
+	}
+	p := passport.Passport{
+		Schema:      passport.RequiredSchema,
+		ID:          e.AgentURI(a.Name),
+		Owner:       e.cfg.Owner,
+		DisplayName: a.Role,
+		Runtime:     Source,
+		Attestation: &passport.Attestation{Method: method},
+		Labels: map[string]string{
+			"desk":                a.Desk,
+			"state":               a.State,
+			"skills":              strings.Join(a.Skills, ","),
+			"rights":              strings.Join(a.Rights, ","),
+			"cadence":             a.Cadence,
+			"audience":            a.Audience,
+			"budget_per_task_usd": a.PerTask.String(),
+			"budget_monthly_usd":  a.Monthly.String(),
+			"hired":               a.Hired,
+			"hired_by":            a.Owner,
+		},
+	}
+	// Whose behalf it acts on, as recorded. Falling back to the supervisor is
+	// right for the seeded crew, which is routed that way, but an analyst that
+	// was hired under somebody else must not be re-parented by a default.
+	switch {
+	case a.Parent != "":
+		p.Parent = e.AgentURI(a.Parent)
+	case a.Name != "supervisor":
+		p.Parent = e.AgentURI("supervisor")
+	}
+	if a.Engine != "" {
+		p.Models = []passport.Model{{Provider: a.Engine}}
+	}
+	// A suspended analyst's reason travels with its identity: the graph that
+	// reads these should not have to ask the console why an agent is off the
+	// rota.
+	if a.Reason != "" {
+		p.Labels["reason"] = a.Reason
+	}
+	for k, v := range p.Labels {
+		if strings.TrimSpace(v) == "" {
+			delete(p.Labels, k)
+		}
+	}
+	return p
+}
+
+func (e *Emitter) WritePassports(roster []crew.Analyst) (int, error) {
 	if e.cfg.PassportDir == "" {
 		return 0, nil
 	}
@@ -169,43 +233,12 @@ func (e *Emitter) WritePassports(crew []world.Agent) (int, error) {
 	if err := os.MkdirAll(e.cfg.PassportDir, 0o755); err != nil {
 		return 0, err
 	}
-	sorted := append([]world.Agent(nil), crew...)
+	sorted := append([]crew.Analyst(nil), roster...)
 	sort.Slice(sorted, func(i, j int) bool { return sorted[i].Name < sorted[j].Name })
 
 	n := 0
 	for _, a := range sorted {
-		p := passport.Passport{
-			Schema:      passport.RequiredSchema,
-			ID:          e.AgentURI(a.Name),
-			Owner:       e.cfg.Owner,
-			DisplayName: a.Role,
-			Runtime:     Source,
-			Attestation: &passport.Attestation{Method: e.cfg.Attestation},
-			Labels: map[string]string{
-				"desk":                a.Desk,
-				"state":               string(a.State),
-				"skills":              strings.Join(a.Skills, ","),
-				"budget_per_task_usd": a.PerTaskUSD,
-				"budget_monthly_usd":  a.MonthlyUSD,
-			},
-		}
-		if a.Name != "supervisor" {
-			p.Parent = e.AgentURI("supervisor")
-		}
-		if a.Engine != "" {
-			p.Models = []passport.Model{{Provider: a.Engine}}
-		}
-		// A suspended analyst's reason travels with its identity: the graph
-		// that reads these should not have to ask the console why an agent is
-		// off the rota.
-		if a.Reason != "" {
-			p.Labels["reason"] = a.Reason
-		}
-		for k, v := range p.Labels {
-			if strings.TrimSpace(v) == "" {
-				delete(p.Labels, k)
-			}
-		}
+		p := e.PassportFor(a)
 
 		buf, err := json.MarshalIndent(p, "", "  ")
 		if err != nil {

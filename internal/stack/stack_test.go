@@ -10,6 +10,9 @@ import (
 	asgevent "github.com/TAIPANBOX/agent-stack-go/event"
 	asgpassport "github.com/TAIPANBOX/agent-stack-go/passport"
 
+	"github.com/TAIPANBOX/agent-stack-go/passport"
+
+	"github.com/TAIPANBOX/costcrew/internal/crew"
 	"github.com/TAIPANBOX/costcrew/internal/money"
 	"github.com/TAIPANBOX/costcrew/internal/stack"
 	"github.com/TAIPANBOX/costcrew/internal/world"
@@ -44,7 +47,7 @@ func TestOffByDefaultAndSilent(t *testing.T) {
 	if err := em.Emit("anomaly_detected", "detector", "high", nil, nil); err != nil {
 		t.Fatalf("emitting with the stack off returned an error: %v", err)
 	}
-	if n, err := em.WritePassports(world.Crew); err != nil || n != 0 {
+	if n, err := em.WritePassports(rosterOf(world.Crew)); err != nil || n != 0 {
 		t.Fatalf("passports written with no directory configured: %d %v", n, err)
 	}
 }
@@ -162,7 +165,7 @@ func TestSeverityFollowsMoney(t *testing.T) {
 // check the identity graph runs on ingest.
 func TestPassportsAreValidAndComplete(t *testing.T) {
 	em, _, dir := open(t)
-	n, err := em.WritePassports(world.Crew)
+	n, err := em.WritePassports(rosterOf(world.Crew))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -235,7 +238,7 @@ func TestPassportsRefuseAnEmptyOwner(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer em.Close()
-	if _, err := em.WritePassports(world.Crew); err == nil {
+	if _, err := em.WritePassports(rosterOf(world.Crew)); err == nil {
 		t.Fatal("passports were written with no owner")
 	}
 }
@@ -244,14 +247,14 @@ func TestPassportsRefuseAnEmptyOwner(t *testing.T) {
 // restart does not churn a directory somebody else is watching.
 func TestRepublishingIsStable(t *testing.T) {
 	em, _, dir := open(t)
-	if _, err := em.WritePassports(world.Crew); err != nil {
+	if _, err := em.WritePassports(rosterOf(world.Crew)); err != nil {
 		t.Fatal(err)
 	}
 	first, err := os.ReadFile(filepath.Join(dir, "supervisor.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := em.WritePassports(world.Crew); err != nil {
+	if _, err := em.WritePassports(rosterOf(world.Crew)); err != nil {
 		t.Fatal(err)
 	}
 	second, err := os.ReadFile(filepath.Join(dir, "supervisor.json"))
@@ -265,4 +268,76 @@ func TestRepublishingIsStable(t *testing.T) {
 	if err := json.Unmarshal(first, &doc); err != nil {
 		t.Fatalf("the passport is not valid JSON: %v", err)
 	}
+}
+
+// What was decided at hire time is what the passport says.
+//
+// The document is a statement about THIS agent. An analyst hired under a
+// spiffe-svid and routed under a named parent must not have either replaced
+// by whatever the server happened to be started with, because the identity
+// graph downstream has no other record of the decision and would read the
+// server's default as the agent's own claim.
+func TestThePassportCarriesWhatWasDecidedAtHireTime(t *testing.T) {
+	dir := t.TempDir()
+	em, err := stack.Open(stack.Config{
+		EventsPath: filepath.Join(dir, "e.ndjson"), PassportDir: filepath.Join(dir, "p"),
+		Host: "costcrew.local", Owner: "yurii", Attestation: "none",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer em.Close()
+
+	a := crew.Analyst{
+		Name: "night-desk", Role: "after-hours variance", Desk: "aws",
+		Engine: "local-llama", State: "active",
+		Skills: []string{"anomaly-triage"}, Rights: []string{"figures-read"},
+		PerTask: money.Cents(1500), Monthly: money.Cents(40000),
+		Cadence: "daily", Audience: "the desk",
+		Owner: "yurii", Parent: "capacity-aws", Attestation: "spiffe-svid",
+		Hired: "2026-08-22",
+	}
+	if _, err := em.WritePassports([]crew.Analyst{a}); err != nil {
+		t.Fatal(err)
+	}
+	buf, err := os.ReadFile(filepath.Join(dir, "p", "night-desk.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := passport.Parse(buf)
+	if err != nil {
+		t.Fatalf("the document is not a valid Passport: %v", err)
+	}
+	if p.Attestation == nil || p.Attestation.Method != "spiffe-svid" {
+		t.Errorf("attestation: hired with spiffe-svid, passport says %v", p.Attestation)
+	}
+	if want := "agent://costcrew.local/capacity-aws"; p.Parent != want {
+		t.Errorf("parent: hired under capacity-aws, passport says %q, want %q", p.Parent, want)
+	}
+	for k, want := range map[string]string{
+		"rights": "figures-read", "cadence": "daily", "hired_by": "yurii",
+	} {
+		if p.Labels[k] != want {
+			t.Errorf("label %s: got %q, want %q", k, p.Labels[k], want)
+		}
+	}
+}
+
+// rosterOf turns the fixture crew into roster records, so the tests that were
+// written against the fixture keep testing the same agents.
+func rosterOf(in []world.Agent) []crew.Analyst {
+	out := make([]crew.Analyst, 0, len(in))
+	for _, a := range in {
+		out = append(out, crew.Analyst{
+			Name: a.Name, Role: a.Role, Desk: a.Desk, Engine: a.Engine,
+			State: string(a.State), Reason: a.Reason, Skills: a.Skills,
+			PerTask: mustCents(a.PerTaskUSD), Monthly: mustCents(a.MonthlyUSD),
+		})
+	}
+	return out
+}
+
+func mustCents(s string) money.Cents {
+	c, _ := money.Parse(s)
+	return c
 }
