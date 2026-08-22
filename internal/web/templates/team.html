@@ -31,7 +31,7 @@
     <tbody>
     {{range .ByService}}
       <tr>
-        <td>{{.Key}}</td>
+        <td><a href="/service/{{.Key}}">{{.Key}}</a></td>
         <td class="num">{{.Amount}}</td>
         <td class="num">{{printf "%.1f%%" .Share}}</td>
         <td><div class="bar"><span style="width:{{printf "%.1f" .Share}}%"></span></div></td>

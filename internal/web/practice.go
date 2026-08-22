@@ -36,14 +36,37 @@ func (s *Server) kpis(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	reporting, blocked, meeting := finops.KPICounts(ks)
+	// Default: grouped, which is how the library is meant to be read. Sorting
+	// by verdict is the other thing somebody wants, and it is one click.
+	srt := readSort(r, "group", false)
+	applySort(ks, srt, map[string]func(a, b finops.KPI) int{
+		"group": func(a, b finops.KPI) int { return cmpString(a.Group, b.Group) },
+		"kpi":   func(a, b finops.KPI) int { return cmpString(a.Name, b.Name) },
+		"value": func(a, b finops.KPI) int { return cmpString(a.Value, b.Value) },
+		"verdict": func(a, b finops.KPI) int {
+			// Refusals first, then below target, then met: the page's own
+			// argument is that the refusals are the part worth reading.
+			rank := func(k finops.KPI) int {
+				switch {
+				case k.Blocked != "":
+					return 0
+				case !k.Meets:
+					return 1
+				}
+				return 2
+			}
+			return cmpInt(rank(a), rank(b))
+		},
+	}, "group")
 	s.render(w, tplKPIs, struct {
 		shell
 		KPIs                        []finops.KPI
 		Caps                        []finops.Capability
 		Levels                      []string
 		Reporting, Blocked, Meeting int
+		Sort                        sortSpec
 	}{s.shellFor(r, "KPIs", "kpis"), ks, caps, finops.Levels(),
-		reporting, blocked, meeting})
+		reporting, blocked, meeting, srt})
 }
 
 func (s *Server) utilisation(w http.ResponseWriter, r *http.Request) {

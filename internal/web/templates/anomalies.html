@@ -59,6 +59,7 @@
         </td>
         <td>
           <a href="/anomalies/{{.ID}}">{{.Service}}</a>
+          <span class="sub"><a href="/service/{{.Service}}">all of {{.Service}}</a></span>
           {{if .Driver}}<span class="sub">{{.Driver}}</span>{{end}}
         </td>
         <td class="tight"><a href="/desk/{{.Source}}">{{.Source}}</a></td>

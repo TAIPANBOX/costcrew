@@ -5,7 +5,7 @@
   <h1 class="headline {{if eq .A.Direction "up"}}up{{else}}down{{end}}">
     {{.A.Excess}} {{if eq .A.Direction "up"}}above{{else}}below{{end}} baseline
   </h1>
-  <p class="subhead"><a href="/desk/{{.A.Source}}">{{.A.Source}}</a> · {{.A.Service}} · {{if .A.Team}}<a href="/team/{{.A.Team}}">{{.A.Team}}</a>{{else}}untagged{{end}} · {{.A.Day}} · <span class="chip {{.A.State}}">{{.A.State}}</span></p>
+  <p class="subhead"><a href="/desk/{{.A.Source}}">{{.A.Source}}</a> · <a href="/service/{{.A.Service}}">{{.A.Service}}</a> · {{if .A.Team}}<a href="/team/{{.A.Team}}">{{.A.Team}}</a>{{else}}untagged{{end}} · {{.A.Day}} · <span class="chip {{.A.State}}">{{.A.State}}</span></p>
 </header>
 
 <div class="panel">

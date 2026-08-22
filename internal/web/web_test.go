@@ -1,6 +1,7 @@
 package web_test
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/cookiejar"
@@ -1910,5 +1911,88 @@ func TestTheLightPaletteIsOnBareRoot(t *testing.T) {
 			t.Errorf("--%s is defined only for dark; a viewer on the default "+
 				"system setting in a light browser gets no value for it", m[1])
 		}
+	}
+}
+
+// The money lives in services, so a service is a page.
+//
+// Every other level the console shows - a team, a desk, an agent - is a way of
+// grouping the same charges. A reader could open all three and not the thing
+// that actually costs, and "Amazon EC2" appeared as plain text on six pages.
+func TestAServiceIsSomethingYouCanOpen(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+
+	code, list, _ := h.get(t, "/services")
+	if code != http.StatusOK {
+		t.Fatalf("GET /services: %d", code)
+	}
+	names := regexp.MustCompile(`<a href="/service/([^"]+)"`).FindAllStringSubmatch(list, -1)
+	if len(names) < 10 {
+		t.Fatalf("the services list names %d services", len(names))
+	}
+	// The shares on the list add up, so the page is a reading of one bill and
+	// not a set of unrelated rows.
+	var share float64
+	for _, m := range regexp.MustCompile(`<td class="num">(\d+\.\d)%`).FindAllStringSubmatch(list, -1) {
+		var v float64
+		_, _ = fmt.Sscanf(m[1], "%f", &v)
+		share += v
+	}
+	if share < 99 || share > 101 {
+		t.Errorf("the service shares total %.1f%%, so they are not shares of one bill", share)
+	}
+
+	// And each one opens, with the money on it agreeing with the list.
+	for _, m := range names[:5] {
+		path := "/service/" + m[1]
+		code, page, _ := h.get(t, path)
+		if code != http.StatusOK {
+			t.Errorf("GET %s: %d", path, code)
+			continue
+		}
+		row := fragment(list, `<a href="/service/`+m[1]+`"`, 700)
+		listed := number(fragment(row, `data-col="amount">`, 30))
+		own := number(fragment(page, `<div class="k">This month</div><div class="v">`, 30))
+		if listed != "" && own != "" && listed != own {
+			t.Errorf("%s: the list says %s, its own page says %s", path, listed, own)
+		}
+	}
+}
+
+// Search finds a thing by name, whatever kind of thing it is.
+func TestSearchFindsAcrossEveryKind(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+
+	for _, tc := range []struct{ q, wantKind, wantURL string }{
+		{"BigQuery", "service", "/service/BigQuery"},
+		{"ml-platform", "team", "/team/ml-platform"},
+		{"aws", "desk", "/desk/aws"},
+		{"triage-aws", "agent", "/staff/triage-aws"},
+	} {
+		_, body, _ := h.get(t, "/search?q="+url.QueryEscape(tc.q))
+		if !strings.Contains(body, `href="`+tc.wantURL+`"`) {
+			t.Errorf("searching %q does not offer %s", tc.q, tc.wantURL)
+		}
+		if !strings.Contains(body, `>`+tc.wantKind+`<`) {
+			t.Errorf("searching %q does not say it found a %s", tc.q, tc.wantKind)
+		}
+	}
+	// An exact match comes first. Somebody typing a whole name has already
+	// told you which one they meant.
+	_, body, _ := h.get(t, "/search?q=aws")
+	first := regexp.MustCompile(`<a href="(/[a-z]+/[^"]+)"`).FindStringSubmatch(body)
+	if first == nil || first[1] != "/desk/aws" {
+		got := "nothing"
+		if first != nil {
+			got = first[1]
+		}
+		t.Errorf("searching the exact name \"aws\" put %s first", got)
+	}
+	// And nothing is not an error.
+	_, empty, _ := h.get(t, "/search?q=zzzznotathing")
+	if !strings.Contains(empty, "Nothing by that name") {
+		t.Error("a search with no matches does not say so")
 	}
 }

@@ -1,0 +1,37 @@
+{{define "content"}}
+<header class="page">
+  <h1>Search</h1>
+  <p>Everything this console can open: services, teams, desks, agents, findings, work and connectors.
+    It matches names rather than the text inside pages, because the answer to "where is BigQuery" is a page.</p>
+</header>
+
+<form class="filters" method="get" role="search">
+  <input type="search" name="q" value="{{.Q}}" placeholder="a service, a team, an agent, a finding" autofocus size="34">
+  <button type="submit">Find</button>
+  {{if .Q}}<a class="clear" href="/search">Clear</a>{{end}}
+</form>
+
+{{if .Q}}
+<div class="panel">
+  <h2>{{.Total}} {{plural .Total "match" "matches"}} for &ldquo;{{.Q}}&rdquo;</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th class="tight">Kind</th><th>Name</th><th>What it is</th><th class="num">Money</th></tr></thead>
+    <tbody>
+    {{range .Hits}}
+      <tr>
+        <td class="tight"><span class="chip grain">{{.Kind}}</span></td>
+        <td><a href="{{.URL}}"><strong>{{.Name}}</strong></a></td>
+        <td class="detail">{{.Detail}}</td>
+        <td class="num">{{if .Amount}}{{.Amount}}{{end}}</td>
+      </tr>
+    {{else}}
+      <tr><td colspan="4" class="empty">Nothing by that name. It searches names, not the words inside a page.</td></tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+  {{if gt .Total 60}}<p class="note">Showing the first 60 of {{.Total}}. Type more of the name to narrow it.</p>{{end}}
+</div>
+{{end}}
+{{end}}

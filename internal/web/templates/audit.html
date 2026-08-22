@@ -22,7 +22,7 @@
 <div class="panel">
   <div class="scroll">
   <table>
-    <thead><tr><th class="tight">When</th><th>Event</th><th>What</th><th class="tight">Hash</th></tr></thead>
+    <thead><tr>{{.Sort.Header "when" "When" "tight" false}}{{.Sort.Header "event" "Event" "" false}}{{.Sort.Header "what" "What" "" false}}<th class="tight">Hash</th></tr></thead>
     <tbody>
     {{range .Events}}
       <tr>

@@ -1,0 +1,120 @@
+{{define "content"}}
+<p class="crumb"><a href="/services">Services</a> / {{.Name}}</p>
+<header class="page">
+  <h1>{{.Name}}</h1>
+  <p>{{range $i, $d := .Desks}}{{if $i}} · {{end}}<a href="/desk/{{$d}}">{{$d}}</a>{{end}}
+    {{if .Kind}}· <span class="chip grain">{{.Kind}}</span>{{end}} · {{.Period}}</p>
+</header>
+
+<form class="filters" method="get">
+  <select name="period" aria-label="Month">{{range .Months}}<option value="{{.}}" {{if eq . $.Period}}selected{{end}}>{{.}}</option>{{end}}</select>
+  <button type="submit">Show</button>
+</form>
+
+<div class="tiles">
+  <div class="tile"><div class="k">This month</div><div class="v">{{.Total}}</div><div class="s">{{.Period}}</div></div>
+  <div class="tile"><div class="k">Teams using it</div><div class="v">{{len .ByTeam}}</div><div class="s">including untagged</div></div>
+  <div class="tile"><div class="k">Findings</div><div class="v {{if .Anomalies}}up{{end}}">{{len .Anomalies}}</div><div class="s">on this service, all states</div></div>
+  {{if .Resizable}}<div class="tile"><div class="k">Worth resizing</div><div class="v down">{{.Resizable}}</div><div class="s">a month, found not saved</div></div>{{end}}
+</div>
+
+<div class="two">
+<div class="panel">
+  <h2>Who pays for it</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Team</th><th class="num">Cost</th><th class="num">Share</th></tr></thead>
+    <tbody>{{range .ByTeam}}
+      <tr>
+        <td>{{if eq .Key "(untagged)"}}<span class="note">(untagged)</span>{{else}}<a href="/team/{{.Key}}">{{.Key}}</a>{{end}}</td>
+        <td class="num">{{.Amount}}</td>
+        <td class="num">{{printf "%.1f%%" .Share}}<span class="bar"><span class="fill" style="width:{{printf "%.0f" .Share}}%"></span></span></td>
+      </tr>
+    {{else}}<tr><td colspan="3" class="empty">Nothing in this month.</td></tr>{{end}}</tbody>
+  </table>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>What kind of charge</h2>
+  <p class="note">Usage, purchases and credits are three different conversations, and a single total hides which one moved.</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Category</th><th class="num">Cost</th><th class="num">Share</th></tr></thead>
+    <tbody>{{range .ByCategory}}
+      <tr><td>{{.Key}}</td><td class="num">{{.Amount}}</td><td class="num">{{printf "%.1f%%" .Share}}</td></tr>
+    {{else}}<tr><td colspan="3" class="empty">Nothing in this month.</td></tr>{{end}}</tbody>
+  </table>
+  </div>
+</div>
+</div>
+
+{{if .Meters}}
+<div class="panel">
+  <h2>Price and volume</h2>
+  <p class="note">This service is metered, so a rise can be read: more of the thing, or a dearer thing.
+    The unit price is the column that tells them apart.</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th class="tight">Month</th><th class="num">Quantity</th><th class="tight">Unit</th><th class="num">Cost</th><th class="num">Per million</th></tr></thead>
+    <tbody>{{range .Meters}}
+      <tr><td class="tight">{{.Month}}</td>
+          <td class="num">{{printf "%.0f" .Quantity}}</td>
+          <td class="tight">{{.Unit}}</td>
+          <td class="num">{{.Cost}}</td>
+          <td class="num">{{.PerUnit}}</td></tr>
+    {{end}}</tbody>
+  </table>
+  </div>
+</div>
+{{end}}
+
+<div class="panel">
+  <h2>Month by month</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th class="tight">Month</th><th class="num">Cost</th><th class="num">Change</th></tr></thead>
+    <tbody>{{range .Trend}}
+      <tr><td class="tight">{{.Month}}</td><td class="num">{{.Amount}}</td>
+          <td class="num {{if gt .Change 0}}up{{else if lt .Change 0}}down{{end}}">{{if .HasChg}}{{if gt .Change 0}}+{{end}}{{.Change}}{{else}}<span class="note">first month</span>{{end}}</td></tr>
+    {{end}}</tbody>
+  </table>
+  </div>
+</div>
+
+{{if .Util}}
+<div class="panel">
+  <h2>What is inside it</h2>
+  <p class="note">The named resources under this service add up, to the cent, to what it cost last full month.</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Resource</th><th class="tight">Team</th><th class="num">p95 CPU</th><th class="num">Costs now</th><th>Recommendation</th></tr></thead>
+    <tbody>{{range .Util}}
+      <tr><td><strong>{{.Resource}}</strong></td>
+          <td class="tight"><a href="/team/{{.Team}}">{{.Team}}</a></td>
+          <td class="num {{if lt .P95CPU 20.0}}up{{end}}">{{printf "%.1f%%" .P95CPU}}</td>
+          <td class="num">{{.Monthly}}</td>
+          <td>{{if .Advice}}<strong>{{.Advice}}</strong>, saving {{.Saving}} a month{{else}}<span class="note">leave it</span>{{end}}<span class="sub">{{.Why}}</span></td></tr>
+    {{end}}</tbody>
+  </table>
+  </div>
+</div>
+{{end}}
+
+<div class="panel">
+  <h2>Its findings</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th class="num">Money</th><th class="tight">Day</th><th class="tight">Desk</th><th>Team</th><th>Caused by</th><th class="tight">State</th></tr></thead>
+    <tbody>{{range .Anomalies}}
+      <tr><td class="num {{if eq .Direction "up"}}up{{else}}down{{end}}"><a href="/anomalies/{{.ID}}">{{.Excess}}</a></td>
+          <td class="tight">{{.Day}}</td>
+          <td class="tight"><a href="/desk/{{.Source}}">{{.Source}}</a></td>
+          <td>{{if .Team}}<a href="/team/{{.Team}}">{{.Team}}</a>{{else}}<span class="note">untagged</span>{{end}}</td>
+          <td>{{if .CausedBy}}{{if eq .CausedByKind "agent"}}<a href="/staff/{{.CausedBy}}">{{.CausedBy}}</a>{{else if eq .CausedByKind "team"}}<a href="/team/{{.CausedBy}}">{{.CausedBy}}</a>{{else}}{{.CausedBy}}{{end}}{{else}}<span class="note">not established</span>{{end}}</td>
+          <td class="tight"><span class="chip {{.State}}">{{.State}}</span></td></tr>
+    {{else}}<tr><td colspan="6" class="empty">The detector has never raised anything on this service.</td></tr>{{end}}</tbody>
+  </table>
+  </div>
+</div>
+{{end}}

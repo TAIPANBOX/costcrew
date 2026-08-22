@@ -7,7 +7,7 @@
 <div class="panel">
   <div class="scroll">
   <table>
-    <thead><tr><th class="tight">Group</th><th>KPI</th><th class="num">Value</th><th class="tight">Target</th><th></th></tr></thead>
+    <thead><tr>{{.Sort.Header "group" "Group" "tight" false}}{{.Sort.Header "kpi" "KPI" "" false}}{{.Sort.Header "value" "Value" "num" false}}<th class="tight">Target</th>{{.Sort.Header "verdict" "Verdict" "tight" false}}</tr></thead>
     <tbody>
     {{range .KPIs}}
       <tr id="kpi-{{.ID}}">

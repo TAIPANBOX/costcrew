@@ -65,7 +65,7 @@
     <tbody>
     {{range .Movers}}
       <tr>
-        <td><strong>{{.Service}}</strong><span class="sub"><a href="/desk/{{.Source}}">{{.Source}}</a></span></td>
+        <td><a href="/service/{{.Service}}"><strong>{{.Service}}</strong></a><span class="sub"><a href="/desk/{{.Source}}">{{.Source}}</a></span></td>
         <td class="num">{{.Was}}</td>
         <td class="num">{{.Now}}</td>
         <td class="num {{if gt .Change 0}}up{{else}}down{{end}}"><strong>{{if gt .Change 0}}+{{end}}{{.Change}}</strong></td>

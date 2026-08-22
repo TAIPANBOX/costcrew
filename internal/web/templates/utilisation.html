@@ -17,7 +17,7 @@
     <tbody>
     {{range .Rows}}
       <tr>
-        <td><strong>{{.Resource}}</strong><span class="sub"><a href="/desk/{{.Source}}">{{.Source}}</a> · {{.Service}} · {{.Kind}} · {{.Days}} days observed</span></td>
+        <td><strong>{{.Resource}}</strong><span class="sub"><a href="/desk/{{.Source}}">{{.Source}}</a> · <a href="/service/{{.Service}}">{{.Service}}</a> · {{.Kind}} · {{.Days}} days observed</span></td>
         <td class="tight"><a href="/team/{{.Team}}">{{.Team}}</a></td>
         <td class="num {{if lt .P95CPU 20.0}}up{{end}}">{{printf "%.1f%%" .P95CPU}}</td>
         <td class="num {{if lt .P95Mem 25.0}}up{{end}}">{{printf "%.1f%%" .P95Mem}}</td>

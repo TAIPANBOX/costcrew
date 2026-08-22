@@ -308,6 +308,12 @@ func (s *Server) audit(w http.ResponseWriter, r *http.Request) {
 			Hash:   rec.Hash,
 		})
 	}
+	srt := readSort(r, "when", true)
+	applySort(rows, srt, map[string]func(a, b auditRow) int{
+		"when":  func(a, b auditRow) int { return cmpString(a.When, b.When) },
+		"event": func(a, b auditRow) int { return cmpString(a.Kind, b.Kind) },
+		"what":  func(a, b auditRow) int { return cmpString(a.Detail, b.Detail) },
+	}, "when")
 	s.render(w, tplAudit, struct {
 		shell
 		Events  []auditRow
@@ -316,8 +322,9 @@ func (s *Server) audit(w http.ResponseWriter, r *http.Request) {
 		BreakAt string
 		StackOn bool
 		Emitted int
+		Sort    sortSpec
 	}{s.shellFor(r, "Audit", "audit"), rows, ok, n, breakAt,
-		s.rec != nil, s.emitted()})
+		s.rec != nil, s.emitted(), srt})
 }
 
 // summarise turns an event's payload into one readable line, in a stable
