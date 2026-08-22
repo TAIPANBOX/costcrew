@@ -152,16 +152,52 @@ Verified on 2026-08-22, with the commands above:
   be picked up by any later genaryx on this machine, in preference to or in
   confusion with one `taipan up` owns.
 
+- **genaryx's Agent 360**, with idryx behind it. Done on 2026-08-23.
+
+  idryx's `-passports` flag ENRICHES an identity already in the graph with
+  owner, runtime, parent and attestation; it does not create one. So a console
+  that writes passports and nothing else is invisible to the graph, which is
+  exactly what "CostCrew's agents are not in Agent 360" turned out to mean.
+  `tools/idryxsource` writes the other half - the `agents` source idryx asks
+  for - and only the half it asks for: an agent's guards, skills and first-pass
+  rate stay here, because an identity graph is about who a thing is and what it
+  may reach, not how well it is doing its job.
+
+  ```
+  idryxsource -data ./local -out agents.json
+  idryx serve -source agents -passports ./local/passports agents.json
+  ```
+
+  Then `services.idryx` in the descriptor, and the call that answered 422
+  answers 200 with 41 identities, every one of them this console's, each
+  carrying `"source": "passport"`. Opened in genaryx's own console, the
+  Agent 360 card for `agent://costcrew.local/triage-aws` shows:
+
+  - **IDENTITY**: source passport, owner yurii, privileged no, and idryx's own
+    `bom_incomplete` alert, "agent-bom incomplete: missing attestation" -
+    a fair criticism of this console's passports from a tool that is not ours;
+  - **ACCESS**: the four rights this console granted it - figures-read,
+    propose-only, requests-read, sql-readonly - each marked NO USAGE SIGNAL;
+  - **DELEGATION**: the agent on the graph, once events naming it were on the
+    bus.
+
+  The money half was closed in the same run by naming the TokenFuse control
+  plane as `services.cloud`, so all three planes read `ok` from
+  `genaryx-web doctor`: bus, identity and money.
+
 NOT verified, and not claimed:
 
-- **genaryx's Agent 360**. The event stream is only half of that card. Its
-  identity half comes from **idryx** and its money half from a cloud service,
-  both named in the descriptor's `services` block, and this console's passports
-  are not what genaryx reads for identity - idryx is. Measured rather than
-  assumed: with no `services.idryx`, `POST /api/command/identity_list_identities`
-  answers `{"kind":"no_environment"}` with 422, and `money_runs` the same.
-  Registering these agents with idryx is a separate piece of work and idryx is
-  not running here.
+- **The event-driven half of that card.** RHYTHM, STOPS and EVENTS stayed
+  empty. The bus is live and this console's events do arrive on it (proved
+  separately with the SSE stream), but those sections read genaryx's own
+  ingested store and they had not filled in the time they were given.
+
+- **The console bundle in `apps/web/dist` cannot show any of this.** It is a
+  `--mode mock` build: it carries `meridian.io` fixtures and a fetch shim that
+  answers every request with "network access is disabled in this sandbox". The
+  `--mode web` build talks to the backend and is what the above was seen in.
+  Anybody pointing genaryx at a real environment needs `npm run build`, not the
+  bundle in the tree.
 ## TokenFuse, and a correction
 
 Twice in this session I wrote that TokenFuse could not be connected until this
