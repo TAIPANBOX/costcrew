@@ -1,6 +1,7 @@
 package web
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -336,6 +337,32 @@ func (s *Server) audit(w http.ResponseWriter, r *http.Request) {
 			Hash:   rec.Hash,
 		})
 	}
+	// What is waiting on the wire, and how many of it another service can
+	// actually read. The vocabulary is shared and this console's practice
+	// events are not in it, so the honest number is a pair.
+	mapped, own := 0, 0
+	if s.eventsPath != "" {
+		if f, err := os.Open(s.eventsPath); err == nil {
+			sc := bufio.NewScanner(f)
+			sc.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
+			for sc.Scan() {
+				var e struct {
+					Type  string `json:"type"`
+					RunID string `json:"run_id"`
+				}
+				if json.Unmarshal(sc.Bytes(), &e) != nil || e.Type == "" {
+					continue
+				}
+				if e.RunID != "" {
+					mapped++
+				} else {
+					own++
+				}
+			}
+			f.Close()
+		}
+	}
+
 	srt := readSort(r, "when", true)
 	applySort(rows, srt, map[string]func(a, b auditRow) int{
 		"when":  func(a, b auditRow) int { return cmpString(a.When, b.When) },
@@ -351,8 +378,11 @@ func (s *Server) audit(w http.ResponseWriter, r *http.Request) {
 		StackOn bool
 		Emitted int
 		Sort    sortSpec
+		Stream  string
+		Mapped  int
+		OwnOnly int
 	}{s.shellFor(r, "Audit", "audit"), rows, ok, n, breakAt,
-		s.rec != nil, s.emitted(), srt})
+		s.rec != nil, s.emitted(), srt, s.eventsPath, mapped, own})
 }
 
 // summarise turns an event's payload into one readable line, in a stable

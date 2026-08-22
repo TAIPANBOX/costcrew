@@ -449,3 +449,9 @@ button.danger:hover { background: var(--up-bg); }
    it: the ring belongs on controls a person can act on, and a page-wide
    outline round the whole content reads as an error state. */
 main:focus { outline: none; }
+
+/* A command somebody is meant to copy. Wide, so it wraps where the author put
+   the break rather than wherever the panel ends. */
+pre.cmd { margin: 12px 0; padding: 12px 14px; background: var(--surface-2);
+          border-radius: 6px; overflow-x: auto; font-size: 12.5px; line-height: 1.6; }
+pre.cmd code { white-space: pre; }

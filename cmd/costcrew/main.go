@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -28,6 +29,7 @@ import (
 	"github.com/TAIPANBOX/costcrew/internal/stack"
 	"github.com/TAIPANBOX/costcrew/internal/store"
 	"github.com/TAIPANBOX/costcrew/internal/web"
+	"github.com/TAIPANBOX/costcrew/internal/world"
 )
 
 func main() {
@@ -146,6 +148,19 @@ func rebuildFixture(dir string) error {
 	return nil
 }
 
+// abs is filepath.Abs with the error folded away: a path that cannot be
+// resolved is compared as it was given, which is the safe direction because it
+// can only make the comparison miss, never make it wrongly match.
+func abs(p string) string {
+	if p == "" {
+		return ""
+	}
+	if a, err := filepath.Abs(p); err == nil {
+		return a
+	}
+	return p
+}
+
 func run(addr, dir string, scfg stack.Config) error {
 	st, err := store.Open(dir)
 	if err != nil {
@@ -193,6 +208,20 @@ func run(addr, dir string, scfg stack.Config) error {
 	if err != nil {
 		return fmt.Errorf("reading the roster: %w", err)
 	}
+	// Two writers, one file, and one of them is a hash chain.
+	//
+	// The store's journal and the agent-event stream are both append-only
+	// NDJSON, and nothing about either name stops somebody pointing
+	// -stack-events at the journal. They interleave, the chain no longer
+	// verifies, and the audit page reports a break that nobody caused. I did
+	// exactly this while testing the trailryx integration, which is how it is
+	// here rather than in a list of things that could go wrong.
+	if abs(scfg.EventsPath) == abs(st.JournalPath()) {
+		return fmt.Errorf("-stack-events points at %s, which is the store's own "+
+			"hash-chained journal. Two writers appending to one chain breaks it, "+
+			"and the break looks like tampering. Use a different file",
+			st.JournalPath())
+	}
 	em, err := stack.Open(scfg)
 	if err != nil {
 		return fmt.Errorf("opening the event stream: %w", err)
@@ -237,6 +266,16 @@ func run(addr, dir string, scfg stack.Config) error {
 	}
 	if sp > 0 {
 		log.Printf("CostCrew: %d sprints, %d tasks, %d deliverables", sp, tk, ar)
+
+		// Who went past their guard this month, said out loud rather than only
+		// drawn on a page. The console has always been able to show it; nothing
+		// told anybody who was not looking.
+		if past, by, err := crew.CheckGuards(st.DB(), world.LastDay[:7], rec); err != nil {
+			return fmt.Errorf("checking the guards: %w", err)
+		} else if past > 0 {
+			log.Printf("CostCrew: %d %s past their guard this month, by %s in total",
+				past, map[bool]string{true: "analyst is", false: "analysts are"}[past == 1], by)
+		}
 
 		// A fresh installation gets a past: findings that were worked, forecasts
 		// that were frozen and later scored, explainers in review, and a

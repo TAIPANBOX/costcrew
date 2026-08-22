@@ -164,7 +164,19 @@ func (s *Server) analystEvents(name string, limit int) ([]eventRow, error) {
 		if who != name {
 			detail = "by " + who + ": " + detail
 		}
-		out = append(out, eventRow{when: e.TS, Kind: e.Type, Detail: detail, Sev: e.Severity})
+		// The console's own word for it, with the estate's beside it.
+		//
+		// This page shows what went on the wire, and what goes on the wire is
+		// the shared vocabulary: a detected anomaly leaves here as
+		// "spend_spike". Both belong on the card. Showing only the wire word
+		// makes a reader match it against a console that never says it;
+		// showing only the console's word hides what another service in the
+		// estate will actually see.
+		kind := e.Type
+		if own, ok := e.Data["costcrew_type"].(string); ok && own != "" && own != e.Type {
+			kind = own + " → " + e.Type
+		}
+		out = append(out, eventRow{when: e.TS, Kind: kind, Detail: detail, Sev: e.Severity})
 	}
 	if err := sc.Err(); err != nil {
 		return nil, err

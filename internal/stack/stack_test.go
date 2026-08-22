@@ -376,3 +376,142 @@ func TestThePassportNamesWhoAnswersForTheAgent(t *testing.T) {
 		t.Errorf("with no owner recorded the passport says %q", got)
 	}
 }
+
+// The estate has a word for this, and it is the one that goes on the wire.
+//
+// Both downstream services read the same vocabulary. This console invented its
+// own, and the cost was measured rather than argued: trailryx read all
+// sixty-nine lines, accepted the envelope, the schema, the agent id and the
+// trust domain, and refused every one with "an event type this reading does
+// not map"; heraldyx composed real mail that had to say "an event this build
+// does not have a description for".
+func TestADetectedAnomalyGoesOutAsASpendSpike(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "e.ndjson")
+	em, err := stack.Open(stack.Config{EventsPath: path, Host: "costcrew.local", Owner: "yurii"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := em.Emit("anomaly_detected", "detector", "high", map[string]any{
+		"anomaly": "A-27019dfc1208", "service": "OpenRouter", "excess": "348.05",
+	}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := em.Close(); err != nil {
+		t.Fatal(err)
+	}
+	var ev map[string]any
+	buf, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal([]byte(strings.SplitN(string(buf), "\n", 2)[0]), &ev); err != nil {
+		t.Fatal(err)
+	}
+
+	if ev["type"] != "spend_spike" {
+		t.Errorf("a detected anomaly went out as %q; the estate's word for it is spend_spike", ev["type"])
+	}
+	// And nothing is lost: which of this console's decisions produced it has
+	// to survive, or an auditor reading the record has to know that this
+	// console renames things on the way out.
+	data, _ := ev["data"].(map[string]any)
+	if data["costcrew_type"] != "anomaly_detected" {
+		t.Errorf("the original type is not in the payload: %v", data["costcrew_type"])
+	}
+	// A run id, because a record belonging to no execution cannot be asked
+	// for, and the shape is the contract's: lowercase, no / or :, 64 bytes.
+	run, _ := ev["run_id"].(string)
+	if run == "" {
+		t.Fatal("no run id, which is nine records trailryx will refuse")
+	}
+	if run != strings.ToLower(run) {
+		t.Errorf("run id %q has a capital in it; the contract's character set is [a-z0-9._-] "+
+			"and this console's anomaly ids start with a capital A", run)
+	}
+	for _, bad := range []string{"/", ":", " "} {
+		if strings.Contains(run, bad) {
+			t.Errorf("run id %q contains %q, which the contract does not allow", run, bad)
+		}
+	}
+	if len(run) > 64 {
+		t.Errorf("run id is %d bytes, the contract allows 64", len(run))
+	}
+}
+
+// What is deliberately NOT translated stays untranslated.
+//
+// The shared vocabulary is about a run. Hiring an agent, planning a sprint and
+// triaging a finding are about a practice, and forcing them into a runtime
+// word would be a false claim in a record somebody audits. The downstream
+// refusing them is the correct outcome, not a gap.
+func TestAPracticeEventKeepsItsOwnName(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "e.ndjson")
+	em, err := stack.Open(stack.Config{EventsPath: path, Host: "costcrew.local", Owner: "yurii"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, kind := range []string{"agent_hired", "sprint_planned", "anomaly_triaged"} {
+		if err := em.Emit(kind, "supervisor", "info", map[string]any{"analyst": "triage-aws"}, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := em.Close(); err != nil {
+		t.Fatal(err)
+	}
+	buf, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, line := range strings.Split(strings.TrimSpace(string(buf)), "\n") {
+		var ev map[string]any
+		if err := json.Unmarshal([]byte(line), &ev); err != nil {
+			t.Fatal(err)
+		}
+		want := []string{"agent_hired", "sprint_planned", "anomaly_triaged"}[i]
+		if ev["type"] != want {
+			t.Errorf("%s went out as %q; it has no equivalent in a runtime vocabulary "+
+				"and inventing one would be a claim nobody made", want, ev["type"])
+		}
+		if ev["run_id"] != nil && ev["run_id"] != "" {
+			t.Errorf("%s carries a run id %q; it did not happen inside a run",
+				want, ev["run_id"])
+		}
+	}
+}
+
+// budget_exhausted is never emitted, because this console refuses nothing.
+//
+// It maps, downstream, to a DENIED verdict. Emitting it would put a refusal
+// that never happened into a tamper-evident record, which is a worse failure
+// than not recording the event at all.
+func TestTheConsoleNeverClaimsToHaveDeniedAnything(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "e.ndjson")
+	em, err := stack.Open(stack.Config{EventsPath: path, Host: "costcrew.local", Owner: "yurii"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := em.Emit("guard_passed", "triage-aws", "high", map[string]any{
+		"analyst": "triage-aws", "month": "2026-08", "over": "40.00",
+	}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := em.Close(); err != nil {
+		t.Fatal(err)
+	}
+	buf, _ := os.ReadFile(path)
+	var ev map[string]any
+	_ = json.Unmarshal([]byte(strings.SplitN(string(buf), "\n", 2)[0]), &ev)
+	if ev["type"] != "budget_threshold" {
+		t.Errorf("going past a guard went out as %q, wanted budget_threshold", ev["type"])
+	}
+	if strings.Contains(string(buf), "budget_exhausted") {
+		t.Error("the stream claims budget_exhausted, which downstream reads as a denial. " +
+			"This console records the guard and does not enforce it.")
+	}
+	if data, _ := ev["data"].(map[string]any); data["enforced"] != false {
+		t.Errorf("the event does not say the guard was not enforced: %v", data["enforced"])
+	}
+}

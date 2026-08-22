@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -113,6 +114,14 @@ func Run(db *sql.DB, now time.Time, cfg detect.Config, rec Recorder) (found, add
 	if _, err := db.Exec(Schema); err != nil {
 		return 0, 0, err
 	}
+	// This pass, named, so every finding it raises belongs to the same run.
+	//
+	// The stack's contract says a run is "one execution of an agent", and a
+	// detection pass is exactly that: the detector woke, read the estate, and
+	// raised what it found. Minting one run per FINDING instead would put nine
+	// runs of one record into a store that shards and indexes by run, and a
+	// query for the run would answer with one row where the answer is nine.
+	pass := "detect-" + strconv.FormatInt(now.UTC().Unix(), 10)
 	drivers, err := estate.Drivers(db)
 	if err != nil {
 		return 0, 0, err
@@ -168,7 +177,7 @@ func Run(db *sql.DB, now time.Time, cfg detect.Config, rec Recorder) (found, add
 			}
 			if isNew {
 				added++
-				emit(rec, "anomaly_detected", "", a, nil)
+				emit(rec, "anomaly_detected", "", a, map[string]any{"pass": pass})
 			}
 		}
 	}

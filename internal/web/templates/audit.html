@@ -38,4 +38,25 @@
   </table>
   </div>
 </div>
+
+{{if .Stream}}
+<div class="panel">
+  <h2>Handing this to the rest of the estate</h2>
+  <div class="body">
+    <p>The chain above is this installation's own record: tamper-evident on this box, and only on this box.
+      A sealed record somebody else can verify without trusting this process is a different thing, and
+      <strong>trailryx</strong> is where it goes.</p>
+    <p>{{.Mapped}} of the {{.Emitted}} events on the stream are in the estate's shared vocabulary and can be
+      read by any service in it. The other {{.OwnOnly}} are this console's own: a finding triaged, an agent
+      hired, a sprint planned. Those have no equivalent in a vocabulary about runs, and being refused
+      downstream is the right answer rather than a gap.</p>
+    <pre class="cmd"><code>trailryx-node events --file {{.Stream}} \
+  --tenant costcrew --trust-domain costcrew.local --data /where/the/plane/lives</code></pre>
+    <p class="note">Safe to run on a schedule: it keeps a cursor, reads only what is new, and writes the new
+      position only after the seal. Then <code>trailryx-node read --all --pack evidence.pack</code> writes
+      what an auditor takes away, and <code>trailryx-verify evidence.pack</code> checks it with code that is
+      not this console's and not trailryx's node either.</p>
+  </div>
+</div>
+{{end}}
 {{end}}

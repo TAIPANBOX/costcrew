@@ -70,6 +70,10 @@ func (s *Store) migrate() error {
 	return err
 }
 
+// JournalPath is where the hash chain lives, exported so a caller can refuse
+// to point anything else at it.
+func (s *Store) JournalPath() string { return s.journal }
+
 // ------------------------------------------------------------------ journal
 
 // Journal appends one record and returns its hash.

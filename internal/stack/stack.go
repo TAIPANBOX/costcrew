@@ -116,14 +116,19 @@ func (e *Emitter) Emit(kind, actor, severity string, data map[string]any, onBeha
 	if actor == "" {
 		actor = Detector
 	}
+	// Say it in the estate's own words where the estate has one. See
+	// vocabulary.go for what is mapped, what is not, and the one mapping that
+	// was rejected for claiming a refusal that never happened.
+	wire, payload := translate(kind, data)
 	ev := event.Event{
 		Schema:     event.SchemaV02,
 		TS:         time.Now().UTC().Format(time.RFC3339),
 		Source:     Source,
-		Type:       kind,
+		Type:       wire,
 		AgentID:    e.AgentURI(actor),
+		RunID:      runOf(kind, payload),
 		Severity:   severity,
-		Data:       data,
+		Data:       payload,
 		OnBehalfOf: onBehalfOf,
 	}
 	e.mu.Lock()
