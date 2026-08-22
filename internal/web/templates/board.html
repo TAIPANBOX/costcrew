@@ -25,7 +25,7 @@
     <article class="card">
       <a class="t" href="/task/{{.ID}}">{{.Title}}</a>
       <div class="meta">
-        {{if .Assignee}}{{.Assignee}}{{else}}unassigned{{end}}{{if .Desk}} · {{.Desk}}{{end}}
+        {{if .Assignee}}<a href="/staff/{{.Assignee}}">{{.Assignee}}</a>{{else}}unassigned{{end}}{{if .Desk}} · <a href="/desk/{{.Desk}}">{{.Desk}}</a>{{end}}
       </div>
       {{if .Reason}}<p class="why">{{.Reason}}</p>{{end}}
       <div class="foot">

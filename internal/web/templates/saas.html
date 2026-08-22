@@ -13,12 +13,12 @@
 <div class="panel">
   <div class="scroll">
   <table>
-    <thead><tr><th>Vendor</th><th class="tight">Team</th><th class="num">Issued</th><th class="num">Active</th><th class="num">Idle</th><th class="num">Wasted</th><th class="tight">Renews</th></tr></thead>
+    <thead><tr>{{$.Sort.Header "vendor" "Vendor" "" false}}{{$.Sort.Header "team" "Team" "tight" false}}{{$.Sort.Header "issued" "Issued" "num" true}}{{$.Sort.Header "active" "Active" "num" true}}{{$.Sort.Header "idle" "Idle" "num" true}}{{$.Sort.Header "waste" "Wasted" "num" true}}{{$.Sort.Header "renews" "Renews" "tight" false}}</tr></thead>
     <tbody>
     {{range .Rows}}
       <tr>
         <td><strong>{{.Vendor}}</strong><span class="sub">{{.Product}}{{if .Note}} · {{.Note}}{{end}}</span></td>
-        <td class="tight">{{.Team}}</td>
+        <td class="tight"><a href="/team/{{.Team}}">{{.Team}}</a></td>
         <td class="num">{{.Issued}}</td>
         <td class="num">{{.Active30}}</td>
         <td class="num {{if .Idle}}up{{end}}">{{.Idle}}</td>
@@ -36,11 +36,11 @@
   <div class="body">
     <p class="note">A discount bought in advance is cheaper per hour and only if you use it. Under {{printf "%.0f%%" .Waterline}} utilisation it costs more than it saves.</p>
     <div class="scroll"><table>
-      <thead><tr><th>Commitment</th><th class="tight">Desk</th><th class="num">Used</th><th class="num">Paid and idle</th><th class="tight">Expires</th></tr></thead>
+      <thead><tr>{{$.SortCommitments.Header "name" "Commitment" "" false}}{{$.SortCommitments.Header "desk" "Desk" "tight" false}}{{$.SortCommitments.Header "used" "Used" "num" false}}{{$.SortCommitments.Header "hourly" "Paid and idle" "num" true}}{{$.SortCommitments.Header "expires" "Expires" "tight" false}}</tr></thead>
       <tbody>{{range .Commitments}}
         <tr>
           <td><strong>{{.Name}}</strong><span class="sub">{{.Note}}</span></td>
-          <td class="tight">{{.Source}}</td>
+          <td class="tight"><a href="/desk/{{.Source}}">{{.Source}}</a></td>
           <td class="num {{if .BelowWaterline}}up{{end}}">{{printf "%.1f%%" .Used}}</td>
           <td class="num {{if .Wasted}}up{{end}}">{{.Wasted}}</td>
           <td class="tight">{{.Expires}}</td>

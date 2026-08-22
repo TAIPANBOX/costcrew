@@ -7,7 +7,7 @@
 <div class="tiles">
   {{range .Desks}}
   <div class="tile">
-    <div class="k">{{.Name}}</div>
+    <div class="k"><a href="/desk/{{.Name}}">{{.Name}}</a></div>
     <div class="v">{{.Total}}</div>
     <div class="s">{{.Kind}}</div>
   </div>
@@ -23,7 +23,7 @@
     {{range .Open}}
       <tr>
         <td class="num {{if eq .Direction "up"}}up{{else}}down{{end}}"><a href="/anomalies/{{.ID}}">{{.Excess}}</a></td>
-        <td><a href="/anomalies/{{.ID}}">{{.Service}}</a><span class="sub">{{.Source}} · {{if .Team}}{{.Team}}{{else}}untagged{{end}}</span></td>
+        <td><a href="/anomalies/{{.ID}}">{{.Service}}</a><span class="sub"><a href="/desk/{{.Source}}">{{.Source}}</a>{{if .Team}} · <a href="/team/{{.Team}}">{{.Team}}</a>{{end}}</span></td>
         <td class="tight">{{.Day}}</td>
         <td>{{if .CausedBy}}{{.CausedBy}}{{else}}not established{{end}} <span class="chip grain">{{.CausedByKind}}</span></td>
         <td class="tight"><span class="chip {{.State}}">{{.State}}</span></td>

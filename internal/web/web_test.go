@@ -21,6 +21,7 @@ import (
 	"github.com/TAIPANBOX/costcrew/internal/finops"
 	"github.com/TAIPANBOX/costcrew/internal/store"
 	"github.com/TAIPANBOX/costcrew/internal/web"
+	"github.com/TAIPANBOX/costcrew/internal/world"
 )
 
 // These are the tests the unit suites cannot stand in for. A rule enforced in
@@ -1018,5 +1019,114 @@ func TestAnExplainerIsPublishedByAPerson(t *testing.T) {
 	if got.State != "published" || got.Publisher != "owner" {
 		t.Fatalf("state %q, published by %q: the stamp is a PERSON's act",
 			got.State, got.Publisher)
+	}
+}
+
+// ------------------------------------------------------------- sorting
+
+// cellsIn pulls the text of one column out of a rendered table, in the order
+// the page put them, so a test can say what the sort actually did rather than
+// that the page still returned 200.
+func cellsIn(body, pattern string) []string {
+	re := regexp.MustCompile(pattern)
+	var out []string
+	for _, m := range re.FindAllStringSubmatch(body, -1) {
+		out = append(out, m[1])
+	}
+	return out
+}
+
+func sorted(xs []string, ascending bool) bool {
+	for i := 1; i < len(xs); i++ {
+		if ascending && xs[i] < xs[i-1] {
+			return false
+		}
+		if !ascending && xs[i] > xs[i-1] {
+			return false
+		}
+	}
+	return true
+}
+
+// A sorted column has to come back sorted, in BOTH directions, on every table
+// that offers the control. Rendering the header is not the feature.
+func TestClickingAColumnActuallySortsIt(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+
+	for _, tc := range []struct{ path, col, pattern string }{
+		{"/anomalies", "day", `<td class="tight">(\d{4}-\d{2}-\d{2})</td>`},
+		{"/allocation", "team", `<td><a href="/team/([a-z0-9-]+)">`},
+		{"/utilisation", "team", `<td class="tight"><a href="/team/([a-z0-9-]+)">`},
+		{"/saas", "vendor", `<td><strong>([A-Za-z][A-Za-z0-9 .-]*)</strong>`},
+		{"/staff", "name", `<td><a href="/staff/([a-z0-9._-]+)">`},
+	} {
+		asc := tc.path + "?sort=" + tc.col + "&dir=asc"
+		desc := tc.path + "?sort=" + tc.col + "&dir=desc"
+
+		_, up, _ := h.get(t, asc)
+		_, down, _ := h.get(t, desc)
+		a, d := cellsIn(up, tc.pattern), cellsIn(down, tc.pattern)
+
+		if len(a) < 2 {
+			t.Errorf("%s: pattern matched %d rows, cannot tell whether it sorted", asc, len(a))
+			continue
+		}
+		if !sorted(a, true) {
+			t.Errorf("%s: not ascending: %v", asc, a[:min(6, len(a))])
+		}
+		if !sorted(d, false) {
+			t.Errorf("%s: not descending: %v", desc, d[:min(6, len(d))])
+		}
+	}
+}
+
+// A page that sorts a package-level fixture must sort a COPY of it.
+//
+// The fault this catches is invisible on the page that caused it: one reader
+// sorts SaaS by vendor, and every other reader, and every later request on
+// every other page, silently gets the fixture in that order for the rest of
+// the process's life.
+func TestSortingDoesNotReorderTheFixtureItself(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+
+	before := make([]string, 0, len(world.Licences))
+	for _, l := range world.Licences {
+		before = append(before, l.Vendor+"/"+l.Product)
+	}
+
+	for _, p := range []string{
+		"/saas?sort=vendor&dir=desc", "/saas?csort=hourly&csortdir=asc",
+		"/utilisation?sort=saving&dir=asc", "/ai?sort=tokens&dir=asc",
+	} {
+		if code, _, _ := h.get(t, p); code != http.StatusOK {
+			t.Fatalf("GET %s: %d", p, code)
+		}
+	}
+
+	for i, l := range world.Licences {
+		if got := l.Vendor + "/" + l.Product; got != before[i] {
+			t.Fatalf("the fixture was reordered by a request: row %d was %q, is now %q",
+				i, before[i], got)
+		}
+	}
+}
+
+// Two tables on one page sort independently. Sharing one parameter makes a
+// click on the second table quietly reorder the first.
+func TestTwoTablesOnAPageSortIndependently(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+
+	plain, _, _ := h.get(t, "/saas")
+	_ = plain
+	_, base, _ := h.get(t, "/saas")
+	_, moved, _ := h.get(t, "/saas?csort=name&csortdir=asc")
+
+	pat := `<td><strong>([A-Za-z][A-Za-z0-9 .-]*)</strong>`
+	if a, b := cellsIn(base, pat), cellsIn(moved, pat); len(a) > 1 && strings.Join(a, "|") != strings.Join(b, "|") {
+		t.Errorf("sorting the commitments table also reordered the licence table:\n %v\n %v",
+			a[:min(4, len(a))], b[:min(4, len(b))])
 	}
 }

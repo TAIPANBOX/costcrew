@@ -28,8 +28,8 @@
     {{range .Tasks}}
       <tr>
         <td><a href="/task/{{.ID}}">{{.Title}}</a>{{if .Reason}}<span class="sub">{{.Reason}}</span>{{end}}</td>
-        <td>{{if .Assignee}}{{.Assignee}}{{else}}<span class="note">unassigned</span>{{end}}</td>
-        <td class="tight">{{.Desk}}</td>
+        <td>{{if .Assignee}}<a href="/staff/{{.Assignee}}">{{.Assignee}}</a>{{else}}<span class="note">unassigned</span>{{end}}</td>
+        <td class="tight">{{if .Desk}}<a href="/desk/{{.Desk}}">{{.Desk}}</a>{{end}}</td>
         <td class="num {{if .OverGuard}}up{{end}}">{{.Spent}}</td>
         <td class="tight"><span class="chip {{.StateChip}}">{{.State}}</span></td>
       </tr>

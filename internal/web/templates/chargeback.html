@@ -40,9 +40,9 @@
   <div class="body">
     <p class="note">A closed month can still change: a provider issues a credit, a late charge lands, a tag is corrected. The difference is said out loud rather than folded back in.</p>
     <div class="scroll"><table>
-      <thead><tr><th class="tight">Desk</th><th>Team</th><th class="num">Charged</th><th class="num">Now</th><th class="num">Difference</th></tr></thead>
+      <thead><tr>{{$.SortTrueUp.Header "desk" "Desk" "tight" false}}{{$.SortTrueUp.Header "team" "Team" "" false}}{{$.SortTrueUp.Header "frozen" "Charged" "num" true}}{{$.SortTrueUp.Header "now" "Now" "num" true}}{{$.SortTrueUp.Header "delta" "Difference" "num" true}}</tr></thead>
       <tbody>{{range .TrueUp}}
-        <tr><td class="tight">{{.Source}}</td><td>{{.Team}}</td>
+        <tr><td class="tight"><a href="/desk/{{.Source}}">{{.Source}}</a></td><td><a href="/team/{{.Team}}">{{.Team}}</a></td>
             <td class="num">{{.Frozen}}</td><td class="num">{{.Now}}</td>
             <td class="num {{if gt .Delta 0}}up{{else}}down{{end}}">{{.Delta}}</td></tr>
       {{end}}</tbody>
@@ -57,7 +57,7 @@
   <table>
     <thead><tr><th class="tight">Desk</th><th>Team</th><th class="num">Direct</th><th class="num">Allocated</th><th class="num">Charged</th></tr></thead>
     <tbody>{{range .P.Teams}}
-      <tr><td class="tight">{{.Source}}</td><td>{{.Team}}</td>
+      <tr><td class="tight"><a href="/desk/{{.Source}}">{{.Source}}</a></td><td><a href="/team/{{.Team}}">{{.Team}}</a></td>
           <td class="num">{{.Direct}}</td><td class="num">{{.Allocated}}</td>
           <td class="num"><strong>{{.Loaded}}</strong></td></tr>
     {{end}}</tbody>
@@ -86,9 +86,9 @@
   <h2>What would be charged</h2>
   <div class="scroll">
   <table>
-    <thead><tr><th class="tight">Desk</th><th>Team</th><th class="num">Direct</th><th class="num">Allocated</th><th class="num">Fully loaded</th></tr></thead>
+    <thead><tr>{{$.Sort.Header "desk" "Desk" "tight" false}}{{$.Sort.Header "team" "Team" "" false}}{{$.Sort.Header "direct" "Direct" "num" true}}{{$.Sort.Header "allocated" "Allocated" "num" true}}{{$.Sort.Header "loaded" "Fully loaded" "num" true}}</tr></thead>
     <tbody>{{range .A.Teams}}
-      <tr><td class="tight">{{.Source}}</td><td>{{.Team}}</td>
+      <tr><td class="tight"><a href="/desk/{{.Source}}">{{.Source}}</a></td><td><a href="/team/{{.Team}}">{{.Team}}</a></td>
           <td class="num">{{.Direct}}</td><td class="num">{{.Allocated}}</td>
           <td class="num"><strong>{{.Loaded}}</strong></td></tr>
     {{else}}

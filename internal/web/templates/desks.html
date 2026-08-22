@@ -1,0 +1,38 @@
+{{define "content"}}
+<header class="page">
+  <h1>Desks</h1>
+  <p>{{len .Rows}} desks, {{.Period}}. Each one is a place spend comes from and an analyst watches.</p>
+</header>
+
+<form class="filters" method="get">
+  <select name="period" aria-label="Month">{{range .Months}}<option value="{{.}}" {{if eq . $.Period}}selected{{end}}>{{.}}</option>{{end}}</select>
+  <button type="submit">Show</button>
+</form>
+
+<div class="panel">
+  <div class="scroll">
+  <table>
+    <thead><tr>
+      {{.Sort.Header "desk" "Desk" "" false}}
+      {{.Sort.Header "kind" "Kind" "tight" false}}
+      {{.Sort.Header "cost" "Cost" "num" true}}
+      {{.Sort.Header "share" "Share" "num" true}}
+      {{.Sort.Header "anomalies" "Open" "num" true}}
+      {{.Sort.Header "openmoney" "In anomalies" "num" true}}
+      {{.Sort.Header "analysts" "Analysts" "num" true}}
+    </tr></thead>
+    <tbody>{{range .Rows}}
+      <tr>
+        <td><a href="/desk/{{.Name}}"><strong>{{.Name}}</strong></a></td>
+        <td class="tight">{{.Kind}}</td>
+        <td class="num">{{.Cost}}</td>
+        <td class="num">{{printf "%.1f%%" .Share}}</td>
+        <td class="num {{if .Open}}up{{end}}">{{.Open}}</td>
+        <td class="num {{if .OpenMoney}}up{{end}}">{{.OpenMoney}}</td>
+        <td class="num">{{.Analysts}}</td>
+      </tr>
+    {{end}}</tbody>
+  </table>
+  </div>
+</div>
+{{end}}

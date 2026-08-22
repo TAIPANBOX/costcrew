@@ -368,3 +368,40 @@ func MethodFrom(s string) (Method, error) {
 	}
 	return "", fmt.Errorf("no such method: %q", s)
 }
+
+// BudgetsFor is one desk's budgets in one month, which the desk page needs
+// without the whole history the budgets page shows.
+func BudgetsFor(db *sql.DB, source, period string) ([]struct {
+	Team                     string
+	Budget, Actual, Variance money.Cents
+}, error) {
+	rows, err := db.Query(`
+		SELECT b.team, b.budget_cents, COALESCE(a.spent,0)
+		FROM budgets b
+		LEFT JOIN (SELECT team, SUM(billed_cents) spent FROM charges
+		           WHERE source=? AND category='Usage' AND substr(day,1,7)=?
+		           GROUP BY 1) a ON a.team = b.team
+		WHERE b.source=? AND b.month=? ORDER BY b.team`,
+		source, period, source, period)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []struct {
+		Team                     string
+		Budget, Actual, Variance money.Cents
+	}
+	for rows.Next() {
+		var team string
+		var budget, actual int64
+		if err := rows.Scan(&team, &budget, &actual); err != nil {
+			return nil, err
+		}
+		out = append(out, struct {
+			Team                     string
+			Budget, Actual, Variance money.Cents
+		}{team, money.Cents(budget), money.Cents(actual),
+			money.Cents(actual) - money.Cents(budget)})
+	}
+	return out, rows.Err()
+}

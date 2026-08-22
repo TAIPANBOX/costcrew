@@ -14,16 +14,17 @@
   <h2>Price and volume, separated</h2>
   <div class="scroll">
   <table>
-    <thead><tr><th class="tight">Month</th><th class="tight">Team</th><th>Model</th><th class="num">Tokens</th><th class="num">Cost</th><th class="num">Per million</th><th class="num">Per action</th></tr></thead>
+    <thead><tr><th class="tight">Month</th>{{$.Sort.Header "team" "Team" "tight" false}}{{$.Sort.Header "model" "Model" "" false}}{{$.Sort.Header "tokens" "Tokens" "num" true}}{{$.Sort.Header "cost" "Cost" "num" true}}{{$.Sort.Header "permil" "Per million" "num" true}}{{$.Sort.Header "actions" "Actions" "num" true}}<th class="num">Per action</th></tr></thead>
     <tbody>
     {{range .Rows}}
       <tr>
         <td class="tight">{{.Month}}</td>
-        <td class="tight">{{.Team}}</td>
+        <td class="tight"><a href="/team/{{.Team}}">{{.Team}}</a></td>
         <td>{{if .Model}}{{.Model}}{{else}}<span class="note">unattributed</span>{{end}}</td>
         <td class="num">{{.Tokens}}</td>
         <td class="num">{{.Cost}}</td>
         <td class="num">{{.PerMillion}}</td>
+        <td class="num">{{.Actions}}{{if .Deflected}}<span class="sub">{{.Deflected}} deflected</span>{{end}}</td>
         <td class="num">{{.PerAction}}</td>
       </tr>
     {{end}}

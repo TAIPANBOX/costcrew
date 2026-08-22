@@ -5,7 +5,7 @@
   <h1 class="headline {{if eq .A.Direction "up"}}up{{else}}down{{end}}">
     {{.A.Excess}} {{if eq .A.Direction "up"}}above{{else}}below{{end}} baseline
   </h1>
-  <p class="subhead">{{.A.Source}} · {{.A.Service}} · {{if .A.Team}}{{.A.Team}}{{else}}untagged{{end}} · {{.A.Day}} · <span class="chip {{.A.State}}">{{.A.State}}</span></p>
+  <p class="subhead"><a href="/desk/{{.A.Source}}">{{.A.Source}}</a> · {{.A.Service}} · {{if .A.Team}}<a href="/team/{{.A.Team}}">{{.A.Team}}</a>{{else}}untagged{{end}} · {{.A.Day}} · <span class="chip {{.A.State}}">{{.A.State}}</span></p>
 </header>
 
 <div class="panel">
@@ -36,14 +36,14 @@
     <dl class="facts">
       <dt>Caused by</dt>
       <dd>
-        {{if .A.CausedBy}}<strong>{{.A.CausedBy}}</strong>{{else}}<strong>not established</strong>{{end}}
+        {{if .A.CausedBy}}<strong>{{if eq .A.CausedByKind "agent"}}<a href="/staff/{{.A.CausedBy}}">{{.A.CausedBy}}</a>{{else if eq .A.CausedByKind "team"}}<a href="/team/{{.A.CausedBy}}">{{.A.CausedBy}}</a>{{else}}{{.A.CausedBy}}{{end}}</strong>{{else}}<strong>not established</strong>{{end}}
         <span class="chip grain">grain: {{.A.CausedByKind}}</span>
         {{if eq .A.CausedByKind "team"}}
         <span class="sub">This is the finest grain that can be proven here. Naming an individual agent needs model calls to carry an agent header through the gateway.</span>
         {{end}}
       </dd>
       <dt>Handled by</dt>
-      <dd>{{if .A.HandledBy}}<strong>{{.A.HandledBy}}</strong>{{else}}Nobody has taken this on.{{end}}</dd>
+      <dd>{{if .A.HandledBy}}<strong><a href="/staff/{{.A.HandledBy}}">{{.A.HandledBy}}</a></strong>{{else}}Nobody has taken this on.{{end}}</dd>
       <dt>Detected</dt><dd>{{.A.DetectedAt}}</dd>
       {{if .A.ClosedAt}}<dt>Closed</dt><dd>{{.A.ClosedAt}}</dd>{{end}}
       {{if .A.Reason}}<dt>Reason given</dt><dd>{{.A.Reason}}</dd>{{end}}

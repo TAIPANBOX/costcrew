@@ -47,12 +47,12 @@
   <h2>Fully loaded, by team</h2>
   <div class="scroll">
   <table>
-    <thead><tr><th class="tight">Desk</th><th>Team</th><th class="num">Direct</th><th class="num">Allocated</th><th class="num">Fully loaded</th></tr></thead>
+    <thead><tr>{{$.Sort.Header "desk" "Desk" "tight" false}}{{$.Sort.Header "team" "Team" "" false}}{{$.Sort.Header "direct" "Direct" "num" true}}{{$.Sort.Header "allocated" "Allocated" "num" true}}{{$.Sort.Header "loaded" "Fully loaded" "num" true}}</tr></thead>
     <tbody>
     {{range .A.Teams}}
       <tr>
-        <td class="tight">{{.Source}}</td>
-        <td>{{.Team}}</td>
+        <td class="tight"><a href="/desk/{{.Source}}">{{.Source}}</a></td>
+        <td><a href="/team/{{.Team}}">{{.Team}}</a></td>
         <td class="num">{{.Direct}}</td>
         <td class="num">{{.Allocated}}</td>
         <td class="num"><strong>{{.Loaded}}</strong></td>

@@ -59,13 +59,27 @@ func (s *Server) utilisation(w http.ResponseWriter, r *http.Request) {
 			fine++
 		}
 	}
+	rows := copyOf(world.UtilisationRows)
+	sp := readSort(r, "saving", true)
+	applySort(rows, sp, map[string]func(x, y world.Utilisation) int{
+		"desk":     func(x, y world.Utilisation) int { return cmpString(x.Source, y.Source) },
+		"service":  func(x, y world.Utilisation) int { return cmpString(x.Service, y.Service) },
+		"team":     func(x, y world.Utilisation) int { return cmpString(x.Team, y.Team) },
+		"resource": func(x, y world.Utilisation) int { return cmpString(x.Resource, y.Resource) },
+		"kind":     func(x, y world.Utilisation) int { return cmpString(x.Kind, y.Kind) },
+		"cpu":      func(x, y world.Utilisation) int { return cmpFloat(x.P95CPU, y.P95CPU) },
+		"mem":      func(x, y world.Utilisation) int { return cmpFloat(x.P95Mem, y.P95Mem) },
+		"monthly":  func(x, y world.Utilisation) int { return cmpInt64(int64(x.Monthly), int64(y.Monthly)) },
+		"saving":   func(x, y world.Utilisation) int { return cmpInt64(int64(x.Saving), int64(y.Saving)) },
+	}, "saving")
 	s.render(w, tplUtilisation, struct {
 		shell
 		Rows             []world.Utilisation
 		Candidates, Fine int
 		Saving           money.Cents
-	}{s.shellFor(r, "Utilisation", "utilisation"), world.UtilisationRows,
-		candidates, fine, saving})
+		Sort             sortSpec
+	}{s.shellFor(r, "Utilisation", "utilisation"), rows,
+		candidates, fine, saving, sp})
 }
 
 func (s *Server) saas(w http.ResponseWriter, r *http.Request) {
@@ -83,17 +97,42 @@ func (s *Server) saas(w http.ResponseWriter, r *http.Request) {
 	// is dated, and a renewal calendar measured against the wall clock would
 	// quietly empty as time passed.
 	soon := len(world.ExpiringWithin(90, world.LastDay))
+	rows := copyOf(world.Licences)
+	sp := readSort(r, "waste", true)
+	applySort(rows, sp, map[string]func(x, y world.Licence) int{
+		"vendor":  func(x, y world.Licence) int { return cmpString(x.Vendor, y.Vendor) },
+		"product": func(x, y world.Licence) int { return cmpString(x.Product, y.Product) },
+		"team":    func(x, y world.Licence) int { return cmpString(x.Team, y.Team) },
+		"issued":  func(x, y world.Licence) int { return cmpInt(x.Issued, y.Issued) },
+		"active":  func(x, y world.Licence) int { return cmpInt(x.Active30, y.Active30) },
+		"idle":    func(x, y world.Licence) int { return cmpInt(x.Idle(), y.Idle()) },
+		"seat":    func(x, y world.Licence) int { return cmpInt64(int64(x.PerSeat), int64(y.PerSeat)) },
+		"waste":   func(x, y world.Licence) int { return cmpInt64(int64(x.Waste()), int64(y.Waste())) },
+		"renews":  func(x, y world.Licence) int { return cmpString(x.Renews, y.Renews) },
+	}, "waste")
+	comms := copyOf(world.Commitments)
+	cp := readSortNamed(r, "csort", "used", false)
+	applySort(comms, cp, map[string]func(x, y world.Commitment) int{
+		"desk":    func(x, y world.Commitment) int { return cmpString(x.Source, y.Source) },
+		"name":    func(x, y world.Commitment) int { return cmpString(x.Name, y.Name) },
+		"kind":    func(x, y world.Commitment) int { return cmpString(x.Kind, y.Kind) },
+		"hourly":  func(x, y world.Commitment) int { return cmpInt64(int64(x.Hourly), int64(y.Hourly)) },
+		"used":    func(x, y world.Commitment) int { return cmpFloat(x.Used, y.Used) },
+		"expires": func(x, y world.Commitment) int { return cmpString(x.Expires, y.Expires) },
+	}, "used")
 	s.render(w, tplSaaS, struct {
 		shell
-		Rows        []world.Licence
-		Commitments []world.Commitment
-		Waterline   float64
-		Waste       money.Cents
-		Idle        int
-		Issued      int
-		Soon        int
-	}{s.shellFor(r, "SaaS", "saas"), world.Licences, world.Commitments,
-		world.Waterline, waste, idle, issued, soon})
+		Rows            []world.Licence
+		Commitments     []world.Commitment
+		Waterline       float64
+		Waste           money.Cents
+		Idle            int
+		Issued          int
+		Soon            int
+		Sort            sortSpec
+		SortCommitments sortSpec
+	}{s.shellFor(r, "SaaS", "saas"), rows, comms,
+		world.Waterline, waste, idle, issued, soon, sp, cp})
 }
 
 func (s *Server) ai(w http.ResponseWriter, r *http.Request) {
@@ -114,13 +153,24 @@ func (s *Server) ai(w http.ResponseWriter, r *http.Request) {
 		tokens += u.Tokens
 	}
 	list, _ := anomaly.List(s.db, anomaly.Filter{Source: "ai"})
+	sp := readSort(r, "cost", true)
+	applySort(rows, sp, map[string]func(x, y world.AIUnit) int{
+		"team":      func(x, y world.AIUnit) int { return cmpString(x.Team, y.Team) },
+		"model":     func(x, y world.AIUnit) int { return cmpString(x.Model, y.Model) },
+		"tokens":    func(x, y world.AIUnit) int { return cmpInt64(x.Tokens, y.Tokens) },
+		"cost":      func(x, y world.AIUnit) int { return cmpInt64(int64(x.Cost), int64(y.Cost)) },
+		"permil":    func(x, y world.AIUnit) int { return cmpInt64(int64(x.PerMillion()), int64(y.PerMillion())) },
+		"actions":   func(x, y world.AIUnit) int { return cmpInt(x.Actions, y.Actions) },
+		"deflected": func(x, y world.AIUnit) int { return cmpInt(x.Deflected, y.Deflected) },
+	}, "cost")
 	s.render(w, tplAI, struct {
 		shell
 		Rows      []world.AIUnit
 		Total     money.Cents
 		Tokens    string
 		Anomalies int
-	}{s.shellFor(r, "AI spend", "ai"), rows, total, thousands(tokens), len(list)})
+		Sort      sortSpec
+	}{s.shellFor(r, "AI spend", "ai"), rows, total, thousands(tokens), len(list), sp})
 }
 
 // thousands groups a large count so a reader can tell a million from ten.

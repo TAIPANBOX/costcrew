@@ -11,12 +11,21 @@
 <div class="panel">
   <div class="scroll">
   <table>
-    <thead><tr><th>Analyst</th><th class="tight">Desk</th><th class="num">Open</th><th class="num">Posted</th><th class="num">Returned</th><th class="num">First pass</th><th class="num">Spent</th><th>State</th></tr></thead>
+    <thead><tr>
+      {{.Sort.Header "name" "Analyst" "" false}}
+      {{.Sort.Header "desk" "Desk" "tight" false}}
+      {{.Sort.Header "open" "Open" "num" true}}
+      {{.Sort.Header "posted" "Posted" "num" true}}
+      {{.Sort.Header "returned" "Returned" "num" true}}
+      {{.Sort.Header "rate" "First pass" "num" true}}
+      {{.Sort.Header "spent" "Spent" "num" true}}
+      {{.Sort.Header "state" "State" "" false}}
+    </tr></thead>
     <tbody>
     {{range .Rows}}
       <tr>
         <td><a href="/staff/{{.Name}}"><strong>{{.Name}}</strong></a><span class="sub">{{.Role}}</span></td>
-        <td class="tight">{{.Desk}}</td>
+        <td class="tight">{{if eq .Desk "management"}}{{.Desk}}{{else}}<a href="/desk/{{.Desk}}">{{.Desk}}</a>{{end}}</td>
         <td class="num">{{.Score.Open}}</td>
         <td class="num">{{.Score.Posted}}</td>
         <td class="num {{if .Score.Returned}}up{{end}}">{{.Score.Returned}}</td>

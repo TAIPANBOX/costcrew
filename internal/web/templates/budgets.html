@@ -12,15 +12,29 @@
   <a class="clear" href="/export/budget.csv?source={{.Source}}">Download CSV</a>
 </form>
 
+<div class="tiles">
+  <div class="tile"><div class="k">Over budget</div><div class="v up">{{.Over}}</div><div class="s">summed across every team-month</div></div>
+  <div class="tile"><div class="k">Under budget</div><div class="v down">{{.Under}}</div><div class="s">including months not finished</div></div>
+  <div class="tile"><div class="k">Rows</div><div class="v">{{len .Rows}}</div><div class="s">team-months on this desk</div></div>
+</div>
+
 <div class="panel">
   <div class="scroll">
   <table>
-    <thead><tr><th class="tight">Month</th><th>Team</th><th class="num">Budget</th><th class="num">Actual</th><th class="num">Variance</th><th class="num">%</th><th></th></tr></thead>
+    <thead><tr>
+      {{.Sort.Header "month" "Month" "tight" false}}
+      {{.Sort.Header "team" "Team" "" false}}
+      {{.Sort.Header "budget" "Budget" "num" true}}
+      {{.Sort.Header "actual" "Actual" "num" true}}
+      {{.Sort.Header "var" "Variance" "num" true}}
+      {{.Sort.Header "pct" "%" "num" true}}
+      <th></th>
+    </tr></thead>
     <tbody>
     {{range .Rows}}
       <tr>
         <td class="tight">{{.Month}}</td>
-        <td>{{.Team}}</td>
+        <td><a href="/team/{{.Team}}">{{.Team}}</a></td>
         <td class="num">{{.Budget}}</td>
         <td class="num">{{.Actual}}</td>
         <td class="num {{if gt .Variance 0}}up{{else}}down{{end}}">{{.Variance}}</td>

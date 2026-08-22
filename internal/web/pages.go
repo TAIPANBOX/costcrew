@@ -169,6 +169,19 @@ func (s *Server) anomalies(w http.ResponseWriter, r *http.Request) {
 	for _, c := range counts {
 		tiles = append(tiles, stateTile{c.State, c.N, stateHints[c.State]})
 	}
+	srt := readSort(r, "money", true)
+	applySort(rows, srt, map[string]func(a, b anomaly.Anomaly) int{
+		"money":   func(a, b anomaly.Anomaly) int { return cmpInt64(int64(a.Excess.Abs()), int64(b.Excess.Abs())) },
+		"day":     func(a, b anomaly.Anomaly) int { return cmpString(a.Day, b.Day) },
+		"source":  func(a, b anomaly.Anomaly) int { return cmpString(a.Source, b.Source) },
+		"team":    func(a, b anomaly.Anomaly) int { return cmpString(a.Team, b.Team) },
+		"service": func(a, b anomaly.Anomaly) int { return cmpString(a.Service, b.Service) },
+		"caused":  func(a, b anomaly.Anomaly) int { return cmpString(a.CausedBy, b.CausedBy) },
+		"handled": func(a, b anomaly.Anomaly) int { return cmpString(a.HandledBy, b.HandledBy) },
+		"state":   func(a, b anomaly.Anomaly) int { return cmpString(string(a.State), string(b.State)) },
+		"z":       func(a, b anomaly.Anomaly) int { return cmpFloat(a.Z, b.Z) },
+	}, "money")
+
 	openRows, _ := anomaly.List(s.db, anomaly.Filter{State: anomaly.Open})
 	var openMoney money.Cents
 	for _, a := range openRows {
@@ -187,11 +200,12 @@ func (s *Server) anomalies(w http.ResponseWriter, r *http.Request) {
 		Sources   []string
 		F         anomaly.Filter
 		OpenMoney money.Cents
+		Sort      sortSpec
 	}{
 		s.shellFor(r, "Anomalies", "anomalies"), rows, tiles,
 		[]anomaly.State{anomaly.Open, anomaly.Triaged, anomaly.Explained,
 			anomaly.Accepted, anomaly.Dismissed},
-		sources, f, openMoney,
+		sources, f, openMoney, srt,
 	})
 }
 
@@ -294,12 +308,35 @@ func (s *Server) budgets(w http.ResponseWriter, r *http.Request) {
 	for _, d := range world.Desks {
 		sources = append(sources, d.Name)
 	}
+	srt := readSort(r, "month", true)
+	applySort(rows, srt, map[string]func(a, b estate.BudgetRow) int{
+		"month":  func(a, b estate.BudgetRow) int { return cmpString(a.Month, b.Month) },
+		"team":   func(a, b estate.BudgetRow) int { return cmpString(a.Team, b.Team) },
+		"budget": func(a, b estate.BudgetRow) int { return cmpInt64(int64(a.Budget), int64(b.Budget)) },
+		"actual": func(a, b estate.BudgetRow) int { return cmpInt64(int64(a.Actual), int64(b.Actual)) },
+		"var":    func(a, b estate.BudgetRow) int { return cmpInt64(int64(a.Variance), int64(b.Variance)) },
+		"pct":    func(a, b estate.BudgetRow) int { return cmpFloat(a.VariancePct, b.VariancePct) },
+	}, "month")
+
+	// Over and under are kept apart rather than netted. A desk that is nine
+	// thousand over on one team and nine thousand under on another is not a
+	// desk on budget, and a single net figure says it is.
+	var over, under money.Cents
+	for _, b := range rows {
+		if b.Variance > 0 {
+			over += b.Variance
+		} else {
+			under += -b.Variance
+		}
+	}
 	s.render(w, tplBudgets, struct {
 		shell
-		Rows    []estate.BudgetRow
-		Sources []string
-		Source  string
-	}{s.shellFor(r, "Budgets", "budgets"), rows, sources, source})
+		Rows        []estate.BudgetRow
+		Sources     []string
+		Source      string
+		Over, Under money.Cents
+		Sort        sortSpec
+	}{s.shellFor(r, "Budgets", "budgets"), rows, sources, source, over, under, srt})
 }
 
 // ---------------------------------------------------------------- sparkline

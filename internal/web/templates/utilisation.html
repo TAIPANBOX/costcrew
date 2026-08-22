@@ -13,14 +13,14 @@
 <div class="panel">
   <div class="scroll">
   <table>
-    <thead><tr><th>Resource</th><th class="tight">Team</th><th class="num">p95 CPU</th><th class="num">Days</th><th class="num">Costs now</th><th>Recommendation</th></tr></thead>
+    <thead><tr>{{$.Sort.Header "resource" "Resource" "" false}}{{$.Sort.Header "team" "Team" "tight" false}}{{$.Sort.Header "cpu" "p95 CPU" "num" true}}{{$.Sort.Header "mem" "p95 memory" "num" true}}{{$.Sort.Header "monthly" "Costs now" "num" true}}{{$.Sort.Header "saving" "Recommendation" "" true}}</tr></thead>
     <tbody>
     {{range .Rows}}
       <tr>
-        <td><strong>{{.Resource}}</strong><span class="sub">{{.Source}} · {{.Service}}</span></td>
-        <td class="tight">{{.Team}}</td>
+        <td><strong>{{.Resource}}</strong><span class="sub"><a href="/desk/{{.Source}}">{{.Source}}</a> · {{.Service}} · {{.Kind}} · {{.Days}} days observed</span></td>
+        <td class="tight"><a href="/team/{{.Team}}">{{.Team}}</a></td>
         <td class="num {{if lt .P95CPU 20.0}}up{{end}}">{{printf "%.1f%%" .P95CPU}}</td>
-        <td class="num">{{.Days}}</td>
+        <td class="num {{if lt .P95Mem 25.0}}up{{end}}">{{printf "%.1f%%" .P95Mem}}</td>
         <td class="num">{{.Monthly}}</td>
         <td>
           {{if .Advice}}<strong>{{.Advice}}</strong>, saving {{.Saving}} a month{{else}}<span class="note">leave it</span>{{end}}

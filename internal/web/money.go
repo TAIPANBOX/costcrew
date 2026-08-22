@@ -60,6 +60,14 @@ func (s *Server) allocation(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "store unavailable", http.StatusInternalServerError)
 		return
 	}
+	sp := readSort(r, "loaded", true)
+	applySort(a.Teams, sp, map[string]func(x, y finops.TeamCost) int{
+		"desk":      func(x, y finops.TeamCost) int { return cmpString(x.Source, y.Source) },
+		"team":      func(x, y finops.TeamCost) int { return cmpString(x.Team, y.Team) },
+		"direct":    func(x, y finops.TeamCost) int { return cmpInt64(int64(x.Direct), int64(y.Direct)) },
+		"allocated": func(x, y finops.TeamCost) int { return cmpInt64(int64(x.Allocated), int64(y.Allocated)) },
+		"loaded":    func(x, y finops.TeamCost) int { return cmpInt64(int64(x.Loaded()), int64(y.Loaded())) },
+	}, "loaded")
 	s.render(w, tplAllocation, struct {
 		shell
 		A       finops.Allocation
@@ -68,8 +76,9 @@ func (s *Server) allocation(w http.ResponseWriter, r *http.Request) {
 		Months  []string
 		Period  string
 		CanAct  bool
+		Sort    sortSpec
 	}{s.shellFor(r, "Allocation", "allocation"), a, rules,
-		finops.ValidMethods(), months, p, u.May("operator")})
+		finops.ValidMethods(), months, p, u.May("operator"), sp})
 }
 
 func (s *Server) setRule(w http.ResponseWriter, r *http.Request) {
@@ -114,16 +123,36 @@ func (s *Server) chargeback(w http.ResponseWriter, r *http.Request) {
 	}
 	trueUp, _, _ := finops.TrueUpFor(s.db, p)
 
+	sp := readSort(r, "loaded", true)
+	applySort(live.Teams, sp, map[string]func(x, y finops.TeamCost) int{
+		"desk":   func(x, y finops.TeamCost) int { return cmpString(x.Source, y.Source) },
+		"team":   func(x, y finops.TeamCost) int { return cmpString(x.Team, y.Team) },
+		"loaded": func(x, y finops.TeamCost) int { return cmpInt64(int64(x.Loaded()), int64(y.Loaded())) },
+	}, "loaded")
+	// The true-up table sorts on its own parameter. Its interesting column is
+	// the DELTA and the interesting end of it is the largest move in either
+	// direction, so it opens on the size of the change, not its sign.
+	tp := readSortNamed(r, "tsort", "delta", true)
+	applySort(trueUp, tp, map[string]func(x, y finops.TrueUp) int{
+		"desk":   func(x, y finops.TrueUp) int { return cmpString(x.Source, y.Source) },
+		"team":   func(x, y finops.TrueUp) int { return cmpString(x.Team, y.Team) },
+		"frozen": func(x, y finops.TrueUp) int { return cmpInt64(int64(x.Frozen), int64(y.Frozen)) },
+		"now":    func(x, y finops.TrueUp) int { return cmpInt64(int64(x.Now), int64(y.Now)) },
+		"delta":  func(x, y finops.TrueUp) int { return cmpInt64(abs64(int64(x.Delta)), abs64(int64(y.Delta))) },
+	}, "delta")
+
 	s.render(w, tplChargeback, struct {
 		shell
-		P      finops.Period
-		A      finops.Allocation
-		TrueUp []finops.TrueUp
-		Months []string
-		Period string
-		CanAct bool
+		P          finops.Period
+		A          finops.Allocation
+		TrueUp     []finops.TrueUp
+		Months     []string
+		Period     string
+		CanAct     bool
+		Sort       sortSpec
+		SortTrueUp sortSpec
 	}{s.shellFor(r, "Chargeback", "chargeback"), frozen, live, trueUp,
-		months, p, u.May("operator")})
+		months, p, u.May("operator"), sp, tp})
 }
 
 func (s *Server) closePeriod(w http.ResponseWriter, r *http.Request) {

@@ -136,6 +136,11 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /ai", s.ai)
 	s.mux.HandleFunc("GET /export/results.html", s.exportResultsHTML)
 
+	s.mux.HandleFunc("GET /teams", s.teams)
+	s.mux.HandleFunc("GET /team/{name}", s.team)
+	s.mux.HandleFunc("GET /desks", s.desks)
+	s.mux.HandleFunc("GET /desk/{name}", s.desk)
+
 	s.mux.HandleFunc("GET /forecast", s.forecast)
 	s.mux.HandleFunc("POST /forecast/freeze", s.freezeForecast)
 	s.mux.HandleFunc("GET /explainers", s.explainers)

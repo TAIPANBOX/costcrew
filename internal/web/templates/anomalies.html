@@ -41,8 +41,15 @@
   <div class="scroll">
   <table>
     <thead><tr>
-      <th class="num">Money</th><th>What</th><th class="tight">Day</th>
-      <th>Caused by</th><th>Handled by</th><th class="tight">State</th>
+      {{.Sort.Header "money" "Money" "num" true}}
+      {{.Sort.Header "service" "What" "" false}}
+      {{.Sort.Header "source" "Desk" "tight" false}}
+      {{.Sort.Header "team" "Team" "tight" false}}
+      {{.Sort.Header "day" "Day" "tight" false}}
+      {{.Sort.Header "z" "Deviations" "num" true}}
+      {{.Sort.Header "caused" "Caused by" "" false}}
+      {{.Sort.Header "handled" "Handled by" "" false}}
+      {{.Sort.Header "state" "State" "tight" false}}
     </tr></thead>
     <tbody>
     {{range .Rows}}
@@ -52,18 +59,21 @@
         </td>
         <td>
           <a href="/anomalies/{{.ID}}">{{.Service}}</a>
-          <span class="sub">{{.Source}} · {{if .Team}}{{.Team}}{{else}}untagged{{end}}{{if .Driver}} · {{.Driver}}{{end}}</span>
+          {{if .Driver}}<span class="sub">{{.Driver}}</span>{{end}}
         </td>
+        <td class="tight"><a href="/desk/{{.Source}}">{{.Source}}</a></td>
+        <td class="tight">{{if .Team}}<a href="/team/{{.Team}}">{{.Team}}</a>{{else}}<span class="note">untagged</span>{{end}}</td>
         <td class="tight">{{.Day}}</td>
+        <td class="num">{{printf "%.1f" .Z}}</td>
         <td>
-          {{if .CausedBy}}{{.CausedBy}}{{else}}not established{{end}}
+          {{if .CausedBy}}{{if eq .CausedByKind "agent"}}<a href="/staff/{{.CausedBy}}">{{.CausedBy}}</a>{{else if eq .CausedByKind "team"}}<a href="/team/{{.CausedBy}}">{{.CausedBy}}</a>{{else}}{{.CausedBy}}{{end}}{{else}}<span class="note">not established</span>{{end}}
           <span class="sub"><span class="chip grain">{{.CausedByKind}}</span></span>
         </td>
-        <td>{{if .HandledBy}}{{.HandledBy}}{{else}}<span class="note">nobody yet</span>{{end}}</td>
+        <td>{{if .HandledBy}}<a href="/staff/{{.HandledBy}}">{{.HandledBy}}</a>{{else}}<span class="note">nobody yet</span>{{end}}</td>
         <td class="tight"><span class="chip {{.State}}">{{.State}}</span></td>
       </tr>
     {{else}}
-      <tr><td colspan="6" class="empty">Nothing matches. That is either good news or a filter.</td></tr>
+      <tr><td colspan="9" class="empty">Nothing matches. That is either good news or a filter.</td></tr>
     {{end}}
     </tbody>
   </table>

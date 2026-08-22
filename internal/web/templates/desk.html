@@ -1,0 +1,119 @@
+{{define "content"}}
+<p class="crumb"><a href="/desks">Desks</a> / {{.D.Name}}</p>
+<header class="page">
+  <h1>{{.D.Name}}</h1>
+  <p>{{.D.Kind}} · {{.D.Currency}} · {{.Period}}</p>
+</header>
+
+<form class="filters" method="get">
+  <select name="period" aria-label="Month">{{range .Months}}<option value="{{.}}" {{if eq . $.Period}}selected{{end}}>{{.}}</option>{{end}}</select>
+  <button type="submit">Show</button>
+</form>
+
+<div class="tiles">
+  <div class="tile"><div class="k">Cost</div><div class="v">{{.Total}}</div><div class="s">this month</div></div>
+  <div class="tile"><div class="k">Open anomalies</div><div class="v {{if .OpenMoney}}up{{end}}">{{.OpenMoney}}</div><div class="s"><a href="/anomalies?source={{.D.Name}}">{{len .Anomalies}} in total</a></div></div>
+  <div class="tile"><div class="k">Analysts</div><div class="v">{{len .Analysts}}</div><div class="s">on this desk</div></div>
+  <div class="tile"><div class="k">Tasks</div><div class="v">{{len .Tasks}}</div><div class="s">all time</div></div>
+</div>
+
+<div class="panel">
+  <h2>By team</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr>
+      {{.Sort.Header "team" "Team" "" false}}
+      {{.Sort.Header "amount" "Cost" "num" true}}
+      {{.Sort.Header "share" "Share" "num" true}}
+      <th></th>
+    </tr></thead>
+    <tbody>{{range .ByTeam}}
+      <tr>
+        <td>{{if eq .Key "(untagged)"}}<span class="note">(untagged)</span>{{else}}<a href="/team/{{.Key}}">{{.Key}}</a>{{end}}</td>
+        <td class="num">{{.Amount}}</td>
+        <td class="num">{{printf "%.1f%%" .Share}}</td>
+        <td><div class="bar"><span style="width:{{printf "%.1f" .Share}}%"></span></div></td>
+      </tr>
+    {{else}}
+      <tr><td colspan="4" class="empty">Nothing in this month.</td></tr>
+    {{end}}</tbody>
+  </table>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>By service</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Service</th><th class="num">Cost</th><th class="num">Share</th></tr></thead>
+    <tbody>{{range .ByService}}
+      <tr><td>{{.Key}}</td><td class="num">{{.Amount}}</td><td class="num">{{printf "%.1f%%" .Share}}</td></tr>
+    {{end}}</tbody>
+  </table>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Budgets this month</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Team</th><th class="num">Budget</th><th class="num">Actual</th><th class="num">Variance</th><th class="num">%</th></tr></thead>
+    <tbody>{{range .Budgets}}
+      <tr><td><a href="/team/{{.Team}}">{{.Team}}</a></td>
+          <td class="num">{{.Budget}}</td><td class="num">{{.Actual}}</td>
+          <td class="num {{if gt .Var 0}}up{{else}}down{{end}}">{{.Var}}</td>
+          <td class="num">{{if .HasPct}}{{printf "%.1f" .VarPct}}{{else}}—{{end}}</td></tr>
+    {{else}}
+      <tr><td colspan="5" class="empty">No budgets set for this desk this month.</td></tr>
+    {{end}}</tbody>
+  </table>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Month by month</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th class="tight">Month</th><th class="num">Cost</th><th class="num">Change</th></tr></thead>
+    <tbody>{{range .Trend}}
+      <tr><td class="tight">{{.Month}}</td><td class="num">{{.Amount}}</td>
+          <td class="num {{if .HasChg}}{{if gt .Change 0}}up{{else}}down{{end}}{{end}}">{{if .HasChg}}{{.Change}}{{else}}—{{end}}</td></tr>
+    {{end}}</tbody>
+  </table>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Who watches it</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Analyst</th><th class="num">Open</th><th class="num">Posted</th><th class="num">First pass</th><th>State</th></tr></thead>
+    <tbody>{{range .Analysts}}
+      <tr><td><a href="/staff/{{.Name}}">{{.Name}}</a><span class="sub">{{.Role}}</span></td>
+          <td class="num">{{.Score.Open}}</td><td class="num">{{.Score.Posted}}</td>
+          <td class="num">{{if .Score.HasRate}}{{printf "%.0f%%" .Score.FirstPass}}{{else}}<span class="note">not yet</span>{{end}}</td>
+          <td><span class="chip {{.Chip}}">{{.State}}</span></td></tr>
+    {{else}}
+      <tr><td colspan="5" class="empty">Nobody is assigned to this desk.</td></tr>
+    {{end}}</tbody>
+  </table>
+  </div>
+</div>
+
+{{if .Commitments}}
+<div class="panel">
+  <h2>Its commitments</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Commitment</th><th class="num">Used</th><th class="num">Paid and idle</th><th class="tight">Expires</th></tr></thead>
+    <tbody>{{range .Commitments}}
+      <tr><td>{{.Name}}<span class="sub">{{.Note}}</span></td>
+          <td class="num {{if .BelowWaterline}}up{{end}}">{{printf "%.1f%%" .Used}}</td>
+          <td class="num {{if .Wasted}}up{{end}}">{{.Wasted}}</td>
+          <td class="tight">{{.Expires}}</td></tr>
+    {{end}}</tbody>
+  </table>
+  </div>
+</div>
+{{end}}
+{{end}}

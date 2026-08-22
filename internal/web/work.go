@@ -300,11 +300,23 @@ func (s *Server) staff(w http.ResponseWriter, r *http.Request) {
 	for _, a := range roster {
 		rows = append(rows, staffRow{a, scores[a.Name], agentChip(a.State)})
 	}
+	srt := readSort(r, "name", false)
+	applySort(rows, srt, map[string]func(a, b staffRow) int{
+		"name":     func(a, b staffRow) int { return cmpString(a.Name, b.Name) },
+		"desk":     func(a, b staffRow) int { return cmpString(a.Desk, b.Desk) },
+		"open":     func(a, b staffRow) int { return cmpInt(a.Score.Open, b.Score.Open) },
+		"posted":   func(a, b staffRow) int { return cmpInt(a.Score.Posted, b.Score.Posted) },
+		"returned": func(a, b staffRow) int { return cmpInt(a.Score.Returned, b.Score.Returned) },
+		"rate":     func(a, b staffRow) int { return cmpFloat(a.Score.FirstPass, b.Score.FirstPass) },
+		"spent":    func(a, b staffRow) int { return cmpInt64(int64(a.Score.Spent), int64(b.Score.Spent)) },
+		"state":    func(a, b staffRow) int { return cmpString(a.State, b.State) },
+	}, "name")
 	s.render(w, tplStaff, struct {
 		shell
 		Rows   []staffRow
 		CanAct bool
-	}{s.shellFor(r, "Crew", "staff"), rows, u.May("operator")})
+		Sort   sortSpec
+	}{s.shellFor(r, "Crew", "staff"), rows, u.May("operator"), srt})
 }
 
 func (s *Server) analyst(w http.ResponseWriter, r *http.Request) {
