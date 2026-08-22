@@ -162,9 +162,67 @@ NOT verified, and not claimed:
   answers `{"kind":"no_environment"}` with 422, and `money_runs` the same.
   Registering these agents with idryx is a separate piece of work and idryx is
   not running here.
-- **tokenfuse**: cannot work as a log integration at all. It is a proxy in the
-  request path, and this console's agents make no model calls: their spend is a
-  fixture. **The guards in this console are therefore records and not limits**,
-  which is why `budget_exhausted` is refused above. TokenFuse is the thing that
-  would make a guard bite, and connecting it means giving these agents real
-  calls to make, which is a different piece of work.
+## TokenFuse, and a correction
+
+Twice in this session I wrote that TokenFuse could not be connected until this
+console's agents made real model calls. **That was wrong**, and it was wrong
+because it came from reading the README rather than the code.
+
+TokenFuse's control plane carries budgets ABOVE the run:
+`POST /v1/units/{unit}/budget` takes `{"budget_usd": N}` and needs no run to
+exist, and gateways poll `/v1/unit-budgets` every three seconds. Its identity
+map binds a credential to the agents it may speak as, and those agents to a
+unit. That is this console's model exactly: agents, desks and teams, with a
+monthly budget per team.
+
+So the useful division is: **this console is where a budget is DECIDED, and
+TokenFuse is where it is ENFORCED.** Pushing one turns a record into a limit,
+before any call is ever made.
+
+Verified on 2026-08-22, against `tokenfuse-cloud` on loopback with the dev
+credential, and no model call anywhere near it: ten team budgets planned,
+nothing sent, control plane still `{}`; then applied, and read back from the
+far end matching to the cent.
+
+### Why this one is built differently from the other three
+
+heraldyx, trailryx and genaryx all PULL from a file. This one makes an HTTP
+call that CHANGES the number a gateway uses to decide whether to refuse a call.
+A budget pushed too low stops real traffic. That is a different risk class and
+it gets a different design:
+
+- off unless an address and a key are configured, and the key is read from the
+  environment and never written anywhere;
+- planning sends NOTHING, and the test for that watches the far end rather
+  than a return value;
+- a budget going DOWN is counted separately and labelled, because that is the
+  direction that stops work;
+- nothing is ever deleted: raise, lower or add, but removing a budget is a
+  decision about somebody else's system;
+- and the approval binds to the diff it was given for.
+
+That last one was a real hole, found by trying to break it rather than by
+reading it. The first version was a two-step that RE-PLANNED on the second
+step, so a person could read one diff, think about it, and send another, with
+nothing anywhere saying so. A plan now prints a fingerprint and the apply
+takes it back:
+
+```
+$ enforce -cloud http://127.0.0.1:8791
+  ... the diff ...
+  Nothing was sent. To send exactly this and nothing else:
+    enforce -apply 151b53cce6d9
+
+$ # somebody changes a budget by hand
+$ enforce -cloud http://127.0.0.1:8791 -apply 151b53cce6d9
+  enforce: this is not the plan that was approved: it was shown as
+  151b53cce6d9 and is now a68bf415d2cb.
+```
+
+### What it deliberately does not push
+
+Per-agent budgets, though this console has them. TokenFuse binds an agent to a
+unit through its identity map, and which credential may speak as which agent is
+a decision made there, inside the perimeter the operator runs. Writing that map
+from here would be this console asserting an identity binding it has no way to
+verify.
