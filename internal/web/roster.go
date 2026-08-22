@@ -2,8 +2,10 @@ package web
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 
+	"github.com/TAIPANBOX/costcrew/internal/auth"
 	"github.com/TAIPANBOX/costcrew/internal/crew"
 	"github.com/TAIPANBOX/costcrew/internal/engines"
 	"github.com/TAIPANBOX/costcrew/internal/money"
@@ -224,4 +226,113 @@ func (s *Server) delegation(operator, analyst string) []string {
 		return nil
 	}
 	return s.delegate(operator, analyst)
+}
+
+// ------------------------------------------- removing and moving an analyst
+
+// mayManage says whether this account may remove or move this analyst.
+//
+// The OWNER, not merely an operator. Hiring an agent is taking responsibility
+// for what it spends, and the console records who did it; letting anybody with
+// the operator role delete somebody else's agent would make that record
+// meaningless. An admin is included because an admin has to be able to clean
+// up after somebody who has left, and that is exactly the case where the owner
+// cannot act.
+func mayManage(u *auth.User, a crew.Analyst) bool {
+	if u == nil {
+		return false
+	}
+	if u.May("admin") {
+		return true
+	}
+	return u.May("operator") && a.Owner == u.Username
+}
+
+func (s *Server) removeAnalyst(w http.ResponseWriter, r *http.Request) {
+	u := s.guard(w, r)
+	if u == nil {
+		return
+	}
+	name := r.PathValue("name")
+	back := "/staff/" + name
+	if !s.checked(w, r, back, u) {
+		return
+	}
+	a, err := crew.GetAnalyst(s.db, name)
+	if err != nil {
+		http.Error(w, "no such analyst", http.StatusNotFound)
+		return
+	}
+	if !mayManage(u, a) {
+		redirectMsg(w, r, back, "only "+a.Owner+", who hired it, or an admin may take it off the roster")
+		return
+	}
+	// The name typed out, for the same reason the accounts page asks for it:
+	// this is one click from every other control on the page.
+	if r.PostFormValue("confirm") != name {
+		redirectMsg(w, r, back, "to take an analyst off the roster, type its name in the box")
+		return
+	}
+	if err := crew.Remove(s.db, name, u.Username); err != nil {
+		redirectMsg(w, r, back, err.Error())
+		return
+	}
+	if s.rec != nil {
+		_ = s.rec.Emit("agent_removed", name, "info", map[string]any{
+			"analyst": name, "desk": a.Desk, "owner": a.Owner, "removed_by": u.Username,
+		}, s.delegation(u.Username, name))
+	}
+	// The passports are republished so the identity graph stops being told
+	// about an agent this installation no longer has.
+	s.publishPassports()
+	redirectMsg(w, r, "/staff", a.Name+" is off the roster. What it did stays on the board and in the journal.")
+}
+
+func (s *Server) transferAnalyst(w http.ResponseWriter, r *http.Request) {
+	u := s.guard(w, r)
+	if u == nil {
+		return
+	}
+	name := r.PathValue("name")
+	back := "/staff/" + name
+	if !s.checked(w, r, back, u) {
+		return
+	}
+	a, err := crew.GetAnalyst(s.db, name)
+	if err != nil {
+		http.Error(w, "no such analyst", http.StatusNotFound)
+		return
+	}
+	if !mayManage(u, a) {
+		redirectMsg(w, r, back, "only "+a.Owner+", who hired it, or an admin may move it")
+		return
+	}
+	toDesk := r.PostFormValue("desk")
+	toOwner := strings.TrimSpace(r.PostFormValue("owner"))
+	toParent := r.PostFormValue("parent")
+	// An owner has to be an account that exists. Handing an agent to a name
+	// nobody can sign in as is handing it to nobody.
+	if toOwner != "" && toOwner != a.Owner {
+		if who, err := s.au.Get(toOwner); err != nil || who == nil {
+			redirectMsg(w, r, back, "there is no account called "+toOwner+
+				", and an agent owned by nobody is an agent nobody answers for")
+			return
+		}
+	}
+	moved, err := crew.Transfer(s.db, name, toDesk, toOwner, toParent, u.Username)
+	if err != nil {
+		redirectMsg(w, r, back, err.Error())
+		return
+	}
+	if s.rec != nil {
+		_ = s.rec.Emit("agent_transferred", name, "info", map[string]any{
+			"analyst": name, "from_desk": a.Desk, "to_desk": toDesk,
+			"from_owner": a.Owner, "to_owner": toOwner,
+			"open_tasks_moved": moved, "moved_by": u.Username,
+		}, s.delegation(u.Username, name))
+	}
+	s.publishPassports()
+	msg := "moved. " + strconv.Itoa(moved) + " open " + plural(moved, "task", "tasks") +
+		" moved with it; work already charged stays where it was charged."
+	redirectMsg(w, r, back, msg)
 }

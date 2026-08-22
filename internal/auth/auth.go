@@ -442,7 +442,10 @@ func (s Summary) LastLoginText() string {
 	if !s.LastLogin.Valid || s.LastLogin.Float64 == 0 {
 		return ""
 	}
-	return time.Unix(int64(s.LastLogin.Float64), 0).UTC().Format(time.RFC3339)
+	// The same shape as every other timestamp the console prints. RFC 3339
+	// with its T and its Z is a machine's format, and this column is read by a
+	// person deciding whether an account is still in use.
+	return time.Unix(int64(s.LastLogin.Float64), 0).UTC().Format("2006-01-02 15:04")
 }
 
 func (a *Auth) List() ([]Summary, error) {
@@ -484,5 +487,54 @@ func (a *Auth) SetRole(username, role string) error {
 	}
 	_, err = a.st.Journal("user_role_changed", 0, map[string]any{
 		"username": username, "role": role})
+	return err
+}
+
+// Delete removes an account.
+//
+// It refuses three things, and each refusal is the difference between a
+// mistake and an outage:
+//
+//   - the last admin, because an installation with no admin cannot be managed
+//     by anybody and the only fix is the database;
+//   - an account that does not exist, said plainly rather than silently
+//     succeeding, because "deleted" and "was never there" look identical to a
+//     caller and only one of them means the operator typed the right name;
+//   - nothing else. Deleting yourself is a decision the handler makes, not
+//     this function: it is about who is signed in, which auth here does not
+//     know.
+//
+// What it does NOT touch is the journal. The chain is the record of what
+// happened, and an account being removed does not unhappen the things it did.
+// Its sessions go, because a signed-in session for an account that no longer
+// exists is the definition of a stale credential.
+func (a *Auth) Delete(username string) error {
+	username = strings.TrimSpace(username)
+	u, err := a.Get(username)
+	if err != nil {
+		return err
+	}
+	if u == nil {
+		return fmt.Errorf("no such account: %q", username)
+	}
+	if u.Role == "admin" {
+		admins, err := a.CountRole("admin")
+		if err != nil {
+			return err
+		}
+		if admins <= 1 {
+			return errors.New("this is the only admin: promote somebody else first, " +
+				"or the installation has nobody who can manage it")
+		}
+	}
+	if _, err := a.st.DB().Exec(`DELETE FROM sessions WHERE username=?`, username); err != nil {
+		return err
+	}
+	if _, err := a.st.DB().Exec(`DELETE FROM users WHERE username=?`, username); err != nil {
+		return err
+	}
+	_, err = a.st.Journal("user_removed", 0, map[string]any{
+		"username": username, "role": u.Role,
+	})
 	return err
 }

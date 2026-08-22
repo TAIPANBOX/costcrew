@@ -111,6 +111,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /staff/{name}", s.analyst)
 	s.mux.HandleFunc("GET /staff/{name}/passport.json", s.analystPassport)
 	s.mux.HandleFunc("GET /staff/{name}/edit", s.rebriefPage)
+	s.mux.HandleFunc("POST /staff/{name}/remove", s.removeAnalyst)
+	s.mux.HandleFunc("POST /staff/{name}/transfer", s.transferAnalyst)
 	s.mux.HandleFunc("POST /staff/{name}/update", s.rebrief)
 	s.mux.HandleFunc("POST /staff/{name}/state", s.setAnalystState)
 
@@ -138,6 +140,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /accounts", s.accounts)
 	s.mux.HandleFunc("POST /accounts/create", s.accountAction("create"))
 	s.mux.HandleFunc("POST /accounts/role", s.accountAction("role"))
+	s.mux.HandleFunc("POST /accounts/remove", s.accountAction("remove"))
 	s.mux.HandleFunc("GET /audit", s.audit)
 
 	s.mux.HandleFunc("GET /kpis", s.kpis)

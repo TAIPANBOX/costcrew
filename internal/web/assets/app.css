@@ -387,3 +387,12 @@ ul.cannot li { margin: 0 0 6px; max-width: 60ch; }
 .bar .fill { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
 .bar .fill.over { background: var(--up); }
 td.detail { font-size: 12px; color: var(--muted); }
+
+/* A destructive control looks destructive, and only there.
+   It is quiet rather than loud: a red button beside every row invites the
+   click it is trying to make deliberate. */
+button.danger {
+  background: transparent; color: var(--up);
+  border: 1px solid var(--up); font-weight: 600;
+}
+button.danger:hover { background: var(--up-bg); }

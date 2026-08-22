@@ -22,6 +22,7 @@ import (
 	"github.com/TAIPANBOX/costcrew/internal/estate"
 	"github.com/TAIPANBOX/costcrew/internal/finops"
 	"github.com/TAIPANBOX/costcrew/internal/history"
+	"github.com/TAIPANBOX/costcrew/internal/money"
 	"github.com/TAIPANBOX/costcrew/internal/store"
 	"github.com/TAIPANBOX/costcrew/internal/web"
 	"github.com/TAIPANBOX/costcrew/internal/world"
@@ -162,6 +163,25 @@ func (h *harness) post(t *testing.T, path string, form url.Values) (int, string)
 	}
 	defer resp.Body.Close()
 	return resp.StatusCode, resp.Header.Get("Location")
+}
+
+// as returns a second client signed in as somebody else, so a test can check
+// what a role may do rather than what a function allows.
+func (h *harness) as(t *testing.T, user, pw string) *harness {
+	t.Helper()
+	other := &harness{srv: h.srv, au: h.au, st: h.st, c: &http.Client{
+		Jar: newJar(t),
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}}
+	code, loc := other.post(t, "/login", url.Values{
+		"username": {user}, "password": {pw}, "csrf": {other.csrf(t, "/login")},
+	})
+	if code != http.StatusSeeOther || strings.Contains(loc, "msg=") {
+		t.Fatalf("signing in as %s: %d %s", user, code, loc)
+	}
+	return other
 }
 
 func (h *harness) signUp(t *testing.T, user, pw string) {
@@ -1520,5 +1540,290 @@ func TestNotEveryKPIPasses(t *testing.T) {
 	}
 	if !strings.Contains(crew[1], "return of") {
 		t.Error("the crew-cost KPI does not say what it returned, so its verdict cannot be checked")
+	}
+}
+
+// ------------------------------------------------------ removing an account
+
+// Removing an account is an admin's job, it needs the name typed, and there
+// are two accounts it must always refuse.
+func TestRemovingAnAccount(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+	if err := h.au.SetRole("owner", "admin"); err != nil {
+		t.Fatal(err)
+	}
+	for _, who := range []struct{ name, role string }{
+		{"reader", "viewer"}, {"hand", "operator"}, {"second", "admin"},
+	} {
+		if ok, err := h.au.Create(who.name, who.name+"-password-2026", who.role); err != nil || !ok {
+			t.Fatalf("creating %s: %v %v", who.name, ok, err)
+		}
+	}
+
+	// The name has to be typed. A button on its own is one misclick from an
+	// outage, and a confirm dialog is one click nobody reads.
+	if _, loc := h.post(t, "/accounts/remove", url.Values{
+		"username": {"reader"}, "csrf": {h.csrf(t, "/accounts")},
+	}); !strings.Contains(loc, "type+its+name") {
+		t.Errorf("removing without typing the name was not refused: %s", loc)
+	}
+	if u, _ := h.au.Get("reader"); u == nil {
+		t.Fatal("the account was removed without the name being typed")
+	}
+
+	// Typed, and gone.
+	if _, loc := h.post(t, "/accounts/remove", url.Values{
+		"username": {"reader"}, "confirm": {"reader"}, "csrf": {h.csrf(t, "/accounts")},
+	}); strings.Contains(loc, "msg=") {
+		t.Fatalf("removing was refused: %s", loc)
+	}
+	if u, err := h.au.Get("reader"); err != nil || u != nil {
+		t.Error("the account is still there after being removed")
+	}
+
+	// Not yourself, however admin you are.
+	if _, loc := h.post(t, "/accounts/remove", url.Values{
+		"username": {"owner"}, "confirm": {"owner"}, "csrf": {h.csrf(t, "/accounts")},
+	}); !strings.Contains(loc, "signed+in+as") {
+		t.Errorf("removing your own account was not refused: %s", loc)
+	}
+
+	// And not the last admin. With "owner" and "second" both admins, removing
+	// "second" is allowed; once it is gone, "owner" is the only one left, and
+	// the guard is the one that stops an installation nobody can manage.
+	if _, loc := h.post(t, "/accounts/remove", url.Values{
+		"username": {"second"}, "confirm": {"second"}, "csrf": {h.csrf(t, "/accounts")},
+	}); strings.Contains(loc, "msg=") {
+		t.Fatalf("removing the second admin was refused: %s", loc)
+	}
+	if err := h.au.Delete("owner"); err == nil {
+		t.Error("the last admin was removed, and now nobody can manage this installation")
+	}
+
+	// The chain still records what the removed account did.
+	tail, _ := h.st.JournalTail(200)
+	var removed bool
+	for _, r := range tail {
+		if r.Event == "user_removed" && r.Data["username"] == "reader" {
+			removed = true
+		}
+	}
+	if !removed {
+		t.Error("the removal is not in the journal")
+	}
+}
+
+// An operator may act. It may not hand somebody else the ability to, and it
+// may not take it away either.
+func TestAnOperatorCannotRemoveAnAccount(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+	if ok, err := h.au.Create("hand", "hand-password-2026", "operator"); err != nil || !ok {
+		t.Fatal(err)
+	}
+	if ok, err := h.au.Create("reader", "reader-password-2026", "viewer"); err != nil || !ok {
+		t.Fatal(err)
+	}
+	op := h.as(t, "hand", "hand-password-2026")
+
+	if _, loc := op.post(t, "/accounts/remove", url.Values{
+		"username": {"reader"}, "confirm": {"reader"}, "csrf": {op.csrf(t, "/accounts")},
+	}); !strings.Contains(loc, "admin") {
+		t.Errorf("an operator removed an account: %s", loc)
+	}
+	if u, _ := h.au.Get("reader"); u == nil {
+		t.Error("the account is gone, removed by an operator")
+	}
+}
+
+// --------------------------------------------- removing and moving an agent
+
+// Only the owner, or an admin. An operator who did not hire it may not delete
+// somebody else's agent: hiring one is taking responsibility for what it
+// spends, and the console records who did, which would mean nothing if anybody
+// with the operator role could undo it.
+func TestOnlyTheOwnerOrAnAdminMayRemoveAnAgent(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+	if ok, err := h.au.Create("hand", "hand-password-2026", "operator"); err != nil || !ok {
+		t.Fatal(err)
+	}
+
+	// An analyst owned by "owner" with nothing open, so the only thing that
+	// can refuse the removal is the rule under test.
+	a := crew.Analyst{
+		Name: "night-desk", Role: "after-hours variance", Desk: "aws",
+		Engine: "kimi-standard", State: "active", Skills: []string{"anomaly-triage"},
+		PerTask: money.Cents(1500), Monthly: money.Cents(4000),
+		Cadence: "daily", Audience: "the desk", Owner: "owner",
+		Parent: "supervisor", Attestation: "none", Hired: "2026-08-01",
+	}
+	if err := crew.Hire(h.st.DB(), a); err != nil {
+		t.Fatal(err)
+	}
+
+	other := h.as(t, "hand", "hand-password-2026")
+	if _, loc := other.post(t, "/staff/night-desk/remove", url.Values{
+		"confirm": {"night-desk"}, "csrf": {other.csrf(t, "/staff/night-desk")},
+	}); !strings.Contains(loc, "who+hired+it") {
+		t.Errorf("an operator who does not own the agent removed it: %s", loc)
+	}
+	if _, err := crew.GetAnalyst(h.st.DB(), "night-desk"); err != nil {
+		t.Fatal("the agent is gone, removed by somebody who does not own it")
+	}
+
+	// The owner may, once the name is typed.
+	if _, loc := h.post(t, "/staff/night-desk/remove", url.Values{
+		"csrf": {h.csrf(t, "/staff/night-desk")},
+	}); !strings.Contains(loc, "type+its+name") {
+		t.Errorf("removing without typing the name was not refused: %s", loc)
+	}
+	if _, loc := h.post(t, "/staff/night-desk/remove", url.Values{
+		"confirm": {"night-desk"}, "csrf": {h.csrf(t, "/staff/night-desk")},
+	}); strings.Contains(loc, "msg=only") {
+		t.Fatalf("the owner was refused: %s", loc)
+	}
+	if _, err := crew.GetAnalyst(h.st.DB(), "night-desk"); err == nil {
+		t.Error("the owner removed it and it is still on the roster")
+	}
+}
+
+// An agent with open work is not removed, because the work would outlive it.
+func TestAnAgentWithOpenWorkIsNotRemoved(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+
+	// Somebody on the seeded roster who has open work.
+	roster, err := crew.Roster(h.st.DB())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var name string
+	for _, a := range roster {
+		if n, _ := crew.OpenWork(h.st.DB(), a.Name); n > 0 && a.Name != "supervisor" {
+			name = a.Name
+			break
+		}
+	}
+	if name == "" {
+		t.Skip("nobody on this roster has open work")
+	}
+	if _, loc := h.post(t, "/staff/"+name+"/remove", url.Values{
+		"confirm": {name}, "csrf": {h.csrf(t, "/staff/"+name)},
+	}); !strings.Contains(loc, "open") {
+		t.Errorf("an agent with open work was removed: %s", loc)
+	}
+	if _, err := crew.GetAnalyst(h.st.DB(), name); err != nil {
+		t.Error("the agent is gone and its open work is charged to a name nobody can open")
+	}
+}
+
+// A transfer moves the agent and its OPEN work, and leaves what was already
+// charged where it was charged.
+//
+// The second half is the design decision, not an omission: a closed month has
+// been invoiced, and moving money out of one after a team was told what it
+// owed is what the chargeback page exists to prevent.
+func TestATransferMovesOpenWorkAndLeavesChargedWorkAlone(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+
+	roster, err := crew.Roster(h.st.DB())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var name, from string
+	for _, a := range roster {
+		if n, _ := crew.OpenWork(h.st.DB(), a.Name); n > 0 && a.Desk != "gcp" {
+			name, from = a.Name, a.Desk
+			break
+		}
+	}
+	if name == "" {
+		t.Skip("nobody on this roster has open work off the gcp desk")
+	}
+	count := func(desk, states string) int {
+		var n int
+		_ = h.st.DB().QueryRow(`SELECT COUNT(*) FROM tasks WHERE assignee=? AND desk=?
+			AND state `+states, name, desk).Scan(&n)
+		return n
+	}
+	openBefore := count(from, `IN ('queued','active','blocked','returned')`)
+	chargedBefore := count(from, `NOT IN ('queued','active','blocked','returned')`)
+
+	if _, loc := h.post(t, "/staff/"+name+"/transfer", url.Values{
+		"desk": {"gcp"}, "csrf": {h.csrf(t, "/staff/"+name)},
+	}); strings.Contains(loc, "msg=only") || strings.Contains(loc, "nothing+would") {
+		t.Fatalf("the transfer was refused: %s", loc)
+	}
+
+	a, err := crew.GetAnalyst(h.st.DB(), name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.Desk != "gcp" {
+		t.Errorf("%s is still on the %s desk", name, a.Desk)
+	}
+	if moved := count("gcp", `IN ('queued','active','blocked','returned')`); moved != openBefore {
+		t.Errorf("%d open tasks moved, %d were open before", moved, openBefore)
+	}
+	if left := count(from, `NOT IN ('queued','active','blocked','returned')`); left != chargedBefore {
+		t.Errorf("work already charged to %s changed: %d rows, was %d. "+
+			"A closed month has been invoiced and must not move.", from, left, chargedBefore)
+	}
+	if stillOpen := count(from, `IN ('queued','active','blocked','returned')`); stillOpen != 0 {
+		t.Errorf("%d open tasks stayed on %s after the agent left it", stillOpen, from)
+	}
+}
+
+// Moving desks moves who it answers to, when that was the desk's own partner.
+//
+// Left alone, the chain said an agent on the gcp desk reported to the aws
+// partner: a claim nobody made, on the page whose whole job is showing who
+// acts for whom. A parent somebody CHOSE is a decision, and a transfer does
+// not overwrite decisions it was not asked about, so only the desk default
+// follows the desk.
+func TestMovingDeskMovesTheDefaultParent(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+
+	a := crew.Analyst{
+		Name: "night-desk", Role: "night watch", Desk: "aws", Engine: "kimi-standard",
+		State: "active", Skills: []string{"anomaly-triage"},
+		PerTask: money.Cents(1200), Monthly: money.Cents(9000),
+		Cadence: "daily", Audience: "the morning shift", Owner: "owner",
+		Parent: "partner-aws", Attestation: "oidc", Hired: "2026-08-22",
+	}
+	if err := crew.Hire(h.st.DB(), a); err != nil {
+		t.Fatal(err)
+	}
+	if _, loc := h.post(t, "/staff/night-desk/transfer", url.Values{
+		"desk": {"gcp"}, "csrf": {h.csrf(t, "/staff/night-desk")},
+	}); strings.Contains(loc, "msg=only") {
+		t.Fatalf("the transfer was refused: %s", loc)
+	}
+	got, err := crew.GetAnalyst(h.st.DB(), "night-desk")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Parent != "partner-gcp" {
+		t.Errorf("on the gcp desk it answers to %q", got.Parent)
+	}
+
+	// A chosen parent survives a later move.
+	if _, loc := h.post(t, "/staff/night-desk/transfer", url.Values{
+		"desk": {"azure"}, "parent": {"forecaster"}, "csrf": {h.csrf(t, "/staff/night-desk")},
+	}); strings.Contains(loc, "msg=only") {
+		t.Fatalf("the second transfer was refused: %s", loc)
+	}
+	if _, loc := h.post(t, "/staff/night-desk/transfer", url.Values{
+		"desk": {"onprem"}, "csrf": {h.csrf(t, "/staff/night-desk")},
+	}); strings.Contains(loc, "msg=only") {
+		t.Fatalf("the third transfer was refused: %s", loc)
+	}
+	got, _ = crew.GetAnalyst(h.st.DB(), "night-desk")
+	if got.Parent != "forecaster" {
+		t.Errorf("a chosen parent was overwritten by a desk move: it now answers to %q", got.Parent)
 	}
 }

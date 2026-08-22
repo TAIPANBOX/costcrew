@@ -2,6 +2,7 @@ package crew
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -316,4 +317,165 @@ func ActiveNames(db *sql.DB) ([]string, error) {
 		}
 	}
 	return out, nil
+}
+
+// ------------------------------------------------------ removing an analyst
+
+// ErrHasWork is returned when an analyst still has work on the board.
+var ErrHasWork = errors.New("this analyst still has open work")
+
+// OpenWork counts what an analyst still owes, so a caller can say what has to
+// happen before it can be removed rather than just refusing.
+func OpenWork(db *sql.DB, name string) (int, error) {
+	var n int
+	err := db.QueryRow(`SELECT COUNT(*) FROM tasks
+		WHERE assignee = ? AND state IN ('queued','active','blocked','returned')`, name).Scan(&n)
+	return n, err
+}
+
+// Remove takes an analyst off the roster.
+//
+// Three things it refuses, and each is a way a console loses track of money:
+//
+//   - an analyst with open work. The work does not disappear with it, it
+//     becomes work assigned to a name nobody can open, and the crew page then
+//     reports spend against an agent that is not on the roster. Reassign or
+//     transfer first, and the error says which.
+//   - an analyst that other analysts act under. Removing it orphans them, and
+//     a delegation chain with a missing link is a chain that proves nothing.
+//   - the supervisor, which every default parent points at.
+//
+// What it does NOT do is delete the analyst's history. Its finished tasks, its
+// artifacts and its journal entries stay exactly where they are: an agent
+// being taken off the rota does not unspend what it spent, and a console that
+// tidied that away would be one whose totals changed when somebody resigned.
+func Remove(db *sql.DB, name, by string) error {
+	if _, err := GetAnalyst(db, name); err != nil {
+		return err
+	}
+	if name == "supervisor" {
+		return errors.New("the supervisor is what every other analyst acts under; " +
+			"removing it would orphan the whole crew")
+	}
+	open, err := OpenWork(db, name)
+	if err != nil {
+		return err
+	}
+	if open > 0 {
+		return fmt.Errorf("%w: %d open %s. Reassign or close them first, "+
+			"or the board will hold work charged to a name nobody can open",
+			ErrHasWork, open, plural(open, "task", "tasks"))
+	}
+	var children int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM analysts WHERE parent = ?`, name).
+		Scan(&children); err != nil {
+		return err
+	}
+	if children > 0 {
+		return fmt.Errorf("%d %s act under this one. Move them first: a delegation "+
+			"chain with a missing link proves nothing",
+			children, plural(children, "analyst", "analysts"))
+	}
+	if _, err := db.Exec(`DELETE FROM analysts WHERE name = ?`, name); err != nil {
+		return err
+	}
+	return nil
+}
+
+func plural(n int, one, many string) string {
+	if n == 1 {
+		return one
+	}
+	return many
+}
+
+// ----------------------------------------------------------- transferring
+
+// Transfer moves an analyst to another desk, another owner, or both.
+//
+// What moves with it is its OPEN work. Its finished work does not.
+//
+// That split is the whole design decision here, and it is not a shortcut. A
+// closed month has been charged: the chargeback page exists to stop an
+// allocation moving after somebody was told what they owed, and re-attributing
+// a finished task would move money out of a period that has been frozen and
+// invoiced. So the past stays where it was charged, the open work follows the
+// agent, and the agent's card shows both figures rather than one that quietly
+// spans two owners.
+//
+// The transfer itself is recorded, so the card can say when the split
+// happened and a reader is never left to guess which desk a number belongs to.
+func Transfer(db *sql.DB, name, toDesk, toOwner, toParent, by string) (moved int, err error) {
+	a, err := GetAnalyst(db, name)
+	if err != nil {
+		return 0, err
+	}
+	if toDesk == "" {
+		toDesk = a.Desk
+	}
+	if toOwner == "" {
+		toOwner = a.Owner
+	}
+	if toDesk == a.Desk && toOwner == a.Owner && (toParent == "" || toParent == a.Parent) {
+		return 0, errors.New("nothing would change: pick a different desk, owner or parent")
+	}
+	if toParent == name {
+		return 0, errors.New("an analyst cannot act under itself")
+	}
+	if toParent != "" && toParent != a.Parent {
+		p, err := GetAnalyst(db, toParent)
+		if err != nil {
+			return 0, fmt.Errorf("no analyst called %q to act under", toParent)
+		}
+		// One hop is enough to catch the loop that actually happens: A under
+		// B, then B under A. A deeper cycle needs a walk, and the roster is
+		// shallow by construction.
+		if p.Parent == name {
+			return 0, fmt.Errorf("%s already acts under %s: that would be a loop", toParent, name)
+		}
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+
+	parent := a.Parent
+	switch {
+	case toParent != "":
+		parent = toParent
+	case toDesk != a.Desk && parent == "partner-"+a.Desk:
+		// It answered to its old desk's partner, and it is not on that desk
+		// any more. Left alone, the delegation chain would say an agent on the
+		// gcp desk reports to the aws partner, which is a claim nobody made.
+		//
+		// Only when the parent was exactly the old desk's partner: a parent
+		// somebody chose is a decision, and a transfer does not get to
+		// overwrite decisions it was not asked about.
+		var exists int
+		if err := tx.QueryRow(`SELECT COUNT(*) FROM analysts WHERE name = ?`,
+			"partner-"+toDesk).Scan(&exists); err == nil && exists > 0 {
+			parent = "partner-" + toDesk
+		} else {
+			parent = "supervisor"
+		}
+	}
+	if _, err := tx.Exec(`UPDATE analysts SET desk=?, owner=?, parent=? WHERE name=?`,
+		toDesk, toOwner, nullIf(parent), name); err != nil {
+		return 0, err
+	}
+	// Open work follows. Its desk moves with it, because a task's desk is
+	// where its cost is charged and the work is now being done somewhere else.
+	res, err := tx.Exec(`UPDATE tasks SET desk = ?
+		WHERE assignee = ? AND state IN ('queued','active','blocked','returned')`,
+		toDesk, name)
+	if err != nil {
+		return 0, err
+	}
+	n, _ := res.RowsAffected()
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	return int(n), nil
 }

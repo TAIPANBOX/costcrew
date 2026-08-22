@@ -299,6 +299,38 @@ func (s *Server) analyst(w http.ResponseWriter, r *http.Request) {
 		rights = append(rights, struct{ Right, Means string }{right, means})
 	}
 
+	// What the desks list looks like on the transfer form, and who could own
+	// it. Both are read live rather than from the fixture, so an account
+	// created this morning can be handed an agent this morning.
+	accounts, _ := s.au.List()
+	owners := make([]string, 0, len(accounts))
+	for _, x := range accounts {
+		owners = append(owners, x.Username)
+	}
+	others := make([]string, 0, len(roster))
+	for _, o := range roster {
+		if o.Name != a.Name {
+			others = append(others, o.Name)
+		}
+	}
+	openWork, _ := crew.OpenWork(s.db, name)
+
+	// Work this agent did on a desk it is no longer on. After a transfer its
+	// finished tasks stay charged where they were, and a card that showed one
+	// total would be quietly spanning two owners.
+	elsewhere := map[string]money.Cents{}
+	if rows, err := s.db.Query(`SELECT COALESCE(desk,''), COALESCE(SUM(spent_cents),0)
+		FROM tasks WHERE assignee = ? GROUP BY 1`, name); err == nil {
+		for rows.Next() {
+			var d string
+			var v int64
+			if rows.Scan(&d, &v) == nil && d != a.Desk && v > 0 {
+				elsewhere[d] = money.Cents(v)
+			}
+		}
+		rows.Close()
+	}
+
 	sc := scores[name]
 	// What its work has cost against what it was allowed, as a percentage, so
 	// the bar on the page is a real proportion and not a guess.
@@ -328,9 +360,17 @@ func (s *Server) analyst(w http.ResponseWriter, r *http.Request) {
 		GuardUsed float64
 		Host      string
 		CanAct    bool
+		MayManage bool
+		Desks     []string
+		Owners    []string
+		Others    []string
+		OpenWork  int
+		Elsewhere map[string]money.Cents
 	}{s.shellFor(r, a.Name, "staff"), a, sc, agentChip(a.State),
 		views(ts), caused, handled, events, children, rhythm, rights, cannotEver,
-		engine, doc, docJSON, spend, month, guardUsed, s.host, u.May("operator")})
+		engine, doc, docJSON, spend, month, guardUsed, s.host, u.May("operator"),
+		mayManage(u, a), append(deskNames(), "management"), owners, others,
+		openWork, elsewhere})
 }
 
 // analystPassport serves the document itself.

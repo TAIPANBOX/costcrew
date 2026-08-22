@@ -341,3 +341,38 @@ func mustCents(s string) money.Cents {
 	c, _ := money.Parse(s)
 	return c
 }
+
+// The passport's owner is the account that answers for the agent.
+//
+// It carried the installation's own owner flag, so the document said one name
+// while the card's "hired by" said another, six lines apart. A transfer of
+// ownership has to show up in the document, or the identity graph downstream
+// keeps naming somebody who handed the agent on months ago.
+func TestThePassportNamesWhoAnswersForTheAgent(t *testing.T) {
+	dir := t.TempDir()
+	em, err := stack.Open(stack.Config{
+		EventsPath: filepath.Join(dir, "e.ndjson"), PassportDir: filepath.Join(dir, "p"),
+		Host: "costcrew.local", Owner: "the-installation", Attestation: "none",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer em.Close()
+
+	a := crew.Analyst{Name: "night-desk", Role: "night watch", Desk: "aws",
+		State: "active", Owner: "tania", Hired: "2026-08-22"}
+	if got := em.PassportFor(a).Owner; got != "tania" {
+		t.Errorf("the passport says %q answers for it; the roster says tania hired it", got)
+	}
+	// Handed on. The document has to follow.
+	a.Owner = "yurii"
+	if got := em.PassportFor(a).Owner; got != "yurii" {
+		t.Errorf("after a transfer the passport still says %q", got)
+	}
+	// And with nobody recorded, it falls back to the installation rather than
+	// publishing a document with an empty owner, which the contract refuses.
+	a.Owner = ""
+	if got := em.PassportFor(a).Owner; got != "the-installation" {
+		t.Errorf("with no owner recorded the passport says %q", got)
+	}
+}

@@ -30,7 +30,8 @@
   <div class="body">
     <dl class="facts">
       <dt>Identity</dt><dd><code>{{.Passport.ID}}</code></dd>
-      <dt>Owner</dt><dd>{{.Passport.Owner}}</dd>
+      <dt>Answers for it</dt>
+      <dd>{{.Passport.Owner}}{{if ne .Passport.Owner .A.Owner}} <span class="sub">The roster says {{.A.Owner}} hired it. These should agree; that they do not is worth looking at.</span>{{end}}</dd>
       <dt>Acts under</dt>
       <dd>{{if .Passport.Parent}}<code>{{.Passport.Parent}}</code>{{if .A.Parent}} · <a href="/staff/{{.A.Parent}}">open {{.A.Parent}}</a>{{end}}{{else}}<span class="note">nobody, it is a root</span>{{end}}</dd>
       <dt>Attestation</dt>
@@ -206,4 +207,80 @@
   </table>
   </div>
 </div>
+
+{{if .MayManage}}
+<div class="two">
+<div class="panel">
+  <h2>Move it</h2>
+  <p class="note">Change the desk it works on, who answers for it, or who it acts under.</p>
+  <div class="body">
+    <form class="action" method="post" action="/staff/{{.A.Name}}/transfer">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <div class="row">
+        <div>
+          <label for="t-desk">Desk</label>
+          <select id="t-desk" name="desk">{{$cur := .A.Desk}}{{range .Desks}}<option value="{{.}}"{{if eq . $cur}} selected{{end}}>{{.}}</option>{{end}}</select>
+        </div>
+        <div>
+          <label for="t-owner">Owned by</label>
+          <select id="t-owner" name="owner">{{$o := .A.Owner}}{{range .Owners}}<option value="{{.}}"{{if eq . $o}} selected{{end}}>{{.}}</option>{{end}}</select>
+        </div>
+        <div>
+          <label for="t-parent">Acts under</label>
+          <select id="t-parent" name="parent">
+            <option value="">{{if .A.Parent}}{{.A.Parent}}{{else}}nobody{{end}}</option>
+            {{range .Others}}<option value="{{.}}">{{.}}</option>{{end}}
+          </select>
+        </div>
+        <button type="submit">Move</button>
+      </div>
+    </form>
+    <p class="note"><strong>{{.OpenWork}} open {{plural .OpenWork "task" "tasks"}}</strong> would move with it, and be charged to the new desk from now on.
+      Work already charged stays charged where it was: a closed month has been invoiced, and moving money out of one
+      after somebody was told what they owed is what the <a href="/chargeback">chargeback page</a> exists to prevent.</p>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Take it off the roster</h2>
+  <p class="note">Only {{.A.Owner}}, who hired it, or an admin.</p>
+  <div class="body">
+    {{if .OpenWork}}
+      <p><strong>It still has {{.OpenWork}} open {{plural .OpenWork "task" "tasks"}}.</strong>
+        Reassign or close {{if eq .OpenWork 1}}it{{else}}them{{end}} first, or the board would hold work
+        charged to a name nobody can open. <a href="/board?analyst={{.A.Name}}">See its open work</a>.</p>
+    {{else}}
+      <form class="action" method="post" action="/staff/{{.A.Name}}/remove">
+        <input type="hidden" name="csrf" value="{{.CSRF}}">
+        <div class="row">
+          <div>
+            <label for="r-confirm">Type {{.A.Name}} to confirm</label>
+            <input id="r-confirm" type="text" name="confirm" autocomplete="off" placeholder="{{.A.Name}}">
+          </div>
+          <button class="danger" type="submit">Remove</button>
+        </div>
+      </form>
+    {{end}}
+    <p class="note">What it did stays: its finished tasks, its artifacts and its journal entries are not touched.
+      An agent leaving the rota does not unspend what it spent, and a console that tidied that away
+      would be one whose totals changed when somebody resigned.</p>
+  </div>
+</div>
+</div>
+{{end}}
+
+{{if .Elsewhere}}
+<div class="panel">
+  <h2>What it cost on other desks</h2>
+  <p class="note">This agent has been moved. Work it finished before the move stays charged where it was charged, so these are not part of the {{.A.Desk}} figure above.</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Desk</th><th class="num">Charged there</th></tr></thead>
+    <tbody>{{range $desk, $amount := .Elsewhere}}
+      <tr><td><a href="/desk/{{$desk}}">{{$desk}}</a></td><td class="num">{{$amount}}</td></tr>
+    {{end}}</tbody>
+  </table>
+  </div>
+</div>
+{{end}}
 {{end}}

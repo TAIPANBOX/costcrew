@@ -228,6 +228,26 @@ func (s *Server) accountAction(kind string) http.HandlerFunc {
 				return
 			}
 			redirectMsg(w, r, back, "")
+		case "remove":
+			// Deleting an account is irreversible and one click away from the
+			// row above it, so it asks for the name to be typed. A confirm
+			// dialog somebody clicks through without reading is not a check;
+			// typing the name is, because it cannot be done by accident and it
+			// cannot be done to the wrong row.
+			if r.PostFormValue("confirm") != name {
+				redirectMsg(w, r, back,
+					"to remove an account, type its name in the box beside the button")
+				return
+			}
+			// Not yourself. It is not that it cannot be undone, it is that
+			// nobody is left holding the session that could undo it.
+			if name == u.Username {
+				redirectMsg(w, r, back,
+					"you cannot remove the account you are signed in as: "+
+						"ask another admin, or promote one first")
+				return
+			}
+			s.done(w, r, back, s.au.Delete(name))
 		case "role":
 			// Nobody demotes themselves out of the last admin seat. An
 			// installation with no admin cannot be managed by anybody, and the

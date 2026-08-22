@@ -11,7 +11,7 @@
 <div class="panel">
   <div class="scroll">
   <table>
-    <thead><tr><th>Account</th><th class="tight">Role</th><th>Last signed in</th><th></th></tr></thead>
+    <thead><tr><th>Account</th><th class="tight">Role</th><th>Last signed in</th><th>Change the role</th><th>Remove</th></tr></thead>
     <tbody>
     {{range .Users}}
       <tr>
@@ -23,9 +23,24 @@
           <form method="post" action="/accounts/role" style="display:inline-flex;gap:6px">
             <input type="hidden" name="csrf" value="{{$.CSRF}}">
             <input type="hidden" name="username" value="{{.Username}}">
-            <select name="role">{{range $.Roles}}<option value="{{.}}" {{if eq . $.Dummy}}{{end}}>{{.}}</option>{{end}}</select>
+            <select name="role">{{$row := .}}{{range $.Roles}}<option value="{{.}}"{{if eq . $row.Role}} selected{{end}}>{{.}}</option>{{end}}</select>
             <button class="quiet" type="submit">Set</button>
           </form>
+          {{end}}
+        </td>
+        <td class="tight">
+          {{if $.IsAdmin}}
+            {{if eq .Username $.Me}}
+              <span class="note">not your own</span>
+            {{else}}
+            <form method="post" action="/accounts/remove" style="display:inline-flex;gap:6px">
+              <input type="hidden" name="csrf" value="{{$.CSRF}}">
+              <input type="hidden" name="username" value="{{.Username}}">
+              <input type="text" name="confirm" placeholder="type {{.Username}}" size="14"
+                     aria-label="type {{.Username}} to remove it" autocomplete="off">
+              <button class="danger" type="submit">Remove</button>
+            </form>
+            {{end}}
           {{end}}
         </td>
       </tr>
@@ -47,7 +62,12 @@
         <div><label for="nr">Role</label><select id="nr" name="role">{{range .Roles}}<option value="{{.}}">{{.}}</option>{{end}}</select></div>
         <button type="submit">Create</button>
       </div>
-      <p class="note">A new account starts where you put it. Nothing is promoted automatically, and a joining code cannot hand out power.</p>
+      <p class="note">Removing an account ends its sessions and takes it off this list. It does NOT
+  remove anything the account did: the journal is a hash chain, and an account being deleted does not
+  unhappen the decisions it made. The last admin cannot be removed, and neither can the one you are
+  signed in as.</p>
+
+<p class="note">A new account starts where you put it. Nothing is promoted automatically, and a joining code cannot hand out power.</p>
     </form>
   </div>
 </div>

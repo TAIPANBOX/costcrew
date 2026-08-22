@@ -177,10 +177,22 @@ func (e *Emitter) PassportFor(a crew.Analyst) passport.Passport {
 	if method == "" {
 		method = "none"
 	}
+	// The ANALYST's owner, not the installation's.
+	//
+	// The document is about this agent, and its owner field is the answer to
+	// "who answers for what this spends". That is the account that hired it,
+	// which the roster records and a transfer changes. Using the installation
+	// flag put a different name in the passport from the one under "hired by"
+	// six lines below it on the same card, and neither was labelled well
+	// enough for a reader to tell which question each answered.
+	owner := a.Owner
+	if owner == "" || owner == "unclaimed" {
+		owner = e.cfg.Owner
+	}
 	p := passport.Passport{
 		Schema:      passport.RequiredSchema,
 		ID:          e.AgentURI(a.Name),
-		Owner:       e.cfg.Owner,
+		Owner:       owner,
 		DisplayName: a.Role,
 		Runtime:     Source,
 		Attestation: &passport.Attestation{Method: method},
