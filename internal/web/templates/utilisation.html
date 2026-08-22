@@ -1,0 +1,35 @@
+{{define "content"}}
+<header class="page">
+  <h1>Utilisation</h1>
+  <p>Cost alone cannot tell you whether something is the wrong size: a box at four percent CPU and a box at eighty percent bill identically, and only one is a finding. Every row carries the coverage it was measured over, because a shorter window is a weaker case and should look like one.</p>
+</header>
+
+<div class="tiles">
+  <div class="tile"><div class="k">Candidates</div><div class="v">{{.Candidates}}</div><div class="s">proven at p95</div></div>
+  <div class="tile"><div class="k">If all were taken</div><div class="v">{{.Saving}}</div><div class="s">a month, found not saved</div></div>
+  <div class="tile"><div class="k">Correctly sized</div><div class="v">{{.Fine}}</div><div class="s">listed on purpose</div></div>
+</div>
+
+<div class="panel">
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Resource</th><th class="tight">Team</th><th class="num">p95 CPU</th><th class="num">Days</th><th class="num">Costs now</th><th>Recommendation</th></tr></thead>
+    <tbody>
+    {{range .Rows}}
+      <tr>
+        <td><strong>{{.Resource}}</strong><span class="sub">{{.Source}} · {{.Service}}</span></td>
+        <td class="tight">{{.Team}}</td>
+        <td class="num {{if lt .P95CPU 20.0}}up{{end}}">{{printf "%.1f%%" .P95CPU}}</td>
+        <td class="num">{{.Days}}</td>
+        <td class="num">{{.Monthly}}</td>
+        <td>
+          {{if .Advice}}<strong>{{.Advice}}</strong>, saving {{.Saving}} a month{{else}}<span class="note">leave it</span>{{end}}
+          <span class="sub">{{.Why}}</span>
+        </td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+</div>
+{{end}}

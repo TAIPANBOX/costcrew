@@ -1,0 +1,52 @@
+{{define "content"}}
+<header class="page">
+  <h1>SaaS</h1>
+  <p>Seats bought against seats signed into. This is the finding nobody looks at, because a licence renews quietly and a cloud bill does not.</p>
+</header>
+
+<div class="tiles">
+  <div class="tile"><div class="k">Money in idle seats</div><div class="v up">{{.Waste}}</div><div class="s">a month, at what is actually paid</div></div>
+  <div class="tile"><div class="k">Idle seats</div><div class="v">{{.Idle}}</div><div class="s">of {{.Issued}} issued</div></div>
+  <div class="tile"><div class="k">Renewing in 90 days</div><div class="v {{if .Soon}}up{{end}}">{{.Soon}}</div><div class="s">decisions with a deadline</div></div>
+</div>
+
+<div class="panel">
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Vendor</th><th class="tight">Team</th><th class="num">Issued</th><th class="num">Active</th><th class="num">Idle</th><th class="num">Wasted</th><th class="tight">Renews</th></tr></thead>
+    <tbody>
+    {{range .Rows}}
+      <tr>
+        <td><strong>{{.Vendor}}</strong><span class="sub">{{.Product}}{{if .Note}} · {{.Note}}{{end}}</span></td>
+        <td class="tight">{{.Team}}</td>
+        <td class="num">{{.Issued}}</td>
+        <td class="num">{{.Active30}}</td>
+        <td class="num {{if .Idle}}up{{end}}">{{.Idle}}</td>
+        <td class="num {{if .Waste}}up{{end}}">{{.Waste}}</td>
+        <td class="tight">{{.Renews}}</td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Commitments</h2>
+  <div class="body">
+    <p class="note">A discount bought in advance is cheaper per hour and only if you use it. Under {{printf "%.0f%%" .Waterline}} utilisation it costs more than it saves.</p>
+    <div class="scroll"><table>
+      <thead><tr><th>Commitment</th><th class="tight">Desk</th><th class="num">Used</th><th class="num">Paid and idle</th><th class="tight">Expires</th></tr></thead>
+      <tbody>{{range .Commitments}}
+        <tr>
+          <td><strong>{{.Name}}</strong><span class="sub">{{.Note}}</span></td>
+          <td class="tight">{{.Source}}</td>
+          <td class="num {{if .BelowWaterline}}up{{end}}">{{printf "%.1f%%" .Used}}</td>
+          <td class="num {{if .Wasted}}up{{end}}">{{.Wasted}}</td>
+          <td class="tight">{{.Expires}}</td>
+        </tr>
+      {{end}}</tbody>
+    </table></div>
+  </div>
+</div>
+{{end}}

@@ -1,0 +1,42 @@
+{{define "content"}}
+<header class="page">
+  <h1>AI spend</h1>
+  <p>Volume beside cost, so price and volume can be told apart. A bill that doubled because the price rose and one that doubled because twice as much was done are different facts with different answers, and a console that reports only dollars cannot separate them.</p>
+</header>
+
+<div class="tiles">
+  <div class="tile"><div class="k">This month</div><div class="v">{{.Total}}</div><div class="s">across every model</div></div>
+  <div class="tile"><div class="k">Tokens</div><div class="v">{{.Tokens}}</div><div class="s">measured, not derived from cost</div></div>
+  <div class="tile"><div class="k">Anomalies here</div><div class="v {{if .Anomalies}}up{{end}}">{{.Anomalies}}</div><div class="s"><a href="/anomalies?source=ai">on the AI desk</a></div></div>
+</div>
+
+<div class="panel">
+  <h2>Price and volume, separated</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th class="tight">Month</th><th class="tight">Team</th><th>Model</th><th class="num">Tokens</th><th class="num">Cost</th><th class="num">Per million</th><th class="num">Per action</th></tr></thead>
+    <tbody>
+    {{range .Rows}}
+      <tr>
+        <td class="tight">{{.Month}}</td>
+        <td class="tight">{{.Team}}</td>
+        <td>{{if .Model}}{{.Model}}{{else}}<span class="note">unattributed</span>{{end}}</td>
+        <td class="num">{{.Tokens}}</td>
+        <td class="num">{{.Cost}}</td>
+        <td class="num">{{.PerMillion}}</td>
+        <td class="num">{{.PerAction}}</td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>What this cannot tell you</h2>
+  <div class="body">
+    <p>Which <strong>agent</strong> spent it. The charge rows carry a model and a workload and no agent, so everything here is at team grain. Naming an individual analyst needs model calls to carry an agent header through a gateway.</p>
+    <p class="note">The action count is derived from tokens at a fixed ratio and is labelled as derived. A per-action figure invented from a dollar amount is not a measurement, and this page will not print one as though it were.</p>
+  </div>
+</div>
+{{end}}

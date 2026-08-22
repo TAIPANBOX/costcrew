@@ -107,6 +107,12 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /accounts/create", s.accountAction("create"))
 	s.mux.HandleFunc("POST /accounts/role", s.accountAction("role"))
 	s.mux.HandleFunc("GET /audit", s.audit)
+
+	s.mux.HandleFunc("GET /kpis", s.kpis)
+	s.mux.HandleFunc("GET /utilisation", s.utilisation)
+	s.mux.HandleFunc("GET /saas", s.saas)
+	s.mux.HandleFunc("GET /ai", s.ai)
+	s.mux.HandleFunc("GET /export/results.html", s.exportResultsHTML)
 	s.mux.HandleFunc("GET /static/app.css", s.styleCSS)
 }
 

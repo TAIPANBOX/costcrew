@@ -164,7 +164,8 @@ func TestEveryPageRefusesAStranger(t *testing.T) {
 	}}
 	for _, path := range []string{"/", "/anomalies", "/budgets", "/staff", "/board", "/sprints",
 		"/allocation", "/chargeback", "/results",
-		"/connectors", "/engines", "/accounts", "/audit"} {
+		"/connectors", "/engines", "/accounts", "/audit",
+		"/kpis", "/utilisation", "/saas", "/ai"} {
 		code, _, loc := stranger.get(t, path)
 		if code != http.StatusSeeOther || loc != "/login" {
 			t.Errorf("GET %s without a session: %d to %q, want 303 to /login", path, code, loc)
@@ -195,6 +196,10 @@ func TestSignedInPagesRender(t *testing.T) {
 		{"/engines", "Engines"},
 		{"/accounts", "Accounts"},
 		{"/audit", "Audit"},
+		{"/kpis", "KPIs"},
+		{"/utilisation", "Utilisation"},
+		{"/saas", "SaaS"},
+		{"/ai", "AI spend"},
 	} {
 		code, body, _ := h.get(t, tc.path)
 		if code != http.StatusOK {
@@ -490,7 +495,8 @@ func TestAnUnclaimedInstallationSendsYouToSignUp(t *testing.T) {
 
 	for _, path := range []string{"/", "/anomalies", "/budgets", "/staff", "/board", "/sprints",
 		"/allocation", "/chargeback", "/results",
-		"/connectors", "/engines", "/accounts", "/audit"} {
+		"/connectors", "/engines", "/accounts", "/audit",
+		"/kpis", "/utilisation", "/saas", "/ai"} {
 		code, _, loc := h.get(t, path)
 		if code != http.StatusSeeOther || loc != "/signup" {
 			t.Errorf("GET %s on an unclaimed install: %d to %q, want 303 to /signup",

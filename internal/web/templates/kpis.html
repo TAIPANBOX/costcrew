@@ -1,0 +1,46 @@
+{{define "content"}}
+<header class="page">
+  <h1>KPIs</h1>
+  <p>{{.Reporting}} report a number, <strong>{{.Blocked}} refuse</strong>, {{.Meeting}} meet their target. The refusals are the important part: a library where everything reports a number is one where several are invented, and a practice that measures itself with made-up figures is worse off than one that measures nothing.</p>
+</header>
+
+<div class="panel">
+  <div class="scroll">
+  <table>
+    <thead><tr><th class="tight">Group</th><th>KPI</th><th class="num">Value</th><th class="tight">Target</th><th></th></tr></thead>
+    <tbody>
+    {{range .KPIs}}
+      <tr>
+        <td class="tight">{{.Group}}</td>
+        <td><strong>{{.Name}}</strong>{{if .Note}}<span class="sub">{{.Note}}</span>{{end}}{{if .Blocked}}<span class="sub">{{.Blocked}}</span>{{end}}</td>
+        <td class="num">{{if .HasVal}}{{.Value}}{{if .Unit}} {{.Unit}}{{end}}{{else}}—{{end}}</td>
+        <td class="tight">{{.Target}}</td>
+        <td class="tight">
+          {{if .Blocked}}<span class="chip dismissed">cannot be computed</span>
+          {{else if .Meets}}<span class="chip accepted">meets</span>
+          {{else}}<span class="chip open">below</span>{{end}}
+        </td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Maturity, with the evidence beside it</h2>
+  <div class="body">
+    <p class="note">A self-assessment with no evidence is an opinion with a number on it. Each line names what in this console supports the claim.</p>
+    {{range .Caps}}
+    <div style="padding:14px 0;border-bottom:1px solid var(--line-soft)">
+      <div class="row" style="align-items:baseline">
+        <div style="flex:1 1 auto"><strong>{{.Name}}</strong></div>
+        <span class="chip {{if ge .Level 3}}accepted{{else if ge .Level 2}}explained{{else if ge .Level 1}}triaged{{else}}open{{end}}">{{index $.Levels .Level}}</span>
+      </div>
+      <p class="note" style="margin:6px 0 0">{{.Evidence}}</p>
+      <p style="margin:6px 0 0;font-size:13.5px"><strong>Next:</strong> {{.Next}}</p>
+    </div>
+    {{end}}
+  </div>
+</div>
+{{end}}
