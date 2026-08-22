@@ -39,6 +39,19 @@ type Config struct {
 	MinMove  money.Cents // the money floor: below this, nobody is woken up
 	MinBase  money.Cents // a fall is only meaningful against a baseline worth losing
 	Directio []Direction
+
+	// CoolDays is how long one incident owns its series.
+	//
+	// Without it a STEP is reported over and over. A step raises the level
+	// permanently, the rolling median needs the whole window to catch up, and
+	// in the meantime the threshold is crossed again every few days. Measured
+	// on the fixture: one step produced six entries across two weeks. Six rows
+	// about one incident is how a queue stops being read.
+	//
+	// So a finding owns its series in that direction for this long, and the
+	// day kept is the FIRST one, because when it started is the fact somebody
+	// investigating actually needs.
+	CoolDays int
 }
 
 type Direction string
@@ -58,6 +71,9 @@ func Default() Config {
 		MinMove:  money.Cents(50_00),
 		MinBase:  money.Cents(5_00),
 		Directio: []Direction{Up, Down},
+		// Three weeks. Long enough to swallow a step's aftershocks, short
+		// enough that a genuinely separate incident next month is its own.
+		CoolDays: 21,
 	}
 }
 
@@ -182,7 +198,7 @@ func Find(points []Point, service string, drivers []Driver, cfg Config) []Findin
 	// An incident rarely respects midnight, so a run of consecutive days is
 	// one event. The first day is kept because that is when it started, which
 	// is the fact somebody investigating actually needs.
-	found = mergeAdjacent(found)
+	found = coalesce(found, cfg.CoolDays)
 
 	sort.SliceStable(found, func(a, b int) bool {
 		return found[a].Excess.Abs() > found[b].Excess.Abs()
@@ -258,27 +274,41 @@ func medianAbsDev(v []money.Cents, med money.Cents) money.Cents {
 	return median(d)
 }
 
-func mergeAdjacent(f []Finding) []Finding {
+// coalesce collapses one incident into one finding.
+//
+// An incident rarely respects midnight, and a step does not respect the month.
+// Findings in the same direction within the cooling period are one event: the
+// earliest day, because that is when it started, and the largest excess,
+// because that is what it was worth at its peak.
+func coalesce(f []Finding, coolDays int) []Finding {
 	if len(f) < 2 {
 		return f
 	}
+	if coolDays < 1 {
+		coolDays = 1
+	}
 	sort.Slice(f, func(a, b int) bool { return f[a].Day < f[b].Day })
-	out := []Finding{f[0]}
-	for _, cur := range f[1:] {
-		prev := out[len(out)-1]
-		p, _ := time.Parse("2006-01-02", prev.Day)
-		c, _ := time.Parse("2006-01-02", cur.Day)
-		if c.Sub(p) <= 24*time.Hour && cur.Direction == prev.Direction {
-			// Keep the larger of the two as the event's size, but the earlier
-			// day as its date.
-			if cur.Excess.Abs() > prev.Excess.Abs() {
-				merged := cur
-				merged.Day = prev.Day
-				out[len(out)-1] = merged
+
+	var out []Finding
+	// The head of each open incident, per direction, so a fall during a
+	// sustained rise is still its own event rather than being swallowed.
+	head := map[Direction]int{}
+	for _, cur := range f {
+		i, open := head[cur.Direction]
+		if open {
+			p, _ := time.Parse("2006-01-02", out[i].Day)
+			c, _ := time.Parse("2006-01-02", cur.Day)
+			if c.Sub(p) <= time.Duration(coolDays)*24*time.Hour {
+				if cur.Excess.Abs() > out[i].Excess.Abs() {
+					day := out[i].Day
+					out[i] = cur
+					out[i].Day = day
+				}
+				continue
 			}
-			continue
 		}
 		out = append(out, cur)
+		head[cur.Direction] = len(out) - 1
 	}
 	return out
 }

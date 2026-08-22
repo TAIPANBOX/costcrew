@@ -52,8 +52,6 @@ func (s *Server) routes() {
 
 	s.mux.HandleFunc("GET /intake/template/{name}", s.intakeTemplate)
 	s.mux.HandleFunc("GET /export/budget.csv", s.exportBudget)
-	s.mux.HandleFunc("GET /export/requests.csv", s.exportRequests)
-	s.mux.HandleFunc("GET /api/figures", s.dumpFigures)
 	s.mux.HandleFunc("GET /static/style.css", s.styleCSS)
 }
 
