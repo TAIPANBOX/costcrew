@@ -198,9 +198,12 @@ func run(addr, dir string, scfg stack.Config) error {
 		return fmt.Errorf("opening the event stream: %w", err)
 	}
 	defer em.Close()
-	var rec anomaly.Recorder
+	// The hash chain always records the work; the agent-event stream is added
+	// when the governance plane is switched on. The chain is the one that has
+	// to be complete, so it does not depend on a flag.
+	var rec anomaly.Recorder = st.AsRecorder()
 	if em.On() {
-		rec = em
+		rec = store.Tee(st.AsRecorder(), em)
 		log.Printf("CostCrew: emitting agent-events to %s", scfg.EventsPath)
 		if n, err := em.WritePassports(roster); err != nil {
 			return fmt.Errorf("writing passports: %w", err)

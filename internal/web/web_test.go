@@ -102,7 +102,7 @@ func startFull(t *testing.T, withHistory bool, eventsPath string) *harness {
 	// all open and whose forecast table is empty cannot see a page that only
 	// goes wrong once something has been decided.
 	if withHistory {
-		if _, err := history.Seed(st.DB(), nil); err != nil {
+		if _, err := history.Seed(st.DB(), st.AsRecorder()); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -111,8 +111,10 @@ func startFull(t *testing.T, withHistory bool, eventsPath string) *harness {
 		t.Fatal(err)
 	}
 
+	// The chain records the work here as it does in production. A harness
+	// with no recorder cannot see whether a decision was written down.
 	srv := httptest.NewServer(web.New(st, au, web.Stack{
-		Host: "costcrew.test", EventsPath: eventsPath,
+		Host: "costcrew.test", EventsPath: eventsPath, Recorder: st.AsRecorder(),
 	}))
 	t.Cleanup(srv.Close)
 
@@ -1337,5 +1339,66 @@ func TestTheAgentCardReadsTheAgentEventStream(t *testing.T) {
 	}
 	if !strings.Contains(events, "2026-08-20 09:15") {
 		t.Error("the card does not show the event's own timestamp")
+	}
+}
+
+// The chain records what was DECIDED, not only who signed in.
+//
+// The audit page says "everything the console did, in order, each entry hashed
+// against the one before it". That was false for most of this console's life:
+// the chain held user_created, login and role changes, and every decision -
+// a finding taken, answered, accepted, dismissed - went only to the
+// agent-event stream, which is not hash-chained. A governance console that
+// hashes sign-ins and not decisions has the chain pointed at the wrong thing.
+func TestTheChainRecordsDecisionsAndNotOnlySignIns(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+
+	open, err := anomaly.List(h.st.DB(), anomaly.Filter{State: anomaly.Open})
+	if err != nil || len(open) == 0 {
+		t.Skip("nothing open in this fixture to decide about")
+	}
+	id := open[0].ID
+
+	before, _ := h.st.JournalTail(500)
+	page := "/anomalies/" + id
+	if _, loc := h.post(t, page+"/assign", url.Values{
+		"analyst": {"triage-aws"}, "csrf": {h.csrf(t, page)},
+	}); strings.Contains(loc, "msg=") {
+		t.Fatalf("assign was refused: %s", loc)
+	}
+	if _, loc := h.post(t, page+"/dismiss", url.Values{
+		"reason": {"A one-day spike that reversed. Nothing to recover."},
+		"csrf":   {h.csrf(t, page)},
+	}); strings.Contains(loc, "msg=") {
+		t.Fatalf("dismiss was refused: %s", loc)
+	}
+
+	after, err := h.st.JournalTail(500)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(after) <= len(before) {
+		t.Fatalf("two decisions were made and the chain grew by %d entries",
+			len(after)-len(before))
+	}
+	kinds := map[string]map[string]any{}
+	for _, r := range after {
+		kinds[r.Event] = r.Data
+	}
+	for _, want := range []string{"anomaly_triaged", "anomaly_dismissed"} {
+		d, ok := kinds[want]
+		if !ok {
+			t.Errorf("the chain has no %s entry", want)
+			continue
+		}
+		// Who did it is the part of an audit entry somebody needs.
+		if d["actor"] == nil {
+			t.Errorf("%s is in the chain with no actor", want)
+		}
+	}
+	// And it still verifies: appending decisions must not break the hash.
+	if ok, _, breakAt, err := h.st.VerifyChain(); err != nil || !ok {
+		t.Errorf("the chain no longer verifies after two decisions: %v at %s", err, breakAt)
 	}
 }

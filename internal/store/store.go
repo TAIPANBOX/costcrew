@@ -106,6 +106,21 @@ func (s *Store) Journal(event string, ts float64, data map[string]any) (string, 
 	if data == nil {
 		data = map[string]any{}
 	}
+	// Hash what will be READ, not what was passed in.
+	//
+	// A verifier re-derives the hash from the line it reads back, where JSON
+	// has turned every number into a float64. An int64 written as 34805 comes
+	// back as 34805.0 and the two canonical forms differ, so the chain breaks
+	// at the first entry carrying a whole number. It never fired while only
+	// sign-ins were journalled, because those are all strings; it broke the
+	// moment the console started recording what it decided.
+	//
+	// Normalising here makes writer and verifier agree by construction rather
+	// than by both callers remembering to pass float64.
+	data, err := asRead(data)
+	if err != nil {
+		return "", err
+	}
 
 	body, err := canonical(map[string]any{
 		"ts": ts, "event": event, "data": data, "prev": prev,
@@ -328,6 +343,20 @@ func (s *Store) journalLines() ([]string, error) {
 		if strings.TrimSpace(l) != "" {
 			out = append(out, l)
 		}
+	}
+	return out, nil
+}
+
+// asRead round-trips a payload through JSON, so what is hashed is exactly what
+// a reader will see. See the note in Journal for why this is not decoration.
+func asRead(data map[string]any) (map[string]any, error) {
+	buf, err := json.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+	var out map[string]any
+	if err := json.Unmarshal(buf, &out); err != nil {
+		return nil, err
 	}
 	return out, nil
 }
