@@ -1203,3 +1203,70 @@ func TestTwoPagesNeverDisagreeAboutOneNumber(t *testing.T) {
 		t.Errorf("average error: the forecast page says %s%%, the KPI page says %s%%", fPct, kPct)
 	}
 }
+
+// The crew's own cost appears on three pages, and it is one number.
+//
+// The complaint this answers is not that a figure was wrong, it is that a
+// figure appeared in exactly one place and so could not be checked at all. A
+// console whose numbers cannot be checked against each other is a console
+// whose numbers are believed or not on faith.
+func TestTheCrewsCostIsTheSameOnEveryPageThatShowsIt(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+
+	_, staff, _ := h.get(t, "/staff")
+	_, kpis, _ := h.get(t, "/kpis")
+	_, ai, _ := h.get(t, "/ai")
+
+	fromStaff := number(fragment(staff, `<div class="k">What the crew cost</div>`, 120))
+	kpiRow := fragment(kpis, `id="kpi-crew-cost"`, 900)
+	fromKPI := number(fragment(kpiRow, `<td class="num">`, 40))
+	fromAI := number(fragment(ai, "This crew is a separate bill: <strong>", 40))
+
+	if fromStaff == "" || fromAI == "" {
+		t.Fatalf("the crew's cost is missing from a page: staff %q, ai %q", fromStaff, fromAI)
+	}
+	if fromStaff != fromAI {
+		t.Errorf("the crew cost %s on /staff and %s on /ai", fromStaff, fromAI)
+	}
+	if fromKPI != "" && fromKPI != fromStaff {
+		t.Errorf("the crew cost %s on /staff and %s on /kpis", fromStaff, fromKPI)
+	}
+}
+
+// A team's spend on its own page is what the estate list says it spent.
+func TestATeamsSpendAgreesWithTheEstateList(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+
+	_, teams, _ := h.get(t, "/teams")
+	names := regexp.MustCompile(`<a href="/team/([a-z0-9-]+)">`).FindAllStringSubmatch(teams, -1)
+	if len(names) == 0 {
+		t.Fatal("the estate list names no teams, so this measured nothing")
+	}
+	checked := 0
+	for _, m := range names {
+		name := m[1]
+		// The fully loaded column on the list, against the fully loaded tile
+		// on the team's own page. The same question, asked twice.
+		//
+		// Both are addressed by a data attribute rather than by counting
+		// cells: this test first "passed" against the wrong column because
+		// one cell wrapped its figure in <strong> and the count silently ran
+		// into the next row.
+		row := fragment(teams, `<tr data-team="`+name+`">`, 900)
+		listed := number(fragment(row, `data-col="loaded"><strong>`, 40))
+		_, page, _ := h.get(t, "/team/"+name)
+		own := number(fragment(page, `data-tile="loaded"><div class="k">Fully loaded</div><div class="v">`, 40))
+		if listed == "" || own == "" {
+			continue
+		}
+		if listed != own {
+			t.Errorf("%s: the estate list says %s, its own page says %s", name, listed, own)
+		}
+		checked++
+	}
+	if checked == 0 {
+		t.Fatal("no team could be compared, so this measured nothing")
+	}
+}

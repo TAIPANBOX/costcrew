@@ -22,7 +22,7 @@
       {{.Sort.Header "analysts" "Analysts" "num" true}}
     </tr></thead>
     <tbody>{{range .Rows}}
-      <tr>
+      <tr data-desk="{{.Name}}">
         <td><a href="/desk/{{.Name}}"><strong>{{.Name}}</strong></a></td>
         <td class="tight">{{.Kind}}</td>
         <td class="num">{{.Cost}}</td>

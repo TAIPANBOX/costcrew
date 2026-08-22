@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/TAIPANBOX/costcrew/internal/crew"
+	"github.com/TAIPANBOX/costcrew/internal/money"
 )
 
 // Only the two constructs the crew's own output actually uses.
@@ -308,8 +309,45 @@ func (s *Server) staff(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	rows := make([]staffRow, 0, len(roster))
+	// The crew's own totals, so the figure the KPI page reports for what the
+	// crew costs has somewhere to be checked against. A number that appears in
+	// exactly one place cannot be checked at all.
+	var totalGuard money.Cents
+	var byState int
+	states := map[string]int{}
+	onRoster := map[string]bool{}
 	for _, a := range roster {
-		rows = append(rows, staffRow{a, scores[a.Name], agentChip(a.State)})
+		sc := scores[a.Name]
+		rows = append(rows, staffRow{a, sc, agentChip(a.State)})
+		totalGuard += a.Monthly
+		states[a.State]++
+		onRoster[a.Name] = true
+	}
+
+	// The BOARD's totals, not the roster's.
+	//
+	// Summing over the roster silently drops work charged to a name that is
+	// not on it, and the drop is exactly the kind that hides: 46 cents on one
+	// unassigned task, against which the AI page reported the board's own
+	// total and the two pages disagreed. Work nobody owns is a governance
+	// finding in its own right, so it is counted and then named.
+	var totalSpent, offRosterSpent money.Cents
+	var tasks, open, posted, returned, offRosterTasks int
+	for name, sc := range scores {
+		totalSpent += sc.Spent
+		tasks += sc.Tasks
+		open += sc.Open
+		posted += sc.Posted
+		returned += sc.Returned
+		if !onRoster[name] {
+			offRosterSpent += sc.Spent
+			offRosterTasks += sc.Tasks
+		}
+	}
+	byState = states["active"]
+	firstPass := 0.0
+	if posted+returned > 0 {
+		firstPass = float64(posted) / float64(posted+returned) * 100
 	}
 	srt := readSort(r, "name", false)
 	applySort(rows, srt, map[string]func(a, b staffRow) int{
@@ -324,10 +362,17 @@ func (s *Server) staff(w http.ResponseWriter, r *http.Request) {
 	}, "name")
 	s.render(w, tplStaff, struct {
 		shell
-		Rows   []staffRow
-		CanAct bool
-		Sort   sortSpec
-	}{s.shellFor(r, "Crew", "staff"), rows, u.May("operator"), srt})
+		Rows                          []staffRow
+		CanAct                        bool
+		Sort                          sortSpec
+		Spent, Guard                  money.Cents
+		Tasks, Open, Posted, Returned int
+		Active                        int
+		FirstPass                     float64
+		States                        map[string]int
+	}{s.shellFor(r, "Crew", "staff"), rows, u.May("operator"), srt,
+		totalSpent, totalGuard, tasks, open, posted, returned, byState,
+		firstPass, states})
 }
 
 // ------------------------------------------------------------------ actions

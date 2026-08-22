@@ -23,14 +23,14 @@
       {{.Sort.Header "openmoney" "In anomalies" "num" true}}
     </tr></thead>
     <tbody>{{range .Rows}}
-      <tr>
+      <tr data-team="{{.Name}}">
         <td><a href="/team/{{.Name}}"><strong>{{.Name}}</strong></a></td>
         <td class="tight">{{.Unit}}</td>
-        <td class="num">{{.Direct}}</td>
-        <td class="num">{{.Allocated}}</td>
-        <td class="num"><strong>{{.Loaded}}</strong></td>
-        <td class="num {{if .Open}}up{{end}}">{{.Open}}</td>
-        <td class="num {{if .OpenMoney}}up{{end}}">{{.OpenMoney}}</td>
+        <td class="num" data-col="direct">{{.Direct}}</td>
+        <td class="num" data-col="allocated">{{.Allocated}}</td>
+        <td class="num" data-col="loaded"><strong>{{.Loaded}}</strong></td>
+        <td class="num {{if .Open}}up{{end}}" data-col="open">{{.Open}}</td>
+        <td class="num {{if .OpenMoney}}up{{end}}" data-col="openmoney">{{.OpenMoney}}</td>
       </tr>
     {{end}}</tbody>
   </table>

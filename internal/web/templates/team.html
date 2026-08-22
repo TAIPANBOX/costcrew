@@ -11,9 +11,9 @@
 </form>
 
 <div class="tiles">
-  <div class="tile"><div class="k">Spent directly</div><div class="v">{{.Direct}}</div><div class="s">cost carrying this team's tag</div></div>
-  <div class="tile"><div class="k">Allocated to it</div><div class="v">{{.Allocated}}</div><div class="s">its share of cost nobody owned</div></div>
-  <div class="tile"><div class="k">Fully loaded</div><div class="v">{{.Loaded}}</div><div class="s">what it would be charged</div></div>
+  <div class="tile" data-tile="direct"><div class="k">Spent directly</div><div class="v">{{.Direct}}</div><div class="s">cost carrying this team's tag</div></div>
+  <div class="tile" data-tile="allocated"><div class="k">Allocated to it</div><div class="v">{{.Allocated}}</div><div class="s">its share of cost nobody owned</div></div>
+  <div class="tile" data-tile="loaded"><div class="k">Fully loaded</div><div class="v">{{.Loaded}}</div><div class="s">what it would be charged</div></div>
   <div class="tile"><div class="k">Open anomalies</div><div class="v {{if .OpenMoney}}up{{end}}">{{.OpenMoney}}</div><div class="s">noticed, not yet explained</div></div>
   {{if .SeatWaste}}<div class="tile"><div class="k">Idle seats</div><div class="v up">{{.SeatWaste}}</div><div class="s">a month in licences nobody uses</div></div>{{end}}
 </div>

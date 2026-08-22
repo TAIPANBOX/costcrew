@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/TAIPANBOX/costcrew/internal/anomaly"
+	"github.com/TAIPANBOX/costcrew/internal/crew"
 	"github.com/TAIPANBOX/costcrew/internal/estate"
 	"github.com/TAIPANBOX/costcrew/internal/finops"
 	"github.com/TAIPANBOX/costcrew/internal/money"
@@ -153,6 +154,19 @@ func (s *Server) ai(w http.ResponseWriter, r *http.Request) {
 		tokens += u.Tokens
 	}
 	list, _ := anomaly.List(s.db, anomaly.Filter{Source: "ai"})
+	// What this console's OWN agents cost, from the board rather than from the
+	// invoices. It is a separate number and it is said to be a separate one:
+	// the crew runs on models the estate does not bill for through these
+	// meters, so folding it into the desk total would double nothing and
+	// explain less. The crew page reports the same figure.
+	var crewCost money.Cents
+	var crewTasks int
+	if scores, err := crew.Scoreboards(s.db); err == nil {
+		for _, sc := range scores {
+			crewCost += sc.Spent
+			crewTasks += sc.Tasks
+		}
+	}
 	sp := readSort(r, "cost", true)
 	applySort(rows, sp, map[string]func(x, y world.AIUnit) int{
 		"team":      func(x, y world.AIUnit) int { return cmpString(x.Team, y.Team) },
@@ -170,7 +184,11 @@ func (s *Server) ai(w http.ResponseWriter, r *http.Request) {
 		Tokens    string
 		Anomalies int
 		Sort      sortSpec
-	}{s.shellFor(r, "AI spend", "ai"), rows, total, thousands(tokens), len(list), sp})
+		CrewCost  money.Cents
+		CrewTasks int
+		Month     string
+	}{s.shellFor(r, "AI spend", "ai"), rows, total, thousands(tokens), len(list), sp,
+		crewCost, crewTasks, month})
 }
 
 // thousands groups a large count so a reader can tell a million from ten.

@@ -4,6 +4,19 @@
   <p>{{len .Rows}} analysts. First-pass acceptance is blank rather than perfect where nothing has been reviewed yet: a rate over no reviews is not a rate, and a hopeful default makes the newest analyst look like the best one.</p>
 </header>
 
+<div class="tiles summary">
+  <div class="tile wide"><div class="k">What the crew cost</div><div class="v big">{{.Spent}}</div>
+    <div class="s">across {{.Tasks}} tasks, against {{.Guard}} a month of guards.
+      {{if .OffRosterTasks}}<strong>{{.OffRoster}} of it on {{.OffRosterTasks}} {{if eq .OffRosterTasks 1}}task{{else}}tasks{{end}} nobody owns.</strong>{{end}}
+      The <a href="/kpis">KPI page</a> reports this same figure, and the <a href="/ai">AI desk</a> is where the estate's own model spend sits.</div></div>
+  <div class="tile wide"><div class="k">On the desks now</div><div class="v big">{{.Open}}</div>
+    <div class="s">open tasks. <a href="/board">Open the board</a></div></div>
+  <div class="tile wide"><div class="k">First pass</div><div class="v big">{{printf "%.0f%%" .FirstPass}}</div>
+    <div class="s">{{.Posted}} posted, {{.Returned}} sent back for a rewrite</div></div>
+  <div class="tile wide"><div class="k">On the rota</div><div class="v big">{{.Active}}</div>
+    <div class="s">active of {{len .Rows}}{{range $k, $v := .States}}{{if ne $k "active"}} · {{$v}} {{$k}}{{end}}{{end}}</div></div>
+</div>
+
 {{if .CanAct}}
 <p><a href="/staff/new"><strong>Hire an analyst</strong></a> — identity, rights, guards and governance in one form.</p>
 {{end}}
