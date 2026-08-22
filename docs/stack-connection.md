@@ -123,11 +123,45 @@ Verified on 2026-08-22, with the commands above:
   a query with `proof Full`, and `trailryx-verify` returns VERIFIED on the
   evidence pack while naming what the pack does not prove.
 
+- **genaryx** tails the same file and shows it live. Verified end to end on
+  2026-08-22: with this console writing to `<bus>/costcrew.ndjson`, an action
+  taken in it appeared on genaryx's own event stream within seconds, tagged
+  with the environment name, the agent URI, the severity and the schema. No
+  code in this console was needed, and `genaryx-web doctor` reported
+  `bus ok - live, tailing <dir>`.
+
+  Two things about genaryx that are worth writing down because they differ
+  from trailryx:
+
+  1. **It accepts this console's own vocabulary.** Its `agent-event/v0.2`
+     schema requires `schema`, `ts`, `source`, `type` and `agent_id`, and
+     constrains `type` only to a non-empty string. So `anomaly_triaged` and
+     `anomaly_explained` arrive and are shown, where trailryx refuses them.
+     Neither is wrong: one is a live view and the other is a sealed record,
+     and they disagree about what belongs in a record.
+  2. **The file NAME is the integration.** genaryx tails a directory and keys
+     each source's read offset off the file stem, so the stream must be called
+     `costcrew.ndjson`. Replacing the file wholesale rather than appending to
+     it is read as nothing new, which is how the first attempt here produced
+     an empty stream.
+
+  How it was run, without touching anything the estate owns: `TAIPAN_HOME`
+  overrides where genaryx looks for environment descriptors, so a scratch home
+  carried the descriptor and `~/.taipan/` was never written to. That matters
+  beyond tidiness: a descriptor left in the real environments directory would
+  be picked up by any later genaryx on this machine, in preference to or in
+  confusion with one `taipan up` owns.
+
 NOT verified, and not claimed:
 
-- **genaryx**: nothing has been shipped to it. Its Agent 360 reads identities
-  from idryx, and whether this console's passports can be registered there is
-  an open question, not a working path.
+- **genaryx's Agent 360**. The event stream is only half of that card. Its
+  identity half comes from **idryx** and its money half from a cloud service,
+  both named in the descriptor's `services` block, and this console's passports
+  are not what genaryx reads for identity - idryx is. Measured rather than
+  assumed: with no `services.idryx`, `POST /api/command/identity_list_identities`
+  answers `{"kind":"no_environment"}` with 422, and `money_runs` the same.
+  Registering these agents with idryx is a separate piece of work and idryx is
+  not running here.
 - **tokenfuse**: cannot work as a log integration at all. It is a proxy in the
   request path, and this console's agents make no model calls: their spend is a
   fixture. **The guards in this console are therefore records and not limits**,

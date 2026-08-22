@@ -56,6 +56,16 @@
       position only after the seal. Then <code>trailryx-node read --all --pack evidence.pack</code> writes
       what an auditor takes away, and <code>trailryx-verify evidence.pack</code> checks it with code that is
       not this console's and not trailryx's node either.</p>
+
+    <h3>Watching it live</h3>
+    <p><strong>genaryx</strong> and <strong>heraldyx</strong> both tail this same file, and neither needs
+      a command: point them at it. genaryx tails a DIRECTORY and keys each source off the file name, so the
+      stream has to be called <code>costcrew.ndjson</code> and sit in the bus its environment descriptor
+      names. Start this console with <code>-stack-events &lt;that directory&gt;/costcrew.ndjson</code> and the
+      events appear on its console within seconds of being written.</p>
+    <p class="note">genaryx accepts all {{.Emitted}} of them, including this console's own vocabulary: its
+      schema asks only that a type be a non-empty string. trailryx accepts {{.Mapped}}. Neither is wrong;
+      one is a live view and the other is a sealed record, and they disagree about what belongs in a record.</p>
   </div>
 </div>
 {{end}}
