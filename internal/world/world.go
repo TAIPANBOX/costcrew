@@ -182,6 +182,12 @@ const (
 	Drop  Shape = "drop"  // one day well below it
 	Step  Shape = "step"  // a sustained change in level
 	Ramp  Shape = "ramp"  // a gradual climb, which is NOT an anomaly
+
+	// Natural changes nothing at all. The control is the series behaving
+	// normally on a day a careless detector reports anyway: a Sunday, a
+	// month-end batch. Planting a synthetic dip and then calling it normal
+	// would test the opposite of what it claims.
+	Natural Shape = "natural"
 )
 
 // Event is one planted irregularity and the answer that goes with it.
@@ -258,7 +264,7 @@ var Planted = []Event{
 	},
 	{
 		ID: "E09", Source: "saas", Team: "support-tools", Service: "Zendesk",
-		Day: "2026-07-01", Shape: Step, Factor: 1.45, Excess: money.Cents(31_500),
+		Day: "2026-07-01", Shape: Step, Factor: 1.45, Excess: money.Cents(10_800),
 		Detect: true,
 		Why:    "Seats bought for a hiring plan that slipped. Money in unused licences.",
 	},
@@ -266,9 +272,10 @@ var Planted = []Event{
 	// The five that must NOT be reported. These are the fixture's real value.
 	{
 		ID: "N01", Source: "aws", Team: "sre-platform", Service: "Amazon EC2",
-		Day: "2026-07-19", Shape: Drop, Factor: 0.62, Detect: false,
-		Why: "A Sunday. Quieter than the Tuesdays around it and completely normal. " +
-			"A detector without a same-day-type baseline reports this every week.",
+		Day: "2026-07-19", Shape: Natural, Factor: 1, Detect: false,
+		Why: "A Sunday, with nothing done to it. This desk runs at 64 percent of a " +
+			"weekday at the weekend, and a detector without a same-day-type baseline " +
+			"reports that rhythm as an incident every single week.",
 	},
 	{
 		ID: "N02", Source: "gcp", Team: "product-web", Service: "Cloud Run",
@@ -285,8 +292,11 @@ var Planted = []Event{
 	},
 	{
 		ID: "N04", Source: "onprem", Team: "sre-platform", Service: "Storage array",
-		Day: "2026-06-30", Shape: Spike, Factor: 1.35, Detect: false,
-		Why: "Month-end batch, every month, in the baseline already. Recurring is not irregular.",
+		Day: "2026-06-30", Shape: Natural, Factor: 1, Detect: false,
+		Driver: "Month-end batch on the storage array",
+		Why: "The month-end batch runs every month and the generator puts it in the " +
+			"series itself. A 28-day window holds only one month-end, so the median " +
+			"never learns it: the registry is what makes a monthly rhythm expected.",
 	},
 	{
 		ID: "N05", Source: "ai", Team: "research", Service: "GPU training cluster",

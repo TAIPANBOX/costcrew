@@ -155,6 +155,13 @@ func TestShapeAgreesWithDirection(t *testing.T) {
 			if e.Excess > 0 {
 				t.Errorf("%s is a drop but its excess is positive", e.ID)
 			}
+		case Natural:
+			if e.Factor != 1 {
+				t.Errorf("%s is natural but carries factor %v; a planted change is not a control", e.ID, e.Factor)
+			}
+			if e.Detect {
+				t.Errorf("%s is natural and marked detect; nothing was done to that day", e.ID)
+			}
 		case Spike, Step, Ramp:
 			if e.Factor <= 1 {
 				t.Errorf("%s is a %s with factor %v", e.ID, e.Shape, e.Factor)
