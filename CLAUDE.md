@@ -19,10 +19,9 @@ runtime to install, no network. Money is integer cents everywhere.
 ## Gates
 
 ```sh
-go test ./...                        # 208 tests, 13 packages
-./scripts/gates-have-teeth.sh        # 23 cases; needs a clean tree; ~60s
-                                     # 16 faults, 3 non-faults, 2 subjects taken away,
-                                     # 2 csrf
+go test ./...                        # 209 tests, 13 packages
+./scripts/gates-have-teeth.sh        # 25 cases; needs a clean tree; ~60s
+./scripts/features-are-bound.sh      # 27 scenarios, both directions
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 ```
@@ -146,7 +145,18 @@ an absent invariant.
     pair of pages showing the same figure, and there could not easily be one:
     the pairs are known to people and not to the code.)*
 
-14. **Every gate can go red.** A new gate is not finished until
+14. **Every scenario in `features/` names a test, and every name is real.**
+    The scenarios are Yurii's own words, quoted above each one, and are not
+    derived from the code: a scenario written by reading what was built only
+    proves it can be described.
+    *(gate: `scripts/features-are-bound.sh`, reachable from the suite as
+    `TestFeatureBindingsHold`. It checks the POINTER in both directions and
+    deliberately not whether the test asserts what the scenario says, which
+    nothing mechanical can. There is no BDD runner: three runners with three
+    step-definition styles across the estate would cost more surface than the
+    readability they buy, and that is my call rather than his.)*
+
+15. **Every gate can go red.** A new gate is not finished until
     `scripts/gates-have-teeth.sh` has a case that plants its fault.
     *(gate: `scripts/gates-have-teeth.sh` itself, checked by hand on
     2026-08-23: gutting an assertion reports TOOTHLESS, a dirty tree is

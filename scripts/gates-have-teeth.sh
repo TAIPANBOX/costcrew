@@ -372,6 +372,24 @@ run_case $'csrf: the accounts handler stops checking its own' \
 	$'\t\tif !s.au.CSRFOK(s.sessionToken(r), r.PostFormValue("csrf")) {' \
 	$'\t\tif false && !s.au.CSRFOK(s.sessionToken(r), r.PostFormValue("csrf")) {'
 
+run_case $'features: a scenario loses its binding' \
+	fail \
+	./internal/web \
+	$'TestFeatureBindingsHold' \
+	$'proves nothing' \
+	features/roles.feature \
+	$'  @test:TestAViewerCannotWrite\n' \
+	$''
+
+run_case $'features: a binding points at a test that is gone' \
+	fail \
+	./internal/web \
+	$'TestFeatureBindingsHold' \
+	$'names no test' \
+	internal/web/roles_test.go \
+	$'func TestAViewerCannotWrite(' \
+	$'func GoneTestAViewerCannotWrite('
+
 echo
 echo "=== and what they must NOT catch ==="
 run_case $'session guard: a route named in a comment' \
