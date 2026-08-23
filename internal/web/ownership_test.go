@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/TAIPANBOX/costcrew/internal/crew"
+	"github.com/TAIPANBOX/costcrew/internal/money"
 )
 
 // twoOperators sets up an agent owned by one operator and a session for
@@ -25,7 +26,16 @@ func twoOperators(t *testing.T) (h, other *harness, agent crew.Analyst) {
 		t.Fatalf("no roster to test with: %v", err)
 	}
 	agent = roster[0]
+	// Both halves, because they are two different facts now. The roster says
+	// who holds the agent; the charges say who answered for each one. A
+	// fixture that set only the first would describe an agent alice holds and
+	// has never been charged for, which is not the situation being tested and
+	// is not one a hire can produce.
 	if _, err := h.st.DB().Exec(`UPDATE analysts SET owner=? WHERE name=?`,
+		"alice", agent.Name); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.st.DB().Exec(`UPDATE tasks SET owner=? WHERE assignee=?`,
 		"alice", agent.Name); err != nil {
 		t.Fatal(err)
 	}
@@ -369,34 +379,32 @@ func TestATransferMovesTheAuthorityWithTheAgent(t *testing.T) {
 	}
 }
 
-// The spend follows the agent, which is the point of a transfer.
+// A transfer splits the spend at the moment it happens.
 //
-// @yurii 2026-08-22, when the transfer was asked for: "Відповідно, витрати
-// також мають переходити на інших власників агента." An agent that changes
-// hands while its cost stays billed to the previous owner would make the
-// owners page a record of who hired somebody once, rather than of who answers
-// for what is running now.
-func TestATransferMovesTheSpendWithTheAgent(t *testing.T) {
+// @yurii 2026-08-22, when transfer was built: "Відповідно, витрати також мають
+// переходити на інших власників агента." With ownership recorded on the charge
+// rather than read from the agent, that now has a sharper answer than "all of
+// it moves": the work still OPEN moves, because the new owner takes it on and
+// will answer for what it costs from here; the work already closed stays with
+// whoever authorised it.
+//
+// The alternative, moving everything, would mean there is no history at all:
+// the figure would still be recomputed from whoever holds the agent today,
+// which is the behaviour the owner column exists to replace.
+//
+// The two halves must add up to what the agent has cost. A split that loses a
+// penny is worse than no split, because both people's totals are then wrong
+// and nothing on the page says so.
+func TestATransferSplitsTheSpendAtTheHandover(t *testing.T) {
 	h, _, agent := twoOperators(t)
 	alice := h.as(t, "alice", "alice-password-2026")
 
-	sc, err := crew.Scoreboards(h.st.DB())
-	if err != nil {
-		t.Fatal(err)
-	}
-	spent, open := sc[agent.Name].Spent, sc[agent.Name].Open
-	if spent == 0 {
-		t.Skip("this fixture's first agent has never been charged; the test " +
-			"cannot see the spend move")
-	}
-
-	_, before, _ := h.get(t, "/owners")
-	if !strings.Contains(before, ">alice<") {
-		t.Fatal("alice does not appear on the owners page before the transfer")
-	}
-	if !strings.Contains(before, spent.String()) {
-		t.Fatalf("alice's row does not carry the agent's %s before the transfer",
-			spent)
+	total := spentOn(t, h, agent.Name, "")
+	open := spentOn(t, h, agent.Name, "open")
+	closed := total - open
+	if total == 0 || open == 0 || closed == 0 {
+		t.Skipf("this fixture's agent has %s total, %s open: the split is not "+
+			"visible", total, open)
 	}
 
 	if _, loc := alice.post(t, "/staff/"+agent.Name+"/transfer", url.Values{
@@ -406,28 +414,54 @@ func TestATransferMovesTheSpendWithTheAgent(t *testing.T) {
 		t.Fatalf("alice could not transfer her own agent: %s", loc)
 	}
 
-	_, after, _ := h.get(t, "/owners")
-	bobRow := rowFor(after, "bob")
-	if bobRow == "" {
-		t.Fatal("bob does not appear on the owners page after being given an agent")
+	byOwner, err := crew.SpendByOwner(h.st.DB(), "")
+	if err != nil {
+		t.Fatal(err)
 	}
-	if !strings.Contains(bobRow, spent.String()) {
-		t.Errorf("bob was given the agent and its %s did not come with it; "+
-			"his row is %q", spent, bobRow)
+	if byOwner["bob"] != open {
+		t.Errorf("bob took on %s of open work and carries %s", open, byOwner["bob"])
 	}
-	// Alice owns nothing now, so she is off the page rather than sitting there
-	// still charged for it.
-	if aliceRow := rowFor(after, "alice"); aliceRow != "" {
-		if strings.Contains(aliceRow, spent.String()) {
-			t.Errorf("alice is still charged %s for an agent she gave away: %q",
-				spent, aliceRow)
+	if byOwner["alice"] != closed {
+		t.Errorf("alice authorised %s of closed work and carries %s",
+			closed, byOwner["alice"])
+	}
+	if byOwner["alice"]+byOwner["bob"] != total {
+		t.Errorf("the split lost money: %s + %s is not %s",
+			byOwner["alice"], byOwner["bob"], total)
+	}
+
+	// And the page shows both, so neither person disappears from a total they
+	// are still answerable for.
+	_, body, _ := h.get(t, "/owners")
+	for who, want := range map[string]money.Cents{"alice": closed, "bob": open} {
+		row := rowFor(body, who)
+		if row == "" {
+			t.Errorf("%s is not on the owners page after the transfer", who)
+			continue
+		}
+		if !strings.Contains(row, want.String()) {
+			t.Errorf("%s's row does not carry %s: %q", who, want, row)
 		}
 	}
-	// And the open work went too, or the board would hold tasks charged to one
-	// owner and assigned under another.
-	if open > 0 && !strings.Contains(bobRow, ">"+itoa(open)+"<") {
-		t.Logf("bob's row: %q", bobRow)
+	// Alice holds no agents now and is still on the page, which is the whole
+	// point of recording the owner on the charge.
+	if r := rowFor(body, "alice"); !strings.Contains(r, `class="num">0<`) {
+		t.Logf("alice's row: %q", r)
 	}
+}
+
+// spentOn is what an agent has cost, all of it or only the part still open.
+func spentOn(t *testing.T, h *harness, agent, which string) money.Cents {
+	t.Helper()
+	q := `SELECT COALESCE(SUM(spent_cents),0) FROM tasks WHERE assignee=?`
+	if which == "open" {
+		q += ` AND state IN ('queued','active','blocked','returned')`
+	}
+	var v int64
+	if err := h.st.DB().QueryRow(q, agent).Scan(&v); err != nil {
+		t.Fatal(err)
+	}
+	return money.Cents(v)
 }
 
 // rowFor returns the table row an owner's name appears in, or "".
@@ -465,19 +499,22 @@ func TestTheTransferAndTheOwnersPageAgreeOnWhatMoves(t *testing.T) {
 		"csrf": {alice.csrf(t, "/")}, "owner": {"bob"},
 		"desk": {agent.Desk}, "parent": {agent.Parent},
 	})
-	// The message must say which thing stays, not just that something does.
-	if strings.Contains(loc, "stays+where+it+was+charged") &&
-		!strings.Contains(loc, "desk") {
-		t.Errorf("the transfer says charged work stays put without saying that "+
-			"it means the DESK, while the owners page moves the whole figure "+
-			"to the new owner: %s", loc)
+	// The message has to name BOTH sides of the split, because a message that
+	// only says what moved leaves the reader to assume the rest moved too.
+	for _, want := range []string{"open", "Closed"} {
+		if !strings.Contains(loc, want) && !strings.Contains(loc, url.QueryEscape(want)) {
+			t.Errorf("the transfer message does not say what happens to %s "+
+				"work: %s", want, loc)
+		}
 	}
-	// And the owners page has to say that a transferred agent brings its
-	// record, or the new owner's total looks like money they spent.
+	// And the page has to say the figures are what each person AUTHORISED,
+	// not what the agents they hold have cost, or a row with no agents beside
+	// a large number reads as a bug rather than as a record.
 	_, body, _ := h.get(t, "/owners")
-	if !strings.Contains(body, "transferred") {
-		t.Error("the owners page does not explain that an agent brings its " +
-			"whole record when it changes hands, so the last column reads as " +
-			"what that person spent")
+	for _, want := range []string{"authorised", "splits an agent"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the owners page does not explain %q, so the last column "+
+				"reads as what the agents somebody holds have cost", want)
+		}
 	}
 }

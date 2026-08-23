@@ -209,6 +209,21 @@ func run(addr, dir string, scfg stack.Config) error {
 	} else if n > 0 {
 		log.Printf("CostCrew: filled in the mandate for %d analysts", n)
 	}
+	// The column first: SeedOwners moves charges between people, and it cannot
+	// do that before there is a column recording who a charge belonged to.
+	// Who answered for a charge, recorded ON the charge.
+	if err := crew.EnsureOwnershipHistory(st.DB()); err != nil {
+		return fmt.Errorf("ownership history: %w", err)
+	}
+
+	// More than one person to answer for the estate.
+	if acc, moved, err := crew.SeedOwners(st.DB(), au, scfg.Owner); err != nil {
+		return fmt.Errorf("seeding owners: %w", err)
+	} else if acc > 0 || moved > 0 {
+		log.Printf("CostCrew: %d owner account(s) created with no usable password "+
+			"(set one with -set-password), %d agent(s) placed with them", acc, moved)
+	}
+
 	// Rights naming something this console no longer has.
 	if n, err := crew.DropRetiredRights(st.DB()); err != nil {
 		return fmt.Errorf("dropping retired rights: %w", err)

@@ -169,6 +169,12 @@ func (a *Auth) Get(username string) (*User, error) {
 		 FROM users WHERE username=?`, username))
 }
 
+// Exists answers whether an account is there, without handing out the record.
+func (a *Auth) Exists(username string) (bool, error) {
+	u, err := a.Get(username)
+	return u != nil, err
+}
+
 func (a *Auth) Count() (int, error) {
 	var n int
 	err := a.st.DB().QueryRow(`SELECT COUNT(*) FROM users`).Scan(&n)

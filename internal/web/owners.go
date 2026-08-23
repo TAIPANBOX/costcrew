@@ -2,6 +2,7 @@ package web
 
 import (
 	"net/http"
+	"sort"
 
 	"github.com/TAIPANBOX/costcrew/internal/anomaly"
 	"github.com/TAIPANBOX/costcrew/internal/crew"
@@ -48,6 +49,14 @@ func (s *Server) owners(w http.ResponseWriter, r *http.Request) {
 	}
 	scores, _ := crew.Scoreboards(s.db)
 	month := world.LastDay[:7]
+
+	// Spend comes from the owner recorded on each charge, not from who owns
+	// the agent today. An agent that changes hands used to rewrite history:
+	// the new owner's total jumped by an amount they had never authorised and
+	// the previous owner's dropped by the same, so "what has this person
+	// spent" had no stable answer.
+	spentEver, _ := crew.SpendByOwner(s.db, "")
+	spentMonth, _ := crew.SpendByOwner(s.db, month)
 	inMonth, _ := crew.SpendInMonth(s.db, month)
 
 	// One query for every finding, then grouped, rather than one query per
@@ -86,13 +95,14 @@ func (s *Server) owners(w http.ResponseWriter, r *http.Request) {
 		if a.State == string(world.Active) {
 			row.Active++
 		}
-		row.Spent += sc.Spent
 		row.Open += sc.Open
 		row.Guard += a.Monthly
 		row.Findings += byAgent[a.Name]
-		v := inMonth[a.Name]
-		row.ThisMonth += v
-		if a.Monthly > 0 && v > a.Monthly {
+		// The guard is about the agents somebody holds NOW, so it is measured
+		// against what those agents are spending now. That is a different
+		// question from what the person answers for historically, and the two
+		// are kept apart rather than summed into one column that means neither.
+		if v := inMonth[a.Name]; a.Monthly > 0 && v > a.Monthly {
 			row.OverGuard++
 		}
 		// The same predicate the crew page counts with, called rather than
@@ -103,9 +113,27 @@ func (s *Server) owners(w http.ResponseWriter, r *http.Request) {
 			row.Unbound++
 		}
 	}
+	// Somebody who has handed every agent over still answers for what they
+	// spent, so the page is the union of who holds agents now and who is
+	// recorded on a charge. Dropping the second set would make a transfer
+	// look like the money had never been spent.
+	for who := range spentEver {
+		if who == "" {
+			continue
+		}
+		if _, ok := idx[who]; !ok {
+			idx[who] = &ownerRow{Name: who}
+			order = append(order, who)
+		}
+	}
+	sort.Strings(order)
+
 	rows := make([]ownerRow, 0, len(order))
 	for _, k := range order {
-		rows = append(rows, *idx[k])
+		r := *idx[k]
+		r.Spent = spentEver[k]
+		r.ThisMonth = spentMonth[k]
+		rows = append(rows, r)
 	}
 
 	srt := readSort(r, "month", true)
@@ -120,6 +148,11 @@ func (s *Server) owners(w http.ResponseWriter, r *http.Request) {
 		"findings": func(a, b ownerRow) int { return cmpInt(a.Findings, b.Findings) },
 		"unbound":  func(a, b ownerRow) int { return cmpInt(a.Unbound, b.Unbound) },
 	}, "month")
+
+	// Work charged to no agent at all belongs to nobody, and it is named
+	// rather than dropped: a page that silently omits it reports a total that
+	// does not match the ledger and gives no hint why.
+	unowned := spentEver[""]
 
 	var totalMonth, totalGuard money.Cents
 	var totalAgents, totalUnbound int
@@ -138,7 +171,8 @@ func (s *Server) owners(w http.ResponseWriter, r *http.Request) {
 		TotalGuard  money.Cents
 		TotalAgents int
 		Unbound     int
+		Unowned     money.Cents
 		Sort        sortSpec
 	}{s.shellFor(r, "Owners", "owners"), rows, month,
-		totalMonth, totalGuard, totalAgents, totalUnbound, srt})
+		totalMonth, totalGuard, totalAgents, totalUnbound, unowned, srt})
 }

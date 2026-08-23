@@ -69,11 +69,11 @@ func Seed(db *sql.DB, anomalies []AnomalySeed) (sprints, tasks, artifacts int, e
 			taskID++
 			if _, err := tx.Exec(`INSERT INTO tasks
 				(id, sprint, title, goal, assignee, desk, state, reason,
-				 budget_cents, spent_cents, anomaly, created, updated)
-				VALUES (?,?,?,?,?,?,?,?,?,?,NULL,?,?)`,
+				 budget_cents, spent_cents, anomaly, created, updated, owner)
+				VALUES (?,?,?,?,?,?,?,?,?,?,NULL,?,?,?)`,
 				taskID, sid, t.Title, t.Goal, t.Assignee, t.Desk, string(t.State),
 				nullIf(t.Reason), int64(t.Budget), int64(t.Spent),
-				wk.start, wk.end); err != nil {
+				wk.start, wk.end, ownerAt(tx, t.Assignee)); err != nil {
 				return 0, 0, 0, err
 			}
 			tasks++
@@ -105,8 +105,8 @@ func Seed(db *sql.DB, anomalies []AnomalySeed) (sprints, tasks, artifacts int, e
 		}
 		if _, err := tx.Exec(`INSERT INTO tasks
 			(id, sprint, title, goal, assignee, desk, state, reason,
-			 budget_cents, spent_cents, anomaly, created, updated)
-			VALUES (?,?,?,?,?,?,?,NULL,?,?,?,?,?)`,
+			 budget_cents, spent_cents, anomaly, created, updated, owner)
+			VALUES (?,?,?,?,?,?,?,NULL,?,?,?,?,?,?)`,
 			taskID, current,
 			fmt.Sprintf("Explain the %s move on %s", an.Service, an.Day),
 			fmt.Sprintf("%s %s of baseline on the %s desk. Say what happened, "+
@@ -114,7 +114,7 @@ func Seed(db *sql.DB, anomalies []AnomalySeed) (sprints, tasks, artifacts int, e
 				an.Excess.String(), directionWord(an.Direction), an.Source),
 			nullIf(assignee), an.Source, string(state),
 			int64(money.Cents(15_00)), int64(triageCost(an.ID)),
-			an.ID, an.Day, an.Day); err != nil {
+			an.ID, an.Day, an.Day, ownerAt(tx, assignee)); err != nil {
 			return 0, 0, 0, err
 		}
 		tasks++

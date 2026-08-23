@@ -498,9 +498,13 @@ func Transfer(db *sql.DB, name, toDesk, toOwner, toParent, by string) (moved int
 	}
 	// Open work follows. Its desk moves with it, because a task's desk is
 	// where its cost is charged and the work is now being done somewhere else.
-	res, err := tx.Exec(`UPDATE tasks SET desk = ?
+	// The owner moves with the desk, and on OPEN work only. Closed work keeps
+	// the owner recorded on it, which is what makes the column a history: the
+	// person who answered for a charge in July still answers for it in
+	// September, whoever holds the agent now.
+	res, err := tx.Exec(`UPDATE tasks SET desk = ?, owner = ?
 		WHERE assignee = ? AND state IN ('queued','active','blocked','returned')`,
-		toDesk, name)
+		toDesk, toOwner, name)
 	if err != nil {
 		return 0, err
 	}

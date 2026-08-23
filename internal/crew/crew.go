@@ -99,6 +99,18 @@ type Comment struct {
 	Created string
 }
 
+// tasks.owner is who answered for the agent when the charge was made.
+//
+// Stamped once, at the charge, and moved only while the work is still open.
+// Without it, spend has to be read from the agent's CURRENT owner, and an
+// agent changing hands rewrites history for both people: the new owner's total
+// jumps by an amount they never authorised and the previous owner's drops by
+// the same.
+//
+// No SQL comments in this string. The driver executes it as one multi-statement
+// exec and a "--" comment inside it silently breaks the statement it sits in:
+// the column vanished from the CREATE TABLE and the failure surfaced two
+// statements later as "no such column: owner" on the index.
 const Schema = `
 CREATE TABLE IF NOT EXISTS sprints(
   id INTEGER PRIMARY KEY, label TEXT NOT NULL, start TEXT, finish TEXT,
@@ -107,7 +119,7 @@ CREATE TABLE IF NOT EXISTS tasks(
   id INTEGER PRIMARY KEY, sprint INTEGER, title TEXT NOT NULL, goal TEXT,
   assignee TEXT, desk TEXT, state TEXT NOT NULL, reason TEXT,
   budget_cents INTEGER DEFAULT 0, spent_cents INTEGER DEFAULT 0,
-  anomaly TEXT, created TEXT, updated TEXT);
+  anomaly TEXT, created TEXT, updated TEXT, owner TEXT);
 CREATE TABLE IF NOT EXISTS artifacts(
   id INTEGER PRIMARY KEY, task INTEGER NOT NULL, author TEXT, title TEXT,
   body TEXT, state TEXT NOT NULL, reason TEXT, created TEXT,
@@ -117,6 +129,7 @@ CREATE TABLE IF NOT EXISTS comments(
   created TEXT);
 CREATE INDEX IF NOT EXISTS tasks_sprint ON tasks(sprint, state);
 CREATE INDEX IF NOT EXISTS tasks_assignee ON tasks(assignee, state);
+CREATE INDEX IF NOT EXISTS tasks_owner ON tasks(owner);
 CREATE INDEX IF NOT EXISTS artifacts_task ON artifacts(task);
 `
 
@@ -466,11 +479,15 @@ func FromAnomaly(db *sql.DB, anomalyID, title, goal, assignee, desk string, budg
 		return 0, err
 	}
 	now := stamp()
+	// The owner is read HERE rather than passed in: a caller holding an
+	// Analyst loaded before a transfer would stamp the previous owner, and the
+	// history would record a handover as though it had not happened.
 	res, err := db.Exec(`INSERT INTO tasks
-		(sprint, title, goal, assignee, desk, state, budget_cents, spent_cents, anomaly, created, updated)
-		VALUES (?,?,?,?,?,?,?,0,?,?,?)`,
+		(sprint, title, goal, assignee, desk, state, budget_cents, spent_cents, anomaly, created, updated, owner)
+		VALUES (?,?,?,?,?,?,?,0,?,?,?,?)`,
 		sprint, title, goal, nullIf(assignee), nullIf(desk),
-		stateFor(assignee), int64(budget), anomalyID, now, now)
+		stateFor(assignee), int64(budget), anomalyID, now, now,
+		OwnerOf(db, assignee))
 	if err != nil {
 		return 0, err
 	}
@@ -706,10 +723,11 @@ func Approve(db *sql.DB, p Plan) (int, error) {
 		}
 		if _, err := tx.Exec(`INSERT INTO tasks
 			(sprint, title, goal, assignee, desk, state, budget_cents, spent_cents,
-			 created, updated)
-			VALUES (?,?,?,?,?,?,?,0,?,?)`,
+			 created, updated, owner)
+			VALUES (?,?,?,?,?,?,?,0,?,?,?)`,
 			sid, it.Title, it.Goal, nullIf(it.Assignee), nullIf(it.Desk),
-			string(state), int64(it.Budget), now, now); err != nil {
+			string(state), int64(it.Budget), now, now,
+			ownerAt(tx, it.Assignee)); err != nil {
 			return n, err
 		}
 		n++
