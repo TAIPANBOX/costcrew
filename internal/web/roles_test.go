@@ -10,7 +10,9 @@ import (
 	"github.com/TAIPANBOX/costcrew/internal/auth"
 )
 
-var postRouteRe = regexp.MustCompile(`HandleFunc\("POST ([^"]+)"`)
+// Registrations, not prose. See routeRe in guarded_test.go for the comment
+// this fired on before it was anchored.
+var postRouteRe = regexp.MustCompile(`(?m)^\s*s\.mux\.HandleFunc\("POST ([^"]+)"`)
 
 // Routes a viewer may POST to, and why each one.
 //

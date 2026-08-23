@@ -30,7 +30,14 @@ func turnedAway(loc string) bool {
 	return strings.HasPrefix(loc, "/login") || strings.HasPrefix(loc, "/signup")
 }
 
-var routeRe = regexp.MustCompile(`HandleFunc\("(GET|POST) ([^"]+)"`)
+// Registrations, not prose.
+//
+// This matched HandleFunc anywhere in the file, including inside a comment, so
+// documenting a route in a sentence made this test demand that the route exist
+// and be guarded. Found by scripts/gates-have-teeth.sh, whose pass-case plants
+// exactly that comment: a gate that fires on prose gets deleted the first time
+// somebody writes a helpful line above a handler.
+var routeRe = regexp.MustCompile(`(?m)^\s*s\.mux\.HandleFunc\("(GET|POST) ([^"]+)"`)
 
 // Every route requires a session unless it is on the list above.
 //
