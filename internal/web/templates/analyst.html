@@ -5,7 +5,7 @@
   <p>{{.A.Role}} on the <a href="/desk/{{.A.Desk}}">{{.A.Desk}}</a> desk{{if .A.Reason}}. <strong>{{.A.Reason}}</strong>{{end}}</p>
   <p class="idline"><code>agent://{{$.Host}}/{{.A.Name}}</code>
     {{if .Passport}}· <a href="/staff/{{.A.Name}}/passport.json">passport.json</a>{{end}}
-    {{if .CanAct}}· <a href="/staff/{{.A.Name}}/edit">re-brief</a>{{end}}</p>
+    {{if .MayManage}}· <a href="/staff/{{.A.Name}}/edit">re-brief</a>{{end}}</p>
 </header>
 
 <div class="tiles summary">

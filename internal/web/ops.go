@@ -193,6 +193,17 @@ type accountRow struct {
 	LastLogin string
 }
 
+// A viewer reads the account list and is served no controls.
+//
+// @yurii 2026-08-23, asked directly whether to close it: "лишай список
+// акаунтів". So this is a decision, not an oversight, and it should not be
+// "fixed" by a later reader who notices that a read-only account can see every
+// username and role.
+//
+// The reasoning it was decided on: in a console where everyone with an account
+// is a colleague, who to ask about an account is useful, and the list is not a
+// secret. What a viewer must not get is the CONTROLS, which is held by
+// TestWhatAViewerCanRead.
 func (s *Server) accounts(w http.ResponseWriter, r *http.Request) {
 	u := s.guard(w, r)
 	if u == nil {
