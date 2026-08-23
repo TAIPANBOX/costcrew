@@ -191,6 +191,33 @@
 </div>
 
 <div class="panel">
+  <h2>Where it stopped</h2>
+  <p class="note">{{if .Stops}}{{.StopCount.Returned}} {{plural .StopCount.Returned "artifact" "artifacts"}} sent back and {{.StopCount.Blocked}} {{plural .StopCount.Blocked "task" "tasks"}} blocked, newest first. The work behind them had already cost <strong>{{.StopCount.Spent}}</strong> when it stopped, which is money spent on nothing delivered and is not what a guard measures: a guard is about what an agent <em>may</em> spend.{{else}}Nothing this agent has done has been sent back or blocked.{{end}} This comes from the board rather than the event stream, so it covers everything the agent has ever done and not only what this console has seen since the governance plane was switched on.</p>
+  {{if .Stops}}
+  <div class="scroll">
+  <table>
+    <thead><tr>
+      {{.SortStops.Header "when" "When" "tight" false}}
+      {{.SortStops.Header "kind" "What" "tight" false}}
+      {{.SortStops.Header "task" "The work" "" false}}
+      {{.SortStops.Header "spent" "Cost by then" "num" true}}
+      {{.SortStops.Header "reason" "Why" "" false}}
+    </tr></thead>
+    <tbody>
+    {{range .Stops}}
+      <tr><td class="tight">{{.When}}</td>
+          <td class="tight"><span class="chip {{if eq .Kind "returned"}}explained{{else}}open{{end}}">{{.Kind}}</span></td>
+          <td>{{.Task}}</td>
+          <td class="num">{{.Spent}}</td>
+          <td class="detail">{{if .Reason}}{{.Reason}}{{else}}<span class="sub">no reason was recorded, which is the same as not having looked</span>{{end}}</td></tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+  {{end}}
+</div>
+
+<div class="panel">
   <h2>Events</h2>
   <p class="note">This agent's rows in the agent-event stream, newest first: what it did, and what was done about it. Each line carries the delegation chain, so another service in the stack reads the same record. The <a href="/audit">audit page</a> carries the installation's own hash-chained journal, which is a different log answering a different question.</p>
   <div class="scroll">
@@ -203,7 +230,7 @@
           <td class="tight">{{if .Sev}}<span class="chip {{if eq .Sev "high"}}open{{else if eq .Sev "medium"}}explained{{else}}accepted{{end}}">{{.Sev}}</span>{{end}}</td>
           <td class="detail">{{.Detail}}</td></tr>
     {{else}}
-      <tr><td colspan="4" class="empty">Nothing in the stream names this agent yet.{{if not $.Passport}} The governance plane is switched off on this installation, so nothing is being written at all.{{end}}</td></tr>
+      <tr><td colspan="4" class="empty">Nothing in the stream names this agent yet.{{if not $.Passport}} The governance plane is switched off on this installation, so nothing is being written at all.{{else}} The stream starts when the governance plane is switched on and holds only what this console has done since: what the agent did before that is on the board, and “Where it stopped” above reads it.{{end}}</td></tr>
     {{end}}
     </tbody>
   </table>

@@ -233,6 +233,18 @@ func (s *Server) analyst(w http.ResponseWriter, r *http.Request) {
 	caused, _ := anomaly.List(s.db, anomaly.Filter{CausedBy: name})
 	handled, _ := anomaly.List(s.db, anomaly.Filter{HandledBy: name})
 	events, _ := s.analystEvents(name, 40)
+
+	// What stopped, from the board. See stops.go for why this does not come
+	// from the event stream.
+	stops, _ := stopsFor(s.db, name)
+	ssrt := readSortNamed(r, "ssort", "when", true)
+	applySort(stops, ssrt, map[string]func(a, b agentStop) int{
+		"when":   func(a, b agentStop) int { return cmpString(a.When, b.When) },
+		"kind":   func(a, b agentStop) int { return cmpString(a.Kind, b.Kind) },
+		"task":   func(a, b agentStop) int { return cmpString(a.Task, b.Task) },
+		"spent":  func(a, b agentStop) int { return cmpInt64(int64(a.Spent), int64(b.Spent)) },
+		"reason": func(a, b agentStop) int { return cmpString(a.Reason, b.Reason) },
+	}, "when")
 	spend, _ := deskSpend(s.db, a.Desk, month)
 
 	// Who acts under it. The roster is the only record of this, and it is what
@@ -395,11 +407,14 @@ func (s *Server) analyst(w http.ResponseWriter, r *http.Request) {
 		Elsewhere  map[string]money.Cents
 		SortRhythm sortSpec
 		SortWork   sortSpec
+		Stops      []agentStop
+		StopCount  stopSummary
+		SortStops  sortSpec
 	}{s.shellFor(r, a.Name, "staff"), a, sc, agentChip(a.State),
 		work, caused, handled, events, children, rhythm, rights, cannotEver,
 		engine, doc, docJSON, spend, month, guardUsed, s.host, u.May("operator"),
 		mayManage(u, a), append(deskNames(), "management"), owners, others,
-		openWork, elsewhere, rsrt, wsrt})
+		openWork, elsewhere, rsrt, wsrt, stops, summariseStops(stops), ssrt})
 }
 
 // analystPassport serves the document itself.
