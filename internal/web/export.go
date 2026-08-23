@@ -27,6 +27,13 @@ var budgetHeader = []string{
 }
 
 func (s *Server) exportBudget(w http.ResponseWriter, r *http.Request) {
+	// A download is a page. This one served every team's budget and actual
+	// spend to anyone who could reach the port, because it returns a file
+	// rather than HTML and so did not look like something behind a login.
+	// Its eight neighbours in this package all guard; this one did not.
+	if s.guard(w, r) == nil {
+		return
+	}
 	source := r.URL.Query().Get("source")
 	if source == "" {
 		source = "aws"

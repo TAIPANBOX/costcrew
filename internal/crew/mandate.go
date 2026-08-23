@@ -28,7 +28,7 @@ import (
 // have been lying about it on every page.
 var rightsForSkill = map[string][]string{
 	"variance-commentary":      {"figures-read", "propose-only"},
-	"anomaly-triage":           {"figures-read", "requests-read", "propose-only"},
+	"anomaly-triage":           {"figures-read", "propose-only"},
 	"driver-classification":    {"figures-read", "sql-readonly"},
 	"rightsizing-analysis":     {"figures-read", "sql-readonly", "propose-only"},
 	"commitment-modelling":     {"figures-read", "budgets-read"},
@@ -48,16 +48,16 @@ var rightsForSkill = map[string][]string{
 	"decision-framing":         {"figures-read", "export-data", "channel-post"},
 	"token-economics":          {"figures-read", "sql-readonly"},
 	"cost-per-outcome":         {"figures-read", "sql-readonly"},
-	"sprint-planning":          {"requests-read", "budgets-read"},
-	"routing":                  {"requests-read"},
-	"escalation":               {"requests-read", "channel-post"},
+	"sprint-planning":          {"figures-read", "budgets-read"},
+	"routing":                  {"figures-read"},
+	"escalation":               {"channel-post"},
 	"policy-review":            {"figures-read", "budgets-read"},
 	"evidence-assembly":        {"figures-read", "export-data"},
 	"data-quality-checks":      {"figures-read", "sql-readonly"},
 	"tag-coverage":             {"figures-read", "sql-readonly"},
 	"vendor-benchmarking":      {"figures-read"},
 	"peer-comparison":          {"figures-read"},
-	"renewal-calendar":         {"figures-read", "requests-read"},
+	"renewal-calendar":         {"figures-read", "budgets-read"},
 	"renewal-negotiation-prep": {"figures-read", "propose-only"},
 	"depreciation-modelling":   {"figures-read", "sql-readonly"},
 	"model-routing-review":     {"figures-read", "sql-readonly"},
@@ -308,4 +308,62 @@ func BackfillMandate(db *sql.DB, owner string) (int, error) {
 		n++
 	}
 	return n, nil
+}
+
+// DropRetiredRights removes a right this console no longer has anything behind.
+//
+// `requests-read` named an intake queue of questions people had asked. No such
+// table was ever built, and the decision has been made not to build one, so
+// nine agents held a permission to read a thing that does not exist. It read
+// as a capability on their card, it travelled into the identity graph as a
+// tool, and it could never be exercised or refused.
+//
+// The rights list is a claim about what an agent can reach. A claim about
+// something absent is the same fault as an attestation nothing attested, in
+// a smaller coat.
+func DropRetiredRights(db *sql.DB) (int, error) {
+	if err := ensureRoster(db); err != nil {
+		return 0, err
+	}
+	rows, err := db.Query(`SELECT name, COALESCE(rights,'') FROM analysts`)
+	if err != nil {
+		return 0, err
+	}
+	type change struct{ name, rights string }
+	var changes []change
+	for rows.Next() {
+		var name, rights string
+		if err := rows.Scan(&name, &rights); err != nil {
+			rows.Close()
+			return 0, err
+		}
+		kept := make([]string, 0, 8)
+		dropped := false
+		for _, r := range splitList(rights) {
+			if _, retired := retiredRights[r]; retired {
+				dropped = true
+				continue
+			}
+			kept = append(kept, r)
+		}
+		if dropped {
+			changes = append(changes, change{name, strings.Join(kept, ",")})
+		}
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+	for _, c := range changes {
+		if _, err := db.Exec(`UPDATE analysts SET rights=? WHERE name=?`, c.rights, c.name); err != nil {
+			return 0, err
+		}
+	}
+	return len(changes), nil
+}
+
+// retiredRights are rights this console once granted and no longer has a
+// subject for.
+var retiredRights = map[string]struct{}{
+	"requests-read": {},
 }

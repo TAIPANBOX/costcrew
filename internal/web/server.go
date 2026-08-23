@@ -256,16 +256,26 @@ func (s *Server) redirect(to string) http.HandlerFunc {
 }
 
 func (s *Server) intakeTemplate(w http.ResponseWriter, r *http.Request) {
+	// Behind the login like everything else. The sample rows name real teams
+	// and real platforms, which is the estate's own vocabulary and not
+	// something to hand out for the asking.
+	if s.guard(w, r) == nil {
+		return
+	}
 	name := r.PathValue("name")
 	var body string
 	switch name {
+	// budgets, and only budgets.
+	//
+	// There was a requests.csv here too, for an intake queue of questions
+	// people had asked. No such table exists and none is planned, so the
+	// template offered a shape for something nothing could receive: a download
+	// that leads nowhere, which is worse than none, because somebody fills it
+	// in and then looks for where it goes.
 	case "budgets.csv":
 		body = "platform,team,month,budget_usd\n" +
 			"aws,sre-platform,2026-09,960\n" +
 			"aws,ml,2026-09,820\n"
-	case "requests.csv":
-		body = "platform,team,title,kind,est_monthly_usd,status,target_month,note\n" +
-			"gcp,ml,GKE burst pool,capacity,540,new,2026-10,fill me\n"
 	default:
 		http.Error(w, "unknown template", http.StatusNotFound)
 		return

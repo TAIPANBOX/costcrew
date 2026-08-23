@@ -82,7 +82,7 @@ var (
 	Cadences = []string{"daily", "weekly", "fortnightly", "monthly", "on-request"}
 	States   = []string{"active", "suspended", "restricted", "probation", "onboarding"}
 	Rights   = []string{
-		"figures-read", "sql-readonly", "budgets-read", "requests-read",
+		"figures-read", "sql-readonly", "budgets-read",
 		"propose-only", "close-covered", "channel-post", "publish-explainer",
 		"export-data", "kpi-registry",
 	}

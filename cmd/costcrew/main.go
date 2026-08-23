@@ -209,6 +209,14 @@ func run(addr, dir string, scfg stack.Config) error {
 	} else if n > 0 {
 		log.Printf("CostCrew: filled in the mandate for %d analysts", n)
 	}
+	// Rights naming something this console no longer has.
+	if n, err := crew.DropRetiredRights(st.DB()); err != nil {
+		return fmt.Errorf("dropping retired rights: %w", err)
+	} else if n > 0 {
+		log.Printf("CostCrew: dropped a retired right from %d analyst(s); it named an "+
+			"intake queue that was never built", n)
+	}
+
 	// Attestations this console invented before it knew better. Only those
 	// with no evidence behind them; a recorded one survives.
 	if n, err := crew.ClearFabricated(st.DB()); err != nil {

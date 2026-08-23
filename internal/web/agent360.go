@@ -40,7 +40,6 @@ var rightMeans = map[string]string{
 	"figures-read":      "read the estate's charges, budgets and totals",
 	"sql-readonly":      "run its own SELECT against the store; no write reaches the database",
 	"budgets-read":      "read the guards and what has been spent against them",
-	"requests-read":     "read the intake queue of questions people have asked",
 	"propose-only":      "draft an answer, which a person still has to post",
 	"close-covered":     "close a task once its artifact is posted and covered",
 	"channel-post":      "post into the team channel it reports to",
