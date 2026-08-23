@@ -236,20 +236,23 @@ func BackfillMandate(db *sql.DB, owner string) (int, error) {
 	}
 	rows, err := db.Query(`SELECT name, COALESCE(role,''), COALESCE(desk,''),
 		COALESCE(state,''), COALESCE(skills,''), COALESCE(mission,''),
-		COALESCE(rights,''), COALESCE(parent,''), COALESCE(hired,''), COALESCE(owner,'')
+		COALESCE(rights,''), COALESCE(parent,''), COALESCE(hired,''), COALESCE(owner,''),
+		COALESCE(cadence,''), COALESCE(audience,'')
 		FROM analysts`)
 	if err != nil {
 		return 0, err
 	}
 	type row struct {
 		name, role, desk, state, skills, mission, rights, parent, hired, owner string
+		cadence, audience                                                      string
 	}
 	var all []row
 	hasPartner := map[string]bool{}
 	for rows.Next() {
 		var r row
 		if err := rows.Scan(&r.name, &r.role, &r.desk, &r.state, &r.skills,
-			&r.mission, &r.rights, &r.parent, &r.hired, &r.owner); err != nil {
+			&r.mission, &r.rights, &r.parent, &r.hired, &r.owner,
+			&r.cadence, &r.audience); err != nil {
 			rows.Close()
 			return 0, err
 		}
@@ -290,6 +293,43 @@ func BackfillMandate(db *sql.DB, owner string) (int, error) {
 		owned := r.owner
 		if unowned && owner != "" {
 			owned = owner
+		}
+		// Nothing is written when nothing would change.
+		//
+		// The skip at the top of the loop asks whether mission and rights are
+		// non-empty. Two analysts are SUSPENDED, RightsFor returns nothing for
+		// a suspended agent on purpose, and so their rights column is
+		// legitimately empty and can never be filled. They came back through
+		// here on every start, were rewritten with the values they already
+		// had, and every start reported "filled in the mandate for 2
+		// analysts". SQLite counts the rows an UPDATE MATCHED rather than the
+		// rows whose values differ, so the number was true about the statement
+		// and false about the estate: it was the second line an operator read
+		// on a fresh install, about work that was never missing, forever.
+		//
+		// So the question is not "is it filled" but "would writing change
+		// anything", which is the only form that converges when the correct
+		// answer for a column is empty. The CASE guards in the statement below
+		// are mirrored here, and the mirroring is the fragile part: a column
+		// added there without a line here starts the loop over again.
+		wantMission, wantRights := r.mission, r.rights
+		if wantMission == "" {
+			wantMission = missionFor(a)
+		}
+		if wantRights == "" {
+			wantRights = strings.Join(rights, ",")
+		}
+		wantCadence, wantAudience := r.cadence, r.audience
+		if wantCadence == "" || wantCadence == "weekly" {
+			wantCadence = cadenceFor(r.name, r.role)
+		}
+		if wantAudience == "" || wantAudience == "the desk" {
+			wantAudience = audienceFor(r.name, r.desk)
+		}
+		if wantMission == r.mission && wantRights == r.rights &&
+			wantCadence == r.cadence && wantAudience == r.audience &&
+			parent == r.parent && hired == r.hired && owned == r.owner {
+			continue
 		}
 		if _, err := db.Exec(`UPDATE analysts SET
 			mission   = CASE WHEN COALESCE(mission,'')   = '' THEN ? ELSE mission END,
