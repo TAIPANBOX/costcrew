@@ -51,8 +51,8 @@
     <tbody>
     {{range .A.Teams}}
       <tr>
-        <td class="tight"><a href="/desk/{{.Source}}">{{.Source}}</a></td>
-        <td><a href="/team/{{.Team}}">{{.Team}}</a></td>
+        <td class="tight"><a href="/desk/{{.Source}}?period={{$.Period}}">{{.Source}}</a></td>
+        <td><a href="/team/{{.Team}}?period={{$.Period}}">{{.Team}}</a></td>
         <td class="num">{{.Direct}}</td>
         <td class="num">{{.Allocated}}</td>
         <td class="num"><strong>{{.Loaded}}</strong></td>

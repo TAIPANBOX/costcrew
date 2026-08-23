@@ -24,7 +24,7 @@
     </tr></thead>
     <tbody>{{range .Rows}}
       <tr data-team="{{.Name}}">
-        <td><a href="/team/{{.Name}}"><strong>{{.Name}}</strong></a></td>
+        <td><a href="/team/{{.Name}}?period={{$.Period}}"><strong>{{.Name}}</strong></a></td>
         <td class="tight">{{.Unit}}</td>
         <td class="num" data-col="direct">{{.Direct}}</td>
         <td class="num" data-col="allocated">{{.Allocated}}</td>

@@ -1127,8 +1127,8 @@ func TestClickingAColumnActuallySortsIt(t *testing.T) {
 
 	for _, tc := range []struct{ path, col, pattern string }{
 		{"/anomalies", "day", `<td class="tight">(\d{4}-\d{2}-\d{2})</td>`},
-		{"/allocation", "team", `<td><a href="/team/([a-z0-9-]+)">`},
-		{"/utilisation", "team", `<td class="tight"><a href="/team/([a-z0-9-]+)">`},
+		{"/allocation", "team", `<td><a href="/team/([a-z0-9-]+)[^"]*">`},
+		{"/utilisation", "team", `<td class="tight"><a href="/team/([a-z0-9-]+)[^"]*">`},
 		{"/saas", "vendor", `<td><strong>([A-Za-z][A-Za-z0-9 .-]*)</strong>`},
 		{"/staff", "name", `<td><a href="/staff/([a-z0-9._-]+)">`},
 	} {
@@ -1307,7 +1307,7 @@ func TestATeamsSpendAgreesWithTheEstateList(t *testing.T) {
 	h.signUp(t, "owner", "owner-password-2026")
 
 	_, teams, _ := h.get(t, "/teams")
-	names := regexp.MustCompile(`<a href="/team/([a-z0-9-]+)">`).FindAllStringSubmatch(teams, -1)
+	names := regexp.MustCompile(`<a href="/team/([a-z0-9-]+)[^"]*">`).FindAllStringSubmatch(teams, -1)
 	if len(names) == 0 {
 		t.Fatal("the estate list names no teams, so this measured nothing")
 	}
@@ -1491,7 +1491,12 @@ func TestEveryNameOnAPageIsALinkIntoIt(t *testing.T) {
 		for _, row := range rowRe.FindAllString(body, -1) {
 			for _, m := range cell.FindAllStringSubmatch(row, -1) {
 				to, ok := known[m[1]]
-				if !ok || strings.Contains(row, `href="`+to+`"`) {
+				// The href may now carry the period the reader is looking at,
+				// so the match is on the path and not on the whole attribute.
+				// It said "prints saas as plain text" when saas was linked
+				// perfectly well, only with ?period= after it.
+				if !ok || strings.Contains(row, `href="`+to+`"`) ||
+					strings.Contains(row, `href="`+to+`?`) {
 					continue
 				}
 				t.Errorf("%s prints %q as plain text; it should open %s", path, m[1], to)
@@ -1927,7 +1932,7 @@ func TestAServiceIsSomethingYouCanOpen(t *testing.T) {
 	if code != http.StatusOK {
 		t.Fatalf("GET /services: %d", code)
 	}
-	names := regexp.MustCompile(`<a href="/service/([^"]+)"`).FindAllStringSubmatch(list, -1)
+	names := regexp.MustCompile(`<a href="/service/([^"?]+)[^"]*"`).FindAllStringSubmatch(list, -1)
 	if len(names) < 10 {
 		t.Fatalf("the services list names %d services", len(names))
 	}
@@ -1951,7 +1956,7 @@ func TestAServiceIsSomethingYouCanOpen(t *testing.T) {
 			t.Errorf("GET %s: %d", path, code)
 			continue
 		}
-		row := fragment(list, `<a href="/service/`+m[1]+`"`, 700)
+		row := fragment(list, `<a href="/service/`+m[1], 700)
 		listed := number(fragment(row, `data-col="amount">`, 30))
 		own := number(fragment(page, `<div class="k">This month</div><div class="v">`, 30))
 		if listed != "" && own != "" && listed != own {

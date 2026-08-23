@@ -39,11 +39,11 @@
 
 <div class="panel">
   <h2>Desks</h2>
-  <p class="note">Each desk's month to date, and how it moved against the same {{.Through}} days of {{.Prev}}. The name opens the desk.</p>
+  <p class="note">Each desk's month to date, and how it moved against the same {{.Through}} days of {{.Prev}}. The name opens that desk on this same month, so the figure you clicked is the figure you land on.</p>
   <div class="tiles">
     {{range .Desks}}
     <div class="tile">
-      <div class="k"><a href="/desk/{{.Name}}">{{.Name}}</a></div>
+      <div class="k"><a href="/desk/{{.Name}}?period={{$.Month}}">{{.Name}}</a></div>
       <div class="v">{{.Total}}</div>
       <div class="s">
         {{.Kind}}
@@ -65,7 +65,7 @@
     <tbody>
     {{range .Movers}}
       <tr>
-        <td><a href="/service/{{.Service}}"><strong>{{.Service}}</strong></a><span class="sub"><a href="/desk/{{.Source}}">{{.Source}}</a></span></td>
+        <td><a href="/service/{{.Service}}"><strong>{{.Service}}</strong></a><span class="sub"><a href="/desk/{{.Source}}?period={{$.Month}}">{{.Source}}</a></span></td>
         <td class="num">{{.Was}}</td>
         <td class="num">{{.Now}}</td>
         <td class="num {{if gt .Change 0}}up{{else}}down{{end}}"><strong>{{if gt .Change 0}}+{{end}}{{.Change}}</strong></td>

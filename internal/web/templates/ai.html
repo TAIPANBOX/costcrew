@@ -19,7 +19,7 @@
     {{range .Rows}}
       <tr>
         <td class="tight">{{.Month}}</td>
-        <td class="tight"><a href="/team/{{.Team}}">{{.Team}}</a></td>
+        <td class="tight"><a href="/team/{{.Team}}?period={{$.Month}}">{{.Team}}</a></td>
         <td>{{if .Model}}{{.Model}}{{else}}<span class="note">unattributed</span>{{end}}</td>
         <td class="num">{{.Tokens}}</td>
         <td class="num">{{.Cost}}</td>

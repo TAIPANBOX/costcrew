@@ -29,7 +29,7 @@
     </tr></thead>
     <tbody>{{range .ByTeam}}
       <tr>
-        <td>{{if eq .Key "(untagged)"}}<span class="note">(untagged)</span>{{else}}<a href="/team/{{.Key}}">{{.Key}}</a>{{end}}</td>
+        <td>{{if eq .Key "(untagged)"}}<span class="note">(untagged)</span>{{else}}<a href="/team/{{.Key}}?period={{$.Period}}">{{.Key}}</a>{{end}}</td>
         <td class="num">{{.Amount}}</td>
         <td class="num">{{printf "%.1f%%" .Share}}</td>
         <td><div class="bar"><span style="width:{{printf "%.1f" .Share}}%"></span></div></td>
@@ -47,7 +47,7 @@
   <table>
     <thead><tr>{{$.SortService.Header "name" "Service" "" false}}{{$.SortService.Header "amount" "Cost" "num" true}}<th class="num">Share</th></tr></thead>
     <tbody>{{range .ByService}}
-      <tr><td><a href="/service/{{.Key}}">{{.Key}}</a></td><td class="num">{{.Amount}}</td><td class="num">{{printf "%.1f%%" .Share}}</td></tr>
+      <tr><td><a href="/service/{{.Key}}?period={{$.Period}}">{{.Key}}</a></td><td class="num">{{.Amount}}</td><td class="num">{{printf "%.1f%%" .Share}}</td></tr>
     {{end}}</tbody>
   </table>
   </div>
@@ -59,7 +59,7 @@
   <table>
     <thead><tr>{{$.SortBudget.Header "team" "Team" "" false}}{{$.SortBudget.Header "budget" "Budget" "num" true}}{{$.SortBudget.Header "actual" "Actual" "num" true}}{{$.SortBudget.Header "var" "Variance" "num" true}}{{$.SortBudget.Header "pct" "%" "num" true}}</tr></thead>
     <tbody>{{range .Budgets}}
-      <tr><td><a href="/team/{{.Team}}">{{.Team}}</a></td>
+      <tr><td><a href="/team/{{.Team}}?period={{$.Period}}">{{.Team}}</a></td>
           <td class="num">{{.Budget}}</td><td class="num">{{.Actual}}</td>
           <td class="num {{if gt .Var 0}}up{{else}}down{{end}}">{{.Var}}</td>
           <td class="num">{{if .HasPct}}{{printf "%.1f" .VarPct}}{{else}}—{{end}}</td></tr>

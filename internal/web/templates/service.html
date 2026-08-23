@@ -2,7 +2,7 @@
 <p class="crumb"><a href="/services">Services</a> / {{.Name}}</p>
 <header class="page">
   <h1>{{.Name}}</h1>
-  <p>{{range $i, $d := .Desks}}{{if $i}} · {{end}}<a href="/desk/{{$d}}">{{$d}}</a>{{end}}
+  <p>{{range $i, $d := .Desks}}{{if $i}} · {{end}}<a href="/desk/{{$d}}?period={{$.Period}}">{{$d}}</a>{{end}}
     {{if .Kind}}· <span class="chip grain">{{.Kind}}</span>{{end}} · {{.Period}}</p>
 </header>
 
@@ -26,7 +26,7 @@
     <thead><tr><th>Team</th><th class="num">Cost</th><th class="num">Share</th></tr></thead>
     <tbody>{{range .ByTeam}}
       <tr>
-        <td>{{if eq .Key "(untagged)"}}<span class="note">(untagged)</span>{{else}}<a href="/team/{{.Key}}">{{.Key}}</a>{{end}}</td>
+        <td>{{if eq .Key "(untagged)"}}<span class="note">(untagged)</span>{{else}}<a href="/team/{{.Key}}?period={{$.Period}}">{{.Key}}</a>{{end}}</td>
         <td class="num">{{.Amount}}</td>
         <td class="num">{{printf "%.1f%%" .Share}}<span class="bar"><span class="fill" style="width:{{printf "%.0f" .Share}}%"></span></span></td>
       </tr>
@@ -91,7 +91,7 @@
     <thead><tr><th>Resource</th><th class="tight">Team</th><th class="num">p95 CPU</th><th class="num">Costs now</th><th>Recommendation</th></tr></thead>
     <tbody>{{range .Util}}
       <tr><td><strong>{{.Resource}}</strong></td>
-          <td class="tight"><a href="/team/{{.Team}}">{{.Team}}</a></td>
+          <td class="tight"><a href="/team/{{.Team}}?period={{$.Period}}">{{.Team}}</a></td>
           <td class="num {{if lt .P95CPU 20.0}}up{{end}}">{{printf "%.1f%%" .P95CPU}}</td>
           <td class="num">{{.Monthly}}</td>
           <td>{{if .Advice}}<strong>{{.Advice}}</strong>, saving {{.Saving}} a month{{else}}<span class="note">leave it</span>{{end}}<span class="sub">{{.Why}}</span></td></tr>
@@ -109,9 +109,9 @@
     <tbody>{{range .Anomalies}}
       <tr><td class="num {{if eq .Direction "up"}}up{{else}}down{{end}}"><a href="/anomalies/{{.ID}}">{{.Excess}}</a></td>
           <td class="tight">{{.Day}}</td>
-          <td class="tight"><a href="/desk/{{.Source}}">{{.Source}}</a></td>
-          <td>{{if .Team}}<a href="/team/{{.Team}}">{{.Team}}</a>{{else}}<span class="note">untagged</span>{{end}}</td>
-          <td>{{if .CausedBy}}{{if eq .CausedByKind "agent"}}<a href="/staff/{{.CausedBy}}">{{.CausedBy}}</a>{{else if eq .CausedByKind "team"}}<a href="/team/{{.CausedBy}}">{{.CausedBy}}</a>{{else}}{{.CausedBy}}{{end}}{{else}}<span class="note">not established</span>{{end}}</td>
+          <td class="tight"><a href="/desk/{{.Source}}?period={{$.Period}}">{{.Source}}</a></td>
+          <td>{{if .Team}}<a href="/team/{{.Team}}?period={{$.Period}}">{{.Team}}</a>{{else}}<span class="note">untagged</span>{{end}}</td>
+          <td>{{if .CausedBy}}{{if eq .CausedByKind "agent"}}<a href="/staff/{{.CausedBy}}">{{.CausedBy}}</a>{{else if eq .CausedByKind "team"}}<a href="/team/{{.CausedBy}}?period={{$.Period}}">{{.CausedBy}}</a>{{else}}{{.CausedBy}}{{end}}{{else}}<span class="note">not established</span>{{end}}</td>
           <td class="tight"><span class="chip {{.State}}">{{.State}}</span></td></tr>
     {{else}}<tr><td colspan="6" class="empty">The detector has never raised anything on this service.</td></tr>{{end}}</tbody>
   </table>

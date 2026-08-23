@@ -23,7 +23,7 @@
     </tr></thead>
     <tbody>{{range .Rows}}
       <tr data-desk="{{.Name}}">
-        <td><a href="/desk/{{.Name}}"><strong>{{.Name}}</strong></a></td>
+        <td><a href="/desk/{{.Name}}?period={{$.Period}}"><strong>{{.Name}}</strong></a></td>
         <td class="tight">{{.Kind}}</td>
         <td class="num">{{.Cost}}</td>
         <td class="num">{{printf "%.1f%%" .Share}}</td>
