@@ -393,7 +393,14 @@ func (s *Server) audit(w http.ResponseWriter, r *http.Request) {
 		Mapped  int
 		OwnOnly int
 	}{s.shellFor(r, "Audit", "audit"), rows, ok, n, breakAt,
-		s.rec != nil, s.emitted(), srt, s.eventsPath, mapped, own})
+		// Whether the agent-event STREAM is configured, not whether a recorder
+		// exists. s.rec is the store's own journal recorder and is present on
+		// every installation, so this tile appeared on all of them and printed
+		// "On the stack: 0" beside "The chain verified: 36 events". A reader
+		// comparing the two concludes the console is failing to emit, when the
+		// truth is that nobody switched the governance plane on. The template
+		// already guarded it; the guard was reading the wrong thing.
+		s.eventsPath != "", s.emitted(), srt, s.eventsPath, mapped, own})
 }
 
 // summarise turns an event's payload into one readable line, in a stable

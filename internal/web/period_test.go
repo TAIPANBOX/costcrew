@@ -78,3 +78,42 @@ func TestTheCarriedPeriodIsTheOneTheDeskShows(t *testing.T) {
 			desk, tile[1])
 	}
 }
+
+// A zero on the audit page means the plane is off, and the page says so by
+// not printing the tile at all.
+//
+// "On the stack: 0 agent-events emitted" sat next to "The chain verified: 36
+// events" on an installation with no stack configured. A reader comparing 36
+// with 0 concludes the console is failing to emit, when the truth is that
+// nobody switched the governance plane on. The template already guards the
+// tile with StackOn; the flag was wired to s.rec, the store's own journal
+// recorder, which is present on every installation.
+func TestTheAuditPageDoesNotShowAStackZero(t *testing.T) {
+	h := startWith(t, true) // no events path: the stack is off
+	h.signUp(t, "boss", "boss-password-2026")
+
+	_, body, _ := h.get(t, "/audit")
+	if strings.Contains(body, "On the stack") {
+		t.Error("the audit page shows the stack tile on an installation with " +
+			"no agent-event stream, so it prints a zero that reads as a fault")
+	}
+	// And the chain figure, which IS about this installation, is still there.
+	if !strings.Contains(body, "The chain") {
+		t.Error("the chain tile went missing with it")
+	}
+}
+
+// And with a stream configured it comes back, or the fix was to delete the
+// tile rather than to guard it.
+func TestTheAuditPageShowsTheStackWhenItIsOn(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/events.ndjson"
+	h := startStream(t, path)
+	h.signUp(t, "boss", "boss-password-2026")
+
+	_, body, _ := h.get(t, "/audit")
+	if !strings.Contains(body, "On the stack") {
+		t.Error("with an agent-event stream configured the audit page does " +
+			"not report what has been emitted")
+	}
+}
