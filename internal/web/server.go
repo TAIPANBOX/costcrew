@@ -133,6 +133,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /staff", s.staff)
 	s.mux.HandleFunc("GET /staff/new", s.hirePage)
 	s.mux.HandleFunc("POST /staff/create", s.hire)
+	s.mux.HandleFunc("GET /owners", s.owners)
 	s.mux.HandleFunc("GET /staff/{name}", s.analyst)
 	s.mux.HandleFunc("GET /staff/{name}/passport.json", s.analystPassport)
 	s.mux.HandleFunc("GET /staff/{name}/edit", s.rebriefPage)

@@ -20,7 +20,25 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/costcrew-parity.XXXXXX")"
 
 cleanup() {
-  [[ -n "${APP_PID:-}" ]] && kill "$APP_PID" 2>/dev/null || true
+  # The whole process group, not just the pid we launched.
+  #
+  # A plain `kill $APP_PID` left three uvicorn servers running after a green
+  # run of gate-has-teeth.sh, still holding 8461-8463 and serving a workspace
+  # this trap had already deleted. The gate then could not run a second time:
+  # every planted-fault capture failed to bind, and the gate reported three
+  # failures that were its own leftovers rather than anything about the code.
+  #
+  # A gate that only works the first time is not a gate.
+  if [[ -n "${APP_PID:-}" ]]; then
+    kill -TERM -- "-$APP_PID" 2>/dev/null || kill -TERM "$APP_PID" 2>/dev/null || true
+    # Give it a moment to go, then make sure. Deleting the workspace out from
+    # under a server that is still running is what produced the orphans.
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+      kill -0 "$APP_PID" 2>/dev/null || break
+      sleep 0.5
+    done
+    kill -KILL -- "-$APP_PID" 2>/dev/null || kill -KILL "$APP_PID" 2>/dev/null || true
+  fi
   rm -rf "$WORK"
 }
 trap cleanup EXIT
@@ -43,7 +61,21 @@ fi
 
 # The app seeds itself on first start when it sees no store, which is the path
 # a real operator takes, so the capture exercises it rather than a prepared one.
-( cd "$WORK/costcrew" && "$PY" -m uvicorn app:app --port "$PORT" --host 127.0.0.1 \
+# Say it here rather than after two minutes of waiting.
+#
+# A busy port made this script wait out its full 60 retries and then print the
+# last 20 lines of the app log, in which "address already in use" sat at line
+# 12 under a friendly banner about registering an account. The cause was
+# legible only to somebody who already suspected it.
+if lsof -nP -iTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+  echo "port $PORT is already in use; nothing was captured." >&2
+  echo "  a previous run may have left a server behind: lsof -nP -iTCP:$PORT -sTCP:LISTEN" >&2
+  exit 1
+fi
+
+# set -m puts the server in its own process group, so cleanup can take the
+# whole group and not just the process we happen to know the pid of.
+( set -m; cd "$WORK/costcrew" && "$PY" -m uvicorn app:app --port "$PORT" --host 127.0.0.1 \
     >"$WORK/app.log" 2>&1 & echo $! >"$WORK/app.pid" )
 APP_PID="$(cat "$WORK/app.pid")"
 

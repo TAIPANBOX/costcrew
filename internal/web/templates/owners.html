@@ -1,0 +1,50 @@
+{{define "content"}}
+<header class="page">
+  <h1>Owners</h1>
+  <p>{{len .Rows}} {{plural (len .Rows) "person" "people"}} answering for {{.TotalAgents}} agents. An owner is the account that hired an agent and carries its spend; transferring an agent moves both, so this list changes when agents change hands, not when people do.</p>
+</header>
+
+<div class="tiles summary">
+  <div class="tile wide"><div class="k">Spend they answer for, {{.Month}}</div><div class="v big">{{.TotalMonth}}</div>
+    <div class="s">against {{.TotalGuard}} a month of guards across every agent. The <a href="/staff">crew page</a> reports this same figure by analyst rather than by owner, and the two are the same number cut two ways.</div></div>
+  <div class="tile wide"><div class="k">Bound to nothing</div>
+    <div class="v big {{if .Unbound}}up{{end}}">{{.Unbound}}</div>
+    <div class="s">{{if .Unbound}}agents whose identity is a name this installation chose. Whoever owns them is who an identity graph will ask about it.{{else}}every agent's identity is bound to a workload.{{end}}</div></div>
+</div>
+
+<div class="panel">
+  <div class="scroll">
+  <table>
+    <thead><tr>
+      {{.Sort.Header "owner" "Owner" "" false}}
+      {{.Sort.Header "agents" "Agents" "num" true}}
+      {{.Sort.Header "month" "Spent this month" "num" true}}
+      {{.Sort.Header "guard" "Guard a month" "num" true}}
+      {{.Sort.Header "over" "Past guard" "num" true}}
+      {{.Sort.Header "open" "Open work" "num" true}}
+      {{.Sort.Header "findings" "Findings" "num" true}}
+      {{.Sort.Header "unbound" "Unbound" "num" true}}
+      {{.Sort.Header "spent" "Since the board opened" "num" true}}
+    </tr></thead>
+    <tbody>
+    {{range .Rows}}
+      <tr>
+        <td><a href="/o/{{.Name}}"><strong>{{.Name}}</strong></a>
+          <div class="s">{{.Active}} of {{.Agents}} on the rota</div></td>
+        <td class="num">{{.Agents}}</td>
+        <td class="num">{{.ThisMonth}}</td>
+        <td class="num">{{.Guard}}</td>
+        <td class="num {{if .OverGuard}}up{{end}}">{{if .OverGuard}}{{.OverGuard}}{{else}}—{{end}}</td>
+        <td class="num">{{if .Open}}{{.Open}}{{else}}—{{end}}</td>
+        <td class="num">{{if .Findings}}{{.Findings}}{{else}}—{{end}}</td>
+        <td class="num {{if .Unbound}}up{{end}}">{{if .Unbound}}{{.Unbound}}{{else}}—{{end}}</td>
+        <td class="num">{{.Spent}}</td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<p class="s">A guard is monthly, so “past guard” is measured against this month alone. The last column is every task the owner's agents have ever been charged for, which is a different question and is not comparable to the guard beside it.</p>
+{{end}}

@@ -117,15 +117,38 @@ func ValidAttestation(method, detail string) error {
 // somewhere else.
 func Unattested(roster []Analyst) (n int, of int) {
 	for _, a := range roster {
-		if a.State == "suspended" {
+		if !CountsForAttestation(a) {
 			continue
 		}
 		of++
-		if a.Attestation == "" || a.Attestation == "none" {
+		if IsUnattested(a) {
 			n++
 		}
 	}
 	return n, of
+}
+
+// IsUnattested is the single predicate behind every count of this on every
+// page.
+//
+// It is exported and shared rather than reimplemented per page because the
+// two implementations that existed disagreed: one asked whether the
+// attestation was well FORMED, which "none" is, and reported zero unbound
+// agents on an estate where none of them was bound to anything. A page that
+// answers a security question with a reassuring number nobody can reconcile
+// is worse than a page that does not answer it.
+func IsUnattested(a Analyst) bool {
+	m := strings.TrimSpace(a.Attestation)
+	return m == "" || m == "none"
+}
+
+// CountsForAttestation excludes the agents this question does not apply to.
+//
+// A suspended agent is not running, so what its identity is bound to is not a
+// live exposure. It is left out of the denominator as well as the numerator,
+// because counting it in only one is how a percentage starts lying.
+func CountsForAttestation(a Analyst) bool {
+	return a.State != "suspended"
 }
 
 // ClearFabricated removes attestations this console invented.

@@ -2,6 +2,7 @@ package world
 
 import (
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/TAIPANBOX/costcrew/internal/money"
@@ -139,8 +140,21 @@ func AIUnits() []AIUnit {
 		u.Tokens += int64(r.Quantity)
 		u.Cost += r.Billed
 	}
-	var out []AIUnit
-	for _, u := range byKey {
+	// The keys, in order, rather than the map. Ranging a Go map returns a
+	// different order every time by design, so a slice built that way is a
+	// different slice on every call: two installs of this binary listed the AI
+	// desk differently, and a sort with ties broke differently per request.
+	// The key is month|team|model, which is unique, so this is a total order
+	// and not a partial one that leaves ties to chance again.
+	keys := make([]string, 0, len(byKey))
+	for k := range byKey {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	out := make([]AIUnit, 0, len(keys))
+	for _, k := range keys {
+		u := byKey[k]
 		// Actions are the business metric the cost is judged against. Derived
 		// from tokens at a fixed ratio, and the page says so: a per-action
 		// figure invented from a dollar amount is not a measurement.
