@@ -518,3 +518,59 @@ func TestTheTransferAndTheOwnersPageAgreeOnWhatMoves(t *testing.T) {
 		}
 	}
 }
+
+// Both alert links behave the same way when the agent is gone.
+//
+// heraldyx writes two links into every alert: /a/<uri> and /i/<kind>:<uri>.
+// An alert is read minutes or days after it was raised, so the agent named in
+// it is exactly the one most likely to have been removed since. /a/ said so
+// plainly and /i/ redirected to a card that does not exist, which is a bare
+// 404 arriving from a link the console itself put in an email.
+//
+// Found by running heraldyx over the real stream and following every link it
+// wrote, which reading the contract had not found.
+func TestBothAlertLinksSurviveARemovedAgent(t *testing.T) {
+	h := startWith(t, true)
+	h.signUp(t, "boss", "boss-password-2026")
+
+	const gone = "an-agent-that-was-removed"
+	for _, path := range []string{
+		"/a/agent://costcrew.local/" + gone,
+		"/i/agent_removed:agent://costcrew.local/" + gone,
+		"/i/agent_transferred:agent://costcrew.local/" + gone,
+	} {
+		code, _, loc := h.get(t, path)
+		if code != 303 {
+			t.Errorf("GET %s answered %d, want a redirect", path, code)
+			continue
+		}
+		// Where it lands has to be a page, and it has to say why.
+		if strings.HasPrefix(loc, "/staff/") {
+			t.Errorf("GET %s sends the reader to %s, a card for an agent that "+
+				"is not on the roster: that is a 404 arriving from a link this "+
+				"console put in an alert", path, loc)
+			continue
+		}
+		if !strings.Contains(loc, "msg=") {
+			t.Errorf("GET %s lands on %s with no explanation", path, loc)
+		}
+	}
+
+	// And an agent that IS there still goes straight to its card, or the fix
+	// above was bought by sending everybody to the crew list.
+	roster, err := crew.Roster(h.st.DB())
+	if err != nil || len(roster) == 0 {
+		t.Fatal(err)
+	}
+	here := roster[0].Name
+	for _, path := range []string{
+		"/a/agent://costcrew.local/" + here,
+		"/i/budgets_set:agent://costcrew.local/" + here,
+	} {
+		_, _, loc := h.get(t, path)
+		if loc != "/staff/"+here {
+			t.Errorf("GET %s sends the reader to %q, not to the card for %s",
+				path, loc, here)
+		}
+	}
+}

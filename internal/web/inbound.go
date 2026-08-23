@@ -56,6 +56,17 @@ func (s *Server) byAgentURI(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "that link carries no agent", http.StatusNotFound)
 		return
 	}
+	s.toAgentCard(w, r, name)
+}
+
+// toAgentCard sends a reader to an agent's card, or explains its absence.
+//
+// Shared by both links an alert carries, because they had drifted: /a/ said
+// plainly that the agent was gone and /i/ redirected to a card that does not
+// exist, which is a bare 404 arriving from a link this console itself put in
+// an email. An alert is read minutes or days after it was raised, so the agent
+// named in it is exactly the one most likely to have been removed since.
+func (s *Server) toAgentCard(w http.ResponseWriter, r *http.Request, name string) {
 	if _, err := crew.GetAnalyst(s.db, name); err != nil {
 		// Named, and gone. Said plainly, because "404" on an alert's own link
 		// reads as a broken console rather than as an agent that was removed.
@@ -93,7 +104,7 @@ func (s *Server) byIncident(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if name != "" {
-		http.Redirect(w, r, "/staff/"+name, http.StatusSeeOther)
+		s.toAgentCard(w, r, name)
 		return
 	}
 	http.Redirect(w, r, "/audit", http.StatusSeeOther)
