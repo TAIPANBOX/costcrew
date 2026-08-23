@@ -13,6 +13,7 @@ package stack
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -100,6 +101,15 @@ func (e *Emitter) Close() error {
 func (e *Emitter) On() bool { return e.w != nil }
 
 // AgentURI is this installation's name for one analyst.
+// host is this installation's trust domain, with the same default the URI
+// builder uses, so the two can never disagree about what "ours" means.
+func (e *Emitter) host() string {
+	if h := e.cfg.Host; h != "" {
+		return h
+	}
+	return "costcrew.local"
+}
+
 func (e *Emitter) AgentURI(name string) string {
 	host := e.cfg.Host
 	if host == "" {
@@ -301,6 +311,8 @@ func (e *Emitter) WritePassports(roster []crew.Analyst) (int, error) {
 	sort.Slice(sorted, func(i, j int) bool { return sorted[i].Name < sorted[j].Name })
 
 	n := 0
+	removed := 0
+	keep := make(map[string]bool, len(sorted))
 	for _, a := range sorted {
 		p := e.PassportFor(a)
 
@@ -318,7 +330,47 @@ func (e *Emitter) WritePassports(roster []crew.Analyst) (int, error) {
 			append(buf, '\n'), 0o644); err != nil {
 			return n, err
 		}
+		keep[a.Name+".json"] = true
 		n++
+	}
+
+	// An agent taken off the roster takes its identity document with it.
+	//
+	// Publishing wrote the current crew and left everything else where it was,
+	// so a removed agent kept a passport on disk for ever. Everything in this
+	// estate reads that DIRECTORY: genaryx's onboard wizard lists it as
+	// provisioned, heraldyx reads an owner out of it, idryx enriches an
+	// identity from it. A console that can remove an agent and cannot
+	// un-publish it is one whose removals are cosmetic everywhere except in
+	// its own database.
+	//
+	// Only files this directory's own naming produces are removed. A
+	// directory somebody else also writes into is not one to sweep.
+	if entries, err := os.ReadDir(e.cfg.PassportDir); err == nil {
+		for _, ent := range entries {
+			name := ent.Name()
+			if ent.IsDir() || !strings.HasSuffix(name, ".json") || keep[name] {
+				continue
+			}
+			// Ours only: it has to parse as a Passport whose id is in this
+			// installation's own trust domain.
+			raw, err := os.ReadFile(filepath.Join(e.cfg.PassportDir, name))
+			if err != nil {
+				continue
+			}
+			doc, err := passport.Parse(raw)
+			if err != nil || !strings.HasPrefix(doc.ID, "agent://"+e.host()+"/") {
+				continue
+			}
+			if err := os.Remove(filepath.Join(e.cfg.PassportDir, name)); err != nil {
+				return n, fmt.Errorf("removing the passport of a departed agent (%s): %w",
+					name, err)
+			}
+			removed++
+		}
+	}
+	if removed > 0 {
+		log.Printf("costcrew: removed %d passport(s) of agents no longer on the roster", removed)
 	}
 	return n, nil
 }

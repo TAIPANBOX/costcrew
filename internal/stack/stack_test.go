@@ -570,3 +570,89 @@ func TestAnAttestedRuntimeLendsItsIdentityAndSaysSo(t *testing.T) {
 		t.Error("a passport with its own attestation still claims the runtime's")
 	}
 }
+
+// An agent taken off the roster takes its identity document with it.
+//
+// Publishing wrote the current crew and left everything else where it was, so
+// a removed agent kept a passport on disk for ever. Everything in this estate
+// reads that DIRECTORY: genaryx's onboard wizard lists what is in it as
+// already provisioned, heraldyx reads an owner out of it, idryx enriches an
+// identity from it. Three agents removed during one afternoon's work were
+// still being offered to all three the next morning.
+func TestARemovedAgentStopsBeingPublished(t *testing.T) {
+	dir := t.TempDir()
+	pdir := filepath.Join(dir, "p")
+	em, err := stack.Open(stack.Config{
+		EventsPath: filepath.Join(dir, "e.ndjson"), PassportDir: pdir,
+		Host: "costcrew.local", Owner: "yurii",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer em.Close()
+
+	full := []crew.Analyst{
+		{Name: "triage-aws", Role: "triage", Desk: "aws", State: "active", Owner: "yurii"},
+		{Name: "night-desk", Role: "night watch", Desk: "aws", State: "active", Owner: "yurii"},
+	}
+	if _, err := em.WritePassports(full); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(pdir, "night-desk.json")); err != nil {
+		t.Fatalf("night-desk was never published: %v", err)
+	}
+
+	// One leaves.
+	if _, err := em.WritePassports(full[:1]); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(pdir, "night-desk.json")); !os.IsNotExist(err) {
+		t.Error("a removed agent is still published, so every reader of this " +
+			"directory still believes it exists")
+	}
+	if _, err := os.Stat(filepath.Join(pdir, "triage-aws.json")); err != nil {
+		t.Errorf("the agent that stayed was swept too: %v", err)
+	}
+}
+
+// Only OUR documents are swept.
+//
+// The directory may be one somebody else also writes into: the estate's own
+// convention is a shared staging directory, and a console that empties
+// everything it did not put there is a console nobody can point at a shared
+// one.
+func TestSweepingLeavesSomebodyElsesDocumentsAlone(t *testing.T) {
+	dir := t.TempDir()
+	pdir := filepath.Join(dir, "p")
+	if err := os.MkdirAll(pdir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Another product's passport, in another trust domain, and a file that is
+	// not a passport at all.
+	other := `{"schema":"taipanbox.dev/agent-passport/v0.1",` +
+		`"id":"agent://bank.example/treasury/recon","owner":"olena"}`
+	if err := os.WriteFile(filepath.Join(pdir, "recon.json"), []byte(other), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(pdir, "notes.json"), []byte(`{"hello":1}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	em, err := stack.Open(stack.Config{
+		EventsPath: filepath.Join(dir, "e.ndjson"), PassportDir: pdir,
+		Host: "costcrew.local", Owner: "yurii",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer em.Close()
+	if _, err := em.WritePassports([]crew.Analyst{
+		{Name: "triage-aws", Role: "triage", Desk: "aws", State: "active", Owner: "yurii"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range []string{"recon.json", "notes.json"} {
+		if _, err := os.Stat(filepath.Join(pdir, f)); err != nil {
+			t.Errorf("%s was swept, and it is not this console's to remove", f)
+		}
+	}
+}

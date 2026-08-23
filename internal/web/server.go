@@ -109,6 +109,9 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /stats", s.redirect("/staff"))
 
 	s.mux.HandleFunc("GET /intake/template/{name}", s.intakeTemplate)
+	s.mux.HandleFunc("GET /intake", s.intakePage)
+	s.mux.HandleFunc("POST /intake/check", s.intakeCheck)
+	s.mux.HandleFunc("POST /intake/apply", s.intakeApply)
 	s.mux.HandleFunc("GET /export/budget.csv", s.exportBudget)
 
 	s.mux.HandleFunc("GET /{$}", s.overview)

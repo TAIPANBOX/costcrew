@@ -1,0 +1,99 @@
+{{define "content"}}
+<header class="page">
+  <h1>Intake</h1>
+  <p>Every other figure here is read off a bill. A budget is not: it is a decision somebody made,
+    and this is where it gets in. Nothing is written until you have seen exactly what would change.</p>
+</header>
+
+{{if not .CanAct}}
+<p class="msg">Your account can see this page and cannot set a budget.</p>
+{{end}}
+
+{{if .Plan.Problems}}
+<div class="panel">
+  <h2>{{len .Plan.Problems}} {{plural (len .Plan.Problems) "problem" "problems"}} in the file</h2>
+  <div class="body">
+    <p class="note">All of them, not the first: fixing one typo and re-uploading to find the next
+      is how somebody stops using this.</p>
+    <ul class="cannot">{{range .Plan.Problems}}<li>{{.}}</li>{{end}}</ul>
+  </div>
+</div>
+{{end}}
+
+{{if .FP}}
+<div class="panel">
+  <h2>What this file would do</h2>
+  <div class="body">
+    <p>{{len .Plan.Rows}} {{plural (len .Plan.Rows) "row would change" "rows would change"}},
+      {{.Plan.Added}} of them new, {{.Plan.Unchanged}} already right.
+      {{if .Plan.Lowered}}<strong>{{.Plan.Lowered}} would go down</strong>, which is the direction
+      that makes a team look over budget.{{end}}
+      {{if .Plan.InClosed}}<strong>{{.Plan.InClosed}} fall in a month that has been charged</strong>:
+      changing those rewrites what a team was already told it owed.{{end}}</p>
+  </div>
+  {{if .Plan.Rows}}
+  <div class="scroll">
+  <table>
+    <thead><tr><th class="tight">Line</th><th class="tight">Desk</th><th>Team</th>
+      <th class="tight">Month</th><th class="num">Set now</th><th class="num">Would be</th><th></th></tr></thead>
+    <tbody>{{range .Plan.Rows}}
+      <tr>
+        <td class="tight">{{.Line}}</td>
+        <td class="tight"><a href="/desk/{{.Source}}">{{.Source}}</a></td>
+        <td><a href="/team/{{.Team}}">{{.Team}}</a></td>
+        <td class="tight">{{.Month}}</td>
+        <td class="num">{{if .HasNow}}{{.Now}}{{else}}<span class="note">none</span>{{end}}</td>
+        <td class="num"><strong>{{.Budget}}</strong></td>
+        <td class="tight">
+          {{if .New}}<span class="chip accepted">new</span>{{end}}
+          {{if .Lower}}<span class="chip open">lower</span>{{end}}
+          {{if .Closed}}<span class="chip dismissed">month charged</span>{{end}}
+        </td>
+      </tr>
+    {{end}}</tbody>
+  </table>
+  </div>
+  {{end}}
+
+  {{if and .CanAct .Plan.Rows}}
+  <div class="body">
+    <form method="post" action="/intake/apply">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <input type="hidden" name="fingerprint" value="{{.FP}}">
+      <textarea name="file" hidden>{{.Note}}</textarea>
+      <div class="row">
+        <button type="submit">Set these {{len .Plan.Rows}} {{plural (len .Plan.Rows) "budget" "budgets"}}</button>
+        <a class="clear" href="/intake">Start again</a>
+      </div>
+      <p class="note">This writes exactly the rows above and refuses if the file changed in between.
+        One transaction: a half-applied file would leave some teams measured against this decision
+        and some against the one before it, with nothing on any page saying which.</p>
+    </form>
+  </div>
+  {{end}}
+</div>
+{{end}}
+
+<div class="panel">
+  <h2>Budgets</h2>
+  <div class="body">
+    <p class="note">Four columns: <code>platform, team, month, budget_usd</code>. Read by NAME,
+      so a different column order is not a silent misreading of every row.
+      <a href="/intake/template/budgets.csv">Download the template</a>.</p>
+    <form method="post" action="/intake/check" enctype="multipart/form-data">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <div>
+        <label for="upload">A file</label>
+        <input id="upload" type="file" name="upload" accept=".csv,text/csv">
+      </div>
+      <div>
+        <label for="pasted">Or paste the rows</label>
+        <textarea id="pasted" name="pasted" placeholder="platform,team,month,budget_usd&#10;aws,sre-platform,2026-09,960"></textarea>
+        <p class="note">Both, because three columns and a number should not need a file
+          when you have two rows to change.</p>
+      </div>
+      <div class="row"><button type="submit">Check it</button></div>
+    </form>
+  </div>
+</div>
+{{end}}
