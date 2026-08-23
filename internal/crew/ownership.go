@@ -25,6 +25,13 @@ import (
 // and matching what a transfer means: the new owner takes on what is running,
 // not what is finished.
 func EnsureOwnershipHistory(db *sql.DB) error {
+	// The table first. This ran fine in main only because the board happens to
+	// be seeded earlier; relying on that makes the order of two unrelated
+	// startup steps load-bearing, and the failure would be a fresh install
+	// refusing to start with "no such table: tasks".
+	if _, err := db.Exec(Schema); err != nil {
+		return fmt.Errorf("board schema: %w", err)
+	}
 	if _, err := db.Exec("ALTER TABLE tasks ADD COLUMN owner TEXT"); err != nil &&
 		!strings.Contains(err.Error(), "duplicate column") {
 		return fmt.Errorf("adding tasks.owner: %w", err)

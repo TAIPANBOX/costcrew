@@ -36,6 +36,17 @@ var Owners = []string{
 // owner who holds half of one desk and a third of another answers for nothing
 // anybody can hold a conversation about. The AI desk stays with the
 // installation's owner, since it is the crew running the console itself.
+// DeskOwners is ownerOfDesk, for a test that needs to know which desks this
+// list claims to cover. Returned as a copy: a caller that could edit the map
+// could silently re-home half the estate.
+func DeskOwners() map[string]string {
+	out := make(map[string]string, len(ownerOfDesk))
+	for k, v := range ownerOfDesk {
+		out[k] = v
+	}
+	return out
+}
+
 var ownerOfDesk = map[string]string{
 	"ai":     "y.mercer",
 	"aws":    "t.langley",
@@ -60,6 +71,22 @@ type AccountMaker interface {
 	Create(username, password, role string) (bool, error)
 }
 
+// UnusablePassword is a password nobody holds: 32 random bytes, returned once
+// and never recorded anywhere.
+//
+// A named function rather than four lines inline, because the property that
+// matters here is only testable at the source. Comparing stored hashes proves
+// nothing: they carry a per-hash salt, so a HARD-CODED password still produces
+// a different hash on every installation and every check downstream passes
+// while one string opens every CostCrew anywhere.
+func UnusablePassword() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return base64.RawStdEncoding.EncodeToString(b), nil
+}
+
 // SeedOwners gives the estate more than one person to answer for it.
 //
 // The accounts are created with a password nobody holds: 32 random bytes,
@@ -81,11 +108,11 @@ func SeedOwners(db *sql.DB, mk AccountMaker, seededBy string) (accounts, moved i
 		if has {
 			continue // already there, with whatever role and password it has
 		}
-		pw := make([]byte, 32)
-		if _, err := rand.Read(pw); err != nil {
+		pw, err := UnusablePassword()
+		if err != nil {
 			return accounts, moved, err
 		}
-		ok, err := mk.Create(who, base64.RawStdEncoding.EncodeToString(pw), "operator")
+		ok, err := mk.Create(who, pw, "operator")
 		if err != nil {
 			return accounts, moved, fmt.Errorf("creating %s: %w", who, err)
 		}
