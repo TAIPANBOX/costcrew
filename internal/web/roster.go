@@ -376,7 +376,16 @@ func (s *Server) transferAnalyst(w http.ResponseWriter, r *http.Request) {
 		}, s.delegation(u.Username, name))
 	}
 	s.publishPassports()
+	// Say which dimension each half is about.
+	//
+	// "work already charged stays where it was charged" was true and read as
+	// false: it means the DESK on tasks already closed is not rewritten, while
+	// the owners page moves the agent's whole record to whoever owns it now.
+	// A reader told the charge stayed put and then shown it move on another
+	// page trusts neither figure again.
 	msg := "moved. " + strconv.Itoa(moved) + " open " + plural(moved, "task", "tasks") +
-		" moved with it; work already charged stays where it was charged."
+		" moved with it. Closed work keeps the desk it was charged to; the " +
+		"agent's whole record follows it to its new owner, because a charge " +
+		"records the agent, never who owned it that day."
 	redirectMsg(w, r, back, msg)
 }
