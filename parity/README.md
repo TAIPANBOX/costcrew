@@ -102,9 +102,15 @@ Stated because a gate whose limits are unwritten gets trusted past them.
   123 of 400 surfaces with that noise. The POST contract needs its own gate;
   today it is held by the CSRF and two-step apply tests instead.
 - **Authorisation.** The capture crawls as one signed-in admin, so it sees what
-  an admin sees. That every route turns away a stranger is held by
-  `TestEveryRouteRequiresASession`; that each route requires the right ROLE is
-  not held by anything.
+  an admin sees. Roles are held by tests instead, not by this gate:
+  `TestEveryRouteRequiresASession` for the stranger,
+  `TestAViewerCannotWrite` for all thirty write routes against a real viewer
+  session with a real CSRF token, and
+  `TestAnOperatorCannotEscalateThroughAccounts` for the rung that matters.
+  All three were run against a planted fault first: removing the operator check
+  from `checked` turns twenty-four routes red, and removing the admin check
+  lets an operator promote themselves, which the test catches in the database
+  rather than in the redirect.
 - **The journal's event count and the feed's clock**, both normalised away,
   because the act of capturing moves them.
 - **Chain-hash agreement between implementations.** Two implementations could
