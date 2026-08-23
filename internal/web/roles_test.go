@@ -12,6 +12,10 @@ import (
 
 // Registrations, not prose. See routeRe in guarded_test.go for the comment
 // this fired on before it was anchored.
+// The words every one of the five CSRF checks refuses with, url-encoded as
+// they arrive in a redirect.
+const csrfRefusal = "reload+the+page+and+try+again"
+
 var postRouteRe = regexp.MustCompile(`(?m)^\s*s\.mux\.HandleFunc\("POST ([^"]+)"`)
 
 // Routes a viewer may POST to, and why each one.
@@ -218,4 +222,55 @@ func TestWhatAViewerCanRead(t *testing.T) {
 		}
 	}
 	t.Logf("a viewer reads /accounts and is served no account-management form")
+}
+
+// Every write route refuses a request with no CSRF token, or with the wrong
+// one.
+//
+// TestAnActionWithoutACSRFTokenIsRefused covered one route of thirty-three,
+// which was enough to prove the mechanism exists and nothing about the other
+// thirty-two. And the check is not in one place: s.checked has it, and so do
+// four other handlers with their own copy, so "the chokepoint has it" is not
+// an argument about the routes that do not go through the chokepoint.
+func TestEveryWriteRouteChecksCSRF(t *testing.T) {
+	h := startWith(t, true)
+	h.signUp(t, "boss", "boss-password-2026")
+
+	src, err := os.ReadFile("server.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	checked := 0
+	for _, m := range postRouteRe.FindAllStringSubmatch(string(src), -1) {
+		pattern := m[1]
+		if _, ok := viewerMayPost[pattern]; ok {
+			continue // login, logout and signup are how one gets a token at all
+		}
+		path := concrete(pattern)
+		checked++
+		for _, token := range []string{"", "not-the-token"} {
+			code, loc := h.post(t, path, url.Values{"csrf": {token}})
+			// An admin session with a bad token: the refusal has to be about
+			// the token, so a role message here would mean the route never
+			// reached its CSRF check and this proves nothing about it.
+			if refusedForRole(code, loc) {
+				t.Errorf("POST %s with csrf %q was refused for the ROLE, and "+
+					"this session is an admin: %d %s", path, token, code, loc)
+				continue
+			}
+			// THE csrf refusal, not any refusal. Accepting any message let a
+			// handler whose CSRF check had been removed pass this test by
+			// complaining about an empty form field instead, which is how the
+			// role test was worthless until the same fix.
+			if code != 303 || !strings.Contains(loc, csrfRefusal) {
+				t.Errorf("POST %s with csrf %q answered %d %s; a request with "+
+					"no valid token has to be turned away, saying so",
+					path, token, code, loc)
+			}
+		}
+	}
+	if checked < 25 {
+		t.Fatalf("only checked %d write routes; the scan is broken", checked)
+	}
+	t.Logf("checked %d write routes for CSRF, each with an empty and a wrong token", checked)
 }

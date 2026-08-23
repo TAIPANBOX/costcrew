@@ -354,6 +354,24 @@ run_case $'agent card: the stops panel reads the event stream' \
 	$'\trows, err := db.Query(`' \
 	$'\tif name != "" {\n\t\treturn nil, nil\n\t}\n\trows, err := db.Query(`'
 
+run_case $'csrf: the chokepoint stops checking the token' \
+	fail \
+	./internal/web \
+	$'TestEveryWriteRouteChecksCSRF' \
+	$'has to be turned away' \
+	internal/web/work.go \
+	$'\tif !s.au.CSRFOK(s.sessionToken(r), r.PostFormValue("csrf")) {' \
+	$'\tif false && !s.au.CSRFOK(s.sessionToken(r), r.PostFormValue("csrf")) {'
+
+run_case $'csrf: the accounts handler stops checking its own' \
+	fail \
+	./internal/web \
+	$'TestEveryWriteRouteChecksCSRF' \
+	$'has to be turned away' \
+	internal/web/ops.go \
+	$'\t\tif !s.au.CSRFOK(s.sessionToken(r), r.PostFormValue("csrf")) {' \
+	$'\t\tif false && !s.au.CSRFOK(s.sessionToken(r), r.PostFormValue("csrf")) {'
+
 echo
 echo "=== and what they must NOT catch ==="
 run_case $'session guard: a route named in a comment' \
