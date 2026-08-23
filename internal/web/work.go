@@ -331,6 +331,15 @@ func (s *Server) staff(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "store unavailable", http.StatusInternalServerError)
 		return
 	}
+	// Narrowed to one desk when asked. A crew desk with no cloud behind it,
+	// like "management", has no desk page of its own, so /desk/{name} sends
+	// the reader here rather than answering 404 while twelve analysts sit
+	// there. The tiles below deliberately keep counting the WHOLE crew: they
+	// are the figures the KPI page is checked against, and a filtered total
+	// that still calls itself "what the crew cost" would be the sort of
+	// disagreement this console exists to avoid.
+	deskFilter := strings.TrimSpace(r.URL.Query().Get("desk"))
+
 	rows := make([]staffRow, 0, len(roster))
 	// The crew's own totals, so the figure the KPI page reports for what the
 	// crew costs has somewhere to be checked against. A number that appears in
@@ -341,6 +350,9 @@ func (s *Server) staff(w http.ResponseWriter, r *http.Request) {
 	onRoster := map[string]bool{}
 	for _, a := range roster {
 		sc := scores[a.Name]
+		if deskFilter != "" && a.Desk != deskFilter {
+			continue
+		}
 		rows = append(rows, staffRow{a, sc, agentChip(a.State)})
 		totalGuard += a.Monthly
 		states[a.State]++

@@ -3,6 +3,7 @@ package web
 import (
 	"database/sql"
 	"net/http"
+	"net/url"
 	"sort"
 
 	"github.com/TAIPANBOX/costcrew/internal/anomaly"
@@ -248,6 +249,19 @@ func (s *Server) desk(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if desk.Name == "" {
+		// "Desk" means two things here: a spend source, and the desk an
+		// analyst sits at. They mostly coincide, and "management" does not:
+		// twelve analysts sit there and no cloud bills it. Their cards linked
+		// here and got a bare 404, and the owners page for whoever holds them
+		// carried twelve of those links on one screen.
+		//
+		// So the reader is sent where the question they clicked CAN be
+		// answered, which is the crew filtered to that desk, rather than told
+		// the desk does not exist while twelve agents sit at it.
+		if crewDeskExists(s.db, name) {
+			http.Redirect(w, r, "/staff?desk="+url.QueryEscape(name), http.StatusSeeOther)
+			return
+		}
 		http.Error(w, "no such desk", http.StatusNotFound)
 		return
 	}
@@ -492,4 +506,15 @@ func (s *Server) desks(w http.ResponseWriter, r *http.Request) {
 		Months []string
 		Sort   sortSpec
 	}{s.shellFor(r, "Desks", "desks"), rows, period, months, srt})
+}
+
+// crewDeskExists says whether any analyst sits at this desk, which is a
+// different question from whether a cloud bills to it.
+func crewDeskExists(db *sql.DB, name string) bool {
+	var n int
+	if err := db.QueryRow(
+		`SELECT COUNT(*) FROM analysts WHERE desk=?`, name).Scan(&n); err != nil {
+		return false
+	}
+	return n > 0
 }
