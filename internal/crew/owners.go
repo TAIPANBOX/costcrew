@@ -87,6 +87,19 @@ func UnusablePassword() (string, error) {
 	return base64.RawStdEncoding.EncodeToString(b), nil
 }
 
+// SeededOwner is the name SeedRoster stamps on a fresh roster.
+//
+// Exported so the two cannot drift: SeedRoster substitutes "unclaimed" for an
+// empty owner, and SeedOwners then looked for the empty string, matched
+// nothing, and left every agent unplaced on any installation started without
+// -stack-owner. Which is every installation somebody tries for the first time.
+func SeededOwner(configured string) string {
+	if configured == "" {
+		return "unclaimed"
+	}
+	return configured
+}
+
 // SeedOwners gives the estate more than one person to answer for it.
 //
 // The accounts are created with a password nobody holds: 32 random bytes,

@@ -116,7 +116,7 @@ func TestPagesRenderTheSameTwice(t *testing.T) {
 			t.Errorf("GET %s answered %d", p, code)
 			continue
 		}
-		for i := 0; i < 3; i++ {
+		for i := 0; i < repeatsFor(first); i++ {
 			_, again, _ := h.get(t, p)
 			if again != first {
 				t.Errorf("GET %s rendered differently on request %d from an "+
@@ -125,6 +125,31 @@ func TestPagesRenderTheSameTwice(t *testing.T) {
 			}
 		}
 	}
+}
+
+// repeatsFor decides how many times a page must agree with itself.
+//
+// Comparing two renders of a SMALL table is close to a coin toss. Ranging a Go
+// map does not produce a uniformly random permutation: it starts at a random
+// bucket and offset and then walks in order, so a handful of rows take only a
+// handful of distinct orders and two renders often agree by luck.
+//
+// Measured on 2026-08-23 against the AIUnits map-order fault, on the /ai page,
+// which renders four rows: three repeats caught it 17 times in 20, and the
+// gates-have-teeth run reported TOOTHLESS twice in ten for exactly that
+// reason. Thirty repeats caught it 30 in 30 and took the package from 1.7s to
+// 10s, which is why this is not simply thirty everywhere.
+//
+// A first attempt to reason about it from 1/n! predicted a miss rate of one in
+// ten thousand for four rows and was wrong by three orders of magnitude, so
+// the number below comes from the measurement and not from the arithmetic.
+func repeatsFor(body string) int {
+	rows := strings.Count(body, "<tr>")
+	if rows > 24 {
+		// Enough distinct orders that a repeat by luck is not the failure mode.
+		return 3
+	}
+	return 30
 }
 
 // firstDiff names the line where two renders part company, because a report

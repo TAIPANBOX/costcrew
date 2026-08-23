@@ -417,3 +417,52 @@ func taskOwner(t *testing.T, db *sql.DB, id int) string {
 	}
 	return who
 }
+
+// An installation started with no -stack-owner flag still gets its agents
+// placed.
+//
+// SeedRoster substitutes "unclaimed" for an empty owner. SeedOwners was then
+// handed the empty configured value, matched nothing, and left all thirty-nine
+// agents unplaced while cheerfully reporting five owner accounts created.
+// Which is every installation anybody tries for the first time, and the log
+// line said "0 agent(s) placed" in the same sentence as the success.
+func TestSeedOwnersPlacesTheRosterWithNoOwnerConfigured(t *testing.T) {
+	dir := t.TempDir()
+	st, err := store.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { st.Close() })
+	// Seeded the way a bare `costcrew -data ./local` seeds it: no owner given.
+	if _, err := crew.SeedRoster(st.DB(), ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := crew.EnsureOwnershipHistory(st.DB()); err != nil {
+		t.Fatal(err)
+	}
+	au, err := auth.New(st, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, moved, err := crew.SeedOwners(st.DB(), au, crew.SeededOwner(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var total int
+	if err := st.DB().QueryRow(`SELECT COUNT(*) FROM analysts`).Scan(&total); err != nil {
+		t.Fatal(err)
+	}
+	if moved != total {
+		t.Errorf("placed %d of %d agents on an installation started with no "+
+			"-stack-owner", moved, total)
+	}
+	var stranded int
+	if err := st.DB().QueryRow(
+		`SELECT COUNT(*) FROM analysts WHERE owner='unclaimed' OR owner=''`).Scan(&stranded); err != nil {
+		t.Fatal(err)
+	}
+	if stranded != 0 {
+		t.Errorf("%d agents are still unclaimed after the owners were seeded", stranded)
+	}
+}

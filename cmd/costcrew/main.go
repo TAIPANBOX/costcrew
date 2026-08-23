@@ -217,7 +217,10 @@ func run(addr, dir string, scfg stack.Config) error {
 	}
 
 	// More than one person to answer for the estate.
-	if acc, moved, err := crew.SeedOwners(st.DB(), au, scfg.Owner); err != nil {
+	// The SAME name SeedRoster stamped, which is "unclaimed" when no -stack-owner
+	// was given. Passing scfg.Owner here matched nothing on a fresh install with
+	// no flag, so five owners were created and none of them was given an agent.
+	if acc, moved, err := crew.SeedOwners(st.DB(), au, crew.SeededOwner(scfg.Owner)); err != nil {
 		return fmt.Errorf("seeding owners: %w", err)
 	} else if acc > 0 || moved > 0 {
 		log.Printf("CostCrew: %d owner account(s) created with no usable password "+

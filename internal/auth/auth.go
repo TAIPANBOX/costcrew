@@ -266,8 +266,21 @@ func SignupCode() string { return strings.TrimSpace(os.Getenv("COSTCREW_SIGNUP_C
 
 // SignupOpen: registration is open when there is nobody yet, so the first
 // account claims the installation, or when the owner has set a joining code.
+// SignupOpen answers whether the installation still has nobody who can manage
+// it.
+//
+// It counted ACCOUNTS until 2026-08-23, and then the estate grew five owner
+// accounts at seed time so that agents could be owned by names that exist.
+// Every one of them has a password of 32 random bytes that was discarded, so
+// none can be signed in to, but the count was no longer zero and a brand-new
+// installation answered "registration is closed" to the first person who
+// opened it. Nobody could get in and nothing on the page said why.
+//
+// So it counts ADMINS. That is the question being asked in the first place:
+// registration is open while there is nobody who can administer this
+// installation, not while the users table happens to be empty.
 func (a *Auth) SignupOpen() (bool, error) {
-	n, err := a.Count()
+	n, err := a.CountRole("admin")
 	if err != nil {
 		return false, err
 	}
@@ -278,7 +291,12 @@ func (a *Auth) SignupOpen() (bool, error) {
 // are viewers until an admin promotes them, so a joining code cannot hand out
 // power.
 func (a *Auth) Register(username, password, code string) (bool, string, error) {
-	n, err := a.Count()
+	// Admins, not accounts, and for the same reason SignupOpen counts them:
+	// the estate seeds five owner accounts nobody can sign in to, so an empty
+	// installation had five users and refused the first person who tried to
+	// register. The page offered the form and the POST behind it said no,
+	// which is the worst arrangement of the two.
+	n, err := a.CountRole("admin")
 	if err != nil {
 		return false, "", err
 	}
