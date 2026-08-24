@@ -94,10 +94,11 @@ func run(dir, ceiling string, maxTok, sprint int, live bool, only int, engine st
 		hasCap = true
 	}
 
-	tasks, err := crew.Tasks(db, crew.TaskFilter{OpenOnly: true, Sprint: sprint})
+	all, err := crew.Tasks(db, crew.TaskFilter{OpenOnly: true, Sprint: sprint})
 	if err != nil {
 		return err
 	}
+	tasks := workable(all)
 	roster, err := crew.Roster(db)
 	if err != nil {
 		return err
@@ -297,6 +298,34 @@ func report(db *sql.DB, ests []estimate, maxTok int, cap money.Cents, hasCap boo
 // usd renders micro-dollars at four decimal places, because a call on the
 // cheap route costs a fraction of a cent and two places would print every one
 // of them as nothing.
+// workable drops the tasks somebody has stopped.
+//
+// crew.TaskFilter{OpenOnly} means queued, active, blocked and returned, which
+// is right for a board and wrong for a thing that does the work: `blocked`
+// carries a reason a person wrote down, and on the seeded estate those reasons
+// are exactly the ones an analyst must not work around.
+//
+//	Tagging feed from the azure desk has been stale since the 9th;
+//	the numbers would be wrong.
+//
+// A run took 19 of those anyway. Each produced a deliverable off numbers the
+// task itself says are wrong, and the page then showed the block and the
+// finished draft side by side, contradicting itself in two lines.
+//
+// So a blocked task stays blocked until a person unblocks it. That also holds
+// for a task THIS runner blocked when an engine failed: the person should see
+// what happened and decide, rather than have the next run quietly retry.
+func workable(in []crew.Task) []crew.Task {
+	out := make([]crew.Task, 0, len(in))
+	for _, t := range in {
+		if t.State == "blocked" {
+			continue
+		}
+		out = append(out, t)
+	}
+	return out
+}
+
 func usd(micros int64) string {
 	return fmt.Sprintf("%.4f", float64(micros)/1e6)
 }

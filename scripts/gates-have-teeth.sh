@@ -390,6 +390,15 @@ run_case $'features: a binding points at a test that is gone' \
 	$'func TestAViewerCannotWrite(' \
 	$'func GoneTestAViewerCannotWrite('
 
+# A task somebody stopped stays stopped. crew.TaskFilter{OpenOnly} includes
+# blocked, which is right for a board and wrong for a thing that does the work.
+run_case 'work done past a reason a person recorded' caught ./tools/run \
+	'TestABlockedTaskIsNotWorkedAround' \
+	'picked up anyway' \
+	tools/run/main.go \
+	'if t.State == "blocked" {' \
+	'if t.State == "no-such-state" {'
+
 # The model must be asked for an answer rather than for reasoning. Four tasks on
 # a full run spent their whole token budget thinking, reached max_tokens with no
 # text, and blocked -- billed in full for nothing a person could read.

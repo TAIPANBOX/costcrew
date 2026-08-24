@@ -100,3 +100,36 @@ func spentOn(t *testing.T, db *sql.DB, task int) int64 {
 	}
 	return n
 }
+
+// A task somebody stopped stays stopped.
+//
+// Red first: with the runner taking every open task, 19 blocked ones were
+// worked anyway, and the page then showed
+//
+//	blocked: Tagging feed from the azure desk has been stale since the 9th;
+//	         the numbers would be wrong.
+//
+// directly above a finished deliverable written from those numbers.
+func TestABlockedTaskIsNotWorkedAround(t *testing.T) {
+	in := []crew.Task{
+		{ID: 1, State: "queued"},
+		{ID: 2, State: "blocked", Reason: "the feed is stale; the numbers would be wrong"},
+		{ID: 3, State: "active"},
+		{ID: 4, State: "returned"},
+		{ID: 5, State: "blocked", Reason: "the engine did not answer"},
+	}
+	got := workable(in)
+
+	for _, task := range got {
+		if task.State == "blocked" {
+			t.Errorf("task %d is blocked (%q) and was picked up anyway: a "+
+				"deliverable written past a reason a person recorded is worse "+
+				"than no deliverable", task.ID, task.Reason)
+		}
+	}
+	if len(got) != 3 {
+		t.Errorf("took %d of 5, want 3: queued, active and returned are work "+
+			"waiting to be done and must not be dropped with the blocked ones",
+			len(got))
+	}
+}

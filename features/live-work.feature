@@ -63,3 +63,12 @@ Feature: A deliverable says whether a person's money bought it
     Then thinking is turned off, because a model that spends the whole budget
       reasoning reaches no answer at all, blocks the task, and is billed in
       full either way
+
+  @test:TestABlockedTaskIsNotWorkedAround
+  Scenario: A task somebody stopped stays stopped
+    Given a task blocked because the tagging feed is stale and the numbers
+      would be wrong
+    When the runner looks for work
+    Then it does not take that task, because a deliverable written past a
+      reason a person recorded is worse than no deliverable
+    And queued, active and returned tasks are still taken
