@@ -35,6 +35,7 @@ func main() {
 	showPrices := flag.Bool("prices", false, "print the price table and exit")
 	live := flag.Bool("live", false, "actually make the calls; needs -ceiling and spends real money")
 	only := flag.Int("only", 0, "with -live, run this one task id and stop")
+	engine := flag.String("engine", "", "only tasks whose analyst was hired with this engine")
 	flag.Parse()
 
 	if *showPrices {
@@ -45,7 +46,7 @@ func main() {
 		return
 	}
 
-	if err := run(*dir, *ceiling, *maxTok, *sprint, *live, *only); err != nil {
+	if err := run(*dir, *ceiling, *maxTok, *sprint, *live, *only, *engine); err != nil {
 		fmt.Fprintln(os.Stderr, "run:", err)
 		os.Exit(1)
 	}
@@ -75,7 +76,7 @@ type estimate struct {
 	Refused bool
 }
 
-func run(dir, ceiling string, maxTok, sprint int, live bool, only int) error {
+func run(dir, ceiling string, maxTok, sprint int, live bool, only int, engine string) error {
 	st, err := store.Open(dir)
 	if err != nil {
 		return err
@@ -108,6 +109,9 @@ func run(dir, ceiling string, maxTok, sprint int, live bool, only int) error {
 
 	ests := make([]estimate, 0, len(tasks))
 	for _, t := range tasks {
+		if engine != "" && by[t.Assignee].Engine != engine {
+			continue
+		}
 		ests = append(ests, price(t, by[t.Assignee], maxTok))
 	}
 	sort.Slice(ests, func(i, j int) bool { return ests[i].WorstMicros > ests[j].WorstMicros })
@@ -191,15 +195,28 @@ func price(t crew.Task, a crew.Analyst, maxTok int) estimate {
 	return e
 }
 
-// tokens is a rough count. Four characters to a token is the usual rule of
-// thumb and it is a rule of thumb: the report says so rather than printing
-// this as if it were measured.
+// tokens is an UPPER BOUND on the prompt, not an estimate of it.
+//
+// It was len/4, the usual rule of thumb, and the first live call on the
+// Anthropic route cost 0.0185 against a "worst case" of 0.0182. The prompt
+// came in at 174 tokens where the rule predicted about 66, under by two and a
+// half times, and a bound that the very first call steps over is not a bound.
+//
+// So: one token per byte. No tokeniser splits below a byte, which makes this
+// provably an upper bound rather than a better guess, and it needs no
+// vocabulary file and no vendor agreement about what a token is.
+//
+// It costs almost nothing in precision where it matters. The output side
+// dominates: a 700-character prompt bounded at 700 tokens instead of 175 adds
+// about a fifth of a cent at Anthropic's input price, against nearly two cents
+// of output. Being loose on the small half to be certain about the total is
+// the right way round.
 func tokens(parts ...string) int {
 	n := 0
 	for _, p := range parts {
 		n += len(p)
 	}
-	return n/4 + 1
+	return n + 1
 }
 
 func report(db *sql.DB, ests []estimate, maxTok int, cap money.Cents, hasCap bool) {
@@ -264,8 +281,8 @@ func report(db *sql.DB, ests []estimate, maxTok int, cap money.Cents, hasCap boo
 
 	fmt.Println()
 	fmt.Printf("How the worst case is built: the prompt is this task and its analyst's\n")
-	fmt.Printf("brief, counted at four characters to a token, which is a rule of thumb\n")
-	fmt.Printf("and not a measurement. The output is the full %d token cap at the\n", maxTok)
+	fmt.Printf("brief, bounded at one token per byte, which no tokeniser can exceed.\n")
+	fmt.Printf("The output is the full %d token cap at the\n", maxTok)
 	fmt.Printf("model's output price, because how long an answer runs is not known\n")
 	fmt.Printf("before it is asked for.\n\n")
 	fmt.Printf("Prices used:\n%s", engines.PriceTable())

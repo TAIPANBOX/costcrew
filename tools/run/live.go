@@ -47,8 +47,90 @@ type callResult struct {
 	ActualMicros int64
 }
 
-// callOpenRouter makes one call. It is the only function in this repository
-// that spends money.
+// call routes to the engine the analyst was HIRED with.
+//
+// Which engine an analyst runs on is a decision recorded at hire time and
+// visible on its card, and this is where that decision finally does
+// something. A router that ignored it would make the field decoration.
+func call(ctx context.Context, engine, model, prompt string, maxTok int) (callResult, error) {
+	switch engine {
+	case "openrouter":
+		return callOpenRouter(ctx, model, prompt, maxTok)
+	case "anthropic":
+		return callAnthropic(ctx, model, prompt, maxTok)
+	}
+	return callResult{}, fmt.Errorf("no caller is written for engine %q", engine)
+}
+
+// callAnthropic is the second of the two functions here that spend money.
+//
+// A different wire from the router's: the key travels in x-api-key rather
+// than a bearer token, the version header is required, and usage comes back
+// as input_tokens and output_tokens rather than prompt and completion. Nothing
+// about that is guessable, which is why it is written out rather than shared
+// with a "compatible" abstraction that would be wrong in one of them.
+func callAnthropic(ctx context.Context, model, prompt string, maxTok int) (callResult, error) {
+	key := strings.TrimSpace(os.Getenv("ANTHROPIC_API_KEY"))
+	if key == "" {
+		return callResult{}, fmt.Errorf("ANTHROPIC_API_KEY is not set in this process")
+	}
+	body, _ := json.Marshal(map[string]any{
+		"model":      model,
+		"max_tokens": maxTok,
+		"messages":   []map[string]string{{"role": "user", "content": prompt}},
+	})
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		"https://api.anthropic.com/v1/messages", bytes.NewReader(body))
+	if err != nil {
+		return callResult{}, err
+	}
+	req.Header.Set("x-api-key", key)
+	req.Header.Set("anthropic-version", "2023-06-01")
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := (&http.Client{Timeout: 90 * time.Second}).Do(req)
+	if err != nil {
+		return callResult{}, err
+	}
+	defer resp.Body.Close()
+	raw, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != 200 {
+		return callResult{}, fmt.Errorf("anthropic answered %d: %s",
+			resp.StatusCode, trim(strings.TrimSpace(string(raw)), 160))
+	}
+	if len(bytes.TrimSpace(raw)) == 0 {
+		return callResult{}, fmt.Errorf("anthropic answered 200 with an empty body")
+	}
+	var out struct {
+		Content []struct {
+			Type string `json:"type"`
+			Text string `json:"text"`
+		} `json:"content"`
+		Usage struct {
+			InputTokens  int `json:"input_tokens"`
+			OutputTokens int `json:"output_tokens"`
+		} `json:"usage"`
+	}
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return callResult{}, fmt.Errorf("anthropic's answer did not parse: %w", err)
+	}
+	var text strings.Builder
+	for _, c := range out.Content {
+		if c.Type == "text" {
+			text.WriteString(c.Text)
+		}
+	}
+	if text.Len() == 0 {
+		return callResult{}, fmt.Errorf("anthropic returned no text")
+	}
+	return callResult{
+		Text:      text.String(),
+		InTokens:  out.Usage.InputTokens,
+		OutTokens: out.Usage.OutputTokens,
+	}, nil
+}
+
+// callOpenRouter is the first.
 func callOpenRouter(ctx context.Context, model, prompt string, maxTok int) (callResult, error) {
 	key := strings.TrimSpace(os.Getenv("OPENROUTER_API_KEY"))
 	if key == "" {
@@ -136,7 +218,7 @@ func execute(ctx context.Context, db *sql.DB, e estimate, maxTok int, run *runBu
 		return refusal{err}
 	}
 
-	res, err := callOpenRouter(ctx, e.Model, prompt(e.Task, e.Analyst), maxTok)
+	res, err := call(ctx, e.Engine, e.Model, prompt(e.Task, e.Analyst), maxTok)
 	if err != nil {
 		return err
 	}
@@ -166,8 +248,8 @@ func execute(ctx context.Context, db *sql.DB, e estimate, maxTok int, run *runBu
 		return err
 	}
 
-	fmt.Printf("  %-24s %-12s in %5d out %5d  cost %s  (worst case was %s)\n",
-		trim(e.Task.Title, 24), e.Analyst.Name,
+	fmt.Printf("  %-22s %-14s %-10s in %5d out %5d  cost %s  (worst %s)\n",
+		trim(e.Task.Title, 22), e.Analyst.Name, trim(e.Engine, 10),
 		res.InTokens, res.OutTokens, usd(res.ActualMicros), usd(e.WorstMicros))
 	return nil
 }

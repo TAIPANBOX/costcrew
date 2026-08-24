@@ -115,3 +115,28 @@ func TestWorkIsNotPricedForSomebodyWhoCannotDoIt(t *testing.T) {
 		}
 	}
 }
+
+// The worst case is a bound, and a bound is not exceeded.
+//
+// It was len/4, the usual rule of thumb, and the very first live call on the
+// Anthropic route cost 0.0185 against a worst case of 0.0182: the prompt came
+// in at 174 tokens where the rule predicted 66. A bound the first call steps
+// over is an estimate wearing a bound's name.
+//
+// One token per byte is provable rather than better: no tokeniser splits below
+// a byte.
+func TestThePromptBoundIsNotExceededByAnyTokeniser(t *testing.T) {
+	// Whatever a tokeniser does, it cannot make more tokens than there are
+	// bytes, so the bound has to be at least the byte count.
+	for _, s := range []string{
+		"a",
+		"You are supervisor, Crew supervisor on the management desk.",
+		"Пояснення українською, де байтів більше ніж символів",
+		strings.Repeat("token ", 500),
+	} {
+		if got := tokens(s); got < len(s) {
+			t.Errorf("tokens(%d bytes) = %d, which is below the byte count and "+
+				"therefore not an upper bound", len(s), got)
+		}
+	}
+}
