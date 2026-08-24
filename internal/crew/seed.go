@@ -26,6 +26,14 @@ func Seed(db *sql.DB, anomalies []AnomalySeed) (sprints, tasks, artifacts int, e
 	if _, err := db.Exec(Schema); err != nil {
 		return 0, 0, 0, err
 	}
+	// The column goes on beside the table that needs it, rather than in the
+	// binary's startup, because the artifacts table has more than one caller:
+	// the console seeds it, the test harness seeds it, and tools/run writes
+	// into it. A migration that only main.go performs is a migration half the
+	// callers do not have.
+	if err := EnsureArtifactProvenance(db); err != nil {
+		return 0, 0, 0, err
+	}
 	var have int
 	if err := db.QueryRow(`SELECT COUNT(*) FROM sprints`).Scan(&have); err != nil {
 		return 0, 0, 0, err

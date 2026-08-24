@@ -3,7 +3,9 @@ package main
 import (
 	"os"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/TAIPANBOX/costcrew/internal/crew"
 	"github.com/TAIPANBOX/costcrew/internal/money"
@@ -138,5 +140,76 @@ func TestThePromptBoundIsNotExceededByAnyTokeniser(t *testing.T) {
 			t.Errorf("tokens(%d bytes) = %d, which is below the byte count and "+
 				"therefore not an upper bound", len(s), got)
 		}
+	}
+}
+
+// The ceiling holds when several calls are in flight.
+//
+// A plain running total is not enough: four calls checking against the same
+// unspent balance can each be individually correct and collectively walk past
+// the ceiling. The budget reserves the worst case before a call and settles
+// the difference after, so money in flight is money spent until proven
+// otherwise.
+func TestTheCeilingHoldsUnderConcurrency(t *testing.T) {
+	// A ceiling that fits exactly three calls of 100 micros.
+	r := &runBudget{ceilingMicros: 300}
+
+	// Every reservation is HELD until all of them have been attempted, which
+	// is the situation the reservation exists for: several calls in flight at
+	// once, none of them settled yet.
+	//
+	// The first version settled immediately, so no two reservations ever
+	// overlapped and the running total alone was enough. It passed against a
+	// budget that ignored reservations entirely, which is the one fault it was
+	// written to catch.
+	var wg, hold sync.WaitGroup
+	var mu sync.Mutex
+	var allowed int
+	hold.Add(1)
+
+	for i := 0; i < 20; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := r.reserve(100); err != nil {
+				return
+			}
+			mu.Lock()
+			allowed++
+			mu.Unlock()
+			hold.Wait() // in flight, unsettled, while the others try
+			r.settle(100, 100)
+		}()
+	}
+	// Let them all reach the reservation before anything settles.
+	time.Sleep(50 * time.Millisecond)
+	got := func() int { mu.Lock(); defer mu.Unlock(); return allowed }()
+	hold.Done()
+	wg.Wait()
+
+	if got > 3 {
+		t.Errorf("%d calls were let through against a ceiling that fits three, "+
+			"with none of them settled: the reservation is not holding", got)
+	}
+	if r.total() > r.ceilingMicros {
+		t.Errorf("spent %d against a ceiling of %d", r.total(), r.ceilingMicros)
+	}
+}
+
+// A call that failed costs nothing, and its reservation comes back.
+//
+// Without this a run of flaky calls would exhaust its own ceiling having
+// bought nothing at all.
+func TestAFailedCallReturnsItsReservation(t *testing.T) {
+	r := &runBudget{ceilingMicros: 100}
+	if err := r.reserve(100); err != nil {
+		t.Fatal(err)
+	}
+	r.settle(100, 0) // the call failed
+	if r.total() != 0 {
+		t.Errorf("a failed call charged %d micros", r.total())
+	}
+	if err := r.reserve(100); err != nil {
+		t.Errorf("the ceiling is still held against a call that never happened: %v", err)
 	}
 }

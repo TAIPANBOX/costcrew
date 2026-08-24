@@ -163,7 +163,12 @@ func price(t crew.Task, a crew.Analyst, maxTok int) estimate {
 		return e
 	}
 	if !metered {
-		e.Verdict = "on a subscription, so nothing new is billed"
+		// Not billed, and not run either: no caller is written for a local
+		// subscription. Saying only the first half read as "this will happen
+		// and cost nothing", and twenty-three tasks quietly did not happen.
+		e.Verdict = "on a local subscription: nothing extra is billed, and " +
+			"nothing here runs it either"
+		e.Refused = true
 		return e
 	}
 

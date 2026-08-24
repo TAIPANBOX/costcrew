@@ -33,6 +33,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/TAIPANBOX/costcrew/internal/crew"
@@ -214,12 +215,13 @@ func execute(ctx context.Context, db *sql.DB, e estimate, maxTok int, run *runBu
 	if e.Refused {
 		return fmt.Errorf("refused before the call: %s", e.Verdict)
 	}
-	if err := run.mayspend(e.WorstMicros); err != nil {
+	if err := run.reserve(e.WorstMicros); err != nil {
 		return refusal{err}
 	}
 
 	res, err := call(ctx, e.Engine, e.Model, prompt(e.Task, e.Analyst), maxTok)
 	if err != nil {
+		run.settle(e.WorstMicros, 0)
 		return err
 	}
 
@@ -229,12 +231,33 @@ func execute(ctx context.Context, db *sql.DB, e estimate, maxTok int, run *runBu
 	in := float64(res.InTokens) / 1e6 * e.Price.InPerM
 	out := float64(res.OutTokens) / 1e6 * e.Price.OutPerM
 	res.ActualMicros = int64((in + out) * 1e6)
-	run.spent += res.ActualMicros
+	run.settle(e.WorstMicros, res.ActualMicros)
 
+	if err := saveDraft(db, e, res); err != nil {
+		return err
+	}
+
+	fmt.Printf("  %-22s %-14s %-10s in %5d out %5d  cost %s  (worst %s)\n",
+		trim(e.Task.Title, 22), e.Analyst.Name, trim(e.Engine, 10),
+		res.InTokens, res.OutTokens, usd(res.ActualMicros), usd(e.WorstMicros))
+	return nil
+}
+
+// saveDraft writes what the model produced and what it cost.
+//
+// It is separate from execute so that it can be tested without a network call,
+// which is the only way to hold the property that matters here: a deliverable
+// a model actually wrote is MARKED as one.
+//
+// The estate ships 279 generated drafts. A live run adds real ones to the same
+// table, with the same author and the same state, and for one run 63 real
+// deliverables sat indistinguishable among 342. Two kinds of thing under one
+// heading is the fault this console exists to catch in other people's data.
+func saveDraft(db *sql.DB, e estimate, res callResult) error {
 	title := "Deliverable for " + e.Task.Title
 	if _, err := db.Exec(`INSERT INTO artifacts
-		(task, author, title, body, state, created)
-		VALUES (?,?,?,?, 'draft', datetime('now'))`,
+		(task, author, title, body, state, created, source)
+		VALUES (?,?,?,?, 'draft', datetime('now'), 'live')`,
 		e.Task.ID, e.Analyst.Name, trim(title, 120), res.Text); err != nil {
 		return err
 	}
@@ -247,28 +270,53 @@ func execute(ctx context.Context, db *sql.DB, e estimate, maxTok int, run *runBu
 		int64(cents), e.Task.ID); err != nil {
 		return err
 	}
-
-	fmt.Printf("  %-22s %-14s %-10s in %5d out %5d  cost %s  (worst %s)\n",
-		trim(e.Task.Title, 22), e.Analyst.Name, trim(e.Engine, 10),
-		res.InTokens, res.OutTokens, usd(res.ActualMicros), usd(e.WorstMicros))
 	return nil
 }
 
 // runBudget is the ceiling, held for the whole run.
+//
+// It RESERVES the worst case before a call and settles the difference after,
+// which is what makes running several at once safe rather than hopeful. With
+// a plain running total, four calls in flight could each pass a check against
+// the same unspent balance and collectively walk past the ceiling; every one
+// of them would have been individually correct.
+//
+// Reserved money is spent money until proven otherwise. That is the direction
+// to be wrong in.
 type runBudget struct {
+	mu            sync.Mutex
 	ceilingMicros int64
-	spent         int64
+	reserved      int64 // in flight, at worst case
+	spent         int64 // settled, at what it actually cost
 }
 
-// mayspend refuses on the WORST case, before the call, not on what it turns
-// out to cost afterwards.
-func (r *runBudget) mayspend(worst int64) error {
-	if r.spent+worst > r.ceilingMicros {
-		return fmt.Errorf("the run's ceiling is %s, %s of it is spent, and this "+
-			"call could cost %s: refused before making it",
-			usd(r.ceilingMicros), usd(r.spent), usd(worst))
+// reserve takes the worst case out of the ceiling before the call is made.
+func (r *runBudget) reserve(worst int64) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.spent+r.reserved+worst > r.ceilingMicros {
+		return fmt.Errorf("the run's ceiling is %s, %s is spent and %s is in "+
+			"flight, and this call could cost %s: refused before making it",
+			usd(r.ceilingMicros), usd(r.spent), usd(r.reserved), usd(worst))
 	}
+	r.reserved += worst
 	return nil
+}
+
+// settle puts back what the call did not use. actual is 0 when it failed,
+// which returns the whole reservation: a call that produced nothing cost
+// nothing.
+func (r *runBudget) settle(worst, actual int64) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.reserved -= worst
+	r.spent += actual
+}
+
+func (r *runBudget) total() int64 {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.spent
 }
 
 // spend runs the live half: it checks the whole run against the ceiling
@@ -328,32 +376,66 @@ func spend(db *sql.DB, ests []estimate, maxTok int, cap money.Cents, only int) e
 	// twenty seconds each exhausted it, and the last fourteen were blocked
 	// with "context deadline exceeded" having never been attempted. A bound on
 	// one call is a timeout; a bound on all of them is an egg timer.
-	done, blocked := 0, 0
+	// A few at a time. Sixty-three calls at twenty seconds each is twenty
+	// minutes of somebody watching a terminal, and the wait is entirely the
+	// model's: nothing here is CPU-bound.
+	//
+	// Four rather than as many as possible, because the far side rate-limits
+	// and a run that trips that turns into a page of blocked tasks. Safe at
+	// any width, because the ceiling is RESERVED before each call rather than
+	// checked against a balance several calls are racing.
+	const atOnce = 4
+
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var done, blocked int
+	var stop bool
+
+	sem := make(chan struct{}, atOnce)
 	for _, e := range todo {
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-		err := execute(ctx, db, e, maxTok, run)
-		cancel()
-		if err == nil {
-			done++
-			continue
-		}
-		var r refusal
-		if errors.As(err, &r) {
-			fmt.Printf("\nstopped at %q: %v\n", trim(e.Task.Title, 40), err)
+		mu.Lock()
+		halted := stop
+		mu.Unlock()
+		if halted {
 			break
 		}
-		// The call failed. Block the task with the reason and carry on: the
-		// budget is untouched by a call that produced nothing.
-		if _, e2 := db.Exec(
-			`UPDATE tasks SET state='blocked', reason=?, updated=datetime('now') WHERE id=?`,
-			"the engine did not answer: "+trim(err.Error(), 160), e.Task.ID); e2 != nil {
-			return e2
-		}
-		blocked++
-		fmt.Printf("  %-24s %-12s BLOCKED: %v\n", trim(e.Task.Title, 24), e.Analyst.Name, err)
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(e estimate) {
+			defer wg.Done()
+			defer func() { <-sem }()
+
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+			err := execute(ctx, db, e, maxTok, run)
+			cancel()
+
+			mu.Lock()
+			defer mu.Unlock()
+			if err == nil {
+				done++
+				return
+			}
+			var r refusal
+			if errors.As(err, &r) {
+				// A refusal stops the run. Nothing new starts; what is already
+				// in flight finishes, and every one of those has its worst
+				// case reserved, so the ceiling holds.
+				fmt.Printf("\nstopped at %q: %v\n", trim(e.Task.Title, 40), err)
+				stop = true
+				return
+			}
+			if _, e2 := db.Exec(
+				`UPDATE tasks SET state='blocked', reason=?, updated=datetime('now') WHERE id=?`,
+				"the engine did not answer: "+trim(err.Error(), 160), e.Task.ID); e2 != nil {
+				fmt.Printf("  could not record the block: %v\n", e2)
+			}
+			blocked++
+			fmt.Printf("  %-22s %-14s BLOCKED: %v\n", trim(e.Task.Title, 22), e.Analyst.Name, err)
+		}(e)
 	}
+	wg.Wait()
 	fmt.Printf("\n%d of %d done, %d blocked. Spent %s of a %s ceiling.\n",
-		done, len(todo), blocked, usd(run.spent), cap)
+		done, len(todo), blocked, usd(run.total()), cap)
 	fmt.Printf("Every deliverable is a DRAFT. Nothing is published until a person stamps it.\n")
 	return nil
 }

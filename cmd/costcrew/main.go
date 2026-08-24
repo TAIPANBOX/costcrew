@@ -212,6 +212,9 @@ func run(addr, dir string, scfg stack.Config) error {
 	// The column first: SeedOwners moves charges between people, and it cannot
 	// do that before there is a column recording who a charge belonged to.
 	// Who answered for a charge, recorded ON the charge.
+	if err := crew.EnsureArtifactProvenance(st.DB()); err != nil {
+		return err
+	}
 	if err := crew.EnsureOwnershipHistory(st.DB()); err != nil {
 		return fmt.Errorf("ownership history: %w", err)
 	}

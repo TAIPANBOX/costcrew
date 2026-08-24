@@ -27,7 +27,7 @@
 
 {{range .Arts}}
 <div class="panel">
-  <h2>Deliverable · {{.State}}{{if .Author}} · {{.Author}}{{end}}</h2>
+  <h2>Deliverable · {{.State}}{{if .Author}} · {{.Author}}{{end}}{{if eq .Source "live"}} <span class="live-mark" title="A model wrote this against a real key. Everything unmarked on this page was generated when the estate was seeded.">written live</span>{{end}}</h2>
   <div class="body">
     {{if .Reason}}<p class="msg">Returned: {{.Reason}}</p>{{end}}
     <div class="doc">{{.Rendered}}</div>

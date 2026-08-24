@@ -101,7 +101,19 @@ func buildCrew() []Agent {
 	// could not price a single one of thirty-nine analysts.
 	//
 	// The model names stay where they belong, on the charges in series.go.
-	cheap, strong := "openrouter", "claude-cli"
+	// Both routes the package can actually use.
+	//
+	// The strong half was "claude-cli", the local subscription, which needs a
+	// Claude CLI signed in on the machine. That is right for whoever built
+	// this and useless for anybody it is handed to: the runner skips those
+	// analysts as "on a subscription, nothing new billed", so twenty-three
+	// tasks silently never run and an Anthropic key sitting right there does
+	// nothing.
+	//
+	// A seeded estate should be runnable with what arrives beside it. Anybody
+	// who does have the subscription can re-brief an analyst onto claude-cli,
+	// which is still in the catalogue and still the cheaper answer for them.
+	cheap, strong := "openrouter", "anthropic"
 	var c []Agent
 
 	add := func(a Agent) { c = append(c, a) }

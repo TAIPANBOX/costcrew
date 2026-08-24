@@ -486,3 +486,16 @@ main:focus { outline: none; }
 pre.cmd { margin: 12px 0; padding: 12px 14px; background: var(--surface-2);
           border-radius: 6px; overflow-x: auto; font-size: 12.5px; line-height: 1.6; }
 pre.cmd code { white-space: pre; }
+
+/* A deliverable a model actually wrote, against somebody's key and somebody's
+   money, sitting in the same table as 279 generated ones.
+
+   It is a quiet mark and not a badge on purpose: the point is that a reader
+   CAN tell the two apart, not that the real ones are more important. They are
+   drafts either way, and only a person's stamp publishes either one. */
+.live-mark {
+  font-size: .72rem; font-weight: 600; letter-spacing: .04em;
+  text-transform: uppercase; vertical-align: middle;
+  padding: .12rem .4rem; border-radius: 3px;
+  color: var(--ink-3); border: 1px solid var(--line);
+}

@@ -89,6 +89,10 @@ type Artifact struct {
 	Created string
 	Stamped string
 	Stamper string
+
+	// Source is "fixture" for a generated draft and "live" for one a model
+	// actually wrote against somebody's key. See EnsureArtifactProvenance.
+	Source string
 }
 
 type Comment struct {
@@ -236,7 +240,8 @@ func GetTask(db *sql.DB, id int) (Task, error) {
 func Artifacts(db *sql.DB, task int) ([]Artifact, error) {
 	rows, err := db.Query(`SELECT id, task, COALESCE(author,''), COALESCE(title,''),
 		COALESCE(body,''), state, COALESCE(reason,''), COALESCE(created,''),
-		COALESCE(stamped,''), COALESCE(stamper,'')
+		COALESCE(stamped,''), COALESCE(stamper,''),
+		COALESCE(source,'fixture')
 		FROM artifacts WHERE task=? ORDER BY id`, task)
 	if err != nil {
 		return nil, err
@@ -247,7 +252,8 @@ func Artifacts(db *sql.DB, task int) ([]Artifact, error) {
 		var a Artifact
 		var state string
 		if err := rows.Scan(&a.ID, &a.Task, &a.Author, &a.Title, &a.Body,
-			&state, &a.Reason, &a.Created, &a.Stamped, &a.Stamper); err != nil {
+			&state, &a.Reason, &a.Created, &a.Stamped, &a.Stamper,
+			&a.Source); err != nil {
 			return nil, err
 		}
 		a.State = ArtifactState(state)

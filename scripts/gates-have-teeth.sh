@@ -432,6 +432,24 @@ echo "=== subject taken away: a gate must not report success at doing nothing ==
 # both cases came back TOOTHLESS: -run takes an unanchored regexp, so the
 # pattern still matched the renamed function and the subject had not gone
 # anywhere. Prefixing removes it.
+# Provenance. A live deliverable and a generated one land in the same table with
+# the same author and the same state, and for one full run 63 real ones sat
+# indistinguishable among 342. Two faults can bring that back: the writer going
+# quiet about what it wrote, and the page going quiet about what it was told.
+run_case 'a deliverable that does not say a model wrote it' caught ./tools/run \
+	'TestARunnerDeliverableIsMarkedLive' \
+	'indistinguishable' \
+	tools/run/live.go \
+	"datetime('now'), 'live')" \
+	"datetime('now'), 'fixture')"
+
+run_case 'a marker no page displays' caught ./internal/web \
+	'TestTheTaskPageShowsWhichDeliverableWasWrittenLive' \
+	'want exactly 1' \
+	internal/web/templates/task.html \
+	'{{if eq .Source "live"}}' \
+	'{{if eq .Source "no-such-source"}}'
+
 run_case 'a renamed test is not a passing test' gone ./internal/web \
 	'TestAViewerCannotWrite' \
 	'MEASURED NOTHING' \
