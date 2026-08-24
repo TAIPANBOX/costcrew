@@ -115,3 +115,25 @@ Feature: A deliverable says whether a person's money bought it
     Given an estate nobody has run an agent on
     When any page showing a cost is opened
     Then none of them mentions real money at all
+
+  @test:TestADeliverableDoesNotShowItsOwnSyntax
+  Scenario: A deliverable does not show its own syntax
+    Given a deliverable a model wrote, with headings, a rule and two lists
+    When the task page renders it
+    Then none of the markdown appears as text, because the 279 seeded drafts
+      were written to match the renderer and it looked complete until
+      something else wrote one
+
+  @test:TestADeliverableCannotPutATagOnThePage
+  Scenario: A model cannot put a tag on the page
+    Given a deliverable containing a script tag and an image with an onerror
+    When the task page renders it
+    Then the reader sees them as text, harmlessly, because the body is written
+      by a model and escaping is the only thing between it and the reader
+
+  @test:TestTheModelIsToldTheDate
+  Scenario: The model is told the date rather than left to guess it
+    Given a task being sent to a model
+    When the prompt is built
+    Then it carries today's date, because a live deliverable came back saying
+      "Date: [Today's Date]" on the face of a page a person was meant to read
