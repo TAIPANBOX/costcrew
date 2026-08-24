@@ -390,6 +390,23 @@ run_case $'features: a binding points at a test that is gone' \
 	$'func TestAViewerCannotWrite(' \
 	$'func GoneTestAViewerCannotWrite('
 
+# The sidebar must not become its own scroll container on a short window. Yurii
+# hit this twice: once at 1244px of panel, and again after it was tightened to
+# 936px, on a window shorter than that.
+run_case 'the sidebar stays pinned on a short window' caught ./internal/web \
+	'TestAShortWindowUnpinsTheSidebar' \
+	'does not unpin' \
+	internal/web/assets/app.css \
+	'nav { position: static; height: auto; overflow-y: visible; }' \
+	'nav { position: sticky; height: auto; overflow-y: visible; }'
+
+run_case 'a breakpoint that does not clear the panel' caught ./internal/web \
+	'TestAShortWindowUnpinsTheSidebar' \
+	'the exact case this' \
+	internal/web/assets/app.css \
+	'@media (max-height: 960px) {' \
+	'@media (max-height: 900px) {'
+
 # Many small calls must not add up to more than they cost. A run billed 0.2337
 # and the crew page said 0.56. TWO faults produce that number and both must go
 # red: rounding each CALL up, and rounding each TASK up, which is the same thing

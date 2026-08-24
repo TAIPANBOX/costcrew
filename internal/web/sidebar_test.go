@@ -63,6 +63,66 @@ func TestTheSidebarFitsAWindow(t *testing.T) {
 	}
 }
 
+// A window shorter than the sidebar must not give the sidebar its own scroll.
+//
+// The budget above only helps a window tall enough to hold 936px. Yurii hit the
+// same defect a second time after that fix, on a shorter window, and described
+// it exactly: "якщо я натискаю на якусь одну вкладку, відкривається інша, я на
+// ту саму ще раз натискаю, відкривається ще інша."
+//
+// Pinning the panel means height:100vh and overflow-y:auto, and on a short
+// window that is a scroll container whose position nobody can see and which a
+// page load resets. Below the breakpoint the panel goes back into the flow: it
+// can still be too tall, and then it scrolls WITH the page, which is a scroll
+// the reader can see and the browser resets identically every time.
+//
+// @measured 2026-08-24, Chrome at 1440x800 and 1280x700, page at three scroll
+// positions each: the panel cannot scroll internally, and every visible link
+// hits itself. Before this, at 1440x900, aiming at Teams hit Crew or Sprints.
+//
+// A sidebar you have to scroll up to reach is a nuisance. A sidebar that opens
+// the wrong page is a defect.
+func TestAShortWindowUnpinsTheSidebar(t *testing.T) {
+	css := read(t, "assets/app.css")
+
+	rule := regexp.MustCompile(`(?s)@media \(max-height: (\d+)px\) \{(.*?)\n\}`).
+		FindStringSubmatch(css)
+	if rule == nil {
+		t.Fatal("no max-height rule: on a window shorter than the sidebar, the " +
+			"sidebar keeps its own scrollbar, and that scrollbar puts a " +
+			"different link under the cursor than the one that was there")
+	}
+	at, body := rule[1], rule[2]
+
+	if !strings.Contains(body, "position: static") {
+		t.Errorf("the max-height rule does not unpin the sidebar: %q", body)
+	}
+	if !strings.Contains(body, "height: auto") {
+		t.Errorf("the max-height rule leaves height:100vh, which is what makes " +
+			"the panel a scroll container")
+	}
+	if !strings.Contains(body, "overflow-y: visible") {
+		t.Errorf("the max-height rule leaves overflow-y:auto, so the panel can " +
+			"still scroll inside itself")
+	}
+	// The breakpoint has to clear the measured 936px panel, with room for a
+	// browser that rounds differently.
+	if n := atoi(t, at); n < 936 {
+		t.Errorf("the breakpoint is %dpx and the panel is 936px: between those "+
+			"two the panel is pinned AND too tall, which is the exact case this "+
+			"exists to remove", n)
+	}
+}
+
+func atoi(t *testing.T, s string) int {
+	t.Helper()
+	n, err := strconv.Atoi(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
 func read(t *testing.T, path string) string {
 	t.Helper()
 	b, err := os.ReadFile(path)

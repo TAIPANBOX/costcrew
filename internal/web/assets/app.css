@@ -122,6 +122,26 @@ nav {
   background: var(--surface); border-right: 1px solid var(--line);
   padding: 12px 0; position: sticky; top: 0; height: 100vh; overflow-y: auto;
 }
+/* When the window is SHORTER than the sidebar, the sidebar stops being pinned.
+
+   Pinning it means height:100vh and its own scrollbar, and that scrollbar is
+   the whole defect: the position is invisible, every item looks like every
+   other one, and a page load puts it back at the top. Yurii hit it twice,
+   the second time after the panel had been tightened to 936px, which only
+   helps a window tall enough to hold 936px.
+
+   In the flow it can still be too tall, and that is FINE: it scrolls with the
+   page, which is a scroll the reader can see and which the browser resets the
+   same way every time. A sidebar you have to scroll up to reach is a nuisance.
+   A sidebar that opens the wrong page is a defect.
+
+   960px rather than 936: 24px of margin so that a rounding difference between
+   browsers does not land exactly on the boundary. */
+@media (max-height: 960px) {
+  nav { position: static; height: auto; overflow-y: visible; }
+  .shell { align-items: flex-start; }
+}
+
 nav .brand {
   font-weight: 650; letter-spacing: -.02em; font-size: 17px;
   padding: 0 20px 10px; color: var(--ink);
