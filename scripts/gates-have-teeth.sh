@@ -447,14 +447,14 @@ run_case 'a model able to put a tag on the page' caught ./internal/web \
 	'reached the page' \
 	internal/web/work.go \
 	'esc := html.EscapeString(s)' \
-	'esc := s'
+	'esc := html.UnescapeString(s)'
 
 run_case 'a model left to guess the date' caught ./tools/run \
 	'TestTheModelIsToldTheDate' \
 	'does not carry the date' \
 	tools/run/live.go \
-	'fmt.Fprintf(&b, "\\nToday is %s.\\n", today)' \
-	'fmt.Fprintf(&b, "\\n%s", today[:0])'
+	'fmt.Fprintf(&b, "\nToday is %s.\n", today)' \
+	'fmt.Fprintf(&b, "\n%s", today[:0])'
 
 # One figure covering generated and live spend together. Invariant 16 carried
 # this as its open item: the deliverables were marked, the money was not.
