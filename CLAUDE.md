@@ -19,9 +19,9 @@ runtime to install, no network. Money is integer cents everywhere.
 ## Gates
 
 ```sh
-go test ./...                        # 209 tests, 13 packages
-./scripts/gates-have-teeth.sh        # 25 cases; needs a clean tree; ~60s
-./scripts/features-are-bound.sh      # 27 scenarios, both directions
+go test ./...                        # 235 tests, 14 packages
+./scripts/gates-have-teeth.sh        # 27 cases; needs a clean tree; ~60s
+./scripts/features-are-bound.sh      # 32 scenarios, both directions
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 ```
@@ -162,6 +162,31 @@ an absent invariant.
     2026-08-23: gutting an assertion reports TOOTHLESS, a dirty tree is
     refused, an already-red gate is UNJUDGEABLE rather than judged, and a kill
     restores the tree.)*
+
+16. **A deliverable says whether a person's money bought it.** The estate
+    ships 279 generated drafts; a live run adds real ones to the same table,
+    with the same author, the same state and the same shape. After the first
+    full run 63 real ones sat among 342 and nothing could tell them apart.
+    `docs/live-agents.md` named this before the runner existed and the runner
+    was built without it anyway.
+    *(gate: `TestARunnerDeliverableIsMarkedLive` and
+    `TestTheTaskPageShowsWhichDeliverableWasWrittenLive`, one for the writer and
+    one for the reader, because a marker no page displays is not a marker. The
+    column defaults to `fixture`, which is the safe direction: a row whose
+    provenance is unknown must not read as evidence of a real call. What is NOT
+    gated is the spend: a live call adds to `tasks.spent_cents` beside generated
+    spend, and no page separates the two. It is 0.39 against 3871.35 today, so
+    it is small, and small is not the same as marked.)*
+
+17. **A run cannot walk past its ceiling by running things at once.** Each call
+    reserves its worst case BEFORE it starts and settles the difference after,
+    so four calls in flight cannot each pass a check against the same unspent
+    balance.
+    *(gate: `TestTheCeilingHoldsUnderConcurrency`, `TestAFailedCallReturnsItsReservation`.
+    The first passed against a budget that ignored reservations entirely until
+    it was rewritten to HOLD its reservations open: it settled each call
+    immediately, so no two ever overlapped, and the one fault it existed to
+    catch could not reach it.)*
 
 ## Decisions that have no gate yet
 

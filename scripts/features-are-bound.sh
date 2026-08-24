@@ -50,8 +50,11 @@ while IFS= read -r file; do
 			t="${t%% *}"
 			pending="$pending $t"
 			bindings=$((bindings + 1))
-			if ! grep -rq "func ${t}(" internal/ 2>/dev/null; then
-				printf 'DANGLING  %s:%s\n          @test:%s names no test in internal/\n' \
+			# tools/ as well as internal/. The binary that makes the calls
+			# lives in tools/run, and four scenarios about what it spends read
+			# as dangling while their tests were sitting right there.
+			if ! grep -rq "func ${t}(" internal/ tools/ 2>/dev/null; then
+				printf 'DANGLING  %s:%s\n          @test:%s names no test\n' \
 					"$file" "$lineno" "$t"
 				fail=$((fail + 1))
 			fi
