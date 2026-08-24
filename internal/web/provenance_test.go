@@ -92,3 +92,51 @@ func TestTheCrewPageSaysWhatOfItsFigureIsReal(t *testing.T) {
 		t.Error("the page does not say how many tasks the real money was spent on")
 	}
 }
+
+// The agent card says what of THIS agent's cost is real.
+//
+// Red first: the card showed "Its work cost 92.18" with nothing saying whether
+// any of it was anybody's money. Per-analyst, not a share of the total: a
+// figure divided evenly is a figure nobody measured.
+func TestTheAgentCardSaysWhatOfItsCostIsReal(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "boss", "boss-password-2026")
+	db := h.st.DB()
+
+	// One task this agent worked for real, and one another agent did, so a
+	// card that summed the whole board instead of its own row would be caught.
+	var mine, theirs int
+	var me, them string
+	if err := db.QueryRow(`SELECT id, assignee FROM tasks
+		WHERE assignee != '' ORDER BY id LIMIT 1`).Scan(&mine, &me); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.QueryRow(`SELECT id, assignee FROM tasks
+		WHERE assignee != '' AND assignee != ? ORDER BY id LIMIT 1`, me).
+		Scan(&theirs, &them); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`UPDATE tasks SET live_micros = 53_100 WHERE id = ?`, mine); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`UPDATE tasks SET live_micros = 990_000 WHERE id = ?`, theirs); err != nil {
+		t.Fatal(err)
+	}
+
+	code, body, _ := h.get(t, "/staff/"+me)
+	if code != 200 {
+		t.Fatalf("agent card for %s: %d", me, code)
+	}
+	if !strings.Contains(body, "0.06 of it is real money") {
+		t.Errorf("the card for %s does not say what of its cost is real: a "+
+			"reader sees one figure covering generated and live spend", me)
+	}
+	if !strings.Contains(body, "1 task an agent actually wrote") {
+		t.Error("the card does not name how many tasks, in the singular")
+	}
+	// 0.99 belongs to the other agent and must not appear on this card.
+	if strings.Contains(body, "1.05 of it is real money") {
+		t.Errorf("the card for %s reports the whole board's live spend, "+
+			"including %s's 0.99", me, them)
+	}
+}

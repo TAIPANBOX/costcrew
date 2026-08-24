@@ -19,7 +19,8 @@
   <div class="tile wide"><div class="k">Its work cost</div><div class="v big">{{.Score.Spent}}</div>
     <div class="s">against {{.A.Monthly}} a month
       {{if gt .GuardUsed 0.0}}<span class="bar"><span class="fill {{if gt .GuardUsed 90.0}}over{{end}}" style="width:{{printf "%.0f" .GuardUsed}}%"></span></span>
-      {{printf "%.0f%%" .GuardUsed}} of the guard{{end}}</div></div>
+      {{printf "%.0f%%" .GuardUsed}} of the guard{{end}}
+         {{if .RealMoney}}<br><strong>{{.RealMoney}}</strong>{{end}}</div></div>
 </div>
 
 <div class="two">

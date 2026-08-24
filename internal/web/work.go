@@ -395,7 +395,7 @@ func (s *Server) staff(w http.ResponseWriter, r *http.Request) {
 	// and one number covering both kinds is the fault this console spends its
 	// time catching in other people's data.
 	liveMicros, liveTasks, _ := crew.LiveSpend(s.db)
-	liveCents := money.Cents((liveMicros + 9_999) / 10_000)
+	realMoney := crew.RealMoney(liveMicros, liveTasks)
 	var overGuard int
 	var overBy, spentThisMonth money.Cents
 	for _, a := range roster {
@@ -439,12 +439,11 @@ func (s *Server) staff(w http.ResponseWriter, r *http.Request) {
 		ThisMonth                     money.Cents
 		Unattested                    int
 		OfThose                       int
-		Live                          money.Cents
-		LiveTasks                     int
+		RealMoney                     string
 	}{s.shellFor(r, "Crew", "staff"), rows, u.May("operator"), srt,
 		totalSpent, totalGuard, tasks, open, posted, returned, byState,
 		firstPass, states, offRosterSpent, offRosterTasks, overGuard, overBy,
-		month, spentThisMonth, unattested, ofThose, liveCents, liveTasks})
+		month, spentThisMonth, unattested, ofThose, realMoney})
 }
 
 // ------------------------------------------------------------------ actions

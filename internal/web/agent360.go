@@ -378,6 +378,9 @@ func (s *Server) analyst(w http.ResponseWriter, r *http.Request) {
 		guardUsed = float64(sc.Spent) / float64(a.Monthly) * 100
 	}
 
+	// What of this agent's cost is real. Per-analyst, not a share of the total.
+	liveMicros, liveTasks, _ := crew.LiveSpendBy(s.db, a.Name)
+
 	s.render(w, tplAnalyst, struct {
 		shell
 		A          crew.Analyst
@@ -410,11 +413,13 @@ func (s *Server) analyst(w http.ResponseWriter, r *http.Request) {
 		Stops      []agentStop
 		StopCount  stopSummary
 		SortStops  sortSpec
+		RealMoney  string
 	}{s.shellFor(r, a.Name, "staff"), a, sc, agentChip(a.State),
 		work, caused, handled, events, children, rhythm, rights, cannotEver,
 		engine, doc, docJSON, spend, month, guardUsed, s.host, u.May("operator"),
 		mayManage(u, a), append(deskNames(), "management"), owners, others,
-		openWork, elsewhere, rsrt, wsrt, stops, summariseStops(stops), ssrt})
+		openWork, elsewhere, rsrt, wsrt, stops, summariseStops(stops), ssrt,
+		crew.RealMoney(liveMicros, liveTasks)})
 }
 
 // analystPassport serves the document itself.

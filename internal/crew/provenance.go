@@ -184,3 +184,39 @@ func LiveSpend(db *sql.DB) (micros int64, tasks int, err error) {
 		Scan(&micros, &tasks)
 	return micros, tasks, err
 }
+
+// LiveSpendBy is what one analyst's own model calls have cost.
+//
+// Per-analyst rather than a share of the total, because the card is about one
+// agent and a figure divided evenly is a figure nobody measured.
+func LiveSpendBy(db *sql.DB, analyst string) (micros int64, tasks int, err error) {
+	err = db.QueryRow(
+		`SELECT COALESCE(SUM(live_micros),0), COUNT(*) FROM tasks
+		 WHERE live_micros > 0 AND assignee = ?`, analyst).
+		Scan(&micros, &tasks)
+	return micros, tasks, err
+}
+
+// RealMoney is the sentence three pages carry, written once.
+//
+// The crew page, the KPI library and the agent card all show a cost that mixes
+// generated spend with real spend. Three copies of a sentence about the same
+// fact is how two pages end up disagreeing about it: this console has found
+// four such disagreements and every one looked plausible from one side.
+//
+// Empty when nothing real has been spent, so a console where no agent has run
+// does not carry a sentence about money nobody spent. The KPI library is the
+// reason that matters: its own headline is that a library where everything
+// reports a number is one where several are invented.
+func RealMoney(micros int64, tasks int) string {
+	if tasks == 0 || micros == 0 {
+		return ""
+	}
+	noun := "tasks"
+	if tasks == 1 {
+		noun = "task"
+	}
+	return fmt.Sprintf("%s of it is real money, spent on %d %s an agent actually "+
+		"wrote. Everything else here was generated when the estate was seeded.",
+		money.Cents((micros+9_999)/10_000), tasks, noun)
+}

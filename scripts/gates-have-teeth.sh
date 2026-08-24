@@ -390,6 +390,39 @@ run_case $'features: a binding points at a test that is gone' \
 	$'func TestAViewerCannotWrite(' \
 	$'func GoneTestAViewerCannotWrite('
 
+# The same sentence on all three pages that show a mixed cost. Each mutation
+# has to COMPILE, which is why these live here and not in an ad-hoc loop: the
+# obvious mutation, passing "" instead of the sentence, leaves two variables
+# declared and not used, and Go then fails the build with the same exit code as
+# a caught fault. That looked like a toothless gate for a while.
+run_case 'a KPI that hides which part is real' caught ./internal/finops \
+	'TestTheCrewCostKPISaysWhatIsRealMoney' \
+	'does not say what of its figure is real' \
+	internal/finops/kpi.go \
+	'crew.RealMoney(liveMicros, liveTasks)' \
+	'crew.RealMoney(liveMicros*0, liveTasks)'
+
+run_case 'a KPI library that crashes on an empty detector' caught ./internal/finops \
+	'TestTheKPISaysNothingAboutMoneyNobodySpent' \
+	'converting NULL to int' \
+	internal/finops/kpi.go \
+	"COALESCE(SUM(CASE WHEN state='open' THEN 1 ELSE 0 END),0)," \
+	"SUM(CASE WHEN state='open' THEN 1 ELSE 0 END),"
+
+run_case 'a card reporting the whole board as its own' caught ./internal/web \
+	'TestTheAgentCardSaysWhatOfItsCostIsReal' \
+	'does not say what of its cost is real' \
+	internal/web/templates/analyst.html \
+	'{{if .RealMoney}}<br><strong>{{.RealMoney}}</strong>{{end}}' \
+	'{{if false}}<br><strong>{{.RealMoney}}</strong>{{end}}'
+
+run_case 'a sentence about money nobody spent' caught ./internal/finops \
+	'TestTheKPISaysNothingAboutMoneyNobodySpent' \
+	'want empty' \
+	internal/crew/provenance.go \
+	'if tasks == 0 || micros == 0 {' \
+	'if tasks < 0 || micros < 0 {'
+
 # One figure covering generated and live spend together. Invariant 16 carried
 # this as its open item: the deliverables were marked, the money was not.
 run_case 'a crew figure that hides which part is real' caught ./internal/web \

@@ -3,7 +3,9 @@ package finops
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
+	"github.com/TAIPANBOX/costcrew/internal/crew"
 	"github.com/TAIPANBOX/costcrew/internal/money"
 	"github.com/TAIPANBOX/costcrew/internal/world"
 )
@@ -55,9 +57,15 @@ func KPIs(db *sql.DB, period string) ([]KPI, error) {
 	// -------------------------------------------------- anomalies
 	var open, closed int
 	var openMoney int64
+	// COALESCE on all three, not two of three. SUM over no rows is NULL, not
+	// zero, and scanning NULL into an int fails: on an estate whose detector
+	// has not run yet the whole KPI library returned an error instead of a
+	// library of refusals, which is the one thing this page is built not to do.
+	// The third had it and the first two did not, which is how a query gets
+	// half-hardened.
 	if err := db.QueryRow(`SELECT
-		SUM(CASE WHEN state='open' THEN 1 ELSE 0 END),
-		SUM(CASE WHEN state IN ('accepted','dismissed') THEN 1 ELSE 0 END),
+		COALESCE(SUM(CASE WHEN state='open' THEN 1 ELSE 0 END),0),
+		COALESCE(SUM(CASE WHEN state IN ('accepted','dismissed') THEN 1 ELSE 0 END),0),
 		COALESCE(SUM(CASE WHEN state='open' THEN ABS(excess_cents) ELSE 0 END),0)
 		FROM anomalies`).Scan(&open, &closed, &openMoney); err != nil {
 		return nil, err
@@ -105,6 +113,12 @@ func KPIs(db *sql.DB, period string) ([]KPI, error) {
 		WHERE state IN ('explained','accepted')`).Scan(&found); err != nil {
 		return nil, err
 	}
+	// What of that figure is real. The rest was generated at seed time, and one
+	// number covering both kinds is the fault this console catches elsewhere.
+	liveMicros, liveTasks, err := crew.LiveSpend(db)
+	if err != nil {
+		return nil, err
+	}
 	ratio, hasRatio := 0.0, spent > 0
 	if hasRatio {
 		ratio = float64(found) / float64(spent)
@@ -114,8 +128,9 @@ func KPIs(db *sql.DB, period string) ([]KPI, error) {
 		Value: money.Cents(spent).String(), Unit: "USD",
 		Target: "less than it finds",
 		HasVal: true, Meets: hasRatio && ratio >= 1,
-		Note: fmt.Sprintf("Across %d tasks, against %s found and either explained or accepted: "+
-			"a return of %.2fx.", tasks, found, ratio),
+		Note: strings.TrimSpace(fmt.Sprintf("Across %d tasks, against %s found and "+
+			"either explained or accepted: a return of %.2fx. %s",
+			tasks, found, ratio, crew.RealMoney(liveMicros, liveTasks))),
 		Blocked: blockedIf(!hasRatio,
 			"the crew has been charged nothing yet, so there is no ratio to report"),
 	})
