@@ -70,16 +70,33 @@ func call(ctx context.Context, engine, model, prompt string, maxTok int) (callRe
 // as input_tokens and output_tokens rather than prompt and completion. Nothing
 // about that is guessable, which is why it is written out rather than shared
 // with a "compatible" abstraction that would be wrong in one of them.
+// anthropicBody is the request, separate so the one thing that is easy to get
+// silently wrong can be tested without spending anything.
+//
+// Thinking is turned OFF explicitly. Four tasks on a full run came back with
+// "no text", and the reason, once the error said it, was exact:
+//
+//	stop_reason "max_tokens", blocks: thinking, 1200 output tokens
+//
+// The model spent the entire budget reasoning and never reached the answer.
+// What this runner wants is the deliverable, not the reasoning, so the fix is
+// to ask for the deliverable. It also makes the calls CHEAPER, which is the
+// unusual direction for a fix.
+func anthropicBody(model, prompt string, maxTok int) ([]byte, error) {
+	return json.Marshal(map[string]any{
+		"model":      model,
+		"max_tokens": maxTok,
+		"thinking":   map[string]any{"type": "disabled"},
+		"messages":   []map[string]string{{"role": "user", "content": prompt}},
+	})
+}
+
 func callAnthropic(ctx context.Context, model, prompt string, maxTok int) (callResult, error) {
 	key := strings.TrimSpace(os.Getenv("ANTHROPIC_API_KEY"))
 	if key == "" {
 		return callResult{}, fmt.Errorf("ANTHROPIC_API_KEY is not set in this process")
 	}
-	body, _ := json.Marshal(map[string]any{
-		"model":      model,
-		"max_tokens": maxTok,
-		"messages":   []map[string]string{{"role": "user", "content": prompt}},
-	})
+	body, _ := anthropicBody(model, prompt, maxTok)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
 		"https://api.anthropic.com/v1/messages", bytes.NewReader(body))
 	if err != nil {
@@ -107,7 +124,8 @@ func callAnthropic(ctx context.Context, model, prompt string, maxTok int) (callR
 			Type string `json:"type"`
 			Text string `json:"text"`
 		} `json:"content"`
-		Usage struct {
+		StopReason string `json:"stop_reason"`
+		Usage      struct {
 			InputTokens  int `json:"input_tokens"`
 			OutputTokens int `json:"output_tokens"`
 		} `json:"usage"`
@@ -122,7 +140,21 @@ func callAnthropic(ctx context.Context, model, prompt string, maxTok int) (callR
 		}
 	}
 	if text.Len() == 0 {
-		return callResult{}, fmt.Errorf("anthropic returned no text")
+		// Say WHY. "returned no text" blocked four tasks on a full run and
+		// named nothing a person could act on: a refusal, a turn that stopped
+		// on max_tokens before writing a word, and an empty content array are
+		// three different problems wearing one message.
+		kinds := make([]string, 0, len(out.Content))
+		for _, c := range out.Content {
+			kinds = append(kinds, c.Type)
+		}
+		where := "no content blocks at all"
+		if len(kinds) > 0 {
+			where = "blocks: " + strings.Join(kinds, ", ")
+		}
+		return callResult{}, fmt.Errorf(
+			"anthropic returned no text (stop_reason %q, %s, %d output tokens)",
+			out.StopReason, where, out.Usage.OutputTokens)
 	}
 	return callResult{
 		Text:      text.String(),

@@ -55,3 +55,11 @@ Feature: A deliverable says whether a person's money bought it
     When the run continues
     Then the whole reservation is back, because a failed call that keeps its
       reservation shrinks the ceiling every time something goes wrong
+
+  @test:TestAnthropicIsAskedForAnAnswerRatherThanReasoning
+  Scenario: The model is asked for the deliverable, not for its reasoning
+    Given a call with a budget of 1200 tokens
+    When the request is built
+    Then thinking is turned off, because a model that spends the whole budget
+      reasoning reaches no answer at all, blocks the task, and is billed in
+      full either way

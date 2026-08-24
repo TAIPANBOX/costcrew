@@ -390,6 +390,16 @@ run_case $'features: a binding points at a test that is gone' \
 	$'func TestAViewerCannotWrite(' \
 	$'func GoneTestAViewerCannotWrite('
 
+# The model must be asked for an answer rather than for reasoning. Four tasks on
+# a full run spent their whole token budget thinking, reached max_tokens with no
+# text, and blocked -- billed in full for nothing a person could read.
+run_case 'the model is left free to think instead of answering' caught ./tools/run \
+	'TestAnthropicIsAskedForAnAnswerRatherThanReasoning' \
+	'want disabled' \
+	tools/run/live.go \
+	'"thinking":   map[string]any{"type": "disabled"},' \
+	'"thinking":   map[string]any{"type": "enabled"},'
+
 # Provenance. A live deliverable and a generated one land in the same table with
 # the same author and the same state, and for one full run 63 real ones sat
 # indistinguishable among 342. Two faults can bring that back: the writer going
