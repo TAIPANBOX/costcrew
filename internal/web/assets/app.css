@@ -117,31 +117,33 @@ textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; 
 
    The budget is held by TestTheSidebarFitsAWindow. A 27th link breaks it, and
    that is the point: this list is already at the edge of what fits. */
+/* FIXED, not sticky, and not in the flow.
+
+   Three goes at this, so the reasoning is written down.
+
+   It was sticky inside a flex row, 1244px of content in a window about 1000px
+   tall, so it had its own scrollbar. That scrollbar is state nobody can see,
+   on a list where every item looks like every other one, and a page load puts
+   it back at the top. Aiming at Teams hit Crew.
+
+   Tightening it to 936px fixed a 1020px window and nothing shorter.
+
+   Then it was made static below 960px, which was WORSE: in the flow it moves
+   with the page, so a trackpad's momentum slides the whole list under the
+   cursor after the finger has left it. Yurii clicked Accounts four times and
+   got Desks, Crew and Budgets first, which are 466px, 682px and 574px away
+   from it. Those are momentum distances, not layout errors.
+
+   Fixed is the only one of the three where the page's scroll cannot move the
+   panel at all. Together with 936px of content, a window 960px or taller has
+   nothing that can move: no internal scroll, no page scroll, nothing. Shorter
+   than that it scrolls inside itself, and the page still cannot shift it. */
 nav {
-  width: 190px; flex: 0 0 190px;
+  position: fixed; top: 0; left: 0; z-index: 5;
+  width: 190px; height: 100vh; overflow-y: auto;
   background: var(--surface); border-right: 1px solid var(--line);
-  padding: 12px 0; position: sticky; top: 0; height: 100vh; overflow-y: auto;
+  padding: 12px 0;
 }
-/* When the window is SHORTER than the sidebar, the sidebar stops being pinned.
-
-   Pinning it means height:100vh and its own scrollbar, and that scrollbar is
-   the whole defect: the position is invisible, every item looks like every
-   other one, and a page load puts it back at the top. Yurii hit it twice,
-   the second time after the panel had been tightened to 936px, which only
-   helps a window tall enough to hold 936px.
-
-   In the flow it can still be too tall, and that is FINE: it scrolls with the
-   page, which is a scroll the reader can see and which the browser resets the
-   same way every time. A sidebar you have to scroll up to reach is a nuisance.
-   A sidebar that opens the wrong page is a defect.
-
-   960px rather than 936: 24px of margin so that a rounding difference between
-   browsers does not land exactly on the boundary. */
-@media (max-height: 960px) {
-  nav { position: static; height: auto; overflow-y: visible; }
-  .shell { align-items: flex-start; }
-}
-
 nav .brand {
   font-weight: 650; letter-spacing: -.02em; font-size: 17px;
   padding: 0 20px 10px; color: var(--ink);
@@ -166,7 +168,8 @@ nav .count {
 }
 nav a[aria-current="page"] .count { background: var(--paper); }
 
-main { flex: 1; min-width: 0; padding: 28px 34px 80px; max-width: 1400px; }
+main { flex: 1; min-width: 0; margin-left: 190px;
+       padding: 28px 34px 80px; max-width: 1400px; }
 
 header.page { margin-bottom: 26px; }
 header.page h1 {
@@ -358,6 +361,7 @@ dl.facts > :nth-last-child(-n+2) { border-bottom: none; }
 @media (max-width: 900px) {
   .shell { flex-direction: column; }
   nav { width: auto; flex: none; height: auto; position: static;
+        overflow-y: visible;
         display: flex; flex-wrap: wrap; gap: 2px; padding: 10px;
         border-right: none; border-bottom: 1px solid var(--line); }
   nav .brand { width: 100%; padding: 4px 10px 10px; }
@@ -367,7 +371,7 @@ dl.facts > :nth-last-child(-n+2) { border-bottom: none; }
      was the way to other pages. */
   nav a { padding: 5px 8px; border-radius: 5px; font-size: 13.5px; }
   nav a[aria-current="page"] { box-shadow: none; }
-  main { padding: 20px 16px 60px; }
+  main { margin-left: 0; padding: 20px 16px 60px; }
 
   /* Two tiles to a row.
      168px was six pixels too wide to fit twice in 343px of usable width, so

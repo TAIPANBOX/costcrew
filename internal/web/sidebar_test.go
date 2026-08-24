@@ -63,54 +63,54 @@ func TestTheSidebarFitsAWindow(t *testing.T) {
 	}
 }
 
-// A window shorter than the sidebar must not give the sidebar its own scroll.
+// The page's scroll must not be able to move the sidebar.
 //
-// The budget above only helps a window tall enough to hold 936px. Yurii hit the
-// same defect a second time after that fix, on a shorter window, and described
-// it exactly: "якщо я натискаю на якусь одну вкладку, відкривається інша, я на
-// ту саму ще раз натискаю, відкривається ще інша."
+// Three attempts, and this is what each one taught. Sticky inside a flex row,
+// 1244px of content in a 1000px window: its own scrollbar, invisible position,
+// reset by every page load, and aiming at Teams hit Crew. Tightened to 936px:
+// fixed a 1020px window and nothing shorter. Then static below 960px, which was
+// WORSE, because in the flow the panel moves with the page and a trackpad's
+// momentum slides the whole list under the cursor after the finger has left it.
+// Yurii clicked Accounts four times and got Desks, Crew and Budgets, which sit
+// 574px, 682px and 466px away from it. Those are momentum distances.
 //
-// Pinning the panel means height:100vh and overflow-y:auto, and on a short
-// window that is a scroll container whose position nobody can see and which a
-// page load resets. Below the breakpoint the panel goes back into the flow: it
-// can still be too tall, and then it scrolls WITH the page, which is a scroll
-// the reader can see and the browser resets identically every time.
+// Fixed is the only one of the three where the page cannot move the panel.
 //
-// @measured 2026-08-24, Chrome at 1440x800 and 1280x700, page at three scroll
-// positions each: the panel cannot scroll internally, and every visible link
-// hits itself. Before this, at 1440x900, aiming at Teams hit Crew or Sprints.
-//
-// A sidebar you have to scroll up to reach is a nuisance. A sidebar that opens
-// the wrong page is a defect.
-func TestAShortWindowUnpinsTheSidebar(t *testing.T) {
+// @measured 2026-08-24, Chrome at 1440x1020, with the page forced to 3000px and
+// nav.scrollTop and main.scrollTop both forced to 400: nothing moved it, all 26
+// links visible, zero mismatches. At 1280x700 the panel keeps an internal
+// scroll, which is what any list too long for its box does, and the page still
+// cannot shift it.
+func TestThePageCannotMoveTheSidebar(t *testing.T) {
 	css := read(t, "assets/app.css")
 
-	rule := regexp.MustCompile(`(?s)@media \(max-height: (\d+)px\) \{(.*?)\n\}`).
-		FindStringSubmatch(css)
-	if rule == nil {
-		t.Fatal("no max-height rule: on a window shorter than the sidebar, the " +
-			"sidebar keeps its own scrollbar, and that scrollbar puts a " +
-			"different link under the cursor than the one that was there")
+	// The wide-screen rule, before any media query narrows it.
+	nav := regexp.MustCompile(`(?s)\nnav \{(.*?)\n\}`).FindStringSubmatch(css)
+	if nav == nil {
+		t.Fatal("no nav rule at all")
 	}
-	at, body := rule[1], rule[2]
+	body := nav[1]
 
-	if !strings.Contains(body, "position: static") {
-		t.Errorf("the max-height rule does not unpin the sidebar: %q", body)
+	if !strings.Contains(body, "position: fixed") {
+		t.Errorf("the sidebar is not fixed: %q\n"+
+			"sticky gives it its own scrollbar and static lets the page's "+
+			"momentum slide it; either way a click lands on a link that was "+
+			"somewhere else when the finger left the trackpad", body)
 	}
-	if !strings.Contains(body, "height: auto") {
-		t.Errorf("the max-height rule leaves height:100vh, which is what makes " +
-			"the panel a scroll container")
+	// Fixed takes it out of the flow, so the content needs the space back or it
+	// renders underneath.
+	main := regexp.MustCompile(`(?s)\nmain \{(.*?)\}`).FindStringSubmatch(css)
+	if main == nil || !strings.Contains(main[1], "margin-left: 190px") {
+		t.Errorf("the content does not reserve the sidebar's 190px, so it "+
+			"renders underneath it: %v", main)
 	}
-	if !strings.Contains(body, "overflow-y: visible") {
-		t.Errorf("the max-height rule leaves overflow-y:auto, so the panel can " +
-			"still scroll inside itself")
-	}
-	// The breakpoint has to clear the measured 936px panel, with room for a
-	// browser that rounds differently.
-	if n := atoi(t, at); n < 936 {
-		t.Errorf("the breakpoint is %dpx and the panel is 936px: between those "+
-			"two the panel is pinned AND too tall, which is the exact case this "+
-			"exists to remove", n)
+	// And the narrow layout must hand that space back, because there the panel
+	// is a header across the top.
+	narrow := regexp.MustCompile(`(?s)@media \(max-width: 900px\) \{(.*?)\n\}`).
+		FindStringSubmatch(css)
+	if narrow == nil || !strings.Contains(narrow[1], "margin-left: 0") {
+		t.Error("the narrow layout keeps a 190px margin for a sidebar that is " +
+			"no longer beside the content")
 	}
 }
 

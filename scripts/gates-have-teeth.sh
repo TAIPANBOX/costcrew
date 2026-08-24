@@ -390,22 +390,22 @@ run_case $'features: a binding points at a test that is gone' \
 	$'func TestAViewerCannotWrite(' \
 	$'func GoneTestAViewerCannotWrite('
 
-# The sidebar must not become its own scroll container on a short window. Yurii
-# hit this twice: once at 1244px of panel, and again after it was tightened to
-# 936px, on a window shorter than that.
-run_case 'the sidebar stays pinned on a short window' caught ./internal/web \
-	'TestAShortWindowUnpinsTheSidebar' \
-	'does not unpin' \
+# The page's scroll must not be able to move the sidebar. Three attempts: sticky
+# gave it its own scrollbar, static let the page's momentum slide it under the
+# cursor, fixed is the only one the page cannot touch.
+run_case 'a sidebar the page can move' caught ./internal/web \
+	'TestThePageCannotMoveTheSidebar' \
+	'is not fixed' \
 	internal/web/assets/app.css \
-	'nav { position: static; height: auto; overflow-y: visible; }' \
-	'nav { position: sticky; height: auto; overflow-y: visible; }'
+	'  position: fixed; top: 0; left: 0; z-index: 5;' \
+	'  position: sticky; top: 0; left: 0; z-index: 5;'
 
-run_case 'a breakpoint that does not clear the panel' caught ./internal/web \
-	'TestAShortWindowUnpinsTheSidebar' \
-	'the exact case this' \
+run_case 'content rendered under the sidebar' caught ./internal/web \
+	'TestThePageCannotMoveTheSidebar' \
+	'renders underneath' \
 	internal/web/assets/app.css \
-	'@media (max-height: 960px) {' \
-	'@media (max-height: 900px) {'
+	'main { flex: 1; min-width: 0; margin-left: 190px;' \
+	'main { flex: 1; min-width: 0;'
 
 # Many small calls must not add up to more than they cost. A run billed 0.2337
 # and the crew page said 0.56. TWO faults produce that number and both must go
