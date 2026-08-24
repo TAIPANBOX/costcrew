@@ -22,11 +22,15 @@ import (
 //
 // Provenance, said plainly rather than implied:
 //
-//   - deepseek-chat is the one figure this repository already held, in the
-//     catalogue's own Cost line, and it is copied from there.
-//   - Everything else is @claude, from training, recorded 2026-08-24. NOT
-//     measured against a vendor page, because this machine does not reach one
-//     and inventing a citation would be worse than saying so.
+//   - The three routed through OpenRouter are @measured 2026-08-24, by
+//     GET https://openrouter.ai/api/v1/models with a live key, reading each
+//     model's own pricing.prompt and pricing.completion and multiplying by a
+//     million. They were @claude estimates first, and all three were HIGH:
+//     0.27/1.10 against a real 0.2574/1.0287, and 0.60/2.50 against 0.57/2.30.
+//     High is the safe direction for a bound, and being close is not the same
+//     as being right.
+//   - The Anthropic direct entries are still @claude. That API lists its
+//     models and not their prices, so nothing here has measured them.
 //
 // So treat these as a floor for a DRY estimate and re-check them against the
 // vendor before a single live call. Where a model is missing entirely, the
@@ -43,9 +47,9 @@ type Price struct {
 // prices is keyed engine/model, the same string a passport and the roster use.
 var prices = map[string]Price{
 	"deepseek/deepseek-chat": {
-		InPerM: 0.27, OutPerM: 1.10,
+		InPerM: 0.2574, OutPerM: 1.0287,
 		Recorded: "2026-08-24",
-		Source:   "this repository's own engine catalogue, which states it in prose",
+		Source:   "@measured, GET openrouter.ai/api/v1/models",
 	},
 	"anthropic/claude-sonnet-5": {
 		InPerM: 3.00, OutPerM: 15.00,
@@ -56,16 +60,16 @@ var prices = map[string]Price{
 		Recorded: "2026-08-24", Source: "@claude, unverified against the vendor",
 	},
 	"openrouter/deepseek/deepseek-chat": {
-		InPerM: 0.27, OutPerM: 1.10,
-		Recorded: "2026-08-24", Source: "@claude, the router passes the model's own price through",
+		InPerM: 0.2574, OutPerM: 1.0287,
+		Recorded: "2026-08-24", Source: "@measured, GET openrouter.ai/api/v1/models",
 	},
 	"openrouter/moonshotai/kimi-k2": {
-		InPerM: 0.60, OutPerM: 2.50,
-		Recorded: "2026-08-24", Source: "@claude, unverified against the vendor",
+		InPerM: 0.57, OutPerM: 2.30,
+		Recorded: "2026-08-24", Source: "@measured, GET openrouter.ai/api/v1/models",
 	},
 	"openrouter/anthropic/claude-sonnet-4": {
 		InPerM: 3.00, OutPerM: 15.00,
-		Recorded: "2026-08-24", Source: "@claude, unverified against the vendor",
+		Recorded: "2026-08-24", Source: "@measured, GET openrouter.ai/api/v1/models",
 	},
 }
 

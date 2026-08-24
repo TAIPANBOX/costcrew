@@ -33,6 +33,8 @@ func main() {
 	maxTok := flag.Int("max-tokens", 2000, "the output cap every call would be made with")
 	sprint := flag.Int("sprint", 0, "only this sprint id; 0 means every open task")
 	showPrices := flag.Bool("prices", false, "print the price table and exit")
+	live := flag.Bool("live", false, "actually make the calls; needs -ceiling and spends real money")
+	only := flag.Int("only", 0, "with -live, run this one task id and stop")
 	flag.Parse()
 
 	if *showPrices {
@@ -43,7 +45,7 @@ func main() {
 		return
 	}
 
-	if err := run(*dir, *ceiling, *maxTok, *sprint); err != nil {
+	if err := run(*dir, *ceiling, *maxTok, *sprint, *live, *only); err != nil {
 		fmt.Fprintln(os.Stderr, "run:", err)
 		os.Exit(1)
 	}
@@ -73,7 +75,7 @@ type estimate struct {
 	Refused bool
 }
 
-func run(dir, ceiling string, maxTok, sprint int) error {
+func run(dir, ceiling string, maxTok, sprint int, live bool, only int) error {
 	st, err := store.Open(dir)
 	if err != nil {
 		return err
@@ -110,8 +112,19 @@ func run(dir, ceiling string, maxTok, sprint int) error {
 	}
 	sort.Slice(ests, func(i, j int) bool { return ests[i].WorstMicros > ests[j].WorstMicros })
 
-	report(db, ests, maxTok, cap, hasCap)
-	return nil
+	if !live {
+		report(db, ests, maxTok, cap, hasCap)
+		return nil
+	}
+
+	// A run with no ceiling is refused, never defaulted. A default ceiling is
+	// a number nobody chose, and this is the one place where the number nobody
+	// chose is the one that gets spent.
+	if !hasCap {
+		return fmt.Errorf("-live needs -ceiling: a run that can spend has to be " +
+			"bounded by a figure somebody typed")
+	}
+	return spend(db, ests, maxTok, cap, only)
 }
 
 // price puts a worst case on one task.
