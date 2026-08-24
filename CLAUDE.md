@@ -19,9 +19,9 @@ runtime to install, no network. Money is integer cents everywhere.
 ## Gates
 
 ```sh
-go test ./...                        # 240 tests, 15 packages
-./scripts/gates-have-teeth.sh        # 30 cases; needs a clean tree; ~60s
-./scripts/features-are-bound.sh      # 35 scenarios, both directions
+go test ./...                        # 241 tests, 15 packages
+./scripts/gates-have-teeth.sh        # 31 cases; needs a clean tree; ~60s
+./scripts/features-are-bound.sh      # 36 scenarios, both directions
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 ```
@@ -173,10 +173,10 @@ an absent invariant.
     `TestTheTaskPageShowsWhichDeliverableWasWrittenLive`, one for the writer and
     one for the reader, because a marker no page displays is not a marker. The
     column defaults to `fixture`, which is the safe direction: a row whose
-    provenance is unknown must not read as evidence of a real call. What is NOT
-    gated is the spend: a live call adds to `tasks.spent_cents` beside generated
-    spend, and no page separates the two. It is 0.39 against 3871.35 today, so
-    it is small, and small is not the same as marked.)*
+    provenance is unknown must not read as evidence of a real call. The live
+    SPEND is separable too, since `tasks.live_micros` carries it exactly; what
+    is still NOT gated is that no page SHOWS the split, so a reader sees one
+    crew-cost figure covering both kinds.)*
 
 17. **A run cannot walk past its ceiling by running things at once.** Each call
     reserves its worst case BEFORE it starts and settles the difference after,
@@ -187,6 +187,30 @@ an absent invariant.
     it was rewritten to HOLD its reservations open: it settled each call
     immediately, so no two ever overlapped, and the one fault it existed to
     catch could not reach it.)*
+
+18. **What the console says a run cost is what the run cost.** Cents cannot
+    hold a fifth of a cent and a model call costs about that, so the rounding
+    happens once, over the whole run, and the cents are handed out by largest
+    remainder. Rounding per CALL recorded 0.56 for a run that billed 0.2337;
+    rounding per TASK recorded the same, because the runner makes one call per
+    task.
+    *(gate: `TestTheLedgerDoesNotOverstateManySmallCalls`, with both faults in
+    `gates-have-teeth.sh`, and `TestSettlingTheSameRunTwiceChangesNothing`
+    because settling runs on every run. The test that let the second fault
+    through put all 44 calls on ONE task, where per-task rounding happens to be
+    right: a test can only prove what it describes.
+    @measured 2026-08-24, a full run: router 0.2342, board 0.24, crew page
+    3871.35 -> 3871.59.)*
+
+19. **The sidebar fits the window.** A nav taller than the viewport gets its own
+    scroll container, that position is invisible, and a page load resets it, so
+    a click lands on a different link than the one under the cursor a moment
+    earlier.
+    *(gate: `TestTheSidebarFitsAWindow`, a budget on the link count and the
+    paddings, because Go cannot lay out CSS. @measured in Chrome: 1244px of
+    content in a 900px box before, 936px after, 84px of slack at 1020px. It is
+    still 36px over at 900px of viewport and 136px over at 800px: the
+    structural answer is fewer than 26 destinations and that is Yurii's call.)*
 
 ## Decisions that have no gate yet
 
