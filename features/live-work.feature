@@ -75,7 +75,15 @@ Feature: A deliverable says whether a person's money bought it
 
   @test:TestTheLedgerDoesNotOverstateManySmallCalls
   Scenario: Many small calls add up to what they cost
-    Given 44 calls that each cost about half a cent
-    When the console records them
-    Then the total it shows is what was billed rounded up once, not each call
-      rounded up on its own, which said 0.56 for a run that cost 0.2337
+    Given 44 tasks, one call each, costing about half a cent apiece
+    When the console records what the run cost
+    Then the board shows the run's true total rounded up once, not each call
+      and not each task rounded up on its own, either of which said 0.56 for
+      a run that cost 0.2337
+
+  @test:TestSettlingTheSameRunTwiceChangesNothing
+  Scenario: Working out the cents twice does not book the money twice
+    Given a run whose cost has already been turned into cents
+    When it is worked out again
+    Then the board does not move, because every startup step in this console
+      runs on every start

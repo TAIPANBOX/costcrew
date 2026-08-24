@@ -390,15 +390,23 @@ run_case $'features: a binding points at a test that is gone' \
 	$'func TestAViewerCannotWrite(' \
 	$'func GoneTestAViewerCannotWrite('
 
-# Many small calls must not add up to more than they cost. A full run billed
-# 0.2337 and the crew page said 0.56, because 44 fractions of a cent each became
-# a whole one.
-run_case 'each call rounded up on its own' caught ./tools/run \
+# Many small calls must not add up to more than they cost. A run billed 0.2337
+# and the crew page said 0.56. TWO faults produce that number and both must go
+# red: rounding each CALL up, and rounding each TASK up, which is the same thing
+# when the runner makes one call per task and is what the first fix left behind.
+run_case 'each task rounded up on its own' caught ./tools/run \
 	'TestTheLedgerDoesNotOverstateManySmallCalls' \
-	'overstates a run by a cent per call' \
-	tools/run/live.go \
-	'+ (live_micros + ? + 9999) / 10000' \
-	'+ (? + 9999) / 10000+ 0*(live_micros'
+	'overstates the run' \
+	internal/crew/provenance.go \
+	'whole := r.micros / 10_000' \
+	'whole := (r.micros + 9_999) / 10_000'
+
+run_case 'the run is never settled into cents' caught ./tools/run \
+	'TestTheLedgerDoesNotOverstateManySmallCalls' \
+	'overstates the run' \
+	internal/crew/provenance.go \
+	'for i := 0; handed < want && i < len(rems); i++ {' \
+	'for i := 0; false && handed < want && i < len(rems); i++ {'
 
 # A task somebody stopped stays stopped. crew.TaskFilter{OpenOnly} includes
 # blocked, which is right for a board and wrong for a thing that does the work.

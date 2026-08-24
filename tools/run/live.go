@@ -307,14 +307,13 @@ func saveDraft(db *sql.DB, e estimate, res callResult) error {
 	// One statement, because four calls run at once: SQLite reads the row's old
 	// values for every SET expression, so the delta and the new total are
 	// computed from the same starting point even when two land together.
-	if _, err := db.Exec(`UPDATE tasks SET
-			spent_cents = spent_cents
-				+ (live_micros + ? + 9999) / 10000
-				- (live_micros + 9999) / 10000,
-			live_micros = live_micros + ?,
-			updated = datetime('now')
-		WHERE id = ?`,
-		res.ActualMicros, res.ActualMicros, e.Task.ID); err != nil {
+	// Only the truth here. The cents are worked out once, over the whole run,
+	// by crew.SettleLiveSpend: rounding a fifth of a cent up per call recorded
+	// 0.56 for a run that billed 0.2337, and rounding per task recorded the
+	// same, because there is one call per task.
+	if _, err := db.Exec(`UPDATE tasks
+		SET live_micros = live_micros + ?, updated = datetime('now')
+		WHERE id = ?`, res.ActualMicros, e.Task.ID); err != nil {
 		return err
 	}
 	return nil
@@ -481,8 +480,20 @@ func spend(db *sql.DB, ests []estimate, maxTok int, cap money.Cents, only int) e
 		}(e)
 	}
 	wg.Wait()
+
+	// The cents, once, over the whole run. Until this runs the tasks carry the
+	// exact micro-dollars and no cents at all, which is the right way round: a
+	// number that is not yet worked out shows as nothing, rather than showing
+	// as a rounded-up guess that the console then presents as fact.
+	booked, err := crew.SettleLiveSpend(db)
+	if err != nil {
+		return fmt.Errorf("settling what the run cost: %w", err)
+	}
+
 	fmt.Printf("\n%d of %d done, %d blocked. Spent %s of a %s ceiling.\n",
 		done, len(todo), blocked, usd(run.total()), cap)
+	fmt.Printf("The board now carries %s against these tasks, which is that "+
+		"total rounded up to whole cents.\n", booked)
 	fmt.Printf("Every deliverable is a DRAFT. Nothing is published until a person stamps it.\n")
 	return nil
 }

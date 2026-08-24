@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"testing"
 
 	"github.com/TAIPANBOX/costcrew/internal/crew"
@@ -42,66 +43,99 @@ func TestARunnerDeliverableIsMarkedLive(t *testing.T) {
 }
 
 // A fraction of a cent still cost something.
+//
+// One call, one task, and the run's total is a fifth of a cent. Rounded to
+// nothing it would read as free, which is how a bill grows out of a column of
+// zeroes. The run's total rounds UP, so it reads as a cent.
 func TestASubCentCallStillLandsOnTheTask(t *testing.T) {
-	db, task, analyst := runnerDB(t)
-	before := spentOn(t, db, task.ID)
+	db, tasks, analyst := runnerTasks(t, 1)
+	before := spentOn(t, db, tasks[0].ID)
 
-	// 1234 micro-dollars is 0.1234 of a cent.
-	if err := saveDraft(db, estimate{Task: task, Analyst: analyst},
+	if err := saveDraft(db, estimate{Task: tasks[0], Analyst: analyst},
 		callResult{Text: "x", ActualMicros: 1_234}); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := crew.SettleLiveSpend(db); err != nil {
+		t.Fatal(err)
+	}
 
-	after := spentOn(t, db, task.ID)
-	if after <= before {
+	if after := spentOn(t, db, tasks[0].ID); after <= before {
 		t.Errorf("spend went %d -> %d: a call that cost a fraction of a cent "+
 			"rounded to nothing, which is how a bill grows out of zeroes",
 			before, after)
 	}
 }
 
-func runnerDB(t *testing.T) (*sql.DB, crew.Task, crew.Analyst) {
-	t.Helper()
-	dir := t.TempDir()
-	st, err := store.Open(dir)
+// Many small calls must add up to what they cost, ACROSS TASKS.
+//
+// This is the shape the runner actually has: one call per task, 44 of them.
+//
+// Red first, twice. Rounding each call up on its own recorded 0.44 for 0.2336.
+// Then rounding each TASK up recorded 0.44 as well, and the first version of
+// this test missed it entirely because it put all 44 calls on ONE task, where
+// per-task rounding happens to be right. @measured on a live run afterwards:
+// the router billed 0.2319 and the console still said 0.56.
+//
+// A test can only prove what it describes.
+func TestTheLedgerDoesNotOverstateManySmallCalls(t *testing.T) {
+	const n, each = 44, 5_310 // 0.531 of a cent per call
+	db, tasks, analyst := runnerTasks(t, n)
+
+	for _, task := range tasks {
+		if err := saveDraft(db, estimate{Task: task, Analyst: analyst},
+			callResult{Text: "x", ActualMicros: each}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := crew.SettleLiveSpend(db); err != nil {
+		t.Fatal(err)
+	}
+
+	trueMicros := int64(n * each)
+	want := (trueMicros + 9_999) / 10_000 // 24 cents
+	var got int64
+	for _, task := range tasks {
+		got += spentOn(t, db, task.ID)
+	}
+	if got != want {
+		t.Errorf("%d calls on %d tasks costing %.4f USD were recorded as %.2f USD, "+
+			"want %.2f: a fifth of a cent rounded up on each one overstates the "+
+			"run, on the page whose heading is what the crew cost",
+			n, n, float64(trueMicros)/1e6, float64(got)/100, float64(want)/100)
+	}
+}
+
+// Settling twice must not book the money twice.
+func TestSettlingTheSameRunTwiceChangesNothing(t *testing.T) {
+	db, tasks, analyst := runnerTasks(t, 7)
+	for _, task := range tasks {
+		if err := saveDraft(db, estimate{Task: task, Analyst: analyst},
+			callResult{Text: "x", ActualMicros: 7_777}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	first, err := crew.SettleLiveSpend(db)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { st.Close() })
-	db := st.DB()
-	if _, err := db.Exec(crew.Schema); err != nil {
+	var afterFirst int64
+	for _, task := range tasks {
+		afterFirst += spentOn(t, db, task.ID)
+	}
+	second, err := crew.SettleLiveSpend(db)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := crew.SeedRoster(db, "installer"); err != nil {
-		t.Fatal(err)
+	var afterSecond int64
+	for _, task := range tasks {
+		afterSecond += spentOn(t, db, task.ID)
 	}
-	if err := crew.EnsureArtifactProvenance(db); err != nil {
-		t.Fatal(err)
+	if afterFirst != afterSecond || first != second {
+		t.Errorf("settling twice moved the board from %d to %d cents "+
+			"(%v then %v): every startup step in this console runs on every "+
+			"start, so this one has to be safe to repeat", afterFirst,
+			afterSecond, first, second)
 	}
-	if err := crew.EnsureLiveSpendLedger(db); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := db.Exec(`INSERT INTO tasks
-		(title, goal, assignee, state, budget_cents, spent_cents, created, updated)
-		VALUES ('a task','a goal','y.mercer','queued', 5000, 0,
-		        datetime('now'), datetime('now'))`); err != nil {
-		t.Fatal(err)
-	}
-	var id int
-	if err := db.QueryRow(`SELECT id FROM tasks LIMIT 1`).Scan(&id); err != nil {
-		t.Fatal(err)
-	}
-	return db, crew.Task{ID: id, Title: "a task"}, crew.Analyst{Name: "y.mercer"}
-}
-
-func spentOn(t *testing.T, db *sql.DB, task int) int64 {
-	t.Helper()
-	var n int64
-	if err := db.QueryRow(`SELECT spent_cents FROM tasks WHERE id=?`, task).
-		Scan(&n); err != nil {
-		t.Fatal(err)
-	}
-	return n
 }
 
 // A task somebody stopped stays stopped.
@@ -137,35 +171,57 @@ func TestABlockedTaskIsNotWorkedAround(t *testing.T) {
 	}
 }
 
-// Many small calls must not add up to more than they cost.
-//
-// Red first: with each call rounded up on its own, 44 calls of about half a
-// cent recorded 44 whole cents. @measured on a real run, 2026-08-24: the router
-// billed 0.2337 and the console's own crew page said 0.56, overstated by 140%.
-func TestTheLedgerDoesNotOverstateManySmallCalls(t *testing.T) {
-	db, task, analyst := runnerDB(t)
+func runnerDB(t *testing.T) (*sql.DB, crew.Task, crew.Analyst) {
+	db, tasks, a := runnerTasks(t, 1)
+	return db, tasks[0], a
+}
 
-	// 44 calls at 5310 micro-dollars, which is 0.531 of a cent each.
-	const calls, each = 44, 5_310
-	for i := 0; i < calls; i++ {
-		if err := saveDraft(db, estimate{Task: task, Analyst: analyst},
-			callResult{Text: "x", ActualMicros: each}); err != nil {
+func runnerTasks(t *testing.T, n int) (*sql.DB, []crew.Task, crew.Analyst) {
+	t.Helper()
+	dir := t.TempDir()
+	st, err := store.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { st.Close() })
+	db := st.DB()
+	if _, err := db.Exec(crew.Schema); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := crew.SeedRoster(db, "installer"); err != nil {
+		t.Fatal(err)
+	}
+	if err := crew.EnsureArtifactProvenance(db); err != nil {
+		t.Fatal(err)
+	}
+	if err := crew.EnsureLiveSpendLedger(db); err != nil {
+		t.Fatal(err)
+	}
+	tasks := make([]crew.Task, 0, n)
+	for i := 0; i < n; i++ {
+		title := fmt.Sprintf("task %d", i+1)
+		res, err := db.Exec(`INSERT INTO tasks
+			(title, goal, assignee, state, budget_cents, spent_cents, created, updated)
+			VALUES (?, 'a goal', 'y.mercer', 'queued', 5000, 0,
+			        datetime('now'), datetime('now'))`, title)
+		if err != nil {
 			t.Fatal(err)
 		}
+		id, err := res.LastInsertId()
+		if err != nil {
+			t.Fatal(err)
+		}
+		tasks = append(tasks, crew.Task{ID: int(id), Title: title})
 	}
+	return db, tasks, crew.Analyst{Name: "y.mercer"}
+}
 
-	trueMicros := int64(calls * each)     // 233 640 micros = 0.2336 USD
-	want := (trueMicros + 9_999) / 10_000 // 24 cents, the total rounded up
-	got := spentOn(t, db, task.ID)
-
-	if got != want {
-		t.Errorf("%d calls costing %.4f USD were recorded as %.2f USD, want %.2f: "+
-			"rounding every call up on its own overstates a run by a cent per "+
-			"call, on the page whose heading is what the crew cost",
-			calls, float64(trueMicros)/1e6, float64(got)/100, float64(want)/100)
+func spentOn(t *testing.T, db *sql.DB, task int) int64 {
+	t.Helper()
+	var n int64
+	if err := db.QueryRow(`SELECT spent_cents FROM tasks WHERE id=?`, task).
+		Scan(&n); err != nil {
+		t.Fatal(err)
 	}
-	// The old property still holds: a call that cost something records something.
-	if got == 0 {
-		t.Error("a run that cost real money recorded nothing")
-	}
+	return n
 }
