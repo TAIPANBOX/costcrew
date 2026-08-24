@@ -19,9 +19,9 @@ runtime to install, no network. Money is integer cents everywhere.
 ## Gates
 
 ```sh
-go test ./...                        # 251 tests, 15 packages
-./scripts/gates-have-teeth.sh        # 44 cases; needs a clean tree; ~60s
-./scripts/features-are-bound.sh      # 43 scenarios, both directions
+go test ./...                        # 252 tests, 15 packages
+./scripts/gates-have-teeth.sh        # 45 cases; needs a clean tree; ~60s
+./scripts/features-are-bound.sh      # 44 scenarios, both directions
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 ```

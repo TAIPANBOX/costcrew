@@ -213,3 +213,45 @@ func TestAFailedCallReturnsItsReservation(t *testing.T) {
 		t.Errorf("the ceiling is still held against a call that never happened: %v", err)
 	}
 }
+
+// The bound covers the whole prompt, not the pieces it is built from.
+//
+// Red first: the estimator counted title, goal, mission, role and skills, and
+// none of the fixed text around them. @measured on a real task, 2026-08-24: it
+// bounded the prompt at 225 tokens while the prompt was 559 bytes.
+//
+// It held in practice, because a real tokeniser gives about a quarter of a
+// token per byte, and every live call this session came in under it. That is
+// not the point. The comment above tokens() claims one token per byte, "which
+// no tokeniser can exceed", and that claim was false for two thirds of the
+// string. A bound whose guarantee is narrower than its sentence is how the
+// worst case was exceeded once already.
+func TestThePromptBoundCoversTheWholePrompt(t *testing.T) {
+	task := crew.Task{ID: 1,
+		Title: "Explain the Amazon EC2 move on 2026-07-14",
+		Goal: "2054.10 above of baseline on the aws desk. Say what happened, " +
+			"whether it recurs, and what it would take to stop it."}
+	a := crew.Analyst{Name: "triage-aws", Role: "Triage analyst", Desk: "aws",
+		Engine:  "openrouter",
+		State:   "active",
+		Mission: "First look at every finding on the aws desk.",
+		Skills:  []string{"triage", "aws"}}
+
+	e := price(task, a, 1200)
+	if e.Refused {
+		t.Fatalf("the fixture was refused before it was priced: %s", e.Verdict)
+	}
+
+	sent := prompt(task, a, "2026-08-24")
+	if e.PromptTokens < len(sent) {
+		t.Errorf("the bound is %d tokens and the prompt is %d bytes, short by %d: "+
+			"one token per byte is the only bound no tokeniser can exceed, and it "+
+			"only holds over the string that is actually sent",
+			e.PromptTokens, len(sent), len(sent)-e.PromptTokens)
+	}
+	// And it must not move because the clock did.
+	e2 := price(task, a, 1200)
+	if e.PromptTokens != e2.PromptTokens {
+		t.Errorf("two estimates of one task differ, %d and %d", e.PromptTokens, e2.PromptTokens)
+	}
+}

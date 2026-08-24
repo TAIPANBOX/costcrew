@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"os"
 	"sort"
-	"strings"
 
 	"github.com/TAIPANBOX/costcrew/internal/crew"
 	"github.com/TAIPANBOX/costcrew/internal/engines"
@@ -150,11 +149,21 @@ func price(t crew.Task, a crew.Analyst, maxTok int) estimate {
 
 	e.Model = engines.DefaultModel(a.Engine)
 
-	// The prompt, measured rather than guessed at: what this task actually
-	// carries plus what the analyst was briefed with. Tokens are estimated
-	// from characters, which is approximate and is stated as such in the
-	// report rather than presented as a count.
-	e.PromptTokens = tokens(t.Title, t.Goal, a.Mission, a.Role, strings.Join(a.Skills, " "))
+	// The bound counts the string that is actually SENT, not the pieces it is
+	// built from.
+	//
+	// It used to count title, goal, mission, role and skills, and none of the
+	// fixed text around them: "You are X on the Y desk", the date, the format
+	// note, the closing instruction. Measured on a real task, 2026-08-24: it
+	// bounded the prompt at 225 tokens and the prompt was 559 bytes. The bound
+	// held anyway, because a real tokeniser gives about a quarter of that, but
+	// the comment above claims one token per byte and that claim was false for
+	// everything it did not count. A bound whose guarantee is narrower than its
+	// sentence is the shape of every overrun in this file's history.
+	//
+	// A fixed date, not today's: the estimate must not move because the clock
+	// did, and every date is the same ten bytes.
+	e.PromptTokens = tokens(prompt(t, a, "0000-00-00"))
 
 	metered, known := engines.Metered(a.Engine)
 	if !known {

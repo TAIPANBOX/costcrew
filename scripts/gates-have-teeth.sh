@@ -423,6 +423,18 @@ run_case 'a sentence about money nobody spent' caught ./internal/finops \
 	'if tasks == 0 || micros == 0 {' \
 	'if tasks < 0 || micros < 0 {'
 
+# The prompt bound must cover the whole prompt. It counted the PIECES a prompt
+# is built from and none of the fixed text around them: measured on a real task,
+# 225 tokens bounded against a 559-byte prompt. It held, because a real tokeniser
+# gives about a quarter of a token per byte, and that is not the point: the
+# sentence says one token per byte, "which no tokeniser can exceed".
+run_case 'a bound narrower than its own promise' caught ./tools/run \
+	'TestThePromptBoundCoversTheWholePrompt' \
+	'short by' \
+	tools/run/main.go \
+	'e.PromptTokens = tokens(prompt(t, a, "0000-00-00"))' \
+	'e.PromptTokens = tokens(t.Title, t.Goal, a.Mission, a.Role)'
+
 # A deliverable must not show its own syntax. The seeded drafts were written to
 # match the renderer, so it handled bold and "## " and everything agreed with
 # itself; a model then wrote 44 and the page printed ###, --- and dashes back.

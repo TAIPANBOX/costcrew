@@ -137,3 +137,11 @@ Feature: A deliverable says whether a person's money bought it
     When the prompt is built
     Then it carries today's date, because a live deliverable came back saying
       "Date: [Today's Date]" on the face of a page a person was meant to read
+
+  @test:TestThePromptBoundCoversTheWholePrompt
+  Scenario: The worst case is bounded over what is actually sent
+    Given a task priced before any call
+    When the prompt bound is worked out
+    Then it counts the whole string the model will receive, not the pieces it
+      is built from, because the promise made is one token per byte and a
+      promise that covers two thirds of the string is not that promise
