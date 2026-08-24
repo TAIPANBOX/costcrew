@@ -267,7 +267,7 @@ func renderBody(src string) template.HTML {
 			list = false
 		}
 	}
-	for _, para := range strings.Split(src, "\n\n") {
+	for _, para := range strings.Split(standalone(src), "\n\n") {
 		p := strings.TrimSpace(para)
 		if p == "" {
 			continue
@@ -302,6 +302,41 @@ func renderBody(src string) template.HTML {
 	}
 	closeList()
 	return template.HTML(b.String())
+}
+
+// standalone puts a blank line around every heading and every rule.
+//
+// A model does not leave one. The run produced
+//
+//	### **Anomaly Summary**  \n**Observation:** On 2026-07-14, EC2 spiked.
+//
+// with a single newline between them, so the heading and the sentence under it
+// arrived as ONE paragraph and the hashes went to the page as text. The first
+// version of the fixture had a blank line there, because that is the shape I
+// would have written, and the test passed while the running page was wrong.
+// The fixture is now the bytes the run actually produced.
+func standalone(src string) string {
+	lines := strings.Split(src, "\n")
+	var b strings.Builder
+	for i, l := range lines {
+		t := strings.TrimSpace(l)
+		_, lvl := heading(t)
+		if lvl > 0 || isRule(t) {
+			if i > 0 {
+				b.WriteString("\n\n")
+			}
+			b.WriteString(t)
+			if i < len(lines)-1 {
+				b.WriteString("\n\n")
+			}
+			continue
+		}
+		b.WriteString(l)
+		if i < len(lines)-1 {
+			b.WriteString("\n")
+		}
+	}
+	return b.String()
 }
 
 // isRule is a line of dashes or asterisks and nothing else.

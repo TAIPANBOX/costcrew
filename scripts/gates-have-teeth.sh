@@ -433,6 +433,13 @@ run_case 'a deliverable showing its own markdown' caught ./internal/web \
 	'if h, level := heading(p); h != "" {' \
 	'if h, level := heading(p); false && h != "" {'
 
+run_case 'a heading glued to the line under it' caught ./internal/web \
+	'TestADeliverableDoesNotShowItsOwnSyntax' \
+	'still in the output' \
+	internal/web/work.go \
+	'strings.Split(standalone(src), "\n\n")' \
+	'strings.Split(src, "\n\n")'
+
 run_case 'a rule printed as three dashes' caught ./internal/web \
 	'TestADeliverableDoesNotShowItsOwnSyntax' \
 	'still in the output' \

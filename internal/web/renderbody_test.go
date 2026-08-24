@@ -15,12 +15,16 @@ import (
 const liveDeliverable = "**Anomaly Triage Deliverable**  \n" +
 	"**AWS Desk - FinOps Practice**  \n" +
 	"**Date:** 2026-08-24  \n\n" +
-	"---\n\n" +
-	"### **Anomaly Summary**\n\n" +
+	"---  \n\n" +
+	// The heading is GLUED to the line under it by a single newline, and the
+	// line ends in two spaces. My first fixture had a blank line there instead,
+	// which is the shape I would have written, and the test passed while the
+	// running page still printed "### Anomaly Summary" as text.
+	"### **Anomaly Summary**  \n" +
 	"**Observation:** On **2026-07-14**, EC2 spiked.\n\n" +
 	"1. **What happened?** Identify the root cause.\n" +
 	"2. **Will it recur?** Assess likelihood.\n\n" +
-	"#### **1. Root Cause**\n\n" +
+	"#### **1. Root Cause**  \n" +
 	"- **Established Cause:** *None confirmed at this time.*\n" +
 	"- **Autoscaling Misconfiguration:** the group over-provisioned.\n"
 
