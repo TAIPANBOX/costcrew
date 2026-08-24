@@ -19,9 +19,9 @@ runtime to install, no network. Money is integer cents everywhere.
 ## Gates
 
 ```sh
-go test ./...                        # 244 tests, 15 packages
-./scripts/gates-have-teeth.sh        # 35 cases; needs a clean tree; ~60s
-./scripts/features-are-bound.sh      # 37 scenarios, both directions
+go test ./...                        # 247 tests, 15 packages
+./scripts/gates-have-teeth.sh        # 39 cases; needs a clean tree; ~60s
+./scripts/features-are-bound.sh      # 40 scenarios, both directions
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 ```
@@ -174,10 +174,16 @@ an absent invariant.
     one for the reader, because a marker no page displays is not a marker. The
     column defaults to `fixture`, which is the safe direction: a row whose
     provenance is unknown must not read as evidence of a real call. The SPEND is
-    named too, since 2026-08-24: `TestTheCrewPageSaysWhatOfItsFigureIsReal`
-    requires the crew page to say how much of its figure is real money and on
-    how many tasks. What is still not covered is the KPI page and the agent
-    card, which show crew cost without that sentence.)*
+    named too, since 2026-08-24, on all three pages that show a mixed cost:
+    `TestTheCrewPageSaysWhatOfItsFigureIsReal`,
+    `TestTheCrewCostKPISaysWhatIsRealMoney`,
+    `TestTheAgentCardSaysWhatOfItsCostIsReal`. One function, `crew.RealMoney`,
+    writes the sentence for all three, because three copies of one fact is how
+    two pages come to disagree about it. The card reads `LiveSpendBy`, per
+    analyst, and its test gives a second agent 0.99 of live spend and requires
+    that it not appear on the first agent's card.
+    `TestTheKPISaysNothingAboutMoneyNobodySpent` holds the other direction: a
+    console where no agent has run says nothing about real money.)*
 
 17. **A run cannot walk past its ceiling by running things at once.** Each call
     reserves its worst case BEFORE it starts and settles the difference after,

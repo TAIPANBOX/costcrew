@@ -95,3 +95,23 @@ Feature: A deliverable says whether a person's money bought it
     Then it names that amount and the number of tasks it was spent on, because
       everything else on the page was generated when the estate was seeded and
       one figure covering both kinds is the fault this console catches elsewhere
+
+  @test:TestTheCrewCostKPISaysWhatIsRealMoney
+  Scenario: The KPI library says it too
+    Given the same crew cost in the KPI library
+    When the KPIs are computed
+    Then the crew-cost KPI carries the same sentence, from the same function,
+      because three copies of one fact is how two pages come to disagree
+
+  @test:TestTheAgentCardSaysWhatOfItsCostIsReal
+  Scenario: An agent's card says what of ITS cost is real
+    Given two agents, each with real spend of its own
+    When one agent's card is opened
+    Then it names only that agent's real spend, not the whole board's, because
+      a figure divided evenly is a figure nobody measured
+
+  @test:TestTheKPISaysNothingAboutMoneyNobodySpent
+  Scenario: A console where no agent has run says nothing about real money
+    Given an estate nobody has run an agent on
+    When any page showing a cost is opened
+    Then none of them mentions real money at all
