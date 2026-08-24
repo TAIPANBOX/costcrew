@@ -390,6 +390,24 @@ run_case $'features: a binding points at a test that is gone' \
 	$'func TestAViewerCannotWrite(' \
 	$'func GoneTestAViewerCannotWrite('
 
+# One figure covering generated and live spend together. Invariant 16 carried
+# this as its open item: the deliverables were marked, the money was not.
+run_case 'a crew figure that hides which part is real' caught ./internal/web \
+	'TestTheCrewPageSaysWhatOfItsFigureIsReal' \
+	'does not say how much of its figure is real' \
+	internal/web/templates/staff.html \
+	'{{if .LiveTasks}}<br><strong>{{.Live}} of it is real money</strong>' \
+	'{{if false}}<br><strong>{{.Live}} of it is real money</strong>'
+
+# The live marker must read as a marker. .chip carries 5.97:1 in light mode,
+# .tile carries 1.29; the marker was drawn with the container family at 1.2:1.
+run_case 'a marker drawn like a panel edge' caught ./internal/web \
+	'TestTheLiveMarkerIsDrawnLikeAMarker' \
+	'the box is not there' \
+	internal/web/assets/app.css \
+	'color: var(--ink-2); border: 1px solid var(--ink-3);' \
+	'color: var(--ink-3); border: 1px solid var(--line);'
+
 # The page's scroll must not be able to move the sidebar. Three attempts: sticky
 # gave it its own scrollbar, static let the page's momentum slide it under the
 # cursor, fixed is the only one the page cannot touch.

@@ -87,3 +87,11 @@ Feature: A deliverable says whether a person's money bought it
     When it is worked out again
     Then the board does not move, because every startup step in this console
       runs on every start
+
+  @test:TestTheCrewPageSaysWhatOfItsFigureIsReal
+  Scenario: The crew figure says which part is real money
+    Given a crew cost of which a few cents were spent on live calls
+    When the crew page is opened
+    Then it names that amount and the number of tasks it was spent on, because
+      everything else on the page was generated when the estate was seeded and
+      one figure covering both kinds is the fault this console catches elsewhere

@@ -8,6 +8,7 @@
   <div class="tile wide"><div class="k">What the crew cost</div><div class="v big">{{.Spent}}</div>
     <div class="s">across {{.Tasks}} tasks, since the board opened. {{.ThisMonth}} of it in {{.Month}}, against {{.Guard}} a month of guards.
       {{if .OffRosterTasks}}<strong>{{.OffRoster}} of the total sits on {{.OffRosterTasks}} {{if eq .OffRosterTasks 1}}task{{else}}tasks{{end}} nobody owns.</strong>{{end}}
+      {{if .LiveTasks}}<br><strong>{{.Live}} of it is real money</strong>, spent on {{.LiveTasks}} {{if eq .LiveTasks 1}}task{{else}}tasks{{end}} an agent actually wrote. Everything else on this page was generated when the estate was seeded.{{end}}
       The <a href="/kpis">KPI page</a> reports this same figure, and the <a href="/ai">AI desk</a> is where the estate's own model spend sits.</div></div>
   <div class="tile wide"><div class="k">On the desks now</div><div class="v big">{{.Open}}</div>
     <div class="s">open tasks. <a href="/board">Open the board</a></div></div>

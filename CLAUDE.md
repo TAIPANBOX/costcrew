@@ -19,9 +19,9 @@ runtime to install, no network. Money is integer cents everywhere.
 ## Gates
 
 ```sh
-go test ./...                        # 241 tests, 15 packages
-./scripts/gates-have-teeth.sh        # 31 cases; needs a clean tree; ~60s
-./scripts/features-are-bound.sh      # 36 scenarios, both directions
+go test ./...                        # 244 tests, 15 packages
+./scripts/gates-have-teeth.sh        # 35 cases; needs a clean tree; ~60s
+./scripts/features-are-bound.sh      # 37 scenarios, both directions
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 ```
@@ -173,10 +173,11 @@ an absent invariant.
     `TestTheTaskPageShowsWhichDeliverableWasWrittenLive`, one for the writer and
     one for the reader, because a marker no page displays is not a marker. The
     column defaults to `fixture`, which is the safe direction: a row whose
-    provenance is unknown must not read as evidence of a real call. The live
-    SPEND is separable too, since `tasks.live_micros` carries it exactly; what
-    is still NOT gated is that no page SHOWS the split, so a reader sees one
-    crew-cost figure covering both kinds.)*
+    provenance is unknown must not read as evidence of a real call. The SPEND is
+    named too, since 2026-08-24: `TestTheCrewPageSaysWhatOfItsFigureIsReal`
+    requires the crew page to say how much of its figure is real money and on
+    how many tasks. What is still not covered is the KPI page and the agent
+    card, which show crew cost without that sentence.)*
 
 17. **A run cannot walk past its ceiling by running things at once.** Each call
     reserves its worst case BEFORE it starts and settles the difference after,
@@ -202,15 +203,30 @@ an absent invariant.
     @measured 2026-08-24, a full run: router 0.2342, board 0.24, crew page
     3871.35 -> 3871.59.)*
 
-19. **The sidebar fits the window.** A nav taller than the viewport gets its own
-    scroll container, that position is invisible, and a page load resets it, so
-    a click lands on a different link than the one under the cursor a moment
-    earlier.
-    *(gate: `TestTheSidebarFitsAWindow`, a budget on the link count and the
-    paddings, because Go cannot lay out CSS. @measured in Chrome: 1244px of
-    content in a 900px box before, 936px after, 84px of slack at 1020px. It is
-    still 36px over at 900px of viewport and 136px over at 800px: the
-    structural answer is fewer than 26 destinations and that is Yurii's call.)*
+19. **Nothing may move the sidebar under the cursor.** Three attempts, and the
+    middle one made it worse, so all three are written down in the CSS itself.
+    Sticky gave the panel its own scrollbar, invisible and reset by every page
+    load. Static put it in the flow, where a trackpad's momentum slid the whole
+    list after the finger had left it: Yurii clicked Accounts four times and got
+    Desks, Crew and Budgets, 574px, 682px and 466px away. Fixed is the only one
+    the page cannot touch.
+    *(gate: `TestThePageCannotMoveTheSidebar` and `TestTheSidebarFitsAWindow`,
+    which are budgets on the CSS because Go cannot lay out a page. @measured,
+    Chrome at 1440x1020 with the page forced to 3000px and both nav.scrollTop
+    and main.scrollTop forced to 400: nothing moved it, all 26 links visible,
+    zero mismatches; 92 page-and-size combinations clean afterwards. Below
+    936px of viewport the panel keeps an internal scroll, which is what any
+    list too long for its box does; the structural answer is fewer than 26
+    destinations and that is Yurii's call.)*
+
+20. **A figure that mixes generated and real money says so.** Both themes are
+    measured, not eyeballed: the marker's first border was 1.2:1 against its
+    surface in light mode, which is the console's container vocabulary, not its
+    state vocabulary.
+    *(gate: `TestTheCrewPageSaysWhatOfItsFigureIsReal`,
+    `TestTheLiveMarkerIsDrawnLikeAMarker`. @measured 2026-08-24: marker text
+    6.53:1 light and 7.17:1 dark, border 4.8:1 and 5.2:1; the ten text pairs on
+    the overview pass in both themes, thinnest slack 0.29 on the state chip.)*
 
 ## Decisions that have no gate yet
 

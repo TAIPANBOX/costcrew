@@ -390,6 +390,12 @@ func (s *Server) staff(w http.ResponseWriter, r *http.Request) {
 	// work compared with one month of allowance.
 	month := world.LastDay[:7]
 	inMonth, _ := crew.SpendInMonth(s.db, month)
+
+	// What of this figure is real. Everything else on this page is generated,
+	// and one number covering both kinds is the fault this console spends its
+	// time catching in other people's data.
+	liveMicros, liveTasks, _ := crew.LiveSpend(s.db)
+	liveCents := money.Cents((liveMicros + 9_999) / 10_000)
 	var overGuard int
 	var overBy, spentThisMonth money.Cents
 	for _, a := range roster {
@@ -433,10 +439,12 @@ func (s *Server) staff(w http.ResponseWriter, r *http.Request) {
 		ThisMonth                     money.Cents
 		Unattested                    int
 		OfThose                       int
+		Live                          money.Cents
+		LiveTasks                     int
 	}{s.shellFor(r, "Crew", "staff"), rows, u.May("operator"), srt,
 		totalSpent, totalGuard, tasks, open, posted, returned, byState,
 		firstPass, states, offRosterSpent, offRosterTasks, overGuard, overBy,
-		month, spentThisMonth, unattested, ofThose})
+		month, spentThisMonth, unattested, ofThose, liveCents, liveTasks})
 }
 
 // ------------------------------------------------------------------ actions

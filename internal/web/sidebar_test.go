@@ -154,3 +154,37 @@ func pxIn(t *testing.T, css, pattern string) int {
 	}
 	return n
 }
+
+// The live marker must read as a marker, not as a panel edge.
+//
+// The console has two visual families and their border contrasts are the
+// difference between them. @measured in light mode, 2026-08-24: .chip carries
+// 5.97:1 against what is behind it, .tile carries 1.29:1 and .count 1.40:1. The
+// faint ones are containers, where the CONTENT identifies the group; the strong
+// one is state, where the box itself is the information.
+//
+// The first version of the live marker used --line, which measured 1.2:1: the
+// box was not there. It is a state marker, so it takes the state family, in a
+// neutral hue rather than a semantic one because findable is the job, not loud.
+// After: light 6.53:1 text and 4.8:1 border, dark 7.17:1 and 5.2:1.
+func TestTheLiveMarkerIsDrawnLikeAMarker(t *testing.T) {
+	css := read(t, "assets/app.css")
+	rule := regexp.MustCompile(`(?s)\.live-mark \{(.*?)\}`).FindStringSubmatch(css)
+	if rule == nil {
+		t.Fatal("no .live-mark rule: the column says which deliverables are real " +
+			"and no page shows it")
+	}
+	body := rule[1]
+	if strings.Contains(body, "var(--line)") {
+		t.Error("the marker's border is --line, which measured 1.2:1 against the " +
+			"surface behind it in light mode: the box is not there, and this is " +
+			"the one element on the page whose job is to be noticed")
+	}
+	if !strings.Contains(body, "border: 1px solid var(--ink-3)") {
+		t.Errorf("the marker's border is not the state family: %q", body)
+	}
+	if !strings.Contains(body, "color: var(--ink-2)") {
+		t.Errorf("the marker's text is not --ink-2, which is what gave it 2.03 "+
+			"of slack over the 4.5 small text needs: %q", body)
+	}
+}

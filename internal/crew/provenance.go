@@ -168,3 +168,19 @@ func SettleLiveSpend(db *sql.DB) (booked money.Cents, err error) {
 	}
 	return money.Cents(handed), nil
 }
+
+// LiveSpend is what the crew's own model calls have actually cost.
+//
+// The estate's crew figures are generated: 3871.35 across 310 tasks, none of it
+// real money. A live run adds real charges to the same column, and a reader
+// with one figure in front of them cannot tell which part somebody paid for.
+//
+// Returned in micro-dollars, because that is what it is stored in and because
+// rounding it here would repeat the mistake this file exists to record. The
+// caller rounds once, for display.
+func LiveSpend(db *sql.DB) (micros int64, tasks int, err error) {
+	err = db.QueryRow(
+		`SELECT COALESCE(SUM(live_micros),0), COUNT(*) FROM tasks WHERE live_micros > 0`).
+		Scan(&micros, &tasks)
+	return micros, tasks, err
+}
