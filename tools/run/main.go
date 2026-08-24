@@ -1,0 +1,274 @@
+// Command run says what it would cost to let the crew actually write, and
+// does not let it.
+//
+// THIS BINARY CANNOT SPEND. It holds no HTTP client, runs no command and
+// reads no API key. There is no flag that makes it call anything, because the
+// safest first version of a thing that spends money is one that cannot.
+// docs/live-agents.md describes the executor this is the first half of.
+//
+// What it does: takes the open board, prices the WORST case for every task,
+// and says which ones a guard would refuse. Worst case, not expected: a
+// model's output length is not known before the call, so the only honest bound
+// is max-tokens at the output price. An estimate built on the expected length
+// is the one that is wrong on exactly the call that runs long.
+package main
+
+import (
+	"database/sql"
+	"flag"
+	"fmt"
+	"os"
+	"sort"
+	"strings"
+
+	"github.com/TAIPANBOX/costcrew/internal/crew"
+	"github.com/TAIPANBOX/costcrew/internal/engines"
+	"github.com/TAIPANBOX/costcrew/internal/money"
+	"github.com/TAIPANBOX/costcrew/internal/store"
+)
+
+func main() {
+	dir := flag.String("data", "./local", "the console's data directory")
+	ceiling := flag.String("ceiling", "", "refuse the whole run above this, in USD, e.g. 25.00")
+	maxTok := flag.Int("max-tokens", 2000, "the output cap every call would be made with")
+	sprint := flag.Int("sprint", 0, "only this sprint id; 0 means every open task")
+	showPrices := flag.Bool("prices", false, "print the price table and exit")
+	flag.Parse()
+
+	if *showPrices {
+		fmt.Print("Prices this estimate would use, per million tokens:\n\n")
+		fmt.Print(engines.PriceTable())
+		fmt.Print("\nEvery line says where it came from. The ones marked @claude are\n" +
+			"unverified against the vendor and must be re-checked before a live call.\n")
+		return
+	}
+
+	if err := run(*dir, *ceiling, *maxTok, *sprint); err != nil {
+		fmt.Fprintln(os.Stderr, "run:", err)
+		os.Exit(1)
+	}
+}
+
+// estimate is one task, priced.
+type estimate struct {
+	Task    crew.Task
+	Analyst crew.Analyst
+	Engine  string
+	Model   string
+	Price   engines.Price
+	Priced  bool
+
+	PromptTokens int
+	// MICRO-dollars, a millionth of a dollar, which is what the TokenFuse wire
+	// already uses. Not cents.
+	//
+	// One call on the cheap route is about 2300 micros, a quarter of a cent,
+	// and money.Cents floors that to zero. The first version of this printed
+	// 0.00 against every task and, worse, compared 0 against the guard, so the
+	// refusal could never fire. An estimator whose bound is always satisfied
+	// is not a bound.
+	WorstMicros int64
+
+	Verdict string // would run, or why not
+	Refused bool
+}
+
+func run(dir, ceiling string, maxTok, sprint int) error {
+	st, err := store.Open(dir)
+	if err != nil {
+		return err
+	}
+	defer st.Close()
+	db := st.DB()
+
+	var cap money.Cents
+	hasCap := false
+	if ceiling != "" {
+		cap, err = money.Parse(ceiling)
+		if err != nil {
+			return fmt.Errorf("the ceiling must look like 25.00: %w", err)
+		}
+		hasCap = true
+	}
+
+	tasks, err := crew.Tasks(db, crew.TaskFilter{OpenOnly: true, Sprint: sprint})
+	if err != nil {
+		return err
+	}
+	roster, err := crew.Roster(db)
+	if err != nil {
+		return err
+	}
+	by := map[string]crew.Analyst{}
+	for _, a := range roster {
+		by[a.Name] = a
+	}
+
+	ests := make([]estimate, 0, len(tasks))
+	for _, t := range tasks {
+		ests = append(ests, price(t, by[t.Assignee], maxTok))
+	}
+	sort.Slice(ests, func(i, j int) bool { return ests[i].WorstMicros > ests[j].WorstMicros })
+
+	report(db, ests, maxTok, cap, hasCap)
+	return nil
+}
+
+// price puts a worst case on one task.
+func price(t crew.Task, a crew.Analyst, maxTok int) estimate {
+	e := estimate{Task: t, Analyst: a, Engine: a.Engine}
+
+	switch {
+	case a.Name == "":
+		e.Verdict, e.Refused = "nobody is assigned to it", true
+		return e
+	case a.State == "suspended":
+		e.Verdict, e.Refused = a.Name+" is suspended", true
+		return e
+	case a.Engine == "":
+		e.Verdict, e.Refused = a.Name+" was hired with no engine", true
+		return e
+	}
+
+	e.Model = engines.DefaultModel(a.Engine)
+
+	// The prompt, measured rather than guessed at: what this task actually
+	// carries plus what the analyst was briefed with. Tokens are estimated
+	// from characters, which is approximate and is stated as such in the
+	// report rather than presented as a count.
+	e.PromptTokens = tokens(t.Title, t.Goal, a.Mission, a.Role, strings.Join(a.Skills, " "))
+
+	metered, known := engines.Metered(a.Engine)
+	if !known {
+		e.Verdict = a.Engine + " is not an engine this console knows, so what a " +
+			"call would cost cannot be bounded"
+		e.Refused = true
+		return e
+	}
+	if !metered {
+		e.Verdict = "on a subscription, so nothing new is billed"
+		return e
+	}
+
+	p, ok := engines.PriceFor(a.Engine, e.Model)
+	if !ok {
+		e.Verdict, e.Refused = "no price is known for "+a.Engine+"/"+e.Model, true
+		return e
+	}
+	e.Price, e.Priced = p, true
+
+	in := float64(e.PromptTokens) / 1e6 * p.InPerM
+	out := float64(maxTok) / 1e6 * p.OutPerM
+	e.WorstMicros = int64((in + out) * 1e6)
+
+	// The guard is in cents and the estimate is in micros, so the comparison
+	// happens in micros. Converting the other way would floor the estimate to
+	// zero and compare nothing against something.
+	leftMicros := int64(t.Budget-t.Spent) * 10_000
+	switch {
+	case t.Budget <= 0:
+		e.Verdict = "no per-task guard on this one"
+	case e.WorstMicros > leftMicros:
+		e.Verdict = fmt.Sprintf("worst case %s is past what is left of its guard, %s",
+			usd(e.WorstMicros), usd(leftMicros))
+		e.Refused = true
+	default:
+		e.Verdict = fmt.Sprintf("inside its guard, %s left after", usd(leftMicros-e.WorstMicros))
+	}
+	return e
+}
+
+// tokens is a rough count. Four characters to a token is the usual rule of
+// thumb and it is a rule of thumb: the report says so rather than printing
+// this as if it were measured.
+func tokens(parts ...string) int {
+	n := 0
+	for _, p := range parts {
+		n += len(p)
+	}
+	return n/4 + 1
+}
+
+func report(db *sql.DB, ests []estimate, maxTok int, cap money.Cents, hasCap bool) {
+	fmt.Println("DRY RUN. Nothing was called and nothing can be: this binary holds no")
+	fmt.Println("HTTP client and reads no key. It prices the open board and stops.")
+	fmt.Println()
+
+	var worstMicros int64
+	var wouldRun, refused, free int
+	for _, e := range ests {
+		switch {
+		case e.Refused:
+			refused++
+		case !e.Priced:
+			free++
+		default:
+			wouldRun++
+			// Summed BEFORE rounding. Forty-two calls at a quarter of a cent
+			// each is ten cents; forty-two roundings of a quarter of a cent
+			// is nothing.
+			worstMicros += e.WorstMicros
+		}
+	}
+
+	fmt.Printf("%d open tasks\n", len(ests))
+	fmt.Printf("  %3d would run, worst case %s in total\n", wouldRun, usd(worstMicros))
+	fmt.Printf("  %3d on a subscription, nothing new billed\n", free)
+	fmt.Printf("  %3d refused before any call\n", refused)
+	fmt.Println()
+
+	if hasCap {
+		capMicros := int64(cap) * 10_000
+		if worstMicros > capMicros {
+			fmt.Printf("OVER THE CEILING. The worst case is %s and the ceiling is %s.\n",
+				usd(worstMicros), cap)
+			fmt.Printf("A live run would refuse to start. Raise it deliberately or narrow the sprint.\n\n")
+		} else {
+			fmt.Printf("Inside the ceiling: %s of %s, %s to spare.\n\n",
+				usd(worstMicros), cap, usd(capMicros-worstMicros))
+		}
+	} else {
+		fmt.Printf("No ceiling given. A live run would need one: pass -ceiling.\n\n")
+	}
+
+	fmt.Printf("%-22s %-12s %-28s %9s  %s\n", "TASK", "ANALYST", "ENGINE/MODEL", "WORST", "VERDICT")
+	for _, e := range ests {
+		mark := "   "
+		if e.Refused {
+			mark = " ! "
+		}
+		em := e.Engine
+		if e.Model != "" {
+			em += "/" + e.Model
+		}
+		w := "-"
+		if e.Priced {
+			w = usd(e.WorstMicros)
+		}
+		fmt.Printf("%s%-19s %-12s %-28s %9s  %s\n",
+			mark, trim(e.Task.Title, 19), trim(e.Analyst.Name, 12), trim(em, 28), w, e.Verdict)
+	}
+
+	fmt.Println()
+	fmt.Printf("How the worst case is built: the prompt is this task and its analyst's\n")
+	fmt.Printf("brief, counted at four characters to a token, which is a rule of thumb\n")
+	fmt.Printf("and not a measurement. The output is the full %d token cap at the\n", maxTok)
+	fmt.Printf("model's output price, because how long an answer runs is not known\n")
+	fmt.Printf("before it is asked for.\n\n")
+	fmt.Printf("Prices used:\n%s", engines.PriceTable())
+	fmt.Printf("\nRe-check anything marked @claude against the vendor before spending.\n")
+}
+
+// usd renders micro-dollars at four decimal places, because a call on the
+// cheap route costs a fraction of a cent and two places would print every one
+// of them as nothing.
+func usd(micros int64) string {
+	return fmt.Sprintf("%.4f", float64(micros)/1e6)
+}
+
+func trim(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n-1] + "…"
+}

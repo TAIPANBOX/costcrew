@@ -60,7 +60,7 @@
     <dl class="facts">
       <dt>Desk</dt><dd><a href="/desk/{{.A.Desk}}">{{.A.Desk}}</a>, which cost {{.DeskSpend}} in {{.Month}}</dd>
       <dt>Engine</dt>
-      <dd>{{if .Engine.ID}}<strong>{{.Engine.Name}}</strong><span class="sub">{{.Engine.Note}}</span>{{else}}{{.A.Engine}}{{end}}</dd>
+      <dd>{{if .Engine.ID}}<strong>{{.Engine.Name}}</strong><span class="sub">{{.Engine.Cost}}</span>{{else}}{{.A.Engine}}<span class="sub">not an engine this console knows, so nothing can say what a call to it would cost</span>{{end}}</dd>
       <dt>Guards</dt><dd>{{.A.PerTask}} per task, {{.A.Monthly}} a month</dd>
       <dt>Reports</dt><dd>{{.A.Cadence}} to {{.A.Audience}}</dd>
       <dt>Hired</dt><dd>{{.A.Hired}} by {{.A.Owner}}</dd>

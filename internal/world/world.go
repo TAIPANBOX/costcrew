@@ -87,7 +87,21 @@ type Agent struct {
 var Crew = buildCrew()
 
 func buildCrew() []Agent {
-	cheap, strong := "kimi-standard", "claude-strong"
+	// A ROUTE, not a model tier.
+	//
+	// These were "kimi-standard" and "claude-strong", which are the names this
+	// fixture gives the MODELS the AI desk is billed for. An analyst's engine
+	// is a different thing: it is how a call would be made and whose bill it
+	// lands on, and the console's own catalogue is the list of those.
+	//
+	// Nothing noticed while nothing acted on the value. The agent card looked
+	// the string up in the catalogue, found nothing, and rendered the bare
+	// name; the Engines page reports on the catalogue and never asks the
+	// roster. It surfaced when the dry-run estimator tried to price a call and
+	// could not price a single one of thirty-nine analysts.
+	//
+	// The model names stay where they belong, on the charges in series.go.
+	cheap, strong := "openrouter", "claude-cli"
 	var c []Agent
 
 	add := func(a Agent) { c = append(c, a) }
