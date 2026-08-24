@@ -182,6 +182,37 @@ th {
 td { padding: 10px 14px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
 tbody tr:last-child td { border-bottom: none; }
 tbody tr:hover td { background: var(--surface-2); }
+
+/* The whole row opens what its first cell names.
+ *
+ * Measured on /services before this existed: the link was 87x17 in a row of
+ * 1180x43, so a reader had to hit 2.8% of the row, forty-eight times down the
+ * page. The first cell alone is 24.9%; the row is all of it.
+ *
+ * No JavaScript. A stretched pseudo-element on the first cell's link covers
+ * the row, which is what makes the whitespace clickable.
+ *
+ * The numbers stay selectable, and that is not a detail in a table of money:
+ * td.num is given its own stacking context so the figures paint ABOVE the
+ * overlay. Dragging across them selects them as before, and only the empty
+ * space between cells navigates.
+ *
+ * That is a deliberate trade and it has been made. Covering the numbers too
+ * would take the clickable width from 50% to all of it, and would make a
+ * figure hard to select with a mouse. @yurii 2026-08-24, asked directly:
+ * "лишай як є, числа важливіші". Do not "finish the job" by extending the
+ * overlay across td.num; the half that is inert is the half that was chosen.
+ *
+ * Having both needs JavaScript, to tell a click from a drag. This console has
+ * none anywhere else and is not getting some here.
+ *
+ * Any other link in the row is lifted the same way. /services rows carry two,
+ * the service and its desk, and without this the overlay would swallow the
+ * second one. */
+tbody tr { position: relative; }
+tbody td:first-child > a::after { content: ""; position: absolute; inset: 0; }
+tbody td.num, tbody td.detail, tbody td:not(:first-child) a { position: relative; }
+tbody td:first-child > a:focus-visible::after { outline: 2px solid var(--accent); outline-offset: -2px; }
 td.num, th.num { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
 td.tight, th.tight { white-space: nowrap; }
 td .sub { display: block; font-size: 12px; color: var(--ink-3); }
