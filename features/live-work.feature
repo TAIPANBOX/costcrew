@@ -72,3 +72,10 @@ Feature: A deliverable says whether a person's money bought it
     Then it does not take that task, because a deliverable written past a
       reason a person recorded is worse than no deliverable
     And queued, active and returned tasks are still taken
+
+  @test:TestTheLedgerDoesNotOverstateManySmallCalls
+  Scenario: Many small calls add up to what they cost
+    Given 44 calls that each cost about half a cent
+    When the console records them
+    Then the total it shows is what was billed rounded up once, not each call
+      rounded up on its own, which said 0.56 for a run that cost 0.2337

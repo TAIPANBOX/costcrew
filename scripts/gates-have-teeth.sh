@@ -390,6 +390,16 @@ run_case $'features: a binding points at a test that is gone' \
 	$'func TestAViewerCannotWrite(' \
 	$'func GoneTestAViewerCannotWrite('
 
+# Many small calls must not add up to more than they cost. A full run billed
+# 0.2337 and the crew page said 0.56, because 44 fractions of a cent each became
+# a whole one.
+run_case 'each call rounded up on its own' caught ./tools/run \
+	'TestTheLedgerDoesNotOverstateManySmallCalls' \
+	'overstates a run by a cent per call' \
+	tools/run/live.go \
+	'+ (live_micros + ? + 9999) / 10000' \
+	'+ (? + 9999) / 10000+ 0*(live_micros'
+
 # A task somebody stopped stays stopped. crew.TaskFilter{OpenOnly} includes
 # blocked, which is right for a board and wrong for a thing that does the work.
 run_case 'work done past a reason a person recorded' caught ./tools/run \

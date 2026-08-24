@@ -78,6 +78,9 @@ func runnerDB(t *testing.T) (*sql.DB, crew.Task, crew.Analyst) {
 	if err := crew.EnsureArtifactProvenance(db); err != nil {
 		t.Fatal(err)
 	}
+	if err := crew.EnsureLiveSpendLedger(db); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := db.Exec(`INSERT INTO tasks
 		(title, goal, assignee, state, budget_cents, spent_cents, created, updated)
 		VALUES ('a task','a goal','y.mercer','queued', 5000, 0,
@@ -131,5 +134,38 @@ func TestABlockedTaskIsNotWorkedAround(t *testing.T) {
 		t.Errorf("took %d of 5, want 3: queued, active and returned are work "+
 			"waiting to be done and must not be dropped with the blocked ones",
 			len(got))
+	}
+}
+
+// Many small calls must not add up to more than they cost.
+//
+// Red first: with each call rounded up on its own, 44 calls of about half a
+// cent recorded 44 whole cents. @measured on a real run, 2026-08-24: the router
+// billed 0.2337 and the console's own crew page said 0.56, overstated by 140%.
+func TestTheLedgerDoesNotOverstateManySmallCalls(t *testing.T) {
+	db, task, analyst := runnerDB(t)
+
+	// 44 calls at 5310 micro-dollars, which is 0.531 of a cent each.
+	const calls, each = 44, 5_310
+	for i := 0; i < calls; i++ {
+		if err := saveDraft(db, estimate{Task: task, Analyst: analyst},
+			callResult{Text: "x", ActualMicros: each}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	trueMicros := int64(calls * each)     // 233 640 micros = 0.2336 USD
+	want := (trueMicros + 9_999) / 10_000 // 24 cents, the total rounded up
+	got := spentOn(t, db, task.ID)
+
+	if got != want {
+		t.Errorf("%d calls costing %.4f USD were recorded as %.2f USD, want %.2f: "+
+			"rounding every call up on its own overstates a run by a cent per "+
+			"call, on the page whose heading is what the crew cost",
+			calls, float64(trueMicros)/1e6, float64(got)/100, float64(want)/100)
+	}
+	// The old property still holds: a call that cost something records something.
+	if got == 0 {
+		t.Error("a run that cost real money recorded nothing")
 	}
 }

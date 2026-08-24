@@ -104,18 +104,31 @@ textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; 
 
 .shell { display: flex; min-height: 100vh; }
 
+/* The sidebar must FIT. It is not a stylistic preference.
+
+   At 20px padding and 7px on each link it came to 1244px of content in a
+   window about 1000px tall, so it had its own scrollbar. That scrollbar is
+   state the reader cannot see, every item in the list looks like every other
+   one, and a page load resets it to the top. Aiming at Teams after the panel
+   had been scrolled 99px landed on Crew; at 132px, on Sprints; at 132px on a
+   group label, where a click does nothing at all.
+
+   Measured, at 1440x900: content 1244, viewport 900, over by 344.
+
+   The budget is held by TestTheSidebarFitsAWindow. A 27th link breaks it, and
+   that is the point: this list is already at the edge of what fits. */
 nav {
   width: 190px; flex: 0 0 190px;
   background: var(--surface); border-right: 1px solid var(--line);
-  padding: 20px 0; position: sticky; top: 0; height: 100vh; overflow-y: auto;
+  padding: 12px 0; position: sticky; top: 0; height: 100vh; overflow-y: auto;
 }
 nav .brand {
   font-weight: 650; letter-spacing: -.02em; font-size: 17px;
-  padding: 0 20px 16px; color: var(--ink);
+  padding: 0 20px 10px; color: var(--ink);
 }
 nav a {
   display: flex; justify-content: space-between; align-items: center; gap: 8px;
-  padding: 7px 20px; color: var(--ink-2); text-decoration: none; font-size: 14.5px;
+  padding: 3px 20px; color: var(--ink-2); text-decoration: none; font-size: 14.5px;
 }
 nav a:hover { background: var(--surface-2); color: var(--ink); }
 nav a[aria-current="page"] {
@@ -124,7 +137,7 @@ nav a[aria-current="page"] {
 }
 nav .group {
   font: 600 10.5px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase;
-  color: var(--ink-3); padding: 18px 20px 7px;
+  color: var(--ink-3); padding: 9px 20px 3px;
 }
 nav .count {
   font: 600 11px var(--mono); background: var(--surface-2);

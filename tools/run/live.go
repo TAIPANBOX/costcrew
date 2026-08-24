@@ -33,11 +33,12 @@ import (
 	"net/http"
 	"os"
 	"strings"
+
+	"github.com/TAIPANBOX/costcrew/internal/money"
 	"sync"
 	"time"
 
 	"github.com/TAIPANBOX/costcrew/internal/crew"
-	"github.com/TAIPANBOX/costcrew/internal/money"
 )
 
 // callResult is what came back, and what it actually cost.
@@ -293,13 +294,27 @@ func saveDraft(db *sql.DB, e estimate, res callResult) error {
 		e.Task.ID, e.Analyst.Name, trim(title, 120), res.Text); err != nil {
 		return err
 	}
-	// The charge lands on the task in cents, which is the ledger's unit, and
-	// rounds UP: a call that cost a fraction of a cent still cost something,
-	// and rounding it to nothing is how a bill grows out of a column of zeroes.
-	cents := money.Cents((res.ActualMicros + 9_999) / 10_000)
-	if _, err := db.Exec(
-		`UPDATE tasks SET spent_cents = spent_cents + ?, updated = datetime('now') WHERE id = ?`,
-		int64(cents), e.Task.ID); err != nil {
+	// The charge lands on the task in cents, which is the ledger's unit. The
+	// true amount accumulates in micro-dollars and the cents follow the
+	// rounding of the TOTAL, not the sum of the roundings.
+	//
+	// Rounding each call up on its own recorded 0.56 for a run that cost
+	// 0.2337, because a call costs a fraction of a cent and 44 fractions each
+	// became a whole one. Rounding it to nothing would be the opposite mistake
+	// and is how a bill grows out of a column of zeroes; rounding the total up
+	// keeps that property at a cost of at most one cent per run.
+	//
+	// One statement, because four calls run at once: SQLite reads the row's old
+	// values for every SET expression, so the delta and the new total are
+	// computed from the same starting point even when two land together.
+	if _, err := db.Exec(`UPDATE tasks SET
+			spent_cents = spent_cents
+				+ (live_micros + ? + 9999) / 10000
+				- (live_micros + 9999) / 10000,
+			live_micros = live_micros + ?,
+			updated = datetime('now')
+		WHERE id = ?`,
+		res.ActualMicros, res.ActualMicros, e.Task.ID); err != nil {
 		return err
 	}
 	return nil

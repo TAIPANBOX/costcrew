@@ -34,6 +34,9 @@ func Seed(db *sql.DB, anomalies []AnomalySeed) (sprints, tasks, artifacts int, e
 	if err := EnsureArtifactProvenance(db); err != nil {
 		return 0, 0, 0, err
 	}
+	if err := EnsureLiveSpendLedger(db); err != nil {
+		return 0, 0, 0, err
+	}
 	var have int
 	if err := db.QueryRow(`SELECT COUNT(*) FROM sprints`).Scan(&have); err != nil {
 		return 0, 0, 0, err

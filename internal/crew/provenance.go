@@ -34,3 +34,28 @@ func EnsureArtifactProvenance(db *sql.DB) error {
 	}
 	return nil
 }
+
+// The ledger must not overstate what was spent.
+//
+// tasks.spent_cents is the ledger's unit and stays so. The trouble is that one
+// model call costs a FRACTION of a cent, and rounding each one up on its own
+// turns 44 calls of about half a cent into 44 whole cents.
+//
+// @measured, a full run on 2026-08-24: the router billed 0.2337 and the console
+// recorded 0.56. Overstated by 140%, on the page whose heading is what the crew
+// cost. A console that exists to catch exactly this in somebody else's data does
+// not get to do it in its own.
+//
+// So the true amount accumulates here in micro-dollars, and spent_cents follows
+// the rounding of the TOTAL rather than the sum of the roundings. Rounding the
+// total up keeps the old property that a call which cost something never
+// records nothing, and costs at most one cent across a whole run instead of one
+// cent per call.
+func EnsureLiveSpendLedger(db *sql.DB) error {
+	_, err := db.Exec(
+		"ALTER TABLE tasks ADD COLUMN live_micros INTEGER NOT NULL DEFAULT 0")
+	if err != nil && !strings.Contains(err.Error(), "duplicate column") {
+		return fmt.Errorf("adding the live spend ledger: %w", err)
+	}
+	return nil
+}
