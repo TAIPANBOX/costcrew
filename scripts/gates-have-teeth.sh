@@ -429,8 +429,8 @@ run_case 'a crew figure that hides which part is real' caught ./internal/web \
 	'TestTheCrewPageSaysWhatOfItsFigureIsReal' \
 	'does not say how much of its figure is real' \
 	internal/web/templates/staff.html \
-	'{{if .LiveTasks}}<br><strong>{{.Live}} of it is real money</strong>' \
-	'{{if false}}<br><strong>{{.Live}} of it is real money</strong>'
+	'{{if .RealMoney}}<br><strong>{{.RealMoney}}</strong>{{end}}' \
+	'{{if false}}<br><strong>{{.RealMoney}}</strong>{{end}}'
 
 # The live marker must read as a marker. .chip carries 5.97:1 in light mode,
 # .tile carries 1.29; the marker was drawn with the container family at 1.2:1.
