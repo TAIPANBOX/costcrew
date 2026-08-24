@@ -225,7 +225,7 @@ func callOpenRouter(ctx context.Context, model, prompt string, maxTok int) (call
 // The task, and the brief the analyst was hired with. Nothing else: an analyst
 // without figures-read is not handed figures, and this is where that rule is
 // kept rather than hoped for.
-func prompt(t crew.Task, a crew.Analyst) string {
+func prompt(t crew.Task, a crew.Analyst, today string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "You are %s, %s on the %s desk of a FinOps practice.\n", a.Name, a.Role, a.Desk)
 	if a.Mission != "" {
@@ -235,6 +235,23 @@ func prompt(t crew.Task, a crew.Analyst) string {
 	if t.Goal != "" {
 		fmt.Fprintf(&b, "What it asks for: %s\n", t.Goal)
 	}
+	// The date, because it asked for one and got no answer.
+	//
+	// A live run produced "**Date:** [Today's Date]" on the face of a
+	// deliverable a person was meant to read. A model has no clock, so the
+	// choices are to give it the date or to have it guess; and this console's
+	// whole argument is that a figure nobody can check is worse than no figure.
+	fmt.Fprintf(&b, "\nToday is %s.\n", today)
+
+	// The format, kept to what the console renders.
+	//
+	// The renderer is deliberately tiny and now covers headings, rules, lists,
+	// bold and italic. Asking for a narrow format is cheaper than widening it
+	// further, and the renderer holds either way: a model that ignores this
+	// still has to come out readable.
+	b.WriteString("Use plain prose with ## headings, **bold** and simple " +
+		"- bullets. No tables, no code fences.\n")
+
 	b.WriteString("\nWrite the deliverable. Be specific, say what you do not know, " +
 		"and do not invent a number you were not given.\n")
 	return b.String()
@@ -252,7 +269,7 @@ func execute(ctx context.Context, db *sql.DB, e estimate, maxTok int, run *runBu
 		return refusal{err}
 	}
 
-	res, err := call(ctx, e.Engine, e.Model, prompt(e.Task, e.Analyst), maxTok)
+	res, err := call(ctx, e.Engine, e.Model, prompt(e.Task, e.Analyst, time.Now().Format("2006-01-02")), maxTok)
 	if err != nil {
 		run.settle(e.WorstMicros, 0)
 		return err

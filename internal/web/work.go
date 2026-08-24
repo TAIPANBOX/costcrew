@@ -14,7 +14,14 @@ import (
 )
 
 // Only the two constructs the crew's own output actually uses.
-var boldRe = regexp.MustCompile(`\*\*([^*]+)\*\*`)
+var (
+	boldRe = regexp.MustCompile(`\*\*([^*]+)\*\*`)
+	// Single asterisks, but only where they are not part of a ** pair: bold is
+	// replaced first, so by the time this runs the pairs are gone.
+	italicRe = regexp.MustCompile(`\*([^*\n]+)\*`)
+	// "1." or "12)" at the start of a line.
+	numberedRe = regexp.MustCompile(`^\d+[.)]\s+`)
+)
 
 var (
 	tplBoard   = page("board.html")
@@ -232,22 +239,143 @@ type artView struct {
 // Escaped FIRST and marked up second: the body is written by a model, and a
 // model's output is untrusted input like any other. Handling only the three
 // constructs the crew actually emits is the point, not a limitation.
+// renderBody turns a deliverable into HTML.
+//
+// Deliberately tiny: no markdown library, because the console has no runtime
+// and one dependency here would be the first. It handles what a deliverable
+// actually contains and nothing else.
+//
+// The list of what that IS grew from looking at the running product. The seeded
+// drafts were written to match this renderer, so it only ever handled bold and
+// "## ", and everything agreed with itself. Then a model wrote 44 of them and
+// the page showed its syntax back to the reader:
+//
+//	### **Anomaly Summary**
+//	---
+//	1. **What happened?** Identify the root cause.
+//	- **Established Cause:** *None confirmed at this time.*
+//
+// Four things in one paragraph that this had no idea about. The prompt now asks
+// for a narrower format too, but a prompt is a request and this is the part
+// that holds: a model that ignores the request must still render.
 func renderBody(src string) template.HTML {
 	var b strings.Builder
+	list := false
+	closeList := func() {
+		if list {
+			b.WriteString("</ul>")
+			list = false
+		}
+	}
 	for _, para := range strings.Split(src, "\n\n") {
 		p := strings.TrimSpace(para)
 		if p == "" {
 			continue
 		}
-		esc := html.EscapeString(p)
-		esc = boldRe.ReplaceAllString(esc, "<strong>$1</strong>")
-		if strings.HasPrefix(p, "## ") {
-			b.WriteString("<h3>" + strings.TrimPrefix(esc, "## ") + "</h3>")
+		// A rule on its own is a rule; inside a paragraph it is punctuation.
+		if isRule(p) {
+			closeList()
+			b.WriteString("<hr>")
 			continue
 		}
-		b.WriteString("<p>" + esc + "</p>")
+		if h, level := heading(p); h != "" {
+			closeList()
+			tag := "h4"
+			if level <= 2 {
+				tag = "h3"
+			}
+			b.WriteString("<" + tag + ">" + inline(h) + "</" + tag + ">")
+			continue
+		}
+		if items := bullets(p); items != nil {
+			if !list {
+				b.WriteString("<ul>")
+				list = true
+			}
+			for _, it := range items {
+				b.WriteString("<li>" + inline(it) + "</li>")
+			}
+			continue
+		}
+		closeList()
+		b.WriteString("<p>" + inline(p) + "</p>")
 	}
+	closeList()
 	return template.HTML(b.String())
+}
+
+// isRule is a line of dashes or asterisks and nothing else.
+func isRule(p string) bool {
+	p = strings.TrimSpace(p)
+	if len(p) < 3 {
+		return false
+	}
+	return strings.Trim(p, "-") == "" || strings.Trim(p, "*") == "" ||
+		strings.Trim(p, "_") == ""
+}
+
+// heading returns the text of a "#"-prefixed line and how deep it is.
+//
+// Any depth, because a model picks its own: this saw #, ###, and #### in one
+// deliverable. Only the first line is considered, so a paragraph that merely
+// contains a hash is left alone.
+func heading(p string) (string, int) {
+	line := p
+	if i := strings.IndexByte(p, '\n'); i >= 0 {
+		line = p[:i]
+	}
+	n := 0
+	for n < len(line) && line[n] == '#' {
+		n++
+	}
+	if n == 0 || n > 6 || n >= len(line) || line[n] != ' ' {
+		return "", 0
+	}
+	if line != p {
+		return "", 0 // a heading with a paragraph glued to it is not a heading
+	}
+	return strings.TrimSpace(line[n+1:]), n
+}
+
+// bullets splits a paragraph whose every line is a list item.
+//
+// All of them or none: one dash in the middle of prose is a dash. Numbered and
+// dashed alike, because a model uses both and a reader wants a list either way.
+func bullets(p string) []string {
+	lines := strings.Split(p, "\n")
+	out := make([]string, 0, len(lines))
+	for _, l := range lines {
+		t := strings.TrimSpace(l)
+		if t == "" {
+			continue
+		}
+		switch {
+		case strings.HasPrefix(t, "- "), strings.HasPrefix(t, "* "):
+			out = append(out, strings.TrimSpace(t[2:]))
+		case numberedRe.MatchString(t):
+			out = append(out, strings.TrimSpace(numberedRe.ReplaceAllString(t, "")))
+		default:
+			return nil
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// inline escapes the text and then puts back the two marks worth keeping.
+//
+// Escaping FIRST is the whole point: a deliverable is written by a model and
+// must not be able to put a tag on this page.
+func inline(s string) string {
+	esc := html.EscapeString(s)
+	esc = boldRe.ReplaceAllString(esc, "<strong>$1</strong>")
+	esc = italicRe.ReplaceAllString(esc, "<em>$1</em>")
+	// A model ends lines with two spaces to mean a break. Without this the
+	// whole paragraph runs together.
+	esc = strings.ReplaceAll(esc, "  \n", "<br>")
+	return strings.ReplaceAll(esc, "\n", " ")
 }
 
 func (s *Server) taskPage(w http.ResponseWriter, r *http.Request) {

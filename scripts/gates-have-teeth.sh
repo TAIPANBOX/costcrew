@@ -423,6 +423,39 @@ run_case 'a sentence about money nobody spent' caught ./internal/finops \
 	'if tasks == 0 || micros == 0 {' \
 	'if tasks < 0 || micros < 0 {'
 
+# A deliverable must not show its own syntax. The seeded drafts were written to
+# match the renderer, so it handled bold and "## " and everything agreed with
+# itself; a model then wrote 44 and the page printed ###, --- and dashes back.
+run_case 'a deliverable showing its own markdown' caught ./internal/web \
+	'TestADeliverableDoesNotShowItsOwnSyntax' \
+	'still in the output' \
+	internal/web/work.go \
+	'if h, level := heading(p); h != "" {' \
+	'if h, level := heading(p); false && h != "" {'
+
+run_case 'a rule printed as three dashes' caught ./internal/web \
+	'TestADeliverableDoesNotShowItsOwnSyntax' \
+	'still in the output' \
+	internal/web/work.go \
+	'if isRule(p) {' \
+	'if false && isRule(p) {'
+
+# The body is written by a model, so escaping is the only thing between it and
+# the reader. inline() escapes FIRST and puts back two marks after.
+run_case 'a model able to put a tag on the page' caught ./internal/web \
+	'TestADeliverableCannotPutATagOnThePage' \
+	'reached the page' \
+	internal/web/work.go \
+	'esc := html.EscapeString(s)' \
+	'esc := s'
+
+run_case 'a model left to guess the date' caught ./tools/run \
+	'TestTheModelIsToldTheDate' \
+	'does not carry the date' \
+	tools/run/live.go \
+	'fmt.Fprintf(&b, "\\nToday is %s.\\n", today)' \
+	'fmt.Fprintf(&b, "\\n%s", today[:0])'
+
 # One figure covering generated and live spend together. Invariant 16 carried
 # this as its open item: the deliverables were marked, the money was not.
 run_case 'a crew figure that hides which part is real' caught ./internal/web \
