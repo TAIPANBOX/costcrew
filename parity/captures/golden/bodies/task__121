@@ -1,0 +1,360 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CostCrew</title>
+<link rel="stylesheet" href="/static/style.css"></head><body>
+<div class="shell">
+<nav class="rail">
+  <div class="brand">CostCrew</div>
+  <a href="/" class="">Today</a>
+  <a href="/board" class="on">Board</a>
+  <a href="/board?view=month" class="sub">Calendar</a>
+  <a href="/teams" class="">Teams</a>
+  <a href="/sprints" class="">Sprints</a>
+  <a href="/feed" class="">Chats</a>
+  <a href="/feed?ch=aws" class="sub">#aws</a>
+  <a href="/feed?ch=gcp" class="sub">#gcp</a>
+  <a href="/feed?ch=onprem" class="sub">#onprem</a>
+  <a href="/kpis" class="">KPIs</a>
+  <a href="/library" class="sub ">Library</a>
+  <a href="/assessment" class="sub ">Assessment</a>
+  <a href="/allocation" class="">Allocation</a>
+  <a href="/chargeback" class="">Chargeback</a>
+  <a href="/exec" class="">Executive</a>
+  <a href="/results" class="">Results</a>
+  <a href="/ai" class="">AI spend</a>
+  <a href="/saas" class="">SaaS</a>
+  <a href="/utilisation" class="">Utilisation</a>
+  <a href="/explainers" class="">Explainers</a>
+  <a href="/staff" class="">Staff</a>
+  <a href="/workbench" class="">Workbench</a>
+  <a href="/data" class="">Data</a>
+  <a href="/connectors" class="sub ">Connectors</a>
+  <a href="/audit" class="">Audit</a>
+  <a href="/settings" class="">Engines</a>
+  
+  <a href="/accounts" class="">Accounts</a>
+  <div class="railfoot">
+    
+    <div>parity · admin</div>
+    <form method="post" action="/logout" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+      <button class="btn back">Sign out</button></form>
+    
+    <div>MVP · local</div>
+  </div>
+</nav>
+<main class="content">
+<p class="crumb"><a href="/board">Board</a> / task:121</p>
+<h1>Weekly spend pulse 2026-W35 (aws)</h1>
+<p><span class="chip st-your-review">your-review</span>
+   <a class="chip" href="/staff/reporter-aws">reporter-aws</a> <a class="chip" href="/sprint/13">sprint:2026-W35</a>
+   <span class="src aws">aws</span>
+   <span class="chip">$0.0045 / $0.25</span></p>
+
+<p class="goal">Weekly pulse for the aws desk.</p>
+
+<form method="post" action="/task/121/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+  <button class="btn run">Run agent</button>
+  <span class="fine">figures are computed first; the agent writes around them</span>
+</form>
+<section class="panel"><h2>Comments (operator = top-priority instruction)</h2>
+  
+  <form method="post" action="/task/121/comment" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+    <input name="text" placeholder="Say it like you would to an employee" size="50" required>
+    <button class="btn">Comment</button></form>
+</section>
+
+<section class="panel artifact">
+  <div class="arthead"><h2>artifact:AR-0119@v1</h2>
+  </div>
+  <div class="md"><h1>Weekly spend pulse 2026-W35 (aws)</h1>
+<h2>Executive Summary</h2>
+<p>AWS usage spend is tracking 52% below July's full-month total at the halfway mark of August [qid:e0429d85][qid:659a87ae], with EC2, RDS and EKS showing the steepest service-level declines. The forecast model predicts $3,313 for the next 30 days [qid:587b7af2] with 100% interval hit rate on scored forecasts, maintaining "run" grade accuracy. No active anomalies in the current window; the single largest historical anomaly was a 38z EC2 spike on 2026-07-30 in the ml team [qid:ae0d1a9a].</p>
+<hr />
+<h2>Monthly Pulse</h2>
+<p><strong>Current Period Status:</strong> August data is partial through 2026-08-15 [qid:08c6f243]. The usage total of $1,610.59 [qid:e0429d85] represents roughly half the month elapsed, making direct comparison to July's $3,372.76 [qid:659a87ae] inappropriate without annualization.</p>
+<p><strong>Category Movement:</strong> Usage is the sole active spend category; Credits and Tax have zeroed out this month [qid:08c6f243]. Purchase charges remain flat at $950 [qid:08c6f243].</p>
+<hr />
+<h2>Service &amp; Team Breakdown</h2>
+<p><strong>Top Movers by Absolute Delta:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Service</th>
+<th>July</th>
+<th>August (MTD)</th>
+<th>Change</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Amazon EC2</td>
+<td>$1,603.88</td>
+<td>$744.29</td>
+<td>-$859.59 [qid:ca0170cf]</td>
+</tr>
+<tr>
+<td>Amazon RDS</td>
+<td>$584.69</td>
+<td>$285.10</td>
+<td>-$299.59 [qid:ca0170cf]</td>
+</tr>
+<tr>
+<td>Amazon EKS</td>
+<td>$553.07</td>
+<td>$272.69</td>
+<td>-$280.38 [qid:ca0170cf]</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Team Attribution:</strong> All four tracked teams show proportional declines. The ml team's -$478.65 delta [qid:08c6f243] aligns with the scheduled GPU training pattern (8th and 22nd of each month) [qid:dc66e2c4], suggesting lower inter-training compute utilization.</p>
+<hr />
+<h2>Forecast Commentary</h2>
+<p>The Holt-Winters(add,7) model wins selection with 6.01% MAPE [qid:587b7af2]. The $3,313 point forecast for next 30 days [qid:587b7af2] implies ~$109/day run rate, consistent with current observed levels.</p>
+<p><strong>Accuracy Track Record:</strong> Frozen forecasts show 2% worst-case variance, earning "run" ladder status with perfect interval coverage [qid:2f445196]. The open forecast for August (frozen 2026-07-31) projects $3,926 [qid:d93434d3]; actuals will determine final scoring.</p>
+<hr />
+<h2>Anomaly &amp; Driver Notes</h2>
+<p>Five historical anomalies detected [qid:ae0d1a9a], all "up" spikes. The largest: EC2 in ml team on 2026-07-30 ($53.30 vs $12.04 baseline, 38z) [qid:ae0d1a9a]. No driver annotations attached; the recurring GPU training schedule [qid:dc66e2c4] is the only documented systematic pattern but does not explain specific daily spikes.</p>
+<p>Current anomaly band: green [qid:8860e2df]; 0.91% spend share anomalous [qid:8860e2df].</p>
+<hr />
+<h2>Figures (deterministic engine; every value carries its qid)</h2>
+<table>
+<thead>
+<tr>
+<th>category</th>
+<th style="text-align: right;">2026-07</th>
+<th style="text-align: right;">2026-08</th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Credit</td>
+<td style="text-align: right;">-59.21</td>
+<td style="text-align: right;">0.00</td>
+<td><code>⌗08c6f243</code></td>
+</tr>
+<tr>
+<td>Purchase</td>
+<td style="text-align: right;">950.00</td>
+<td style="text-align: right;">950.00</td>
+<td><code>⌗08c6f243</code></td>
+</tr>
+<tr>
+<td>Tax</td>
+<td style="text-align: right;">148.04</td>
+<td style="text-align: right;">0.00</td>
+<td><code>⌗08c6f243</code></td>
+</tr>
+<tr>
+<td>Usage</td>
+<td style="text-align: right;">3,372.76</td>
+<td style="text-align: right;">1,610.59</td>
+<td><code>⌗08c6f243</code></td>
+</tr>
+</tbody>
+</table>
+<p>Forecast next 30d: <strong>USD 3,313.16</strong> (3,014.42..3,611.89), method holt-winters(add,7), backtest MAPE 6.0% <code>⌗dc66e2c4</code></p>
+<p>Top anomalies <code>⌗ae0d1a9a</code>:
+- 2026-07-30 Amazon EC2 (ml): +41.27 USD vs baseline - needs a look
+- 2026-01-14 AWS Data Transfer (sre-platform): +10.74 USD vs baseline - needs a look
+- 2026-05-21 Amazon S3 (data): +9.92 USD vs baseline - needs a look
+- 2026-03-13 Amazon EC2 (product-web): +4.77 USD vs baseline - needs a look
+- 2026-03-11 Amazon EC2 (product-web): +4.59 USD vs baseline - needs a look</p>
+<hr />
+<p>Provenance: source <code>aws</code>, engine qids above, agent provider <code>openrouter:moonshotai/kimi-k2</code>, run cost USD 0.0045 (reported).</p></div>
+  
+  
+  
+  <div class="actions">
+    <form method="post" action="/artifact/119/approve" class="inline"><input type="hidden" name="csrf" value="<CSRF>"><button class="btn approve">Post it</button></form>
+    <form method="post" action="/artifact/119/return" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+      <select name="category"><option>factual</option><option>emphasis</option><option>style</option><option>incomplete</option></select>
+      <input name="reason" placeholder="What to fix" required>
+      <button class="btn back">Return</button></form>
+  </div>
+  
+</section>
+
+</main>
+</div>
+<script>
+document.addEventListener('input', function (e) {
+  var box = e.target.closest('.filterbox'); if (!box) return;
+  var root = document.querySelector(box.dataset.target); if (!root) return;
+  var q = box.value.trim().toLowerCase();
+  root.querySelectorAll('[data-search]').forEach(function (el) {
+    var hit = !q || el.dataset.search.toLowerCase().indexOf(q) !== -1;
+    if (el.classList.contains('deskgroup')) {
+      var inner = Array.prototype.some.call(el.querySelectorAll('[data-search]'),
+        function (x) { return x.dataset.search.toLowerCase().indexOf(q) !== -1; });
+      el.style.display = (hit || inner || !q) ? '' : 'none';
+      el.querySelectorAll('[data-search]').forEach(function (x) {
+        x.style.display = (!q || hit || x.dataset.search.toLowerCase().indexOf(q) !== -1) ? '' : 'none';
+      });
+    } else if (!el.closest('.deskgroup')) {
+      el.style.display = hit ? '' : 'none';
+    }
+  });
+});
+document.addEventListener('click', function (e) {
+  if (e.target.classList && e.target.classList.contains('grip')) return;
+  var th = e.target.closest('th'); if (!th) return;
+  var table = th.closest('table'); if (!table) return;
+  var idx = Array.prototype.indexOf.call(th.parentNode.children, th);
+  var rows = Array.prototype.slice.call(table.querySelectorAll('tr')).filter(
+    function (r) { return r.querySelector('td'); });
+  var dir = th.dataset.dir === 'asc' ? -1 : 1;
+  table.querySelectorAll('th').forEach(function (h) { delete h.dataset.dir;
+    var a = h.querySelector('.arrow'); if (a) a.remove(); });
+  th.dataset.dir = dir === 1 ? 'asc' : 'desc';
+  var arrow = document.createElement('span');
+  arrow.className = 'arrow';
+  arrow.textContent = dir === 1 ? ' \u25B2' : ' \u25BC';
+  th.appendChild(arrow);
+  function key(r) {
+    var c = r.children[idx]; if (!c) return '';
+    var txt = c.textContent.trim().replace(/[$,%]/g, '').replace(/,/g, '');
+    if (/\d{4}-\d{2}-\d{2}/.test(txt)) return txt.replace(/[^\d-]/g, '');
+    var n = parseFloat(txt);
+    return isNaN(n) ? txt.toLowerCase() : n;
+  }
+  rows.sort(function (a, b) {
+    var ka = key(a), kb = key(b);
+    if (typeof ka === 'number' && typeof kb === 'number') return (ka - kb) * dir;
+    return String(ka).localeCompare(String(kb)) * dir;
+  });
+  rows.forEach(function (r) { r.parentNode.appendChild(r); });
+});
+
+/* ---- tables you can widen, and that fit any screen -----------------------
+   Every table is put in its own horizontally scrolling box, so a wide table
+   scrolls inside its panel instead of pushing the whole page sideways. Each
+   header cell gets a grip on its right edge: drag it to widen the column,
+   double-click it to give the column back to the browser. Widths are
+   remembered per page, because a column you widened once you almost always
+   want wide again.                                                          */
+(function () {
+  var KEY = 'costcrew.colw.' + location.pathname;
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (err) { saved = {}; }
+
+  function persist() {
+    try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (err) { /* private mode */ }
+  }
+
+  function setup() {
+    document.querySelectorAll('table').forEach(function (table, ti) {
+      if (!table.parentNode.classList.contains('tw')) {
+        var box = document.createElement('div');
+        box.className = 'tw';
+        table.parentNode.insertBefore(box, table);
+        box.appendChild(table);
+      }
+      /* An atom never breaks: a date, a sum, a status, a short name. Prose
+         does break, and must, or one sentence drags the whole table wider
+         than the screen and everything else scrolls to reach it. The rule is
+         length, applied once, because CSS cannot ask how long a text is. */
+      table.querySelectorAll('td, th').forEach(function (cell) {
+        if (cell.children.length) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length > 40 && txt.indexOf(' ') !== -1) cell.classList.add('wrap');
+      });
+
+      /* Really long prose gets two lines and a way to open the rest. Nothing
+         is removed: the full text is still in the cell, still searched by
+         the filter box, still there for anyone who presses. */
+      table.querySelectorAll('td').forEach(function (cell) {
+        if (cell.querySelector('.clamp')) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length <= 110) return;
+        var box = document.createElement('div');
+        box.className = 'clamp';
+        while (cell.firstChild) box.appendChild(cell.firstChild);
+        cell.appendChild(box);
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'more';
+        btn.textContent = 'more';
+        btn.setAttribute('aria-expanded', 'false');
+        btn.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          var open = box.classList.toggle('open');
+          btn.textContent = open ? 'less' : 'more';
+          btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+        cell.appendChild(btn);
+        cell.classList.add('wrap');
+      });
+      /* Align each header to the column beneath it. The figures are right
+         aligned and the headers were not, so every numeric column read as a
+         label on the left with unrelated numbers on the right. */
+      var head0 = table.querySelector('tr');
+      if (head0) {
+        var body = Array.prototype.slice.call(table.querySelectorAll('tr'))
+          .filter(function (r) { return r.querySelector('td'); });
+        head0.querySelectorAll('th').forEach(function (th, ci) {
+          var nums = 0, cells = 0;
+          body.forEach(function (r) {
+            var cell = r.children[ci];
+            if (!cell || cell.tagName !== 'TD') return;
+            cells++;
+            if (cell.classList.contains('num')) nums++;
+          });
+          if (cells && nums * 2 > cells) th.classList.add('num');
+        });
+      }
+      var head = table.querySelector('tr');
+      if (!head) return;
+      head.querySelectorAll('th').forEach(function (th, ci) {
+        var id = ti + ':' + ci;
+        if (saved[id]) { th.style.width = saved[id] + 'px'; th.classList.add('sized'); }
+        if (th.querySelector('.grip')) return;
+        var grip = document.createElement('span');
+        grip.className = 'grip';
+        grip.title = 'Drag to widen, double-click to reset';
+        grip.addEventListener('dblclick', function (ev) {
+          ev.stopPropagation();
+          th.style.width = ''; th.classList.remove('sized');
+          delete saved[id]; persist();
+        });
+        grip.addEventListener('pointerdown', function (ev) {
+          ev.preventDefault(); ev.stopPropagation();
+          var x0 = ev.clientX, w0 = th.getBoundingClientRect().width;
+          grip.classList.add('on');
+          grip.setPointerCapture(ev.pointerId);
+          function move(e2) {
+            var w = Math.max(48, Math.round(w0 + (e2.clientX - x0)));
+            th.style.width = w + 'px'; th.classList.add('sized');
+            saved[id] = w;
+          }
+          function up() {
+            grip.classList.remove('on');
+            grip.removeEventListener('pointermove', move);
+            grip.removeEventListener('pointerup', up);
+            persist();
+          }
+          grip.addEventListener('pointermove', move);
+          grip.addEventListener('pointerup', up);
+        });
+        th.appendChild(grip);
+      });
+    });
+    document.querySelectorAll('.tw').forEach(function (box) {
+      function mark() {
+        /* a few pixels is rounding, not a hidden column */
+        var over = box.scrollWidth > box.clientWidth + 8;
+        box.classList.toggle('scrolls', over);
+        box.classList.toggle('atend',
+          over && box.scrollLeft + box.clientWidth >= box.scrollWidth - 2);
+      }
+      box.addEventListener('scroll', mark);
+      window.addEventListener('resize', mark);
+      mark();
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setup);
+  } else { setup(); }
+})();
+</script>
+</body></html>

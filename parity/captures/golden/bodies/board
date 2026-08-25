@@ -1,0 +1,1818 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CostCrew</title>
+<link rel="stylesheet" href="/static/style.css"></head><body>
+<div class="shell">
+<nav class="rail">
+  <div class="brand">CostCrew</div>
+  <a href="/" class="">Today</a>
+  <a href="/board" class="on">Board</a>
+  <a href="/board?view=month" class="sub">Calendar</a>
+  <a href="/teams" class="">Teams</a>
+  <a href="/sprints" class="">Sprints</a>
+  <a href="/feed" class="">Chats</a>
+  <a href="/feed?ch=aws" class="sub">#aws</a>
+  <a href="/feed?ch=gcp" class="sub">#gcp</a>
+  <a href="/feed?ch=onprem" class="sub">#onprem</a>
+  <a href="/kpis" class="">KPIs</a>
+  <a href="/library" class="sub ">Library</a>
+  <a href="/assessment" class="sub ">Assessment</a>
+  <a href="/allocation" class="">Allocation</a>
+  <a href="/chargeback" class="">Chargeback</a>
+  <a href="/exec" class="">Executive</a>
+  <a href="/results" class="">Results</a>
+  <a href="/ai" class="">AI spend</a>
+  <a href="/saas" class="">SaaS</a>
+  <a href="/utilisation" class="">Utilisation</a>
+  <a href="/explainers" class="">Explainers</a>
+  <a href="/staff" class="">Staff</a>
+  <a href="/workbench" class="">Workbench</a>
+  <a href="/data" class="">Data</a>
+  <a href="/connectors" class="sub ">Connectors</a>
+  <a href="/audit" class="">Audit</a>
+  <a href="/settings" class="">Engines</a>
+  
+  <a href="/accounts" class="">Accounts</a>
+  <div class="railfoot">
+    
+    <div>parity · admin</div>
+    <form method="post" action="/logout" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+      <button class="btn back">Sign out</button></form>
+    
+    <div>MVP · local</div>
+  </div>
+</nav>
+<main class="content">
+<h1>Board</h1>
+<div class="viewsw">
+  <a class="chip on" href="/board">Kanban</a>
+  <a class="chip " href="/board?view=month">Month</a>
+  <a class="chip " href="/board?view=week">Week</a>
+  <a class="chip " href="/board?view=day">Day</a>
+</div>
+<form class="newtask" method="post" action="/tasks"><input type="hidden" name="csrf" value="<CSRF>">
+  <input name="title" placeholder="Task title" required>
+  <input name="goal" placeholder="Goal, in plain words" required size="40">
+  <select name="assignee"><option>capacity-aws</option><option>investigator-aws</option><option>investigator-gcp</option><option>investigator-onprem</option><option>optimizer-aws</option><option>optimizer-gcp</option><option>reporter-aws</option><option>reporter-gcp</option><option>reporter-onprem</option><option>supervisor</option></select>
+  <select name="source"><option>ai</option><option>aws</option><option>gcp</option><option>onprem</option><option>saas</option></select>
+  <select name="complexity"><option value="0">complexity?</option><option value="1">C1 routine</option><option value="2">C2 standard</option><option value="3">C3 deep</option></select>
+  <button class="btn">Create task</button>
+</form>
+<div class="btoolbar">
+  <input id="bq" type="search" placeholder="search cards...">
+  <select id="bdesk"><option value="">all desks</option><option>aws</option><option>gcp</option><option>management</option><option>onprem</option></select>
+  <select id="bagent"><option value="">all agents</option><option>capacity-aws</option><option>investigator-aws</option><option>investigator-gcp</option><option>investigator-onprem</option><option>optimizer-aws</option><option>optimizer-gcp</option><option>reporter-aws</option><option>reporter-gcp</option><option>reporter-onprem</option><option>supervisor</option></select>
+  <select id="bsprint"><option value="">all sprints</option><option>2026-W38</option><option>2026-W37</option><option>2026-W36</option><option>2026-W35</option><option>2026-W34</option><option>2026-W33</option><option>2026-W32</option><option>2026-W31</option><option>2026-W30</option><option>2026-W29</option><option>2026-W28</option><option>2026-W27</option><option>2026-W26</option><option>2026-W25</option><option>2026-W24</option><option>2026-W23</option></select>
+  <button id="bsort" class="chip" type="button" data-dir="desc">date: <HTTPDATE>
+</div>
+<div class="columns">
+
+  <div class="col" data-state="queued"><h3>queued <span class="count" data-total="0">0</span></h3>
+  <div class="cards">
+  
+  </div>
+  <button class="morebtn" type="button" hidden></button>
+  </div>
+
+  <div class="col" data-state="in-progress"><h3>in-progress <span class="count" data-total="3">3</span></h3>
+  <div class="cards">
+  
+    <a class="card st-in-progress" href="/task/68"
+       data-ts="1786698000.0" data-desk="management" data-assignee="supervisor"
+       data-sprint="2026-W33"
+       data-find="sprint review 2026-w33 supervisor management 2026-w33 aws">
+      <div class="cardtitle">Sprint review 2026-W33</div>
+      <div class="cardmeta">supervisor · <span class="src aws">aws</span> · 2026-W33</div>
+      <div class="carddate"> 2026-08-14</div>
+      <div class="step">collecting desk results (2 of 3 desks reported)</div>
+      <div class="budget"><i style="width: 20%"></i></div>
+      <div class="fine">$4.10 / $20.00</div>
+    </a>
+  
+    <a class="card st-in-progress" href="/task/66"
+       data-ts="1786615200.0" data-desk="onprem" data-assignee="investigator-onprem"
+       data-sprint="2026-W33"
+       data-find="storage growth check after the array step (onprem) investigator-onprem onprem 2026-w33 onprem">
+      <div class="cardtitle">Storage growth check after the array step (onprem)</div>
+      <div class="cardmeta">investigator-onprem · <span class="src onprem">onprem</span> · 2026-W33</div>
+      <div class="carddate"> 2026-08-13</div>
+      <div class="step">querying storage series, comparing quarters</div>
+      <div class="budget"><i style="width: 38%"></i></div>
+      <div class="fine">$7.60 / $20.00</div>
+    </a>
+  
+    <a class="card st-in-progress" href="/task/65"
+       data-ts="1786611600.0" data-desk="gcp" data-assignee="optimizer-gcp"
+       data-sprint="2026-W33"
+       data-find="idle schedule proposal: weekend dips (gcp) optimizer-gcp gcp 2026-w33 gcp">
+      <div class="cardtitle">Idle schedule proposal: weekend dips (gcp)</div>
+      <div class="cardmeta">optimizer-gcp · <span class="src gcp">gcp</span> · 2026-W33</div>
+      <div class="carddate"> 2026-08-13</div>
+      <div class="step">drafting candidates (7 of 12 services reviewed)</div>
+      <div class="budget"><i style="width: 71%"></i></div>
+      <div class="fine">$14.20 / $20.00</div>
+    </a>
+  
+  </div>
+  <button class="morebtn" type="button" hidden></button>
+  </div>
+
+  <div class="col" data-state="machine-checks"><h3>machine-checks <span class="count" data-total="0">0</span></h3>
+  <div class="cards">
+  
+  </div>
+  <button class="morebtn" type="button" hidden></button>
+  </div>
+
+  <div class="col" data-state="your-review"><h3>your-review <span class="count" data-total="3">3</span></h3>
+  <div class="cards">
+  
+    <a class="card st-your-review" href="/task/121"
+       data-ts="1786975147.9442801" data-desk="aws" data-assignee="reporter-aws"
+       data-sprint="2026-W35"
+       data-find="weekly spend pulse 2026-w35 (aws) reporter-aws aws 2026-w35 aws">
+      <div class="cardtitle">Weekly spend pulse 2026-W35 (aws)</div>
+      <div class="cardmeta">reporter-aws · <span class="src aws">aws</span> · 2026-W35</div>
+      <div class="carddate"> 2026-08-17</div>
+      
+      <div class="budget"><i style="width: 2%"></i></div>
+      <div class="fine">$0.0045 / $0.25</div>
+    </a>
+  
+    <a class="card st-your-review" href="/task/62"
+       data-ts="1786352400.0" data-desk="aws" data-assignee="reporter-aws"
+       data-sprint="2026-W33"
+       data-find="weekly spend pulse 2026-w33 (aws) reporter-aws aws 2026-w33 aws">
+      <div class="cardtitle">Weekly spend pulse 2026-W33 (aws)</div>
+      <div class="cardmeta">reporter-aws · <span class="src aws">aws</span> · 2026-W33</div>
+      <div class="carddate"> 2026-08-10</div>
+      
+      <div class="budget"><i style="width: 46%"></i></div>
+      <div class="fine">$9.28 / $20.00</div>
+    </a>
+  
+    <a class="card st-your-review" href="/task/63"
+       data-ts="1786352400.0" data-desk="gcp" data-assignee="reporter-gcp"
+       data-sprint="2026-W33"
+       data-find="weekly spend pulse 2026-w33 (gcp) reporter-gcp gcp 2026-w33 gcp">
+      <div class="cardtitle">Weekly spend pulse 2026-W33 (gcp)</div>
+      <div class="cardmeta">reporter-gcp · <span class="src gcp">gcp</span> · 2026-W33</div>
+      <div class="carddate"> 2026-08-10</div>
+      
+      <div class="budget"><i style="width: 44%"></i></div>
+      <div class="fine">$8.88 / $20.00</div>
+    </a>
+  
+  </div>
+  <button class="morebtn" type="button" hidden></button>
+  </div>
+
+  <div class="col" data-state="done"><h3>done <span class="count" data-total="113">113</span></h3>
+  <div class="cards">
+  
+    <a class="card st-done" href="/task/120"
+       data-ts="1786919196.761271" data-desk="onprem" data-assignee="reporter-onprem"
+       data-sprint="2026-W38"
+       data-find="re-measure onprem allocation and publish the desk showback delta reporter-onprem onprem 2026-w38 onprem">
+      <div class="cardtitle"><span class="cbadge c2">C2</span> Re-measure onprem allocation and publish the desk showback delta</div>
+      <div class="cardmeta">reporter-onprem · <span class="src onprem">onprem</span> · 2026-W38</div>
+      <div class="carddate">✓ 2026-08-16</div>
+      
+      <div class="budget"><i style="width: 0%"></i></div>
+      <div class="fine">$0.00 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/119"
+       data-ts="1786919196.749069" data-desk="onprem" data-assignee="investigator-onprem"
+       data-sprint="2026-W38"
+       data-find="apply the onprem split rules to shared infrastructure and re-measure aai (covers open task #68) investigator-onprem onprem 2026-w38 onprem">
+      <div class="cardtitle"><span class="cbadge c3">C3</span> Apply the onprem split rules to shared infrastructure and re-measure AAI (covers open task #68)</div>
+      <div class="cardmeta">investigator-onprem · <span class="src onprem">onprem</span> · 2026-W38</div>
+      <div class="carddate">✓ 2026-08-16</div>
+      
+      <div class="budget"><i style="width: 2%"></i></div>
+      <div class="fine">$0.37 / $15.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/118"
+       data-ts="1786919196.738038" data-desk="gcp" data-assignee="investigator-gcp"
+       data-sprint="2026-W38"
+       data-find="reconstruct the ml gke step from billing data alone (desk-side step on #69) investigator-gcp gcp 2026-w38 gcp">
+      <div class="cardtitle"><span class="cbadge c2">C2</span> Reconstruct the ml GKE step from billing data alone (desk-side step on #69)</div>
+      <div class="cardmeta">investigator-gcp · <span class="src gcp">gcp</span> · 2026-W38</div>
+      <div class="carddate">✓ 2026-08-16</div>
+      
+      <div class="budget"><i style="width: 0%"></i></div>
+      <div class="fine">$0.00 / $15.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/117"
+       data-ts="1786919196.726593" data-desk="gcp" data-assignee="reporter-gcp"
+       data-sprint="2026-W38"
+       data-find="re-measure gcp esr and ml budget variance after the lift reporter-gcp gcp 2026-w38 gcp">
+      <div class="cardtitle"><span class="cbadge c2">C2</span> Re-measure GCP ESR and ml budget variance after the lift</div>
+      <div class="cardmeta">reporter-gcp · <span class="src gcp">gcp</span> · 2026-W38</div>
+      <div class="carddate">✓ 2026-08-16</div>
+      
+      <div class="budget"><i style="width: 0%"></i></div>
+      <div class="fine">$0.00 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/116"
+       data-ts="1786919196.715413" data-desk="gcp" data-assignee="optimizer-gcp"
+       data-sprint="2026-W38"
+       data-find="apply the gcp esr lift package and re-measure esr (covers open task #67) optimizer-gcp gcp 2026-w38 gcp">
+      <div class="cardtitle"><span class="cbadge c3">C3</span> Apply the GCP ESR lift package and re-measure ESR (covers open task #67)</div>
+      <div class="cardmeta">optimizer-gcp · <span class="src gcp">gcp</span> · 2026-W38</div>
+      <div class="carddate">✓ 2026-08-16</div>
+      
+      <div class="budget"><i style="width: 2%"></i></div>
+      <div class="fine">$0.38 / $18.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/115"
+       data-ts="1786919196.7039108" data-desk="aws" data-assignee="capacity-aws"
+       data-sprint="2026-W38"
+       data-find="classify the ml gpu driver and firm up the request #1 estimate capacity-aws aws 2026-w38 aws">
+      <div class="cardtitle"><span class="cbadge c2">C2</span> Classify the ml GPU driver and firm up the request #1 estimate</div>
+      <div class="cardmeta">capacity-aws · <span class="src aws">aws</span> · 2026-W38</div>
+      <div class="carddate">✓ 2026-08-16</div>
+      
+      <div class="budget"><i style="width: 0%"></i></div>
+      <div class="fine">$0.00 / $15.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/114"
+       data-ts="1786919196.692538" data-desk="aws" data-assignee="reporter-aws"
+       data-sprint="2026-W38"
+       data-find="apply the walk-to-run ladder step and re-measure aws forecast error reporter-aws aws 2026-w38 aws">
+      <div class="cardtitle"><span class="cbadge c2">C2</span> Apply the walk-to-run ladder step and re-measure AWS forecast error</div>
+      <div class="cardmeta">reporter-aws · <span class="src aws">aws</span> · 2026-W38</div>
+      <div class="carddate">✓ 2026-08-16</div>
+      
+      <div class="budget"><i style="width: 0%"></i></div>
+      <div class="fine">$0.00 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/113"
+       data-ts="1786919196.681571" data-desk="aws" data-assignee="optimizer-aws"
+       data-sprint="2026-W38"
+       data-find="apply the ri coverage extension (request #7) and re-measure aws esr optimizer-aws aws 2026-w38 aws">
+      <div class="cardtitle"><span class="cbadge c2">C2</span> Apply the RI coverage extension (request #7) and re-measure AWS ESR</div>
+      <div class="cardmeta">optimizer-aws · <span class="src aws">aws</span> · 2026-W38</div>
+      <div class="carddate">✓ 2026-08-16</div>
+      
+      <div class="budget"><i style="width: 0%"></i></div>
+      <div class="fine">$0.00 / $18.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/102"
+       data-ts="1786715160.0" data-desk="gcp" data-assignee="reporter-gcp"
+       data-sprint="2026-W36"
+       data-find="cross-desk ml position note for the operator reporter-gcp gcp 2026-w36 gcp">
+      <div class="cardtitle"><span class="cbadge c2">C2</span> Cross-desk ml position note for the operator</div>
+      <div class="cardmeta">reporter-gcp · <span class="src gcp">gcp</span> · 2026-W36</div>
+      <div class="carddate">✓ 2026-08-14</div>
+      
+      <div class="budget"><i style="width: 0%"></i></div>
+      <div class="fine">$0.00 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/101"
+       data-ts="1786713480.0" data-desk="onprem" data-assignee="investigator-onprem"
+       data-sprint="2026-W36"
+       data-find="finish the storage growth check after the array step (item #68) investigator-onprem onprem 2026-w36 onprem">
+      <div class="cardtitle"><span class="cbadge c2">C2</span> Finish the storage growth check after the array step (item #68)</div>
+      <div class="cardmeta">investigator-onprem · <span class="src onprem">onprem</span> · 2026-W36</div>
+      <div class="carddate">✓ 2026-08-14</div>
+      
+      <div class="budget"><i style="width: 0%"></i></div>
+      <div class="fine">$0.00 / $15.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/100"
+       data-ts="1786711800.0" data-desk="onprem" data-assignee="reporter-onprem"
+       data-sprint="2026-W36"
+       data-find="redo the returned weekly spend pulse 2026-w33 (onprem) reporter-onprem onprem 2026-w36 onprem">
+      <div class="cardtitle"><span class="cbadge c1">C1</span> Redo the returned weekly spend pulse 2026-W33 (onprem)</div>
+      <div class="cardmeta">reporter-onprem · <span class="src onprem">onprem</span> · 2026-W36</div>
+      <div class="carddate">✓ 2026-08-14</div>
+      
+      <div class="budget"><i style="width: 0%"></i></div>
+      <div class="fine">$0.00 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/99"
+       data-ts="1786710120.0" data-desk="onprem" data-assignee="reporter-onprem"
+       data-sprint="2026-W36"
+       data-find="august 2026 month-close report (onprem) reporter-onprem onprem 2026-w36 onprem">
+      <div class="cardtitle"><span class="cbadge c2">C2</span> August 2026 month-close report (onprem)</div>
+      <div class="cardmeta">reporter-onprem · <span class="src onprem">onprem</span> · 2026-W36</div>
+      <div class="carddate">✓ 2026-08-14</div>
+      
+      <div class="budget"><i style="width: 0%"></i></div>
+      <div class="fine">$0.00 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/98"
+       data-ts="1786708440.0" data-desk="gcp" data-assignee="optimizer-gcp"
+       data-sprint="2026-W36"
+       data-find="finish the weekend-dip idle schedule proposal (item #67) optimizer-gcp gcp 2026-w36 gcp">
+      <div class="cardtitle"><span class="cbadge c1">C1</span> Finish the weekend-dip idle schedule proposal (item #67)</div>
+      <div class="cardmeta">optimizer-gcp · <span class="src gcp">gcp</span> · 2026-W36</div>
+      <div class="carddate">✓ 2026-08-14</div>
+      
+      <div class="budget"><i style="width: 0%"></i></div>
+      <div class="fine">$0.00 / $18.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/112"
+       data-ts="1786707840.0" data-desk="aws" data-assignee="capacity-aws"
+       data-sprint="2026-W37"
+       data-find="size request #1 (gpu nodes) and profile ml ai spend capacity-aws aws 2026-w37 aws">
+      <div class="cardtitle"><span class="cbadge c2">C2</span> Size request #1 (GPU nodes) and profile ml AI spend</div>
+      <div class="cardmeta">capacity-aws · <span class="src aws">aws</span> · 2026-W37</div>
+      <div class="carddate">✓ 2026-08-14</div>
+      
+      <div class="budget"><i style="width: 0%"></i></div>
+      <div class="fine">$0.00 / $15.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/111"
+       data-ts="1786706820.0" data-desk="onprem" data-assignee="reporter-onprem"
+       data-sprint="2026-W37"
+       data-find="rework returned pulse #65 and clear the on-prem queue reporter-onprem onprem 2026-w37 onprem">
+      <div class="cardtitle"><span class="cbadge c1">C1</span> Rework returned pulse #65 and clear the on-prem queue</div>
+      <div class="cardmeta">reporter-onprem · <span class="src onprem">onprem</span> · 2026-W37</div>
+      <div class="carddate">✓ 2026-08-14</div>
+      
+      <div class="budget"><i style="width: 0%"></i></div>
+      <div class="fine">$0.00 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/97"
+       data-ts="1786706760.0" data-desk="gcp" data-assignee="investigator-gcp"
+       data-sprint="2026-W36"
+       data-find="gke burst pool for training: decision pack (request #3) investigator-gcp gcp 2026-w36 gcp">
+      <div class="cardtitle"><span class="cbadge c3">C3</span> GKE burst pool for training: decision pack (request #3)</div>
+      <div class="cardmeta">investigator-gcp · <span class="src gcp">gcp</span> · 2026-W36</div>
+      <div class="carddate">✓ 2026-08-14</div>
+      
+      <div class="budget"><i style="width: 3%"></i></div>
+      <div class="fine">$0.42 / $15.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/110"
+       data-ts="1786705800.0" data-desk="aws" data-assignee="reporter-aws"
+       data-sprint="2026-W37"
+       data-find="aws w34 pulse and kpi benchmark card reporter-aws aws 2026-w37 aws">
+      <div class="cardtitle"><span class="cbadge c2">C2</span> AWS W34 pulse and KPI benchmark card</div>
+      <div class="cardmeta">reporter-aws · <span class="src aws">aws</span> · 2026-W37</div>
+      <div class="carddate">✓ 2026-08-14</div>
+      
+      <div class="budget"><i style="width: 0%"></i></div>
+      <div class="fine">$0.00 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/96"
+       data-ts="1786705080.0" data-desk="gcp" data-assignee="reporter-gcp"
+       data-sprint="2026-W36"
+       data-find="august 2026 month-close report (gcp) reporter-gcp gcp 2026-w36 gcp">
+      <div class="cardtitle"><span class="cbadge c2">C2</span> August 2026 month-close report (gcp)</div>
+      <div class="cardmeta">reporter-gcp · <span class="src gcp">gcp</span> · 2026-W36</div>
+      <div class="carddate">✓ 2026-08-14</div>
+      
+      <div class="budget"><i style="width: 0%"></i></div>
+      <div class="fine">$0.00 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/109"
+       data-ts="1786704780.0" data-desk="gcp" data-assignee="reporter-gcp"
+       data-sprint="2026-W37"
+       data-find="gcp forecast ladder: walk to run reporter-gcp gcp 2026-w37 gcp">
+      <div class="cardtitle"><span class="cbadge c2">C2</span> GCP forecast ladder: walk to run</div>
+      <div class="cardmeta">reporter-gcp · <span class="src gcp">gcp</span> · 2026-W37</div>
+      <div class="carddate">✓ 2026-08-14</div>
+      
+      <div class="budget"><i style="width: 0%"></i></div>
+      <div class="fine">$0.00 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/108"
+       data-ts="1786703760.0" data-desk="aws" data-assignee="optimizer-aws"
+       data-sprint="2026-W37"
+       data-find="close out ri coverage extension, request #7 optimizer-aws aws 2026-w37 aws">
+      <div class="cardtitle"><span class="cbadge c2">C2</span> Close out RI coverage extension, request #7</div>
+      <div class="cardmeta">optimizer-aws · <span class="src aws">aws</span> · 2026-W37</div>
+      <div class="carddate">✓ 2026-08-14</div>
+      
+      <div class="budget"><i style="width: 0%"></i></div>
+      <div class="fine">$0.00 / $18.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/95"
+       data-ts="1786703400.0" data-desk="aws" data-assignee="capacity-aws"
+       data-sprint="2026-W36"
+       data-find="first-pass sizing: two extra gpu training nodes (request #1) capacity-aws aws 2026-w36 aws">
+      <div class="cardtitle"><span class="cbadge c2">C2</span> First-pass sizing: two extra GPU training nodes (request #1)</div>
+      <div class="cardmeta">capacity-aws · <span class="src aws">aws</span> · 2026-W36</div>
+      <div class="carddate">✓ 2026-08-14</div>
+      
+      <div class="budget"><i style="width: 0%"></i></div>
+      <div class="fine">$0.00 / $15.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/107"
+       data-ts="1786702740.0" data-desk="gcp" data-assignee="optimizer-gcp"
+       data-sprint="2026-W37"
+       data-find="finish idle-schedule proposal #67 (weekend dips) optimizer-gcp gcp 2026-w37 gcp">
+      <div class="cardtitle"><span class="cbadge c1">C1</span> Finish idle-schedule proposal #67 (weekend dips)</div>
+      <div class="cardmeta">optimizer-gcp · <span class="src gcp">gcp</span> · 2026-W37</div>
+      <div class="carddate">✓ 2026-08-14</div>
+      
+      <div class="budget"><i style="width: 0%"></i></div>
+      <div class="fine">$0.00 / $18.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/94"
+       data-ts="1786701720.0" data-desk="aws" data-assignee="optimizer-aws"
+       data-sprint="2026-W36"
+       data-find="ri coverage extension: verification and decision pack (request #7) optimizer-aws aws 2026-w36 aws">
+      <div class="cardtitle"><span class="cbadge c2">C2</span> RI coverage extension: verification and decision pack (request #7)</div>
+      <div class="cardmeta">optimizer-aws · <span class="src aws">aws</span> · 2026-W36</div>
+      <div class="carddate">✓ 2026-08-14</div>
+      
+      <div class="budget"><i style="width: 0%"></i></div>
+      <div class="fine">$0.00 / $18.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/106"
+       data-ts="1786701720.0" data-desk="gcp" data-assignee="optimizer-gcp"
+       data-sprint="2026-W37"
+       data-find="gcp commitment coverage to lift effective savings rate optimizer-gcp gcp 2026-w37 gcp">
+      <div class="cardtitle"><span class="cbadge c3">C3</span> GCP commitment coverage to lift effective savings rate</div>
+      <div class="cardmeta">optimizer-gcp · <span class="src gcp">gcp</span> · 2026-W37</div>
+      <div class="carddate">✓ 2026-08-14</div>
+      
+      <div class="budget"><i style="width: 2%"></i></div>
+      <div class="fine">$0.42 / $18.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/105"
+       data-ts="1786700700.0" data-desk="onprem" data-assignee="investigator-onprem"
+       data-sprint="2026-W37"
+       data-find="on-prem shared-pool allocation: colo, power, licensing investigator-onprem onprem 2026-w37 onprem">
+      <div class="cardtitle"><span class="cbadge c3">C3</span> On-prem shared-pool allocation: colo, power, licensing</div>
+      <div class="cardmeta">investigator-onprem · <span class="src onprem">onprem</span> · 2026-W37</div>
+      <div class="carddate">✓ 2026-08-14</div>
+      
+      <div class="budget"><i style="width: 3%"></i></div>
+      <div class="fine">$0.43 / $15.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/104"
+       data-ts="1786699680.0" data-desk="gcp" data-assignee="investigator-gcp"
+       data-sprint="2026-W37"
+       data-find="apply the split-rule shape to gcp allocation investigator-gcp gcp 2026-w37 gcp">
+      <div class="cardtitle"><span class="cbadge c2">C2</span> Apply the split-rule shape to GCP allocation</div>
+      <div class="cardmeta">investigator-gcp · <span class="src gcp">gcp</span> · 2026-W37</div>
+      <div class="carddate">✓ 2026-08-14</div>
+      
+      <div class="budget"><i style="width: 0%"></i></div>
+      <div class="fine">$0.00 / $15.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/103"
+       data-ts="1786698660.0" data-desk="aws" data-assignee="investigator-aws"
+       data-sprint="2026-W37"
+       data-find="aws split rules for purchase, tax and credit investigator-aws aws 2026-w37 aws">
+      <div class="cardtitle"><span class="cbadge c3">C3</span> AWS split rules for Purchase, Tax and Credit</div>
+      <div class="cardmeta">investigator-aws · <span class="src aws">aws</span> · 2026-W37</div>
+      <div class="carddate">✓ 2026-08-14</div>
+      
+      <div class="budget"><i style="width: 3%"></i></div>
+      <div class="fine">$0.39 / $15.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/93"
+       data-ts="1786698360.0" data-desk="aws" data-assignee="reporter-aws"
+       data-sprint="2026-W36"
+       data-find="august 2026 month-close report (aws) reporter-aws aws 2026-w36 aws">
+      <div class="cardtitle"><span class="cbadge c2">C2</span> August 2026 month-close report (aws)</div>
+      <div class="cardmeta">reporter-aws · <span class="src aws">aws</span> · 2026-W36</div>
+      <div class="carddate">✓ 2026-08-14</div>
+      
+      <div class="budget"><i style="width: 0%"></i></div>
+      <div class="fine">$0.00 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/92"
+       data-ts="1786638840.0" data-desk="" data-assignee="reporter-gcp"
+       data-sprint=""
+       data-find="routine gcp pulse (c1, auto engine) reporter-gcp   gcp">
+      <div class="cardtitle"><span class="cbadge c1">C1</span> Routine gcp pulse (C1, auto engine)</div>
+      <div class="cardmeta">reporter-gcp · <span class="src gcp">gcp</span></div>
+      <div class="carddate">✓ 2026-08-13</div>
+      
+      <div class="budget"><i style="width: 0%"></i></div>
+      <div class="fine">$0.00 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/91"
+       data-ts="1786637160.0" data-desk="" data-assignee="reporter-aws"
+       data-sprint=""
+       data-find="deep aws analysis (strong engine, supervisor&#39;s pick) reporter-aws   aws">
+      <div class="cardtitle">Deep aws analysis (strong engine, supervisor&#39;s pick)</div>
+      <div class="cardmeta">reporter-aws · <span class="src aws">aws</span></div>
+      <div class="carddate">✓ 2026-08-13</div>
+      
+      <div class="budget"><i style="width: 2%"></i></div>
+      <div class="fine">$0.34 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/90"
+       data-ts="1786635480.0" data-desk="" data-assignee="reporter-aws"
+       data-sprint=""
+       data-find="economy pulse aws (default engine) reporter-aws   aws">
+      <div class="cardtitle">Economy pulse aws (default engine)</div>
+      <div class="cardmeta">reporter-aws · <span class="src aws">aws</span></div>
+      <div class="carddate">✓ 2026-08-13</div>
+      
+      <div class="budget"><i style="width: 0%"></i></div>
+      <div class="fine">$0.00 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/88"
+       data-ts="1786633800.0" data-desk="" data-assignee="supervisor"
+       data-sprint=""
+       data-find="sprint review 2026-w35 (closing) supervisor   aws">
+      <div class="cardtitle">Sprint review 2026-W35 (closing)</div>
+      <div class="cardmeta">supervisor · <span class="src aws">aws</span></div>
+      <div class="carddate">✓ 2026-08-13</div>
+      
+      <div class="budget"><i style="width: 71%"></i></div>
+      <div class="fine">$0.36 / $0.50</div>
+    </a>
+  
+    <a class="card st-done" href="/task/89"
+       data-ts="1786632120.0" data-desk="" data-assignee="reporter-onprem"
+       data-sprint=""
+       data-find="weekly spend pulse (kimi test, onprem) reporter-onprem   onprem">
+      <div class="cardtitle">Weekly spend pulse (Kimi test, onprem)</div>
+      <div class="cardmeta">reporter-onprem · <span class="src onprem">onprem</span></div>
+      <div class="carddate">✓ 2026-08-13</div>
+      
+      <div class="budget"><i style="width: 0%"></i></div>
+      <div class="fine">$0.00 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/87"
+       data-ts="1786628760.0" data-desk="onprem" data-assignee="investigator-onprem"
+       data-sprint="2026-W35"
+       data-find="close #68: storage growth after the array step investigator-onprem onprem 2026-w35 onprem">
+      <div class="cardtitle">Close #68: storage growth after the array step</div>
+      <div class="cardmeta">investigator-onprem · <span class="src onprem">onprem</span> · 2026-W35</div>
+      <div class="carddate">✓ 2026-08-13</div>
+      
+      <div class="budget"><i style="width: 2%"></i></div>
+      <div class="fine">$0.30 / $15.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/86"
+       data-ts="1786627080.0" data-desk="onprem" data-assignee="reporter-onprem"
+       data-sprint="2026-W35"
+       data-find="rework the returned w33 spend pulse (onprem) reporter-onprem onprem 2026-w35 onprem">
+      <div class="cardtitle">Rework the returned W33 spend pulse (onprem)</div>
+      <div class="cardmeta">reporter-onprem · <span class="src onprem">onprem</span> · 2026-W35</div>
+      <div class="carddate">✓ 2026-08-13</div>
+      
+      <div class="budget"><i style="width: 2%"></i></div>
+      <div class="fine">$0.30 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/85"
+       data-ts="1786625400.0" data-desk="gcp" data-assignee="reporter-gcp"
+       data-sprint="2026-W35"
+       data-find="gcp showback and variance 2026-w35 reporter-gcp gcp 2026-w35 gcp">
+      <div class="cardtitle">GCP showback and variance 2026-W35</div>
+      <div class="cardmeta">reporter-gcp · <span class="src gcp">gcp</span> · 2026-W35</div>
+      <div class="carddate">✓ 2026-08-13</div>
+      
+      <div class="budget"><i style="width: 1%"></i></div>
+      <div class="fine">$0.25 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/84"
+       data-ts="1786623720.0" data-desk="gcp" data-assignee="optimizer-gcp"
+       data-sprint="2026-W35"
+       data-find="close #67 and size request #4 (black friday scale test) optimizer-gcp gcp 2026-w35 gcp">
+      <div class="cardtitle">Close #67 and size request #4 (Black Friday scale test)</div>
+      <div class="cardmeta">optimizer-gcp · <span class="src gcp">gcp</span> · 2026-W35</div>
+      <div class="carddate">✓ 2026-08-13</div>
+      
+      <div class="budget"><i style="width: 2%"></i></div>
+      <div class="fine">$0.37 / $18.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/83"
+       data-ts="1786622040.0" data-desk="gcp" data-assignee="investigator-gcp"
+       data-sprint="2026-W35"
+       data-find="unblock or re-scope #69: ml gke step change investigator-gcp gcp 2026-w35 gcp">
+      <div class="cardtitle">Unblock or re-scope #69: ml GKE step change</div>
+      <div class="cardmeta">investigator-gcp · <span class="src gcp">gcp</span> · 2026-W35</div>
+      <div class="carddate">✓ 2026-08-13</div>
+      
+      <div class="budget"><i style="width: 2%"></i></div>
+      <div class="fine">$0.32 / $15.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/82"
+       data-ts="1786620360.0" data-desk="aws" data-assignee="reporter-aws"
+       data-sprint="2026-W35"
+       data-find="aws variance commentary 2026-w35 reporter-aws aws 2026-w35 aws">
+      <div class="cardtitle">AWS variance commentary 2026-W35</div>
+      <div class="cardmeta">reporter-aws · <span class="src aws">aws</span> · 2026-W35</div>
+      <div class="carddate">✓ 2026-08-13</div>
+      
+      <div class="budget"><i style="width: 2%"></i></div>
+      <div class="fine">$0.31 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/81"
+       data-ts="1786618680.0" data-desk="aws" data-assignee="optimizer-aws"
+       data-sprint="2026-W35"
+       data-find="firm up request #7: extend ri coverage optimizer-aws aws 2026-w35 aws">
+      <div class="cardtitle">Firm up request #7: extend RI coverage</div>
+      <div class="cardmeta">optimizer-aws · <span class="src aws">aws</span> · 2026-W35</div>
+      <div class="carddate">✓ 2026-08-13</div>
+      
+      <div class="budget"><i style="width: 2%"></i></div>
+      <div class="fine">$0.35 / $18.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/80"
+       data-ts="1786617000.0" data-desk="aws" data-assignee="capacity-aws"
+       data-sprint="2026-W35"
+       data-find="cross-platform unit economics for ml training (aws + gcp) capacity-aws aws 2026-w35 aws">
+      <div class="cardtitle">Cross-platform unit economics for ml training (aws + gcp)</div>
+      <div class="cardmeta">capacity-aws · <span class="src aws">aws</span> · 2026-W35</div>
+      <div class="carddate">✓ 2026-08-13</div>
+      
+      <div class="budget"><i style="width: 2%"></i></div>
+      <div class="fine">$0.36 / $15.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/79"
+       data-ts="1786615320.0" data-desk="aws" data-assignee="capacity-aws"
+       data-sprint="2026-W35"
+       data-find="rightsizing sweep of the ml aws compute fleet capacity-aws aws 2026-w35 aws">
+      <div class="cardtitle">Rightsizing sweep of the ml AWS compute fleet</div>
+      <div class="cardmeta">capacity-aws · <span class="src aws">aws</span> · 2026-W35</div>
+      <div class="carddate">✓ 2026-08-13</div>
+      
+      <div class="budget"><i style="width: 2%"></i></div>
+      <div class="fine">$0.33 / $15.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/78"
+       data-ts="1786613640.0" data-desk="aws" data-assignee="capacity-aws"
+       data-sprint="2026-W35"
+       data-find="capacity estimate for request #1: two extra gpu training nodes capacity-aws aws 2026-w35 aws">
+      <div class="cardtitle">Capacity estimate for request #1: two extra GPU training nodes</div>
+      <div class="cardmeta">capacity-aws · <span class="src aws">aws</span> · 2026-W35</div>
+      <div class="carddate">✓ 2026-08-13</div>
+      
+      <div class="budget"><i style="width: 2%"></i></div>
+      <div class="fine">$0.32 / $15.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/77"
+       data-ts="1786611960.0" data-desk="aws" data-assignee="investigator-aws"
+       data-sprint="2026-W35"
+       data-find="classify the 2026-07-30 ec2 spike on ml (aws) investigator-aws aws 2026-w35 aws">
+      <div class="cardtitle">Classify the 2026-07-30 EC2 spike on ml (aws)</div>
+      <div class="cardmeta">investigator-aws · <span class="src aws">aws</span> · 2026-W35</div>
+      <div class="carddate">✓ 2026-08-13</div>
+      
+      <div class="budget"><i style="width: 2%"></i></div>
+      <div class="fine">$0.31 / $15.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/76"
+       data-ts="1786610280.0" data-desk="" data-assignee="capacity-aws"
+       data-sprint=""
+       data-find="permission-boundary test: gcp question to a newcomer capacity-aws   gcp">
+      <div class="cardtitle">Permission-boundary test: GCP question to a newcomer</div>
+      <div class="cardmeta">capacity-aws · <span class="src gcp">gcp</span></div>
+      <div class="carddate">✓ 2026-08-13</div>
+      
+      <div class="budget"><i style="width: 2%"></i></div>
+      <div class="fine">$0.31 / $15.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/75"
+       data-ts="1786539000.0" data-desk="onprem" data-assignee="investigator-onprem"
+       data-sprint="2026-W34"
+       data-find="is the on-prem ml overrun the same problem as aws and gcp? investigator-onprem onprem 2026-w34 onprem">
+      <div class="cardtitle">Is the on-prem ml overrun the same problem as AWS and GCP?</div>
+      <div class="cardmeta">investigator-onprem · <span class="src onprem">onprem</span> · 2026-W34</div>
+      <div class="carddate">✓ 2026-08-12</div>
+      
+      <div class="budget"><i style="width: 2%"></i></div>
+      <div class="fine">$0.32 / $15.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/74"
+       data-ts="1786537320.0" data-desk="onprem" data-assignee="investigator-onprem"
+       data-sprint="2026-W34"
+       data-find="finish item #68 and rule on tranche 2 investigator-onprem onprem 2026-w34 onprem">
+      <div class="cardtitle">Finish item #68 and rule on tranche 2</div>
+      <div class="cardmeta">investigator-onprem · <span class="src onprem">onprem</span> · 2026-W34</div>
+      <div class="carddate">✓ 2026-08-12</div>
+      
+      <div class="budget"><i style="width: 2%"></i></div>
+      <div class="fine">$0.30 / $15.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/73"
+       data-ts="1786535640.0" data-desk="onprem" data-assignee="reporter-onprem"
+       data-sprint="2026-W34"
+       data-find="redo the returned pulse (item #65) and cover 2026-w34 (onprem) reporter-onprem onprem 2026-w34 onprem">
+      <div class="cardtitle">Redo the returned pulse (item #65) and cover 2026-W34 (onprem)</div>
+      <div class="cardmeta">reporter-onprem · <span class="src onprem">onprem</span> · 2026-W34</div>
+      <div class="carddate">✓ 2026-08-12</div>
+      
+      <div class="budget"><i style="width: 2%"></i></div>
+      <div class="fine">$0.34 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/72"
+       data-ts="1786533960.0" data-desk="gcp" data-assignee="optimizer-gcp"
+       data-sprint="2026-W34"
+       data-find="size request #4: black friday scale test optimizer-gcp gcp 2026-w34 gcp">
+      <div class="cardtitle">Size request #4: Black Friday scale test</div>
+      <div class="cardmeta">optimizer-gcp · <span class="src gcp">gcp</span> · 2026-W34</div>
+      <div class="carddate">✓ 2026-08-12</div>
+      
+      <div class="budget"><i style="width: 2%"></i></div>
+      <div class="fine">$0.34 / $18.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/71"
+       data-ts="1786532280.0" data-desk="gcp" data-assignee="optimizer-gcp"
+       data-sprint="2026-W34"
+       data-find="close out item #67: idle schedule proposal, weekend dips optimizer-gcp gcp 2026-w34 gcp">
+      <div class="cardtitle">Close out item #67: idle schedule proposal, weekend dips</div>
+      <div class="cardmeta">optimizer-gcp · <span class="src gcp">gcp</span> · 2026-W34</div>
+      <div class="carddate">✓ 2026-08-12</div>
+      
+      <div class="budget"><i style="width: 2%"></i></div>
+      <div class="fine">$0.33 / $18.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/70"
+       data-ts="1786530600.0" data-desk="gcp" data-assignee="investigator-gcp"
+       data-sprint="2026-W34"
+       data-find="unblock item #69: ml gke step change deep-dive investigator-gcp gcp 2026-w34 gcp">
+      <div class="cardtitle">Unblock item #69: ml GKE step change deep-dive</div>
+      <div class="cardmeta">investigator-gcp · <span class="src gcp">gcp</span> · 2026-W34</div>
+      <div class="carddate">✓ 2026-08-12</div>
+      
+      <div class="budget"><i style="width: 2%"></i></div>
+      <div class="fine">$0.37 / $15.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/69"
+       data-ts="1786528920.0" data-desk="gcp" data-assignee="reporter-gcp"
+       data-sprint="2026-W34"
+       data-find="weekly spend pulse 2026-w34 (gcp) reporter-gcp gcp 2026-w34 gcp">
+      <div class="cardtitle">Weekly spend pulse 2026-W34 (gcp)</div>
+      <div class="cardmeta">reporter-gcp · <span class="src gcp">gcp</span> · 2026-W34</div>
+      <div class="carddate">✓ 2026-08-12</div>
+      
+      <div class="budget"><i style="width: 2%"></i></div>
+      <div class="fine">$0.30 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/61"
+       data-ts="1786377600.0" data-desk="management" data-assignee="supervisor"
+       data-sprint="2026-W33"
+       data-find="plan sprint 2026-w33 supervisor management 2026-w33 aws">
+      <div class="cardtitle">Plan sprint 2026-W33</div>
+      <div class="cardmeta">supervisor · <span class="src aws">aws</span> · 2026-W33</div>
+      <div class="carddate">✓ 2026-08-10</div>
+      
+      <div class="budget"><i style="width: 59%"></i></div>
+      <div class="fine">$11.88 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/59"
+       data-ts="1786118400.0" data-desk="gcp" data-assignee="investigator-gcp"
+       data-sprint="2026-W32"
+       data-find="anomaly triage: compute engine 2026-08-06 (gcp) investigator-gcp gcp 2026-w32 gcp">
+      <div class="cardtitle">Anomaly triage: Compute Engine 2026-08-06 (gcp)</div>
+      <div class="cardmeta">investigator-gcp · <span class="src gcp">gcp</span> · 2026-W32</div>
+      <div class="carddate">✓ 2026-08-07</div>
+      
+      <div class="budget"><i style="width: 88%"></i></div>
+      <div class="fine">$17.58 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/60"
+       data-ts="1786118400.0" data-desk="management" data-assignee="supervisor"
+       data-sprint="2026-W32"
+       data-find="sprint review 2026-w32 supervisor management 2026-w32 aws">
+      <div class="cardtitle">Sprint review 2026-W32</div>
+      <div class="cardmeta">supervisor · <span class="src aws">aws</span> · 2026-W32</div>
+      <div class="carddate">✓ 2026-08-07</div>
+      
+      <div class="budget"><i style="width: 76%"></i></div>
+      <div class="fine">$15.25 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/55"
+       data-ts="1785945600.0" data-desk="aws" data-assignee="optimizer-aws"
+       data-sprint="2026-W32"
+       data-find="commitment &amp; idle review 2026-07 (aws) optimizer-aws aws 2026-w32 aws">
+      <div class="cardtitle">Commitment &amp; idle review 2026-07 (aws)</div>
+      <div class="cardmeta">optimizer-aws · <span class="src aws">aws</span> · 2026-W32</div>
+      <div class="carddate">✓ 2026-08-05</div>
+      
+      <div class="budget"><i style="width: 42%"></i></div>
+      <div class="fine">$20.89 / $50.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/57"
+       data-ts="1785945600.0" data-desk="gcp" data-assignee="optimizer-gcp"
+       data-sprint="2026-W32"
+       data-find="commitment &amp; idle review 2026-07 (gcp) optimizer-gcp gcp 2026-w32 gcp">
+      <div class="cardtitle">Commitment &amp; idle review 2026-07 (gcp)</div>
+      <div class="cardmeta">optimizer-gcp · <span class="src gcp">gcp</span> · 2026-W32</div>
+      <div class="carddate">✓ 2026-08-05</div>
+      
+      <div class="budget"><i style="width: 45%"></i></div>
+      <div class="fine">$22.68 / $50.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/54"
+       data-ts="1785859200.0" data-desk="aws" data-assignee="reporter-aws"
+       data-sprint="2026-W32"
+       data-find="monthly spend report 2026-07 (aws) reporter-aws aws 2026-w32 aws">
+      <div class="cardtitle">Monthly spend report 2026-07 (aws)</div>
+      <div class="cardmeta">reporter-aws · <span class="src aws">aws</span> · 2026-W32</div>
+      <div class="carddate">✓ 2026-08-04</div>
+      
+      <div class="budget"><i style="width: 43%"></i></div>
+      <div class="fine">$21.37 / $50.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/56"
+       data-ts="1785859200.0" data-desk="gcp" data-assignee="reporter-gcp"
+       data-sprint="2026-W32"
+       data-find="monthly spend report 2026-07 (gcp) reporter-gcp gcp 2026-w32 gcp">
+      <div class="cardtitle">Monthly spend report 2026-07 (gcp)</div>
+      <div class="cardmeta">reporter-gcp · <span class="src gcp">gcp</span> · 2026-W32</div>
+      <div class="carddate">✓ 2026-08-04</div>
+      
+      <div class="budget"><i style="width: 41%"></i></div>
+      <div class="fine">$20.35 / $50.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/58"
+       data-ts="1785859200.0" data-desk="onprem" data-assignee="reporter-onprem"
+       data-sprint="2026-W32"
+       data-find="monthly spend report 2026-07 (onprem) reporter-onprem onprem 2026-w32 onprem">
+      <div class="cardtitle">Monthly spend report 2026-07 (onprem)</div>
+      <div class="cardmeta">reporter-onprem · <span class="src onprem">onprem</span> · 2026-W32</div>
+      <div class="carddate">✓ 2026-08-04</div>
+      
+      <div class="budget"><i style="width: 54%"></i></div>
+      <div class="fine">$26.88 / $50.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/53"
+       data-ts="1785772800.0" data-desk="management" data-assignee="supervisor"
+       data-sprint="2026-W32"
+       data-find="plan sprint 2026-w32 supervisor management 2026-w32 aws">
+      <div class="cardtitle">Plan sprint 2026-W32</div>
+      <div class="cardmeta">supervisor · <span class="src aws">aws</span> · 2026-W32</div>
+      <div class="carddate">✓ 2026-08-03</div>
+      
+      <div class="budget"><i style="width: 73%"></i></div>
+      <div class="fine">$14.54 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/48"
+       data-ts="1785513600.0" data-desk="aws" data-assignee="reporter-aws"
+       data-sprint="2026-W31"
+       data-find="weekly spend pulse 2026-w31 (aws) reporter-aws aws 2026-w31 aws">
+      <div class="cardtitle">Weekly spend pulse 2026-W31 (aws)</div>
+      <div class="cardmeta">reporter-aws · <span class="src aws">aws</span> · 2026-W31</div>
+      <div class="carddate">✓ 2026-07-31</div>
+      
+      <div class="budget"><i style="width: 47%"></i></div>
+      <div class="fine">$9.42 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/49"
+       data-ts="1785513600.0" data-desk="gcp" data-assignee="reporter-gcp"
+       data-sprint="2026-W31"
+       data-find="weekly spend pulse 2026-w31 (gcp) reporter-gcp gcp 2026-w31 gcp">
+      <div class="cardtitle">Weekly spend pulse 2026-W31 (gcp)</div>
+      <div class="cardmeta">reporter-gcp · <span class="src gcp">gcp</span> · 2026-W31</div>
+      <div class="carddate">✓ 2026-07-31</div>
+      
+      <div class="budget"><i style="width: 38%"></i></div>
+      <div class="fine">$7.65 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/50"
+       data-ts="1785513600.0" data-desk="onprem" data-assignee="reporter-onprem"
+       data-sprint="2026-W31"
+       data-find="weekly spend pulse 2026-w31 (onprem) reporter-onprem onprem 2026-w31 onprem">
+      <div class="cardtitle">Weekly spend pulse 2026-W31 (onprem)</div>
+      <div class="cardmeta">reporter-onprem · <span class="src onprem">onprem</span> · 2026-W31</div>
+      <div class="carddate">✓ 2026-07-31</div>
+      
+      <div class="budget"><i style="width: 52%"></i></div>
+      <div class="fine">$10.42 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/51"
+       data-ts="1785513600.0" data-desk="aws" data-assignee="investigator-aws"
+       data-sprint="2026-W31"
+       data-find="anomaly triage: amazon ec2 2026-07-29 (aws) investigator-aws aws 2026-w31 aws">
+      <div class="cardtitle">Anomaly triage: Amazon EC2 2026-07-29 (aws)</div>
+      <div class="cardmeta">investigator-aws · <span class="src aws">aws</span> · 2026-W31</div>
+      <div class="carddate">✓ 2026-07-31</div>
+      
+      <div class="budget"><i style="width: 70%"></i></div>
+      <div class="fine">$13.94 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/52"
+       data-ts="1785513600.0" data-desk="management" data-assignee="supervisor"
+       data-sprint="2026-W31"
+       data-find="sprint review 2026-w31 supervisor management 2026-w31 aws">
+      <div class="cardtitle">Sprint review 2026-W31</div>
+      <div class="cardmeta">supervisor · <span class="src aws">aws</span> · 2026-W31</div>
+      <div class="carddate">✓ 2026-07-31</div>
+      
+      <div class="budget"><i style="width: 63%"></i></div>
+      <div class="fine">$12.51 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/47"
+       data-ts="1785168000.0" data-desk="management" data-assignee="supervisor"
+       data-sprint="2026-W31"
+       data-find="plan sprint 2026-w31 supervisor management 2026-w31 aws">
+      <div class="cardtitle">Plan sprint 2026-W31</div>
+      <div class="cardmeta">supervisor · <span class="src aws">aws</span> · 2026-W31</div>
+      <div class="carddate">✓ 2026-07-27</div>
+      
+      <div class="budget"><i style="width: 76%"></i></div>
+      <div class="fine">$15.25 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/43"
+       data-ts="1784908800.0" data-desk="aws" data-assignee="reporter-aws"
+       data-sprint="2026-W30"
+       data-find="weekly spend pulse 2026-w30 (aws) reporter-aws aws 2026-w30 aws">
+      <div class="cardtitle">Weekly spend pulse 2026-W30 (aws)</div>
+      <div class="cardmeta">reporter-aws · <span class="src aws">aws</span> · 2026-W30</div>
+      <div class="carddate">✓ 2026-07-24</div>
+      
+      <div class="budget"><i style="width: 47%"></i></div>
+      <div class="fine">$9.30 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/44"
+       data-ts="1784908800.0" data-desk="gcp" data-assignee="reporter-gcp"
+       data-sprint="2026-W30"
+       data-find="weekly spend pulse 2026-w30 (gcp) reporter-gcp gcp 2026-w30 gcp">
+      <div class="cardtitle">Weekly spend pulse 2026-W30 (gcp)</div>
+      <div class="cardmeta">reporter-gcp · <span class="src gcp">gcp</span> · 2026-W30</div>
+      <div class="carddate">✓ 2026-07-24</div>
+      
+      <div class="budget"><i style="width: 37%"></i></div>
+      <div class="fine">$7.48 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/45"
+       data-ts="1784908800.0" data-desk="onprem" data-assignee="reporter-onprem"
+       data-sprint="2026-W30"
+       data-find="weekly spend pulse 2026-w30 (onprem) reporter-onprem onprem 2026-w30 onprem">
+      <div class="cardtitle">Weekly spend pulse 2026-W30 (onprem)</div>
+      <div class="cardmeta">reporter-onprem · <span class="src onprem">onprem</span> · 2026-W30</div>
+      <div class="carddate">✓ 2026-07-24</div>
+      
+      <div class="budget"><i style="width: 44%"></i></div>
+      <div class="fine">$8.80 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/46"
+       data-ts="1784908800.0" data-desk="management" data-assignee="supervisor"
+       data-sprint="2026-W30"
+       data-find="sprint review 2026-w30 supervisor management 2026-w30 aws">
+      <div class="cardtitle">Sprint review 2026-W30</div>
+      <div class="cardmeta">supervisor · <span class="src aws">aws</span> · 2026-W30</div>
+      <div class="carddate">✓ 2026-07-24</div>
+      
+      <div class="budget"><i style="width: 66%"></i></div>
+      <div class="fine">$13.15 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/42"
+       data-ts="1784563200.0" data-desk="management" data-assignee="supervisor"
+       data-sprint="2026-W30"
+       data-find="plan sprint 2026-w30 supervisor management 2026-w30 aws">
+      <div class="cardtitle">Plan sprint 2026-W30</div>
+      <div class="cardmeta">supervisor · <span class="src aws">aws</span> · 2026-W30</div>
+      <div class="carddate">✓ 2026-07-20</div>
+      
+      <div class="budget"><i style="width: 74%"></i></div>
+      <div class="fine">$14.77 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/38"
+       data-ts="1784304000.0" data-desk="aws" data-assignee="reporter-aws"
+       data-sprint="2026-W29"
+       data-find="weekly spend pulse 2026-w29 (aws) reporter-aws aws 2026-w29 aws">
+      <div class="cardtitle">Weekly spend pulse 2026-W29 (aws)</div>
+      <div class="cardmeta">reporter-aws · <span class="src aws">aws</span> · 2026-W29</div>
+      <div class="carddate">✓ 2026-07-17</div>
+      
+      <div class="budget"><i style="width: 39%"></i></div>
+      <div class="fine">$7.76 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/39"
+       data-ts="1784304000.0" data-desk="gcp" data-assignee="reporter-gcp"
+       data-sprint="2026-W29"
+       data-find="weekly spend pulse 2026-w29 (gcp) reporter-gcp gcp 2026-w29 gcp">
+      <div class="cardtitle">Weekly spend pulse 2026-W29 (gcp)</div>
+      <div class="cardmeta">reporter-gcp · <span class="src gcp">gcp</span> · 2026-W29</div>
+      <div class="carddate">✓ 2026-07-17</div>
+      
+      <div class="budget"><i style="width: 44%"></i></div>
+      <div class="fine">$8.84 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/40"
+       data-ts="1784304000.0" data-desk="onprem" data-assignee="reporter-onprem"
+       data-sprint="2026-W29"
+       data-find="weekly spend pulse 2026-w29 (onprem) reporter-onprem onprem 2026-w29 onprem">
+      <div class="cardtitle">Weekly spend pulse 2026-W29 (onprem)</div>
+      <div class="cardmeta">reporter-onprem · <span class="src onprem">onprem</span> · 2026-W29</div>
+      <div class="carddate">✓ 2026-07-17</div>
+      
+      <div class="budget"><i style="width: 42%"></i></div>
+      <div class="fine">$8.31 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/41"
+       data-ts="1784304000.0" data-desk="management" data-assignee="supervisor"
+       data-sprint="2026-W29"
+       data-find="sprint review 2026-w29 supervisor management 2026-w29 aws">
+      <div class="cardtitle">Sprint review 2026-W29</div>
+      <div class="cardmeta">supervisor · <span class="src aws">aws</span> · 2026-W29</div>
+      <div class="carddate">✓ 2026-07-17</div>
+      
+      <div class="budget"><i style="width: 59%"></i></div>
+      <div class="fine">$11.80 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/35"
+       data-ts="1783958400.0" data-desk="onprem" data-assignee="investigator-onprem"
+       data-sprint="2026-W28"
+       data-find="anomaly triage: colo power &amp; cooling 2026-07-08 (onprem) investigator-onprem onprem 2026-w28 onprem">
+      <div class="cardtitle">Anomaly triage: Colo Power &amp; Cooling 2026-07-08 (onprem)</div>
+      <div class="cardmeta">investigator-onprem · <span class="src onprem">onprem</span> · 2026-W28</div>
+      <div class="carddate">✓ 2026-07-13</div>
+      
+      <div class="budget"><i style="width: 73%"></i></div>
+      <div class="fine">$14.65 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/37"
+       data-ts="1783958400.0" data-desk="management" data-assignee="supervisor"
+       data-sprint="2026-W29"
+       data-find="plan sprint 2026-w29 supervisor management 2026-w29 aws">
+      <div class="cardtitle">Plan sprint 2026-W29</div>
+      <div class="cardmeta">supervisor · <span class="src aws">aws</span> · 2026-W29</div>
+      <div class="carddate">✓ 2026-07-13</div>
+      
+      <div class="budget"><i style="width: 63%"></i></div>
+      <div class="fine">$12.57 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/32"
+       data-ts="1783699200.0" data-desk="aws" data-assignee="reporter-aws"
+       data-sprint="2026-W28"
+       data-find="weekly spend pulse 2026-w28 (aws) reporter-aws aws 2026-w28 aws">
+      <div class="cardtitle">Weekly spend pulse 2026-W28 (aws)</div>
+      <div class="cardmeta">reporter-aws · <span class="src aws">aws</span> · 2026-W28</div>
+      <div class="carddate">✓ 2026-07-10</div>
+      
+      <div class="budget"><i style="width: 43%"></i></div>
+      <div class="fine">$8.69 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/33"
+       data-ts="1783699200.0" data-desk="gcp" data-assignee="reporter-gcp"
+       data-sprint="2026-W28"
+       data-find="weekly spend pulse 2026-w28 (gcp) reporter-gcp gcp 2026-w28 gcp">
+      <div class="cardtitle">Weekly spend pulse 2026-W28 (gcp)</div>
+      <div class="cardmeta">reporter-gcp · <span class="src gcp">gcp</span> · 2026-W28</div>
+      <div class="carddate">✓ 2026-07-10</div>
+      
+      <div class="budget"><i style="width: 34%"></i></div>
+      <div class="fine">$6.75 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/34"
+       data-ts="1783699200.0" data-desk="onprem" data-assignee="reporter-onprem"
+       data-sprint="2026-W28"
+       data-find="weekly spend pulse 2026-w28 (onprem) reporter-onprem onprem 2026-w28 onprem">
+      <div class="cardtitle">Weekly spend pulse 2026-W28 (onprem)</div>
+      <div class="cardmeta">reporter-onprem · <span class="src onprem">onprem</span> · 2026-W28</div>
+      <div class="carddate">✓ 2026-07-10</div>
+      
+      <div class="budget"><i style="width: 34%"></i></div>
+      <div class="fine">$6.74 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/36"
+       data-ts="1783699200.0" data-desk="management" data-assignee="supervisor"
+       data-sprint="2026-W28"
+       data-find="sprint review 2026-w28 supervisor management 2026-w28 aws">
+      <div class="cardtitle">Sprint review 2026-W28</div>
+      <div class="cardmeta">supervisor · <span class="src aws">aws</span> · 2026-W28</div>
+      <div class="carddate">✓ 2026-07-10</div>
+      
+      <div class="budget"><i style="width: 70%"></i></div>
+      <div class="fine">$14.08 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/31"
+       data-ts="1783353600.0" data-desk="management" data-assignee="supervisor"
+       data-sprint="2026-W28"
+       data-find="plan sprint 2026-w28 supervisor management 2026-w28 aws">
+      <div class="cardtitle">Plan sprint 2026-W28</div>
+      <div class="cardmeta">supervisor · <span class="src aws">aws</span> · 2026-W28</div>
+      <div class="carddate">✓ 2026-07-06</div>
+      
+      <div class="budget"><i style="width: 61%"></i></div>
+      <div class="fine">$12.23 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/30"
+       data-ts="1783094400.0" data-desk="management" data-assignee="supervisor"
+       data-sprint="2026-W27"
+       data-find="sprint review 2026-w27 supervisor management 2026-w27 aws">
+      <div class="cardtitle">Sprint review 2026-W27</div>
+      <div class="cardmeta">supervisor · <span class="src aws">aws</span> · 2026-W27</div>
+      <div class="carddate">✓ 2026-07-03</div>
+      
+      <div class="budget"><i style="width: 69%"></i></div>
+      <div class="fine">$13.83 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/26"
+       data-ts="1782921600.0" data-desk="aws" data-assignee="optimizer-aws"
+       data-sprint="2026-W27"
+       data-find="commitment &amp; idle review 2026-06 (aws) optimizer-aws aws 2026-w27 aws">
+      <div class="cardtitle">Commitment &amp; idle review 2026-06 (aws)</div>
+      <div class="cardmeta">optimizer-aws · <span class="src aws">aws</span> · 2026-W27</div>
+      <div class="carddate">✓ 2026-07-01</div>
+      
+      <div class="budget"><i style="width: 38%"></i></div>
+      <div class="fine">$19.08 / $50.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/28"
+       data-ts="1782921600.0" data-desk="gcp" data-assignee="optimizer-gcp"
+       data-sprint="2026-W27"
+       data-find="commitment &amp; idle review 2026-06 (gcp) optimizer-gcp gcp 2026-w27 gcp">
+      <div class="cardtitle">Commitment &amp; idle review 2026-06 (gcp)</div>
+      <div class="cardmeta">optimizer-gcp · <span class="src gcp">gcp</span> · 2026-W27</div>
+      <div class="carddate">✓ 2026-07-01</div>
+      
+      <div class="budget"><i style="width: 36%"></i></div>
+      <div class="fine">$17.81 / $50.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/25"
+       data-ts="1782835200.0" data-desk="aws" data-assignee="reporter-aws"
+       data-sprint="2026-W27"
+       data-find="monthly spend report 2026-06 (aws) reporter-aws aws 2026-w27 aws">
+      <div class="cardtitle">Monthly spend report 2026-06 (aws)</div>
+      <div class="cardmeta">reporter-aws · <span class="src aws">aws</span> · 2026-W27</div>
+      <div class="carddate">✓ 2026-06-30</div>
+      
+      <div class="budget"><i style="width: 42%"></i></div>
+      <div class="fine">$21.06 / $50.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/27"
+       data-ts="1782835200.0" data-desk="gcp" data-assignee="reporter-gcp"
+       data-sprint="2026-W27"
+       data-find="monthly spend report 2026-06 (gcp) reporter-gcp gcp 2026-w27 gcp">
+      <div class="cardtitle">Monthly spend report 2026-06 (gcp)</div>
+      <div class="cardmeta">reporter-gcp · <span class="src gcp">gcp</span> · 2026-W27</div>
+      <div class="carddate">✓ 2026-06-30</div>
+      
+      <div class="budget"><i style="width: 55%"></i></div>
+      <div class="fine">$27.35 / $50.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/29"
+       data-ts="1782835200.0" data-desk="onprem" data-assignee="reporter-onprem"
+       data-sprint="2026-W27"
+       data-find="monthly spend report 2026-06 (onprem) reporter-onprem onprem 2026-w27 onprem">
+      <div class="cardtitle">Monthly spend report 2026-06 (onprem)</div>
+      <div class="cardmeta">reporter-onprem · <span class="src onprem">onprem</span> · 2026-W27</div>
+      <div class="carddate">✓ 2026-06-30</div>
+      
+      <div class="budget"><i style="width: 50%"></i></div>
+      <div class="fine">$25.23 / $50.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/24"
+       data-ts="1782748800.0" data-desk="management" data-assignee="supervisor"
+       data-sprint="2026-W27"
+       data-find="plan sprint 2026-w27 supervisor management 2026-w27 aws">
+      <div class="cardtitle">Plan sprint 2026-W27</div>
+      <div class="cardmeta">supervisor · <span class="src aws">aws</span> · 2026-W27</div>
+      <div class="carddate">✓ 2026-06-29</div>
+      
+      <div class="budget"><i style="width: 54%"></i></div>
+      <div class="fine">$10.87 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/20"
+       data-ts="1782489600.0" data-desk="aws" data-assignee="reporter-aws"
+       data-sprint="2026-W26"
+       data-find="weekly spend pulse 2026-w26 (aws) reporter-aws aws 2026-w26 aws">
+      <div class="cardtitle">Weekly spend pulse 2026-W26 (aws)</div>
+      <div class="cardmeta">reporter-aws · <span class="src aws">aws</span> · 2026-W26</div>
+      <div class="carddate">✓ 2026-06-26</div>
+      
+      <div class="budget"><i style="width: 52%"></i></div>
+      <div class="fine">$10.41 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/21"
+       data-ts="1782489600.0" data-desk="gcp" data-assignee="reporter-gcp"
+       data-sprint="2026-W26"
+       data-find="weekly spend pulse 2026-w26 (gcp) reporter-gcp gcp 2026-w26 gcp">
+      <div class="cardtitle">Weekly spend pulse 2026-W26 (gcp)</div>
+      <div class="cardmeta">reporter-gcp · <span class="src gcp">gcp</span> · 2026-W26</div>
+      <div class="carddate">✓ 2026-06-26</div>
+      
+      <div class="budget"><i style="width: 33%"></i></div>
+      <div class="fine">$6.69 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/22"
+       data-ts="1782489600.0" data-desk="onprem" data-assignee="reporter-onprem"
+       data-sprint="2026-W26"
+       data-find="weekly spend pulse 2026-w26 (onprem) reporter-onprem onprem 2026-w26 onprem">
+      <div class="cardtitle">Weekly spend pulse 2026-W26 (onprem)</div>
+      <div class="cardmeta">reporter-onprem · <span class="src onprem">onprem</span> · 2026-W26</div>
+      <div class="carddate">✓ 2026-06-26</div>
+      
+      <div class="budget"><i style="width: 50%"></i></div>
+      <div class="fine">$9.93 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/23"
+       data-ts="1782489600.0" data-desk="management" data-assignee="supervisor"
+       data-sprint="2026-W26"
+       data-find="sprint review 2026-w26 supervisor management 2026-w26 aws">
+      <div class="cardtitle">Sprint review 2026-W26</div>
+      <div class="cardmeta">supervisor · <span class="src aws">aws</span> · 2026-W26</div>
+      <div class="carddate">✓ 2026-06-26</div>
+      
+      <div class="budget"><i style="width: 59%"></i></div>
+      <div class="fine">$11.74 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/19"
+       data-ts="1782144000.0" data-desk="management" data-assignee="supervisor"
+       data-sprint="2026-W26"
+       data-find="plan sprint 2026-w26 supervisor management 2026-w26 aws">
+      <div class="cardtitle">Plan sprint 2026-W26</div>
+      <div class="cardmeta">supervisor · <span class="src aws">aws</span> · 2026-W26</div>
+      <div class="carddate">✓ 2026-06-22</div>
+      
+      <div class="budget"><i style="width: 62%"></i></div>
+      <div class="fine">$12.38 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/14"
+       data-ts="1781884800.0" data-desk="aws" data-assignee="reporter-aws"
+       data-sprint="2026-W25"
+       data-find="weekly spend pulse 2026-w25 (aws) reporter-aws aws 2026-w25 aws">
+      <div class="cardtitle">Weekly spend pulse 2026-W25 (aws)</div>
+      <div class="cardmeta">reporter-aws · <span class="src aws">aws</span> · 2026-W25</div>
+      <div class="carddate">✓ 2026-06-19</div>
+      
+      <div class="budget"><i style="width: 49%"></i></div>
+      <div class="fine">$9.81 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/15"
+       data-ts="1781884800.0" data-desk="gcp" data-assignee="reporter-gcp"
+       data-sprint="2026-W25"
+       data-find="weekly spend pulse 2026-w25 (gcp) reporter-gcp gcp 2026-w25 gcp">
+      <div class="cardtitle">Weekly spend pulse 2026-W25 (gcp)</div>
+      <div class="cardmeta">reporter-gcp · <span class="src gcp">gcp</span> · 2026-W25</div>
+      <div class="carddate">✓ 2026-06-19</div>
+      
+      <div class="budget"><i style="width: 72%"></i></div>
+      <div class="fine">$14.39 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/16"
+       data-ts="1781884800.0" data-desk="onprem" data-assignee="reporter-onprem"
+       data-sprint="2026-W25"
+       data-find="weekly spend pulse 2026-w25 (onprem) reporter-onprem onprem 2026-w25 onprem">
+      <div class="cardtitle">Weekly spend pulse 2026-W25 (onprem)</div>
+      <div class="cardmeta">reporter-onprem · <span class="src onprem">onprem</span> · 2026-W25</div>
+      <div class="carddate">✓ 2026-06-19</div>
+      
+      <div class="budget"><i style="width: 45%"></i></div>
+      <div class="fine">$9.01 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/17"
+       data-ts="1781884800.0" data-desk="gcp" data-assignee="investigator-gcp"
+       data-sprint="2026-W25"
+       data-find="anomaly triage: networking 2026-06-17 (gcp) investigator-gcp gcp 2026-w25 gcp">
+      <div class="cardtitle">Anomaly triage: Networking 2026-06-17 (gcp)</div>
+      <div class="cardmeta">investigator-gcp · <span class="src gcp">gcp</span> · 2026-W25</div>
+      <div class="carddate">✓ 2026-06-19</div>
+      
+      <div class="budget"><i style="width: 103%"></i></div>
+      <div class="fine">$20.58 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/18"
+       data-ts="1781884800.0" data-desk="management" data-assignee="supervisor"
+       data-sprint="2026-W25"
+       data-find="sprint review 2026-w25 supervisor management 2026-w25 aws">
+      <div class="cardtitle">Sprint review 2026-W25</div>
+      <div class="cardmeta">supervisor · <span class="src aws">aws</span> · 2026-W25</div>
+      <div class="carddate">✓ 2026-06-19</div>
+      
+      <div class="budget"><i style="width: 67%"></i></div>
+      <div class="fine">$13.46 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/13"
+       data-ts="1781539200.0" data-desk="management" data-assignee="supervisor"
+       data-sprint="2026-W25"
+       data-find="plan sprint 2026-w25 supervisor management 2026-w25 aws">
+      <div class="cardtitle">Plan sprint 2026-W25</div>
+      <div class="cardmeta">supervisor · <span class="src aws">aws</span> · 2026-W25</div>
+      <div class="carddate">✓ 2026-06-15</div>
+      
+      <div class="budget"><i style="width: 63%"></i></div>
+      <div class="fine">$12.55 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/9"
+       data-ts="1781280000.0" data-desk="aws" data-assignee="reporter-aws"
+       data-sprint="2026-W24"
+       data-find="weekly spend pulse 2026-w24 (aws) reporter-aws aws 2026-w24 aws">
+      <div class="cardtitle">Weekly spend pulse 2026-W24 (aws)</div>
+      <div class="cardmeta">reporter-aws · <span class="src aws">aws</span> · 2026-W24</div>
+      <div class="carddate">✓ 2026-06-12</div>
+      
+      <div class="budget"><i style="width: 33%"></i></div>
+      <div class="fine">$6.65 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/10"
+       data-ts="1781280000.0" data-desk="gcp" data-assignee="reporter-gcp"
+       data-sprint="2026-W24"
+       data-find="weekly spend pulse 2026-w24 (gcp) reporter-gcp gcp 2026-w24 gcp">
+      <div class="cardtitle">Weekly spend pulse 2026-W24 (gcp)</div>
+      <div class="cardmeta">reporter-gcp · <span class="src gcp">gcp</span> · 2026-W24</div>
+      <div class="carddate">✓ 2026-06-12</div>
+      
+      <div class="budget"><i style="width: 41%"></i></div>
+      <div class="fine">$8.23 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/11"
+       data-ts="1781280000.0" data-desk="onprem" data-assignee="reporter-onprem"
+       data-sprint="2026-W24"
+       data-find="weekly spend pulse 2026-w24 (onprem) reporter-onprem onprem 2026-w24 onprem">
+      <div class="cardtitle">Weekly spend pulse 2026-W24 (onprem)</div>
+      <div class="cardmeta">reporter-onprem · <span class="src onprem">onprem</span> · 2026-W24</div>
+      <div class="carddate">✓ 2026-06-12</div>
+      
+      <div class="budget"><i style="width: 34%"></i></div>
+      <div class="fine">$6.78 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/12"
+       data-ts="1781280000.0" data-desk="management" data-assignee="supervisor"
+       data-sprint="2026-W24"
+       data-find="sprint review 2026-w24 supervisor management 2026-w24 aws">
+      <div class="cardtitle">Sprint review 2026-W24</div>
+      <div class="cardmeta">supervisor · <span class="src aws">aws</span> · 2026-W24</div>
+      <div class="carddate">✓ 2026-06-12</div>
+      
+      <div class="budget"><i style="width: 53%"></i></div>
+      <div class="fine">$10.54 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/8"
+       data-ts="1780934400.0" data-desk="management" data-assignee="supervisor"
+       data-sprint="2026-W24"
+       data-find="plan sprint 2026-w24 supervisor management 2026-w24 aws">
+      <div class="cardtitle">Plan sprint 2026-W24</div>
+      <div class="cardmeta">supervisor · <span class="src aws">aws</span> · 2026-W24</div>
+      <div class="carddate">✓ 2026-06-08</div>
+      
+      <div class="budget"><i style="width: 65%"></i></div>
+      <div class="fine">$13.04 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/7"
+       data-ts="1780675200.0" data-desk="management" data-assignee="supervisor"
+       data-sprint="2026-W23"
+       data-find="sprint review 2026-w23 supervisor management 2026-w23 aws">
+      <div class="cardtitle">Sprint review 2026-W23</div>
+      <div class="cardmeta">supervisor · <span class="src aws">aws</span> · 2026-W23</div>
+      <div class="carddate">✓ 2026-06-05</div>
+      
+      <div class="budget"><i style="width: 52%"></i></div>
+      <div class="fine">$10.35 / $20.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/3"
+       data-ts="1780502400.0" data-desk="aws" data-assignee="optimizer-aws"
+       data-sprint="2026-W23"
+       data-find="commitment &amp; idle review 2026-05 (aws) optimizer-aws aws 2026-w23 aws">
+      <div class="cardtitle">Commitment &amp; idle review 2026-05 (aws)</div>
+      <div class="cardmeta">optimizer-aws · <span class="src aws">aws</span> · 2026-W23</div>
+      <div class="carddate">✓ 2026-06-03</div>
+      
+      <div class="budget"><i style="width: 45%"></i></div>
+      <div class="fine">$22.51 / $50.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/5"
+       data-ts="1780502400.0" data-desk="gcp" data-assignee="optimizer-gcp"
+       data-sprint="2026-W23"
+       data-find="commitment &amp; idle review 2026-05 (gcp) optimizer-gcp gcp 2026-w23 gcp">
+      <div class="cardtitle">Commitment &amp; idle review 2026-05 (gcp)</div>
+      <div class="cardmeta">optimizer-gcp · <span class="src gcp">gcp</span> · 2026-W23</div>
+      <div class="carddate">✓ 2026-06-03</div>
+      
+      <div class="budget"><i style="width: 43%"></i></div>
+      <div class="fine">$21.36 / $50.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/2"
+       data-ts="1780416000.0" data-desk="aws" data-assignee="reporter-aws"
+       data-sprint="2026-W23"
+       data-find="monthly spend report 2026-05 (aws) reporter-aws aws 2026-w23 aws">
+      <div class="cardtitle">Monthly spend report 2026-05 (aws)</div>
+      <div class="cardmeta">reporter-aws · <span class="src aws">aws</span> · 2026-W23</div>
+      <div class="carddate">✓ 2026-06-02</div>
+      
+      <div class="budget"><i style="width: 43%"></i></div>
+      <div class="fine">$21.36 / $50.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/4"
+       data-ts="1780416000.0" data-desk="gcp" data-assignee="reporter-gcp"
+       data-sprint="2026-W23"
+       data-find="monthly spend report 2026-05 (gcp) reporter-gcp gcp 2026-w23 gcp">
+      <div class="cardtitle">Monthly spend report 2026-05 (gcp)</div>
+      <div class="cardmeta">reporter-gcp · <span class="src gcp">gcp</span> · 2026-W23</div>
+      <div class="carddate">✓ 2026-06-02</div>
+      
+      <div class="budget"><i style="width: 41%"></i></div>
+      <div class="fine">$20.65 / $50.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/6"
+       data-ts="1780416000.0" data-desk="onprem" data-assignee="reporter-onprem"
+       data-sprint="2026-W23"
+       data-find="monthly spend report 2026-05 (onprem) reporter-onprem onprem 2026-w23 onprem">
+      <div class="cardtitle">Monthly spend report 2026-05 (onprem)</div>
+      <div class="cardmeta">reporter-onprem · <span class="src onprem">onprem</span> · 2026-W23</div>
+      <div class="carddate">✓ 2026-06-02</div>
+      
+      <div class="budget"><i style="width: 47%"></i></div>
+      <div class="fine">$23.29 / $50.00</div>
+    </a>
+  
+    <a class="card st-done" href="/task/1"
+       data-ts="1780329600.0" data-desk="management" data-assignee="supervisor"
+       data-sprint="2026-W23"
+       data-find="plan sprint 2026-w23 supervisor management 2026-w23 aws">
+      <div class="cardtitle">Plan sprint 2026-W23</div>
+      <div class="cardmeta">supervisor · <span class="src aws">aws</span> · 2026-W23</div>
+      <div class="carddate">✓ 2026-06-01</div>
+      
+      <div class="budget"><i style="width: 60%"></i></div>
+      <div class="fine">$11.94 / $20.00</div>
+    </a>
+  
+  </div>
+  <button class="morebtn" type="button" hidden></button>
+  </div>
+
+  <div class="col" data-state="returned"><h3>returned <span class="count" data-total="1">1</span></h3>
+  <div class="cards">
+  
+    <a class="card st-returned" href="/task/64"
+       data-ts="1786352400.0" data-desk="onprem" data-assignee="reporter-onprem"
+       data-sprint="2026-W33"
+       data-find="weekly spend pulse 2026-w33 (onprem) reporter-onprem onprem 2026-w33 onprem">
+      <div class="cardtitle">Weekly spend pulse 2026-W33 (onprem)</div>
+      <div class="cardmeta">reporter-onprem · <span class="src onprem">onprem</span> · 2026-W33</div>
+      <div class="carddate"> 2026-08-10</div>
+      
+      <div class="budget"><i style="width: 44%"></i></div>
+      <div class="fine">$8.82 / $20.00</div>
+    </a>
+  
+  </div>
+  <button class="morebtn" type="button" hidden></button>
+  </div>
+
+  <div class="col" data-state="blocked"><h3>blocked <span class="count" data-total="1">1</span></h3>
+  <div class="cards">
+  
+    <a class="card st-blocked" href="/task/67"
+       data-ts="1786435200.0" data-desk="gcp" data-assignee="investigator-gcp"
+       data-sprint="2026-W33"
+       data-find="deep-dive: ml gke step change (gcp) investigator-gcp gcp 2026-w33 gcp">
+      <div class="cardtitle">Deep-dive: ml GKE step change (gcp)</div>
+      <div class="cardmeta">investigator-gcp · <span class="src gcp">gcp</span> · 2026-W33</div>
+      <div class="carddate"> 2026-08-11</div>
+      <div class="step">needs the ml team capacity plan (requested in #gcp)</div>
+      <div class="budget"><i style="width: 56%"></i></div>
+      <div class="fine">$11.30 / $20.00</div>
+    </a>
+  
+  </div>
+  <button class="morebtn" type="button" hidden></button>
+  </div>
+
+</div>
+<script>
+(function () {
+  var CAP = 10;
+  var q = document.getElementById('bq'),
+      fDesk = document.getElementById('bdesk'),
+      fAgent = document.getElementById('bagent'),
+      fSprint = document.getElementById('bsprint'),
+      sortBtn = document.getElementById('bsort');
+  var expanded = {};
+  function apply() {
+    var text = q.value.trim().toLowerCase(),
+        filtering = !!(text || fDesk.value || fAgent.value || fSprint.value),
+        dir = sortBtn.dataset.dir === 'desc' ? -1 : 1;
+    document.querySelectorAll('.columns .col').forEach(function (col) {
+      var wrap = col.querySelector('.cards'),
+          cards = Array.prototype.slice.call(wrap.querySelectorAll('.card'));
+      cards.sort(function (a, b) {
+        return (parseFloat(a.dataset.ts) - parseFloat(b.dataset.ts)) * dir;
+      });
+      cards.forEach(function (el) { wrap.appendChild(el); });
+      var vis = cards.filter(function (el) {
+        var ok = (!text || el.dataset.find.indexOf(text) !== -1)
+          && (!fDesk.value || el.dataset.desk === fDesk.value)
+          && (!fAgent.value || el.dataset.assignee === fAgent.value)
+          && (!fSprint.value || el.dataset.sprint === fSprint.value);
+        el.dataset.hit = ok ? '1' : '';
+        return ok;
+      });
+      var cap = (!filtering && col.dataset.state === 'done'
+                 && !expanded[col.dataset.state]) ? CAP : Infinity;
+      var shown = 0;
+      cards.forEach(function (el) {
+        var show = el.dataset.hit && shown < cap;
+        el.style.display = show ? '' : 'none';
+        if (show) shown++;
+      });
+      var count = col.querySelector('.count');
+      count.textContent = filtering
+        ? vis.length + '/' + count.dataset.total : count.dataset.total;
+      var more = col.querySelector('.morebtn'),
+          hiddenN = vis.length - shown;
+      more.hidden = hiddenN <= 0;
+      more.textContent = expanded[col.dataset.state]
+        ? '' : 'show ' + hiddenN + ' more (by date in the Month view)';
+    });
+  }
+  [q, fDesk, fAgent, fSprint].forEach(function (el) {
+    el.addEventListener('input', apply);
+  });
+  sortBtn.addEventListener('click', function () {
+    var desc = sortBtn.dataset.dir !== 'desc';
+    sortBtn.dataset.dir = desc ? 'desc' : 'asc';
+    sortBtn.textContent = desc ? 'date: <HTTPDATE>
+    apply();
+  });
+  document.querySelectorAll('.morebtn').forEach(function (b) {
+    b.addEventListener('click', function () {
+      expanded[b.closest('.col').dataset.state] = true;
+      apply();
+    });
+  });
+  apply();
+})();
+</script>
+</main>
+</div>
+<script>
+document.addEventListener('input', function (e) {
+  var box = e.target.closest('.filterbox'); if (!box) return;
+  var root = document.querySelector(box.dataset.target); if (!root) return;
+  var q = box.value.trim().toLowerCase();
+  root.querySelectorAll('[data-search]').forEach(function (el) {
+    var hit = !q || el.dataset.search.toLowerCase().indexOf(q) !== -1;
+    if (el.classList.contains('deskgroup')) {
+      var inner = Array.prototype.some.call(el.querySelectorAll('[data-search]'),
+        function (x) { return x.dataset.search.toLowerCase().indexOf(q) !== -1; });
+      el.style.display = (hit || inner || !q) ? '' : 'none';
+      el.querySelectorAll('[data-search]').forEach(function (x) {
+        x.style.display = (!q || hit || x.dataset.search.toLowerCase().indexOf(q) !== -1) ? '' : 'none';
+      });
+    } else if (!el.closest('.deskgroup')) {
+      el.style.display = hit ? '' : 'none';
+    }
+  });
+});
+document.addEventListener('click', function (e) {
+  if (e.target.classList && e.target.classList.contains('grip')) return;
+  var th = e.target.closest('th'); if (!th) return;
+  var table = th.closest('table'); if (!table) return;
+  var idx = Array.prototype.indexOf.call(th.parentNode.children, th);
+  var rows = Array.prototype.slice.call(table.querySelectorAll('tr')).filter(
+    function (r) { return r.querySelector('td'); });
+  var dir = th.dataset.dir === 'asc' ? -1 : 1;
+  table.querySelectorAll('th').forEach(function (h) { delete h.dataset.dir;
+    var a = h.querySelector('.arrow'); if (a) a.remove(); });
+  th.dataset.dir = dir === 1 ? 'asc' : 'desc';
+  var arrow = document.createElement('span');
+  arrow.className = 'arrow';
+  arrow.textContent = dir === 1 ? ' \u25B2' : ' \u25BC';
+  th.appendChild(arrow);
+  function key(r) {
+    var c = r.children[idx]; if (!c) return '';
+    var txt = c.textContent.trim().replace(/[$,%]/g, '').replace(/,/g, '');
+    if (/\d{4}-\d{2}-\d{2}/.test(txt)) return txt.replace(/[^\d-]/g, '');
+    var n = parseFloat(txt);
+    return isNaN(n) ? txt.toLowerCase() : n;
+  }
+  rows.sort(function (a, b) {
+    var ka = key(a), kb = key(b);
+    if (typeof ka === 'number' && typeof kb === 'number') return (ka - kb) * dir;
+    return String(ka).localeCompare(String(kb)) * dir;
+  });
+  rows.forEach(function (r) { r.parentNode.appendChild(r); });
+});
+
+/* ---- tables you can widen, and that fit any screen -----------------------
+   Every table is put in its own horizontally scrolling box, so a wide table
+   scrolls inside its panel instead of pushing the whole page sideways. Each
+   header cell gets a grip on its right edge: drag it to widen the column,
+   double-click it to give the column back to the browser. Widths are
+   remembered per page, because a column you widened once you almost always
+   want wide again.                                                          */
+(function () {
+  var KEY = 'costcrew.colw.' + location.pathname;
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (err) { saved = {}; }
+
+  function persist() {
+    try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (err) { /* private mode */ }
+  }
+
+  function setup() {
+    document.querySelectorAll('table').forEach(function (table, ti) {
+      if (!table.parentNode.classList.contains('tw')) {
+        var box = document.createElement('div');
+        box.className = 'tw';
+        table.parentNode.insertBefore(box, table);
+        box.appendChild(table);
+      }
+      /* An atom never breaks: a date, a sum, a status, a short name. Prose
+         does break, and must, or one sentence drags the whole table wider
+         than the screen and everything else scrolls to reach it. The rule is
+         length, applied once, because CSS cannot ask how long a text is. */
+      table.querySelectorAll('td, th').forEach(function (cell) {
+        if (cell.children.length) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length > 40 && txt.indexOf(' ') !== -1) cell.classList.add('wrap');
+      });
+
+      /* Really long prose gets two lines and a way to open the rest. Nothing
+         is removed: the full text is still in the cell, still searched by
+         the filter box, still there for anyone who presses. */
+      table.querySelectorAll('td').forEach(function (cell) {
+        if (cell.querySelector('.clamp')) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length <= 110) return;
+        var box = document.createElement('div');
+        box.className = 'clamp';
+        while (cell.firstChild) box.appendChild(cell.firstChild);
+        cell.appendChild(box);
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'more';
+        btn.textContent = 'more';
+        btn.setAttribute('aria-expanded', 'false');
+        btn.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          var open = box.classList.toggle('open');
+          btn.textContent = open ? 'less' : 'more';
+          btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+        cell.appendChild(btn);
+        cell.classList.add('wrap');
+      });
+      /* Align each header to the column beneath it. The figures are right
+         aligned and the headers were not, so every numeric column read as a
+         label on the left with unrelated numbers on the right. */
+      var head0 = table.querySelector('tr');
+      if (head0) {
+        var body = Array.prototype.slice.call(table.querySelectorAll('tr'))
+          .filter(function (r) { return r.querySelector('td'); });
+        head0.querySelectorAll('th').forEach(function (th, ci) {
+          var nums = 0, cells = 0;
+          body.forEach(function (r) {
+            var cell = r.children[ci];
+            if (!cell || cell.tagName !== 'TD') return;
+            cells++;
+            if (cell.classList.contains('num')) nums++;
+          });
+          if (cells && nums * 2 > cells) th.classList.add('num');
+        });
+      }
+      var head = table.querySelector('tr');
+      if (!head) return;
+      head.querySelectorAll('th').forEach(function (th, ci) {
+        var id = ti + ':' + ci;
+        if (saved[id]) { th.style.width = saved[id] + 'px'; th.classList.add('sized'); }
+        if (th.querySelector('.grip')) return;
+        var grip = document.createElement('span');
+        grip.className = 'grip';
+        grip.title = 'Drag to widen, double-click to reset';
+        grip.addEventListener('dblclick', function (ev) {
+          ev.stopPropagation();
+          th.style.width = ''; th.classList.remove('sized');
+          delete saved[id]; persist();
+        });
+        grip.addEventListener('pointerdown', function (ev) {
+          ev.preventDefault(); ev.stopPropagation();
+          var x0 = ev.clientX, w0 = th.getBoundingClientRect().width;
+          grip.classList.add('on');
+          grip.setPointerCapture(ev.pointerId);
+          function move(e2) {
+            var w = Math.max(48, Math.round(w0 + (e2.clientX - x0)));
+            th.style.width = w + 'px'; th.classList.add('sized');
+            saved[id] = w;
+          }
+          function up() {
+            grip.classList.remove('on');
+            grip.removeEventListener('pointermove', move);
+            grip.removeEventListener('pointerup', up);
+            persist();
+          }
+          grip.addEventListener('pointermove', move);
+          grip.addEventListener('pointerup', up);
+        });
+        th.appendChild(grip);
+      });
+    });
+    document.querySelectorAll('.tw').forEach(function (box) {
+      function mark() {
+        /* a few pixels is rounding, not a hidden column */
+        var over = box.scrollWidth > box.clientWidth + 8;
+        box.classList.toggle('scrolls', over);
+        box.classList.toggle('atend',
+          over && box.scrollLeft + box.clientWidth >= box.scrollWidth - 2);
+      }
+      box.addEventListener('scroll', mark);
+      window.addEventListener('resize', mark);
+      mark();
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setup);
+  } else { setup(); }
+})();
+</script>
+</body></html>

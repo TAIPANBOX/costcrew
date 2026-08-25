@@ -1,0 +1,377 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CostCrew</title>
+<link rel="stylesheet" href="/static/style.css"></head><body>
+<div class="shell">
+<nav class="rail">
+  <div class="brand">CostCrew</div>
+  <a href="/" class="">Today</a>
+  <a href="/board" class="">Board</a>
+  <a href="/board?view=month" class="sub">Calendar</a>
+  <a href="/teams" class="">Teams</a>
+  <a href="/sprints" class="">Sprints</a>
+  <a href="/feed" class="">Chats</a>
+  <a href="/feed?ch=aws" class="sub">#aws</a>
+  <a href="/feed?ch=gcp" class="sub">#gcp</a>
+  <a href="/feed?ch=onprem" class="sub">#onprem</a>
+  <a href="/kpis" class="">KPIs</a>
+  <a href="/library" class="sub ">Library</a>
+  <a href="/assessment" class="sub ">Assessment</a>
+  <a href="/allocation" class="">Allocation</a>
+  <a href="/chargeback" class="">Chargeback</a>
+  <a href="/exec" class="on">Executive</a>
+  <a href="/results" class="">Results</a>
+  <a href="/ai" class="">AI spend</a>
+  <a href="/saas" class="">SaaS</a>
+  <a href="/utilisation" class="">Utilisation</a>
+  <a href="/explainers" class="">Explainers</a>
+  <a href="/staff" class="">Staff</a>
+  <a href="/workbench" class="">Workbench</a>
+  <a href="/data" class="">Data</a>
+  <a href="/connectors" class="sub ">Connectors</a>
+  <a href="/audit" class="">Audit</a>
+  <a href="/settings" class="">Engines</a>
+  
+  <a href="/accounts" class="">Accounts</a>
+  <div class="railfoot">
+    
+    <div>parity · admin</div>
+    <form method="post" action="/logout" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+      <button class="btn back">Sign out</button></form>
+    
+    <div>MVP · local</div>
+  </div>
+</nav>
+<main class="content">
+<h1>Executive packet</h1>
+<p class="subtitle">The closed month 2026-07, assembled from the same
+deterministic figures as every other page, and ending in the decisions that need
+someone above the FinOps practice.</p>
+
+<div class="tiles">
+  <div class="tile accent-green"><div class="tv">$41,584.63</div>
+    <div class="tl">fully loaded technology spend</div></div>
+  <div class="tile accent-blue"><div class="tv">6/13</div>
+    <div class="tl">capabilities at run</div></div>
+  <div class="tile accent-red">
+    <div class="tv">6/23</div>
+    <div class="tl">KPIs on target</div></div>
+  <div class="tile accent-amber"><div class="tv">$2,060.00</div>
+    <div class="tl">request pipeline, $/month</div></div>
+</div>
+
+<section class="panel">
+  <h2>Where the money is</h2>
+  <table><tr><th>source</th><th>closed month</th><th>fully loaded $</th>
+    <th>current month to date $</th></tr>
+  
+  <tr><td><span class="chip hue-ai">ai</span></td>
+    <td>2026-07</td>
+    <td class="num">2,380.46 <span class="qid">⌗e2bdf62d</span></td>
+    <td class="num">1,163.90
+      <span class="fine">through 2026-08-15</span></td></tr>
+  
+  <tr><td><span class="chip hue-aws">aws</span></td>
+    <td>2026-07</td>
+    <td class="num">4,411.58 <span class="qid">⌗33a5b724</span></td>
+    <td class="num">1,610.59
+      <span class="fine">through 2026-08-15</span></td></tr>
+  
+  <tr><td><span class="chip hue-gcp">gcp</span></td>
+    <td>2026-07</td>
+    <td class="num">3,298.67 <span class="qid">⌗0b8a7ac1</span></td>
+    <td class="num">1,270.34
+      <span class="fine">through 2026-08-15</span></td></tr>
+  
+  <tr><td><span class="chip hue-onprem">onprem</span></td>
+    <td>2026-07</td>
+    <td class="num">3,988.91 <span class="qid">⌗f2c0ebc6</span></td>
+    <td class="num">1,217.09
+      <span class="fine">through 2026-08-15</span></td></tr>
+  
+  <tr><td><span class="chip hue-saas">saas</span></td>
+    <td>2026-07</td>
+    <td class="num">27,505.00 <span class="qid">⌗e20ec458</span></td>
+    <td class="num">27,246.00
+      <span class="fine">through 2026-08-01</span></td></tr>
+  </table>
+</section>
+
+<section class="panel">
+  <h2>Decisions this packet asks for</h2>
+  
+  <div class="decision">
+    <b>Renew or let lapse: $1,650.00 of monthly commitment ends within 90 days</b>
+    <p class="fine">a lapsed commitment reverts its scope to list price without anyone doing anything · owner: Finance with Engineering</p>
+    <p class="fine">commitment value expiring = 1650.0
+      <span class="qid">⌗be74d5d3</span></p>
+  </div>
+  
+  <div class="decision">
+    <b>Approve or defer 6 team request(s) worth $2,060/month, largest: Two extra GPU training nodes</b>
+    <p class="fine">these are commitments to future run-rate, not this month&#39;s bill · owner: Leadership with the requesting teams</p>
+    <p class="fine">request pipeline = 2060.0
+      <span class="qid">⌗intake-requests</span></p>
+  </div>
+  
+  <div class="decision">
+    <b>Off target: Forecast interval hit rate at 62.5 against 80</b>
+    <p class="fine">Share of elapsed windows whose actual landed inside the published interval. Not a canon KPI; the practice&#39;s own honesty check on the intervals it publishes. · owner: FinOps practice</p>
+    <p class="fine">Forecast interval hit rate = 62.5
+      <span class="qid">⌗a72056c9</span></p>
+  </div>
+  
+  <div class="decision">
+    <b>Off target: Anomaly Detection Rate at 24.69 against 2</b>
+    <p class="fine">Share of spend sitting in movements the practice cannot explain. Canon bands: green under 2%, yellow 2-7%, red above 7%. · owner: FinOps practice</p>
+    <p class="fine">Anomaly Detection Rate = 24.69
+      <span class="qid">⌗32672c1b</span></p>
+  </div>
+  
+  <div class="decision">
+    <b>Off target: Budget variance at 25.1 against 12</b>
+    <p class="fine">Projected month-end spend against budget, worst team. · owner: FinOps practice</p>
+    <p class="fine">Budget variance = 25.1
+      <span class="qid">⌗8f756ef4</span></p>
+  </div>
+  
+  <div class="decision">
+    <b>Off target: Resource Utilization Efficiency at 49.4 against 60</b>
+    <p class="fine">Share of provisioned accelerator capacity actually used, averaged across the training fleet. · owner: FinOps practice</p>
+    <p class="fine">Resource Utilization Efficiency = 49.4
+      <span class="qid">⌗e16087f0</span></p>
+  </div>
+  
+  <div class="decision">
+    <b>Off target: Telemetry coverage at 73.7 against 90</b>
+    <p class="fine">Share of compute spend with utilisation telemetry behind it. Findings only speak for the covered part, so the number belongs next to them. · owner: FinOps practice</p>
+    <p class="fine">Telemetry coverage = 73.7
+      <span class="qid">⌗29591d0d</span></p>
+  </div>
+  
+  <div class="decision">
+    <b>Off target: License utilisation at 50.8 against 85</b>
+    <p class="fine">Share of purchased licences actually in use. The canon&#39;s active-to-provisioned ratio; the worst subscription is what is reported, because an average hides the one nobody opens. · owner: FinOps practice</p>
+    <p class="fine">License utilisation = 50.8
+      <span class="qid">⌗541feceb</span></p>
+  </div>
+  
+  <div class="decision">
+    <b>Fund or accept: 4 capability at crawl (Anomaly Management, Budgeting, Licensing &amp; SaaS, FinOps Assessment)</b>
+    <p class="fine">maturity moves with tooling and discipline, not with intent · owner: Leadership</p>
+    <p class="fine">capabilities at crawl = 4
+      <span class="qid">⌗assessment</span></p>
+  </div>
+  
+  <div class="decision">
+    <b>AI run-rate: token spend up 82.1% across the series while the unit price is flat</b>
+    <p class="fine">volume, not price, is driving the AI bill; capping it is a product decision, not a procurement one · owner: Product with Engineering</p>
+    <p class="fine">blended $/1M tokens = 6.1698
+      <span class="qid">⌗1c5ad42f</span></p>
+  </div>
+  
+</section>
+
+<section class="panel">
+  <h2>Practice</h2>
+  <p class="fine">KPIs: 23 computed, 6 on target,
+    6 off target
+    (Forecast interval hit rate, Anomaly Detection Rate, Budget variance, Resource Utilization Efficiency, Telemetry coverage, License utilisation);
+    4 named but not computable here
+    (<a href="/library">library</a>).<br>
+    Maturity: 13 graded - 6 run,
+    3 walk, 4 crawl;
+    8 not assessable yet
+    (<a href="/assessment">assessment</a>).
+    <br>AI: $2,380.46 in the month,
+    77.5% inference (<a href="/ai">detail</a>).</p>
+  <p class="fine"><b>What this packet does not cover:</b> spend is fully loaded after allocation rules; business value is only as good as the denominators the product side reports, and no benefit figures are ingested</p>
+  <p>
+    <a class="btn" href="/export/exec-packet.md">Download the packet (Markdown)</a>
+    <form method="post" action="/exec/ask-supervisor" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+      <button class="btn back">Ask the supervisor for the note</button></form>
+  </p>
+</section>
+</main>
+</div>
+<script>
+document.addEventListener('input', function (e) {
+  var box = e.target.closest('.filterbox'); if (!box) return;
+  var root = document.querySelector(box.dataset.target); if (!root) return;
+  var q = box.value.trim().toLowerCase();
+  root.querySelectorAll('[data-search]').forEach(function (el) {
+    var hit = !q || el.dataset.search.toLowerCase().indexOf(q) !== -1;
+    if (el.classList.contains('deskgroup')) {
+      var inner = Array.prototype.some.call(el.querySelectorAll('[data-search]'),
+        function (x) { return x.dataset.search.toLowerCase().indexOf(q) !== -1; });
+      el.style.display = (hit || inner || !q) ? '' : 'none';
+      el.querySelectorAll('[data-search]').forEach(function (x) {
+        x.style.display = (!q || hit || x.dataset.search.toLowerCase().indexOf(q) !== -1) ? '' : 'none';
+      });
+    } else if (!el.closest('.deskgroup')) {
+      el.style.display = hit ? '' : 'none';
+    }
+  });
+});
+document.addEventListener('click', function (e) {
+  if (e.target.classList && e.target.classList.contains('grip')) return;
+  var th = e.target.closest('th'); if (!th) return;
+  var table = th.closest('table'); if (!table) return;
+  var idx = Array.prototype.indexOf.call(th.parentNode.children, th);
+  var rows = Array.prototype.slice.call(table.querySelectorAll('tr')).filter(
+    function (r) { return r.querySelector('td'); });
+  var dir = th.dataset.dir === 'asc' ? -1 : 1;
+  table.querySelectorAll('th').forEach(function (h) { delete h.dataset.dir;
+    var a = h.querySelector('.arrow'); if (a) a.remove(); });
+  th.dataset.dir = dir === 1 ? 'asc' : 'desc';
+  var arrow = document.createElement('span');
+  arrow.className = 'arrow';
+  arrow.textContent = dir === 1 ? ' \u25B2' : ' \u25BC';
+  th.appendChild(arrow);
+  function key(r) {
+    var c = r.children[idx]; if (!c) return '';
+    var txt = c.textContent.trim().replace(/[$,%]/g, '').replace(/,/g, '');
+    if (/\d{4}-\d{2}-\d{2}/.test(txt)) return txt.replace(/[^\d-]/g, '');
+    var n = parseFloat(txt);
+    return isNaN(n) ? txt.toLowerCase() : n;
+  }
+  rows.sort(function (a, b) {
+    var ka = key(a), kb = key(b);
+    if (typeof ka === 'number' && typeof kb === 'number') return (ka - kb) * dir;
+    return String(ka).localeCompare(String(kb)) * dir;
+  });
+  rows.forEach(function (r) { r.parentNode.appendChild(r); });
+});
+
+/* ---- tables you can widen, and that fit any screen -----------------------
+   Every table is put in its own horizontally scrolling box, so a wide table
+   scrolls inside its panel instead of pushing the whole page sideways. Each
+   header cell gets a grip on its right edge: drag it to widen the column,
+   double-click it to give the column back to the browser. Widths are
+   remembered per page, because a column you widened once you almost always
+   want wide again.                                                          */
+(function () {
+  var KEY = 'costcrew.colw.' + location.pathname;
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (err) { saved = {}; }
+
+  function persist() {
+    try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (err) { /* private mode */ }
+  }
+
+  function setup() {
+    document.querySelectorAll('table').forEach(function (table, ti) {
+      if (!table.parentNode.classList.contains('tw')) {
+        var box = document.createElement('div');
+        box.className = 'tw';
+        table.parentNode.insertBefore(box, table);
+        box.appendChild(table);
+      }
+      /* An atom never breaks: a date, a sum, a status, a short name. Prose
+         does break, and must, or one sentence drags the whole table wider
+         than the screen and everything else scrolls to reach it. The rule is
+         length, applied once, because CSS cannot ask how long a text is. */
+      table.querySelectorAll('td, th').forEach(function (cell) {
+        if (cell.children.length) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length > 40 && txt.indexOf(' ') !== -1) cell.classList.add('wrap');
+      });
+
+      /* Really long prose gets two lines and a way to open the rest. Nothing
+         is removed: the full text is still in the cell, still searched by
+         the filter box, still there for anyone who presses. */
+      table.querySelectorAll('td').forEach(function (cell) {
+        if (cell.querySelector('.clamp')) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length <= 110) return;
+        var box = document.createElement('div');
+        box.className = 'clamp';
+        while (cell.firstChild) box.appendChild(cell.firstChild);
+        cell.appendChild(box);
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'more';
+        btn.textContent = 'more';
+        btn.setAttribute('aria-expanded', 'false');
+        btn.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          var open = box.classList.toggle('open');
+          btn.textContent = open ? 'less' : 'more';
+          btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+        cell.appendChild(btn);
+        cell.classList.add('wrap');
+      });
+      /* Align each header to the column beneath it. The figures are right
+         aligned and the headers were not, so every numeric column read as a
+         label on the left with unrelated numbers on the right. */
+      var head0 = table.querySelector('tr');
+      if (head0) {
+        var body = Array.prototype.slice.call(table.querySelectorAll('tr'))
+          .filter(function (r) { return r.querySelector('td'); });
+        head0.querySelectorAll('th').forEach(function (th, ci) {
+          var nums = 0, cells = 0;
+          body.forEach(function (r) {
+            var cell = r.children[ci];
+            if (!cell || cell.tagName !== 'TD') return;
+            cells++;
+            if (cell.classList.contains('num')) nums++;
+          });
+          if (cells && nums * 2 > cells) th.classList.add('num');
+        });
+      }
+      var head = table.querySelector('tr');
+      if (!head) return;
+      head.querySelectorAll('th').forEach(function (th, ci) {
+        var id = ti + ':' + ci;
+        if (saved[id]) { th.style.width = saved[id] + 'px'; th.classList.add('sized'); }
+        if (th.querySelector('.grip')) return;
+        var grip = document.createElement('span');
+        grip.className = 'grip';
+        grip.title = 'Drag to widen, double-click to reset';
+        grip.addEventListener('dblclick', function (ev) {
+          ev.stopPropagation();
+          th.style.width = ''; th.classList.remove('sized');
+          delete saved[id]; persist();
+        });
+        grip.addEventListener('pointerdown', function (ev) {
+          ev.preventDefault(); ev.stopPropagation();
+          var x0 = ev.clientX, w0 = th.getBoundingClientRect().width;
+          grip.classList.add('on');
+          grip.setPointerCapture(ev.pointerId);
+          function move(e2) {
+            var w = Math.max(48, Math.round(w0 + (e2.clientX - x0)));
+            th.style.width = w + 'px'; th.classList.add('sized');
+            saved[id] = w;
+          }
+          function up() {
+            grip.classList.remove('on');
+            grip.removeEventListener('pointermove', move);
+            grip.removeEventListener('pointerup', up);
+            persist();
+          }
+          grip.addEventListener('pointermove', move);
+          grip.addEventListener('pointerup', up);
+        });
+        th.appendChild(grip);
+      });
+    });
+    document.querySelectorAll('.tw').forEach(function (box) {
+      function mark() {
+        /* a few pixels is rounding, not a hidden column */
+        var over = box.scrollWidth > box.clientWidth + 8;
+        box.classList.toggle('scrolls', over);
+        box.classList.toggle('atend',
+          over && box.scrollLeft + box.clientWidth >= box.scrollWidth - 2);
+      }
+      box.addEventListener('scroll', mark);
+      window.addEventListener('resize', mark);
+      mark();
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setup);
+  } else { setup(); }
+})();
+</script>
+</body></html>

@@ -1,0 +1,1443 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CostCrew</title>
+<link rel="stylesheet" href="/static/style.css"></head><body>
+<div class="shell">
+<nav class="rail">
+  <div class="brand">CostCrew</div>
+  <a href="/" class="">Today</a>
+  <a href="/board" class="">Board</a>
+  <a href="/board?view=month" class="sub">Calendar</a>
+  <a href="/teams" class="">Teams</a>
+  <a href="/sprints" class="">Sprints</a>
+  <a href="/feed" class="">Chats</a>
+  <a href="/feed?ch=aws" class="sub">#aws</a>
+  <a href="/feed?ch=gcp" class="sub">#gcp</a>
+  <a href="/feed?ch=onprem" class="sub">#onprem</a>
+  <a href="/kpis" class="">KPIs</a>
+  <a href="/library" class="sub ">Library</a>
+  <a href="/assessment" class="sub ">Assessment</a>
+  <a href="/allocation" class="">Allocation</a>
+  <a href="/chargeback" class="">Chargeback</a>
+  <a href="/exec" class="">Executive</a>
+  <a href="/results" class="">Results</a>
+  <a href="/ai" class="">AI spend</a>
+  <a href="/saas" class="">SaaS</a>
+  <a href="/utilisation" class="">Utilisation</a>
+  <a href="/explainers" class="">Explainers</a>
+  <a href="/staff" class="on">Staff</a>
+  <a href="/workbench" class="">Workbench</a>
+  <a href="/data" class="">Data</a>
+  <a href="/connectors" class="sub ">Connectors</a>
+  <a href="/audit" class="">Audit</a>
+  <a href="/settings" class="">Engines</a>
+  
+  <a href="/accounts" class="">Accounts</a>
+  <div class="railfoot">
+    
+    <div>parity · admin</div>
+    <form method="post" action="/logout" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+      <button class="btn back">Sign out</button></form>
+    
+    <div>MVP · local</div>
+  </div>
+</nav>
+<main class="content">
+
+<p class="fine"><a href="/staff">Staff</a> / reporter-aws</p>
+
+<div class="agenthead">
+  <div class="who">
+    <h1 style="margin-bottom:4px">reporter-aws</h1>
+    <p class="fine" style="margin:0">FinOps Analyst - Reporter (aws desk)</p>
+    <p style="margin:8px 0 0">
+      
+        <a class="chip src aws" href="/feed?ch=aws">#aws desk</a>
+      
+      <span class="chip">reports: Weekly, Friday -&gt; Finance</span>
+      <span class="chip">engine: openrouter:moonshotai/kimi-k2</span>
+    </p>
+  </div>
+  <div class="acts">
+    <a class="btn" href="/staff/reporter-aws/edit">Edit this analyst</a>
+    <button class="btn back"
+            onclick="document.getElementById('statedlg').showModal()">
+      Suspend</button>
+  </div>
+</div>
+
+
+
+<dialog id="statedlg" class="dlg">
+  <form method="post" action="/staff/reporter-aws/state"><input type="hidden" name="csrf" value="<CSRF>">
+    <h2 style="margin-top:0">Suspend reporter-aws</h2>
+    <p class="fine">Their record, history and
+    stamps stay exactly as they are. Only the ability to run work under their
+    name goes away, and you can undo it here at any time.
+    The reason is written into the journal, so this decision can be explained
+    six months from now.</p>
+    <input type="hidden" name="state" value="suspended">
+    <div class="reasons">
+      
+      <label class="reason"><input type="radio" name="reason" value="cost" required> Costing too much for what it returns</label>
+      
+      <label class="reason"><input type="radio" name="reason" value="budget" required> Monthly guard reached or exceeded</label>
+      
+      <label class="reason"><input type="radio" name="reason" value="quality" required> Deliverables keep coming back on review</label>
+      
+      <label class="reason"><input type="radio" name="reason" value="not-needed" required> Desk is quiet, no work for it now</label>
+      
+      <label class="reason"><input type="radio" name="reason" value="data" required> Its data source is broken or unavailable</label>
+      
+      <label class="reason"><input type="radio" name="reason" value="reconfiguring" required> Being reconfigured: skills, permissions or engine</label>
+      
+      <label class="reason"><input type="radio" name="reason" value="duplicate" required> Another analyst covers the same ground</label>
+      
+      <label class="reason"><input type="radio" name="reason" value="other"> Something else, written below</label>
+    </div>
+    <textarea name="reason_other" rows="2" placeholder="If none of the above fits, write the reason here"></textarea>
+    <div class="dlgacts">
+      <button type="button" class="btn back" onclick="document.getElementById('statedlg').close()">Cancel</button>
+      <button class="btn">Suspend</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="tiles">
+  <div class="tile"><div class="tv">18</div><div class="tl">tasks handled</div></div>
+  <div class="tile"><div class="tv">18</div><div class="tl">deliverables</div></div>
+  <div class="tile"><div class="tv">100%</div><div class="tl">accepted first time</div></div>
+  <div class="tile"><div class="tv">$31.31</div><div class="tl">spent of $100.00 monthly</div></div>
+  <div class="tile"><div class="tv">$8.49</div><div class="tl">per deliverable</div></div>
+</div>
+
+<section class="panel">
+  <h2>On the desk right now</h2>
+  <p>
+    <b>2</b> open items:
+    
+      <span class="chip st-your-review">2 your-review</span>
+    <span class="fine">&nbsp; last active 2026-08-17</span>
+  </p>
+  
+  
+
+  <h3>What its work has cost</h3>
+  <p class="fine">
+    
+      <b>31%</b> of the monthly guard used
+      ($31.31 of $100.00).
+      
+    
+    
+      Priced runs: <b>43%</b>
+      (3 priced, 4 unknown).
+      An unknown cost is recorded as unknown, never as zero.
+    
+  </p>
+  
+  <p class="fine">Engines actually used:
+    <span class="chip">claude-strong &times;1</span></p>
+  
+</section>
+
+<section class="panel">
+  <h2>Mandate</h2>
+  <p>Reporter duties for the aws platform desk, every number tied to its computed source.</p>
+  
+  <h3>House rules, followed on every deliverable</h3>
+  <ul class="rules"><li>Start every report with a 3-5 line executive summary.</li><li>Name the single biggest mover and why, if a driver explains it.</li></ul>
+  
+  <p class="fine">Reporting: <b>Weekly, Friday -&gt; Finance</b>.
+  Before the Monday review, so finance has it in hand.</p>
+</section>
+
+<section class="panel">
+  <h2>What this analyst can do</h2>
+  <p class="fine">Skills are competences the agent is told to stay inside. Every
+  analyst carries the base set; the specialized ones are picked at hire and
+  decide which work the supervisor routes here.</p>
+
+  <h3>Specialized (7)</h3>
+  
+  <div class="deflist">
+    
+    <div class="def"><b>Education &amp; enablement</b>
+      <div class="fine">Plain-language explainers for engineering teams out of delivered analyses</div></div>
+    
+    <div class="def"><b>Executive reporting</b>
+      <div class="fine">Leadership packet tying spend to priorities, tradeoffs and guardrails</div></div>
+    
+    <div class="def"><b>Forecast accuracy tracking</b>
+      <div class="fine">Frozen forecast vs actual, variance vs the 20/15/12% maturity ladder, drift watch</div></div>
+    
+    <div class="def"><b>Forecast interpretation</b>
+      <div class="fine">Read backtests, call a forecast usable or not</div></div>
+    
+    <div class="def"><b>KPIs &amp; benchmarking</b>
+      <div class="fine">Curate the practice KPI set against FinOps KPI-library targets, trend the movement</div></div>
+    
+    <div class="def"><b>Showback statements</b>
+      <div class="fine">Per-team statements teams actually read</div></div>
+    
+    <div class="def"><b>Variance commentary</b>
+      <div class="fine">Explain month-over-month and budget-vs-actual moves</div></div>
+    
+  </div>
+  
+
+  <details class="fold">
+    <summary>Base skills every analyst has (8)</summary>
+    <div class="deflist">
+      
+      <div class="def"><b>Anomaly triage</b><div class="fine">Classify spikes vs known drivers, rank by money</div></div>
+      
+      <div class="def"><b>Billing store queries</b><div class="fine">SELECT-only questions against the cost store</div></div>
+      
+      <div class="def"><b>Computed figures</b><div class="fine">Read the engine&#39;s deterministic figures and cite qids</div></div>
+      
+      <div class="def"><b>Desk chat participation</b><div class="fine">Post status and findings to the desk channel</div></div>
+      
+      <div class="def"><b>Executive summaries</b><div class="fine">3-5 line summary leading every deliverable</div></div>
+      
+      <div class="def"><b>Report writing</b><div class="fine">Analyst-grade narrative around figures</div></div>
+      
+      <div class="def"><b>Team intake reading</b><div class="fine">Use budgets and requests submitted by human teams</div></div>
+      
+      <div class="def"><b>Variance commentary</b><div class="fine">Explain month-over-month and budget-vs-actual moves</div></div>
+      
+    </div>
+  </details>
+</section>
+
+<section class="panel">
+  <h2>What this analyst may touch</h2>
+  <p class="fine">Permissions are hard rights, not suggestions: the server checks
+  them, and a deliverable that reaches past them is rejected rather than posted.</p>
+
+  <h3>Data it can read (4)</h3>
+  <div class="deflist">
+    
+    <div class="def"><b>AWS estate</b>
+      
+      <div class="fine">Read the aws platform data</div></div>
+    
+    <div class="def"><b>Practice KPI registry</b>
+      
+      <div class="fine">Read the computed practice KPIs (AAI, accuracy ladder, ESR, bands)</div></div>
+    
+    <div class="def"><b>Team budgets</b>
+      
+      <div class="fine">Read the intake budgets plane</div></div>
+    
+    <div class="def"><b>Team requests</b>
+      
+      <div class="fine">Read the intake requests pipeline</div></div>
+    
+  </div>
+
+  <h3>Actions it may take (5)</h3>
+  <div class="deflist">
+    
+    <div class="def"><b>Declare covered tasks</b>
+      <span class="chip st-blocked">elevated risk</span>
+      <div class="fine">Declare that a deliverable already covers another open task on the same desk; the task closes when the operator posts the deliverable</div></div>
+    
+    <div class="def"><b>Export CSV</b>
+      
+      <div class="fine">Produce business exports</div></div>
+    
+    <div class="def"><b>Post to desk chat</b>
+      
+      <div class="fine">Write to the desk channel</div></div>
+    
+    <div class="def"><b>Publish explainers</b>
+      
+      <div class="fine">Publish educational explainers addressed to human teams</div></div>
+    
+    <div class="def"><b>Read and propose</b>
+      
+      <div class="fine">Never acts outward; deliverables only</div></div>
+    
+  </div>
+  
+</section>
+
+<section class="panel">
+  <h2>Guardrails and how it is judged</h2>
+  <table>
+    <tr><th>guard</th><th class="num">limit</th><th class="num">used</th></tr>
+    <tr><td>Per task</td><td class="num">$20.00</td><td class="num">&mdash;</td></tr>
+    <tr><td>Per month</td><td class="num">$100.00</td>
+        <td class="num">$31.31</td></tr>
+  </table>
+  
+  <h3>Evaluation</h3>
+  <table>
+    <tr><th>target</th><th>measured now</th><th>state</th></tr>
+    
+    <tr><td>first-pass acceptance &gt;= 80%</td><td>100%</td>
+      <td><span class="chip st-done">met</span>
+          </td></tr>
+    
+    <tr><td>on-time rate &gt;= 95%</td><td>not measurable yet</td>
+      <td><span class="chip">no signal</span>
+          </td></tr>
+    
+  </table>
+  
+</section>
+
+<section class="panel">
+  <h2>Work (18)</h2>
+  <input class="filterbox" placeholder="Find a task..." data-target="#agenttasks">
+  <table id="agenttasks">
+    <tr><th>task</th><th>state</th><th>sprint</th><th>updated</th><th class="num">cost $</th><th>act</th></tr>
+    
+    <tr data-search="Weekly spend pulse 2026-W35 (aws) your-review">
+      <td><a href="/task/121">Weekly spend pulse 2026-W35 (aws)</a></td>
+      <td><span class="chip st-your-review">your-review</span></td>
+      <td><a href="/sprint/13">sprint 13</a></td>
+      <td>2026-08-17</td>
+      <td class="num">0.0045</td>
+      <td>
+        
+        <form method="post" action="/task/121/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand121').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Apply the walk-to-run ladder step and re-measure AWS forecast error done">
+      <td><a href="/task/114">Apply the walk-to-run ladder step and re-measure AWS forecast error</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/16">sprint 16</a></td>
+      <td>2026-08-16</td>
+      <td class="num">0.00</td>
+      <td>
+        
+        <form method="post" action="/task/114/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand114').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="AWS W34 pulse and KPI benchmark card done">
+      <td><a href="/task/110">AWS W34 pulse and KPI benchmark card</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/15">sprint 15</a></td>
+      <td>2026-08-14</td>
+      <td class="num">0.00</td>
+      <td>
+        
+        <form method="post" action="/task/110/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand110').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="August 2026 month-close report (aws) done">
+      <td><a href="/task/93">August 2026 month-close report (aws)</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/14">sprint 14</a></td>
+      <td>2026-08-14</td>
+      <td class="num">0.00</td>
+      <td>
+        
+        <form method="post" action="/task/93/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand93').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Deep aws analysis (strong engine, supervisor&#39;s pick) done">
+      <td><a href="/task/91">Deep aws analysis (strong engine, supervisor&#39;s pick)</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td>&mdash;</td>
+      <td>2026-08-13</td>
+      <td class="num">0.34</td>
+      <td>
+        
+        <form method="post" action="/task/91/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand91').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Economy pulse aws (default engine) done">
+      <td><a href="/task/90">Economy pulse aws (default engine)</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td>&mdash;</td>
+      <td>2026-08-13</td>
+      <td class="num">0.00</td>
+      <td>
+        
+        <form method="post" action="/task/90/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand90').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="AWS variance commentary 2026-W35 done">
+      <td><a href="/task/82">AWS variance commentary 2026-W35</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/13">sprint 13</a></td>
+      <td>2026-08-13</td>
+      <td class="num">0.31</td>
+      <td>
+        
+        <form method="post" action="/task/82/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand82').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Weekly spend pulse 2026-W33 (aws) your-review">
+      <td><a href="/task/62">Weekly spend pulse 2026-W33 (aws)</a></td>
+      <td><span class="chip st-your-review">your-review</span></td>
+      <td><a href="/sprint/11">sprint 11</a></td>
+      <td>2026-08-10</td>
+      <td class="num">9.28</td>
+      <td>
+        
+        <form method="post" action="/task/62/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand62').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Monthly spend report 2026-07 (aws) done">
+      <td><a href="/task/54">Monthly spend report 2026-07 (aws)</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/10">sprint 10</a></td>
+      <td>2026-08-04</td>
+      <td class="num">21.37</td>
+      <td>
+        
+        <form method="post" action="/task/54/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand54').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Weekly spend pulse 2026-W31 (aws) done">
+      <td><a href="/task/48">Weekly spend pulse 2026-W31 (aws)</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/9">sprint 9</a></td>
+      <td>2026-07-31</td>
+      <td class="num">9.42</td>
+      <td>
+        
+        <form method="post" action="/task/48/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand48').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Weekly spend pulse 2026-W30 (aws) done">
+      <td><a href="/task/43">Weekly spend pulse 2026-W30 (aws)</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/8">sprint 8</a></td>
+      <td>2026-07-24</td>
+      <td class="num">9.30</td>
+      <td>
+        
+        <form method="post" action="/task/43/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand43').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Weekly spend pulse 2026-W29 (aws) done">
+      <td><a href="/task/38">Weekly spend pulse 2026-W29 (aws)</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/7">sprint 7</a></td>
+      <td>2026-07-17</td>
+      <td class="num">7.76</td>
+      <td>
+        
+        <form method="post" action="/task/38/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand38').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Weekly spend pulse 2026-W28 (aws) done">
+      <td><a href="/task/32">Weekly spend pulse 2026-W28 (aws)</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/6">sprint 6</a></td>
+      <td>2026-07-10</td>
+      <td class="num">8.69</td>
+      <td>
+        
+        <form method="post" action="/task/32/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand32').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Monthly spend report 2026-06 (aws) done">
+      <td><a href="/task/25">Monthly spend report 2026-06 (aws)</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/5">sprint 5</a></td>
+      <td>2026-06-30</td>
+      <td class="num">21.06</td>
+      <td>
+        
+        <form method="post" action="/task/25/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand25').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Weekly spend pulse 2026-W26 (aws) done">
+      <td><a href="/task/20">Weekly spend pulse 2026-W26 (aws)</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/4">sprint 4</a></td>
+      <td>2026-06-26</td>
+      <td class="num">10.41</td>
+      <td>
+        
+        <form method="post" action="/task/20/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand20').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Weekly spend pulse 2026-W25 (aws) done">
+      <td><a href="/task/14">Weekly spend pulse 2026-W25 (aws)</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/3">sprint 3</a></td>
+      <td>2026-06-19</td>
+      <td class="num">9.81</td>
+      <td>
+        
+        <form method="post" action="/task/14/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand14').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Weekly spend pulse 2026-W24 (aws) done">
+      <td><a href="/task/9">Weekly spend pulse 2026-W24 (aws)</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/2">sprint 2</a></td>
+      <td>2026-06-12</td>
+      <td class="num">6.65</td>
+      <td>
+        
+        <form method="post" action="/task/9/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand9').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Monthly spend report 2026-05 (aws) done">
+      <td><a href="/task/2">Monthly spend report 2026-05 (aws)</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/1">sprint 1</a></td>
+      <td>2026-06-02</td>
+      <td class="num">21.36</td>
+      <td>
+        
+        <form method="post" action="/task/2/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand2').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+  </table>
+  <p class="fine">Click a column heading to sort, drag a heading's right edge to
+  widen it. <b>Run</b> puts the task through this analyst again, brief unchanged.
+  <b>Hand over</b> moves it to somebody else, and lets you change what it asks
+  for on the way.</p>
+
+  
+  <dialog id="hand121" class="dlg">
+    <form method="post" action="/task/121/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Weekly spend pulse 2026-W35 (aws)</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="supervisor">supervisor &mdash; management</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Weekly pulse for the aws desk."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand121').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand114" class="dlg">
+    <form method="post" action="/task/114/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Apply the walk-to-run ladder step and re-measure AWS forecast error</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="supervisor">supervisor &mdash; management</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Apply the W37-approved walk-to-run path and recompute forecast worst-abs, currently 12.4% [qid:2f445196], against the 12% run line of the pack ladder canon. Report whether the ladder field now reads run; if it does not, name the team lines that hold it back. Routing: forecast-accuracy and forecasting-commentary."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand114').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand110" class="dlg">
+    <form method="post" action="/task/110/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: AWS W34 pulse and KPI benchmark card</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="supervisor">supervisor &mdash; management</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Clear queued pulse #115 and add the AWS KPI card benchmarked against the Framework-2026 targets: AAI 76.5% [qid:8feebd77] versus the 90% tag target, forecast walk rung at worst error 12.4% [qid:2f445196], effective savings rate 13.3% [qid:1a8d6537], anomaly band green at 0.87% share [qid:8860e2df]. Name the direction of travel per KPI, no cross-platform claims."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand110').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand93" class="dlg">
+    <form method="post" action="/task/93/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: August 2026 month-close report (aws)</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="supervisor">supervisor &mdash; management</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Close August on AWS: actuals vs budget per team, variance commentary, and a forward note for September. Call out ml as the only team over budget and state the projected overrun without softening it."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand93').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand91" class="dlg">
+    <form method="post" action="/task/91/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Deep aws analysis (strong engine, supervisor&#39;s pick)</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="supervisor">supervisor &mdash; management</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="The same pulse, but with the engine explicitly assigned strong: a check of the override path."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand91').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand90" class="dlg">
+    <form method="post" action="/task/90/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Economy pulse aws (default engine)</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="supervisor">supervisor &mdash; management</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Short weekly aws pulse: exec summary and the largest driver. Keep it brief."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand90').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand82" class="dlg">
+    <form method="post" action="/task/82/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: AWS variance commentary 2026-W35</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="supervisor">supervisor &mdash; management</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Write the AWS variance and forecast commentary for the week, leading with why ml is the sole AWS team projecting above budget while data, product-web and sre-platform project below theirs. (Plan context refs: teams_projection.aws)"></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand82').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand62" class="dlg">
+    <form method="post" action="/task/62/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Weekly spend pulse 2026-W33 (aws)</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="supervisor">supervisor &mdash; management</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Weekly pulse for the aws desk."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand62').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand54" class="dlg">
+    <form method="post" action="/task/54/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Monthly spend report 2026-07 (aws)</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="supervisor">supervisor &mdash; management</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Close the 2026-07 books for the aws desk."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand54').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand48" class="dlg">
+    <form method="post" action="/task/48/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Weekly spend pulse 2026-W31 (aws)</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="supervisor">supervisor &mdash; management</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Weekly pulse for the aws desk."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand48').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand43" class="dlg">
+    <form method="post" action="/task/43/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Weekly spend pulse 2026-W30 (aws)</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="supervisor">supervisor &mdash; management</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Weekly pulse for the aws desk."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand43').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand38" class="dlg">
+    <form method="post" action="/task/38/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Weekly spend pulse 2026-W29 (aws)</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="supervisor">supervisor &mdash; management</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Weekly pulse for the aws desk."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand38').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand32" class="dlg">
+    <form method="post" action="/task/32/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Weekly spend pulse 2026-W28 (aws)</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="supervisor">supervisor &mdash; management</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Weekly pulse for the aws desk."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand32').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand25" class="dlg">
+    <form method="post" action="/task/25/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Monthly spend report 2026-06 (aws)</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="supervisor">supervisor &mdash; management</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Close the 2026-06 books for the aws desk."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand25').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand20" class="dlg">
+    <form method="post" action="/task/20/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Weekly spend pulse 2026-W26 (aws)</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="supervisor">supervisor &mdash; management</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Weekly pulse for the aws desk."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand20').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand14" class="dlg">
+    <form method="post" action="/task/14/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Weekly spend pulse 2026-W25 (aws)</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="supervisor">supervisor &mdash; management</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Weekly pulse for the aws desk."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand14').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand9" class="dlg">
+    <form method="post" action="/task/9/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Weekly spend pulse 2026-W24 (aws)</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="supervisor">supervisor &mdash; management</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Weekly pulse for the aws desk."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand9').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand2" class="dlg">
+    <form method="post" action="/task/2/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Monthly spend report 2026-05 (aws)</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="supervisor">supervisor &mdash; management</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Close the 2026-05 books for the aws desk."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand2').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+</section>
+
+<section class="panel">
+  <h2>Activity</h2>
+  <p class="fine">Straight from the hash-chained journal, newest first: what this
+  analyst did, not what a status field claims.</p>
+  <table>
+    <tr><th>when</th><th>event</th><th>detail</th></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/121">task 121</a> 
+        Weekly spend pulse 2026-W35 (aws)</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/114">task 114</a> 
+        Apply the walk-to-run ladder step and re-measure AWS forecast error</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/110">task 110</a> 
+        AWS W34 pulse and KPI benchmark card</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/93">task 93</a> 
+        August 2026 month-close report (aws)</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/91">task 91</a> 
+        Deep aws analysis (strong engine, supervisor&#39;s pick)</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/90">task 90</a> 
+        Economy pulse aws (default engine)</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/82">task 82</a> 
+        AWS variance commentary 2026-W35</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">channel message</span></td>
+      <td>
+        Pulse submitted for review.</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">channel message</span></td>
+      <td>
+        Pulse tracking USD 575 this week (+0.7% vs last); biggest mover Amazon EKS (+2).</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task started</span></td>
+      <td><a href="/task/62">task 62</a> 
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/62">task 62</a> 
+        Weekly spend pulse 2026-W33 (aws)</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">channel message</span></td>
+      <td>
+        Starting the 2026-07 close for aws; figures are in, drafting now.</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task started</span></td>
+      <td><a href="/task/54">task 54</a> 
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/54">task 54</a> 
+        Monthly spend report 2026-07 (aws)</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">channel message</span></td>
+      <td>
+        Pulse submitted for review.</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">channel message</span></td>
+      <td>
+        Pulse tracking USD 637 this week (+12.1% vs last); biggest mover Amazon EC2 (+72).</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task started</span></td>
+      <td><a href="/task/48">task 48</a> 
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/48">task 48</a> 
+        Weekly spend pulse 2026-W31 (aws)</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">channel message</span></td>
+      <td>
+        Pulse submitted for review.</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">channel message</span></td>
+      <td>
+        Pulse tracking USD 569 this week (-0.0% vs last); biggest mover Amazon EC2 (-4).</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task started</span></td>
+      <td><a href="/task/43">task 43</a> 
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/43">task 43</a> 
+        Weekly spend pulse 2026-W30 (aws)</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">channel message</span></td>
+      <td>
+        Pulse submitted for review.</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">channel message</span></td>
+      <td>
+        Pulse tracking USD 569 this week (+2.8% vs last); biggest mover Amazon EC2 (+14).</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task started</span></td>
+      <td><a href="/task/38">task 38</a> 
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/38">task 38</a> 
+        Weekly spend pulse 2026-W29 (aws)</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">channel message</span></td>
+      <td>
+        Pulse submitted for review.</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">channel message</span></td>
+      <td>
+        Pulse tracking USD 553 this week (+0.9% vs last); biggest mover Amazon RDS (+3).</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task started</span></td>
+      <td><a href="/task/32">task 32</a> 
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/32">task 32</a> 
+        Weekly spend pulse 2026-W28 (aws)</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">channel message</span></td>
+      <td>
+        Starting the 2026-06 close for aws; figures are in, drafting now.</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task started</span></td>
+      <td><a href="/task/25">task 25</a> 
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/25">task 25</a> 
+        Monthly spend report 2026-06 (aws)</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">channel message</span></td>
+      <td>
+        Pulse submitted for review.</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">channel message</span></td>
+      <td>
+        Pulse tracking USD 554 this week (+3.3% vs last); biggest mover Amazon EC2 (+11).</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task started</span></td>
+      <td><a href="/task/20">task 20</a> 
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/20">task 20</a> 
+        Weekly spend pulse 2026-W26 (aws)</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">channel message</span></td>
+      <td>
+        Pulse submitted for review.</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">channel message</span></td>
+      <td>
+        Pulse tracking USD 536 this week (-1.7% vs last); biggest mover Amazon EC2 (-9).</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task started</span></td>
+      <td><a href="/task/14">task 14</a> 
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/14">task 14</a> 
+        Weekly spend pulse 2026-W25 (aws)</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">channel message</span></td>
+      <td>
+        Pulse submitted for review.</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">channel message</span></td>
+      <td>
+        Pulse tracking USD 545 this week (+1.1% vs last); biggest mover Amazon EC2 (+12).</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task started</span></td>
+      <td><a href="/task/9">task 9</a> 
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/9">task 9</a> 
+        Weekly spend pulse 2026-W24 (aws)</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">channel message</span></td>
+      <td>
+        Starting the 2026-05 close for aws; figures are in, drafting now.</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task started</span></td>
+      <td><a href="/task/2">task 2</a> 
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/2">task 2</a> 
+        Monthly spend report 2026-05 (aws)</td></tr>
+    
+  </table>
+</section>
+
+<section class="panel">
+  <h2>The job description as stored</h2>
+  <p class="fine">Everything above comes from this one file, <code>jd/reporter-aws.yaml</code>.
+  Hiring an analyst is writing it; changing one is editing it.</p>
+  <details class="fold"><summary>Show the raw file</summary>
+    <pre class="jd">name: reporter-aws
+role: FinOps Analyst - Reporter (aws desk)
+mission: &#39;Reporter duties for the aws platform desk, every number tied to its computed
+  source.
+
+  &#39;
+model:
+  provider: openrouter
+  model: moonshotai/kimi-k2
+desk: aws
+default_source: aws
+boundaries:
+  tools:
+  - figures
+  actions: read-and-propose
+budget:
+  per_task_usd: 20.0
+  monthly_usd: 100.0
+house_rules:
+- Start every report with a 3-5 line executive summary.
+- Name the single biggest mover and why, if a driver explains it.
+evaluation:
+  kpis:
+  - first-pass acceptance &gt;= 80%
+  - on-time rate &gt;= 95%
+skills:
+  specialized:
+  - education-enablement
+  - exec-reporting
+  - forecast-accuracy
+  - forecasting-commentary
+  - kpi-benchmarking
+  - showback-narration
+  - variance-commentary
+permissions:
+- budgets-read
+- channel-post
+- close-covered
+- export-data
+- kpi-registry
+- platform-aws
+- propose-only
+- publish-explainer
+- requests-read
+reporting:
+  cadence: weekly
+  day: friday
+  audience: finance
+  note: Before the Monday review, so finance has it in hand.
+</pre>
+  </details>
+</section>
+</main>
+</div>
+<script>
+document.addEventListener('input', function (e) {
+  var box = e.target.closest('.filterbox'); if (!box) return;
+  var root = document.querySelector(box.dataset.target); if (!root) return;
+  var q = box.value.trim().toLowerCase();
+  root.querySelectorAll('[data-search]').forEach(function (el) {
+    var hit = !q || el.dataset.search.toLowerCase().indexOf(q) !== -1;
+    if (el.classList.contains('deskgroup')) {
+      var inner = Array.prototype.some.call(el.querySelectorAll('[data-search]'),
+        function (x) { return x.dataset.search.toLowerCase().indexOf(q) !== -1; });
+      el.style.display = (hit || inner || !q) ? '' : 'none';
+      el.querySelectorAll('[data-search]').forEach(function (x) {
+        x.style.display = (!q || hit || x.dataset.search.toLowerCase().indexOf(q) !== -1) ? '' : 'none';
+      });
+    } else if (!el.closest('.deskgroup')) {
+      el.style.display = hit ? '' : 'none';
+    }
+  });
+});
+document.addEventListener('click', function (e) {
+  if (e.target.classList && e.target.classList.contains('grip')) return;
+  var th = e.target.closest('th'); if (!th) return;
+  var table = th.closest('table'); if (!table) return;
+  var idx = Array.prototype.indexOf.call(th.parentNode.children, th);
+  var rows = Array.prototype.slice.call(table.querySelectorAll('tr')).filter(
+    function (r) { return r.querySelector('td'); });
+  var dir = th.dataset.dir === 'asc' ? -1 : 1;
+  table.querySelectorAll('th').forEach(function (h) { delete h.dataset.dir;
+    var a = h.querySelector('.arrow'); if (a) a.remove(); });
+  th.dataset.dir = dir === 1 ? 'asc' : 'desc';
+  var arrow = document.createElement('span');
+  arrow.className = 'arrow';
+  arrow.textContent = dir === 1 ? ' \u25B2' : ' \u25BC';
+  th.appendChild(arrow);
+  function key(r) {
+    var c = r.children[idx]; if (!c) return '';
+    var txt = c.textContent.trim().replace(/[$,%]/g, '').replace(/,/g, '');
+    if (/\d{4}-\d{2}-\d{2}/.test(txt)) return txt.replace(/[^\d-]/g, '');
+    var n = parseFloat(txt);
+    return isNaN(n) ? txt.toLowerCase() : n;
+  }
+  rows.sort(function (a, b) {
+    var ka = key(a), kb = key(b);
+    if (typeof ka === 'number' && typeof kb === 'number') return (ka - kb) * dir;
+    return String(ka).localeCompare(String(kb)) * dir;
+  });
+  rows.forEach(function (r) { r.parentNode.appendChild(r); });
+});
+
+/* ---- tables you can widen, and that fit any screen -----------------------
+   Every table is put in its own horizontally scrolling box, so a wide table
+   scrolls inside its panel instead of pushing the whole page sideways. Each
+   header cell gets a grip on its right edge: drag it to widen the column,
+   double-click it to give the column back to the browser. Widths are
+   remembered per page, because a column you widened once you almost always
+   want wide again.                                                          */
+(function () {
+  var KEY = 'costcrew.colw.' + location.pathname;
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (err) { saved = {}; }
+
+  function persist() {
+    try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (err) { /* private mode */ }
+  }
+
+  function setup() {
+    document.querySelectorAll('table').forEach(function (table, ti) {
+      if (!table.parentNode.classList.contains('tw')) {
+        var box = document.createElement('div');
+        box.className = 'tw';
+        table.parentNode.insertBefore(box, table);
+        box.appendChild(table);
+      }
+      /* An atom never breaks: a date, a sum, a status, a short name. Prose
+         does break, and must, or one sentence drags the whole table wider
+         than the screen and everything else scrolls to reach it. The rule is
+         length, applied once, because CSS cannot ask how long a text is. */
+      table.querySelectorAll('td, th').forEach(function (cell) {
+        if (cell.children.length) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length > 40 && txt.indexOf(' ') !== -1) cell.classList.add('wrap');
+      });
+
+      /* Really long prose gets two lines and a way to open the rest. Nothing
+         is removed: the full text is still in the cell, still searched by
+         the filter box, still there for anyone who presses. */
+      table.querySelectorAll('td').forEach(function (cell) {
+        if (cell.querySelector('.clamp')) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length <= 110) return;
+        var box = document.createElement('div');
+        box.className = 'clamp';
+        while (cell.firstChild) box.appendChild(cell.firstChild);
+        cell.appendChild(box);
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'more';
+        btn.textContent = 'more';
+        btn.setAttribute('aria-expanded', 'false');
+        btn.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          var open = box.classList.toggle('open');
+          btn.textContent = open ? 'less' : 'more';
+          btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+        cell.appendChild(btn);
+        cell.classList.add('wrap');
+      });
+      /* Align each header to the column beneath it. The figures are right
+         aligned and the headers were not, so every numeric column read as a
+         label on the left with unrelated numbers on the right. */
+      var head0 = table.querySelector('tr');
+      if (head0) {
+        var body = Array.prototype.slice.call(table.querySelectorAll('tr'))
+          .filter(function (r) { return r.querySelector('td'); });
+        head0.querySelectorAll('th').forEach(function (th, ci) {
+          var nums = 0, cells = 0;
+          body.forEach(function (r) {
+            var cell = r.children[ci];
+            if (!cell || cell.tagName !== 'TD') return;
+            cells++;
+            if (cell.classList.contains('num')) nums++;
+          });
+          if (cells && nums * 2 > cells) th.classList.add('num');
+        });
+      }
+      var head = table.querySelector('tr');
+      if (!head) return;
+      head.querySelectorAll('th').forEach(function (th, ci) {
+        var id = ti + ':' + ci;
+        if (saved[id]) { th.style.width = saved[id] + 'px'; th.classList.add('sized'); }
+        if (th.querySelector('.grip')) return;
+        var grip = document.createElement('span');
+        grip.className = 'grip';
+        grip.title = 'Drag to widen, double-click to reset';
+        grip.addEventListener('dblclick', function (ev) {
+          ev.stopPropagation();
+          th.style.width = ''; th.classList.remove('sized');
+          delete saved[id]; persist();
+        });
+        grip.addEventListener('pointerdown', function (ev) {
+          ev.preventDefault(); ev.stopPropagation();
+          var x0 = ev.clientX, w0 = th.getBoundingClientRect().width;
+          grip.classList.add('on');
+          grip.setPointerCapture(ev.pointerId);
+          function move(e2) {
+            var w = Math.max(48, Math.round(w0 + (e2.clientX - x0)));
+            th.style.width = w + 'px'; th.classList.add('sized');
+            saved[id] = w;
+          }
+          function up() {
+            grip.classList.remove('on');
+            grip.removeEventListener('pointermove', move);
+            grip.removeEventListener('pointerup', up);
+            persist();
+          }
+          grip.addEventListener('pointermove', move);
+          grip.addEventListener('pointerup', up);
+        });
+        th.appendChild(grip);
+      });
+    });
+    document.querySelectorAll('.tw').forEach(function (box) {
+      function mark() {
+        /* a few pixels is rounding, not a hidden column */
+        var over = box.scrollWidth > box.clientWidth + 8;
+        box.classList.toggle('scrolls', over);
+        box.classList.toggle('atend',
+          over && box.scrollLeft + box.clientWidth >= box.scrollWidth - 2);
+      }
+      box.addEventListener('scroll', mark);
+      window.addEventListener('resize', mark);
+      mark();
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setup);
+  } else { setup(); }
+})();
+</script>
+</body></html>

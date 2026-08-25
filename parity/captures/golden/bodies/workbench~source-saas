@@ -1,0 +1,337 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CostCrew</title>
+<link rel="stylesheet" href="/static/style.css"></head><body>
+<div class="shell">
+<nav class="rail">
+  <div class="brand">CostCrew</div>
+  <a href="/" class="">Today</a>
+  <a href="/board" class="">Board</a>
+  <a href="/board?view=month" class="sub">Calendar</a>
+  <a href="/teams" class="">Teams</a>
+  <a href="/sprints" class="">Sprints</a>
+  <a href="/feed" class="">Chats</a>
+  <a href="/feed?ch=aws" class="sub">#aws</a>
+  <a href="/feed?ch=gcp" class="sub">#gcp</a>
+  <a href="/feed?ch=onprem" class="sub">#onprem</a>
+  <a href="/kpis" class="">KPIs</a>
+  <a href="/library" class="sub ">Library</a>
+  <a href="/assessment" class="sub ">Assessment</a>
+  <a href="/allocation" class="">Allocation</a>
+  <a href="/chargeback" class="">Chargeback</a>
+  <a href="/exec" class="">Executive</a>
+  <a href="/results" class="">Results</a>
+  <a href="/ai" class="">AI spend</a>
+  <a href="/saas" class="">SaaS</a>
+  <a href="/utilisation" class="">Utilisation</a>
+  <a href="/explainers" class="">Explainers</a>
+  <a href="/staff" class="">Staff</a>
+  <a href="/workbench" class="on">Workbench</a>
+  <a href="/data" class="">Data</a>
+  <a href="/connectors" class="sub ">Connectors</a>
+  <a href="/audit" class="">Audit</a>
+  <a href="/settings" class="">Engines</a>
+  
+  <a href="/accounts" class="">Accounts</a>
+  <div class="railfoot">
+    
+    <div>parity · admin</div>
+    <form method="post" action="/logout" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+      <button class="btn back">Sign out</button></form>
+    
+    <div>MVP · local</div>
+  </div>
+</nav>
+<main class="content">
+<h1>Workbench</h1>
+<p><a class="chip " href="/workbench?source=ai">ai</a><a class="chip " href="/workbench?source=aws">aws</a><a class="chip " href="/workbench?source=gcp">gcp</a><a class="chip " href="/workbench?source=onprem">onprem</a><a class="chip on" href="/workbench?source=saas">saas</a></p>
+<section class="panel"><h2>Daily usage, last 60 days</h2><svg class="spark" viewBox="0 0 760 90" width="760" height="90"><polyline fill="none" stroke="#2E6B4F" stroke-width="2" points="0.0,61.5 69.1,88.0 138.2,84.4 207.3,33.6 276.4,68.5 345.5,39.9 414.5,8.1 483.6,15.5 552.7,39.3 621.8,4.0 690.9,21.4 760.0,67.6"/></svg></section>
+<section class="panel"><h2>Monthly: 2026-08 (to date, through 2026-08-01) vs 2026-07</h2>
+<p class="fine">The current month is incomplete; comparing it to a full month raw would mislead, so it is labeled.</p>
+<table><tr><th>category</th><th>2026-07</th><th>2026-08</th><th></th></tr>
+<tr><td>Usage</td><td class="num">27,505.00</td>
+<td class="num">27,246.00</td><td><span class="qid">⌗5857b5d6</span></td></tr></table>
+<h3>Usage by service (top movers)</h3>
+<table><tr><th>service</th><th>2026-07</th><th>2026-08</th><th>delta</th><th></th></tr>
+<tr><td>Datadog Observability</td><td class="num">6,851.00</td>
+<td class="num">6,665.00</td><td class="num">-186.00</td>
+<td><span class="qid">⌗d3d7170b</span></td></tr><tr><td>Snowflake Data platform seats</td><td class="num">4,272.00</td>
+<td class="num">4,224.00</td><td class="num">-48.00</td>
+<td><span class="qid">⌗d3d7170b</span></td></tr><tr><td>Atlassian Jira + Confluence</td><td class="num">4,988.00</td>
+<td class="num">4,959.00</td><td class="num">-29.00</td>
+<td><span class="qid">⌗d3d7170b</span></td></tr><tr><td>Snyk Security scanning</td><td class="num">3,363.00</td>
+<td class="num">3,382.00</td><td class="num">+19.00</td>
+<td><span class="qid">⌗d3d7170b</span></td></tr><tr><td>Figma Design</td><td class="num">1,815.00</td>
+<td class="num">1,800.00</td><td class="num">-15.00</td>
+<td><span class="qid">⌗d3d7170b</span></td></tr><tr><td>GitHub Enterprise</td><td class="num">6,216.00</td>
+<td class="num">6,216.00</td><td class="num">+0.00</td>
+<td><span class="qid">⌗d3d7170b</span></td></tr></table>
+<h3>Showback by team</h3>
+<table><tr><th>team</th><th>2026-07</th><th>2026-08</th><th>delta</th></tr>
+<tr><td>product-web</td><td class="num">13,019.00</td>
+<td class="num">12,975.00</td><td class="num">-44.00</td></tr><tr><td>sre-platform</td><td class="num">10,214.00</td>
+<td class="num">10,047.00</td><td class="num">-167.00</td></tr><tr><td>data</td><td class="num">4,272.00</td>
+<td class="num">4,224.00</td><td class="num">-48.00</td></tr></table>
+</section>
+<section class="panel"><h2>Forecast</h2>
+
+<p><b>USD 29,192.14</b> next 30 days (0.00 .. 72,195.65)
+<span class="qid">⌗1ec3529c</span></p>
+<table><tr><th>method</th><th>backtest MAPE</th></tr>
+<tr class="">
+<td>seasonal-naive(7)</td>
+<td class="num">100.0%</td></tr><tr class="win">
+<td>moving-average(28) ← selected</td>
+<td class="num">98.2%</td></tr><tr class="">
+<td>holt-winters(add,7)</td>
+<td class="num">100.0%</td></tr></table>
+
+
+</section>
+<section class="panel"><h2>Anomalies</h2>
+<table><tr><th></th><th>date</th><th>service</th><th>team</th><th>day $</th><th>baseline</th><th>z</th><th>excess</th><th>known driver</th></tr>
+<tr><td><span class="dir up">▲</span></td>
+<td>2026-04-01</td><td>Datadog Observability</td><td>sre-platform</td>
+<td class="num">6,882.00</td><td class="num">0.00</td>
+<td class="num">464184.5</td><td class="num">+6882.00</td>
+<td>— needs a look</td></tr>
+<tr><td><span class="dir up">▲</span></td>
+<td>2026-07-01</td><td>Datadog Observability</td><td>sre-platform</td>
+<td class="num">6,851.00</td><td class="num">0.00</td>
+<td class="num">462093.6</td><td class="num">+6851.00</td>
+<td>— needs a look</td></tr>
+<tr><td><span class="dir up">▲</span></td>
+<td>2026-06-01</td><td>Datadog Observability</td><td>sre-platform</td>
+<td class="num">6,820.00</td><td class="num">0.00</td>
+<td class="num">460002.7</td><td class="num">+6820.00</td>
+<td>— needs a look</td></tr>
+<tr><td><span class="dir up">▲</span></td>
+<td>2026-03-01</td><td>Datadog Observability</td><td>sre-platform</td>
+<td class="num">6,789.00</td><td class="num">0.00</td>
+<td class="num">457911.8</td><td class="num">+6789.00</td>
+<td>— needs a look</td></tr>
+<tr><td><span class="dir up">▲</span></td>
+<td>2025-10-01</td><td>Datadog Observability</td><td>sre-platform</td>
+<td class="num">6,758.00</td><td class="num">0.00</td>
+<td class="num">455820.9</td><td class="num">+6758.00</td>
+<td>— needs a look</td></tr>
+<tr><td><span class="dir up">▲</span></td>
+<td>2025-12-01</td><td>Datadog Observability</td><td>sre-platform</td>
+<td class="num">6,758.00</td><td class="num">0.00</td>
+<td class="num">455820.9</td><td class="num">+6758.00</td>
+<td>— needs a look</td></tr>
+<tr><td><span class="dir up">▲</span></td>
+<td>2026-01-01</td><td>Datadog Observability</td><td>sre-platform</td>
+<td class="num">6,727.00</td><td class="num">0.00</td>
+<td class="num">453729.9</td><td class="num">+6727.00</td>
+<td>— needs a look</td></tr>
+<tr><td><span class="dir up">▲</span></td>
+<td>2026-02-01</td><td>Datadog Observability</td><td>sre-platform</td>
+<td class="num">6,665.00</td><td class="num">0.00</td>
+<td class="num">449548.1</td><td class="num">+6665.00</td>
+<td>— needs a look</td></tr>
+<tr><td><span class="dir up">▲</span></td>
+<td>2026-05-01</td><td>Datadog Observability</td><td>sre-platform</td>
+<td class="num">6,665.00</td><td class="num">0.00</td>
+<td class="num">449548.1</td><td class="num">+6665.00</td>
+<td>— needs a look</td></tr>
+<tr><td><span class="dir up">▲</span></td>
+<td>2026-08-01</td><td>Datadog Observability</td><td>sre-platform</td>
+<td class="num">6,665.00</td><td class="num">0.00</td>
+<td class="num">449548.1</td><td class="num">+6665.00</td>
+<td>— needs a look</td></tr>
+</table>
+<p class="fine">Two-sided: a drop can mean a stopped feed, a decommission or a data-quality
+failure, so it is reported like a spike. Baselines compare like days, so weekend dips are
+not incidents. Known drivers are annotated, never hidden <span class="qid">⌗1e7422b2</span></p>
+</section>
+<section class="panel"><h2>Driver registry</h2>
+<table><tr><th>dates</th><th>scope</th><th>label</th><th>kind</th><th>source</th></tr>
+<tr><td>2025-09-01..2026-12-31</td>
+<td>GPU training cluster</td><td>scheduled model training, 8th and 22nd of each month</td><td>recurring</td><td class="fine">ml team training calendar</td></tr></table>
+</section>
+<p><a class="btn" href="/export/showback.csv?source=saas">Export showback (CSV)</a>
+   <a class="btn" href="/export/budget.csv?source=saas">Export budget vs actual (CSV)</a></p>
+</main>
+</div>
+<script>
+document.addEventListener('input', function (e) {
+  var box = e.target.closest('.filterbox'); if (!box) return;
+  var root = document.querySelector(box.dataset.target); if (!root) return;
+  var q = box.value.trim().toLowerCase();
+  root.querySelectorAll('[data-search]').forEach(function (el) {
+    var hit = !q || el.dataset.search.toLowerCase().indexOf(q) !== -1;
+    if (el.classList.contains('deskgroup')) {
+      var inner = Array.prototype.some.call(el.querySelectorAll('[data-search]'),
+        function (x) { return x.dataset.search.toLowerCase().indexOf(q) !== -1; });
+      el.style.display = (hit || inner || !q) ? '' : 'none';
+      el.querySelectorAll('[data-search]').forEach(function (x) {
+        x.style.display = (!q || hit || x.dataset.search.toLowerCase().indexOf(q) !== -1) ? '' : 'none';
+      });
+    } else if (!el.closest('.deskgroup')) {
+      el.style.display = hit ? '' : 'none';
+    }
+  });
+});
+document.addEventListener('click', function (e) {
+  if (e.target.classList && e.target.classList.contains('grip')) return;
+  var th = e.target.closest('th'); if (!th) return;
+  var table = th.closest('table'); if (!table) return;
+  var idx = Array.prototype.indexOf.call(th.parentNode.children, th);
+  var rows = Array.prototype.slice.call(table.querySelectorAll('tr')).filter(
+    function (r) { return r.querySelector('td'); });
+  var dir = th.dataset.dir === 'asc' ? -1 : 1;
+  table.querySelectorAll('th').forEach(function (h) { delete h.dataset.dir;
+    var a = h.querySelector('.arrow'); if (a) a.remove(); });
+  th.dataset.dir = dir === 1 ? 'asc' : 'desc';
+  var arrow = document.createElement('span');
+  arrow.className = 'arrow';
+  arrow.textContent = dir === 1 ? ' \u25B2' : ' \u25BC';
+  th.appendChild(arrow);
+  function key(r) {
+    var c = r.children[idx]; if (!c) return '';
+    var txt = c.textContent.trim().replace(/[$,%]/g, '').replace(/,/g, '');
+    if (/\d{4}-\d{2}-\d{2}/.test(txt)) return txt.replace(/[^\d-]/g, '');
+    var n = parseFloat(txt);
+    return isNaN(n) ? txt.toLowerCase() : n;
+  }
+  rows.sort(function (a, b) {
+    var ka = key(a), kb = key(b);
+    if (typeof ka === 'number' && typeof kb === 'number') return (ka - kb) * dir;
+    return String(ka).localeCompare(String(kb)) * dir;
+  });
+  rows.forEach(function (r) { r.parentNode.appendChild(r); });
+});
+
+/* ---- tables you can widen, and that fit any screen -----------------------
+   Every table is put in its own horizontally scrolling box, so a wide table
+   scrolls inside its panel instead of pushing the whole page sideways. Each
+   header cell gets a grip on its right edge: drag it to widen the column,
+   double-click it to give the column back to the browser. Widths are
+   remembered per page, because a column you widened once you almost always
+   want wide again.                                                          */
+(function () {
+  var KEY = 'costcrew.colw.' + location.pathname;
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (err) { saved = {}; }
+
+  function persist() {
+    try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (err) { /* private mode */ }
+  }
+
+  function setup() {
+    document.querySelectorAll('table').forEach(function (table, ti) {
+      if (!table.parentNode.classList.contains('tw')) {
+        var box = document.createElement('div');
+        box.className = 'tw';
+        table.parentNode.insertBefore(box, table);
+        box.appendChild(table);
+      }
+      /* An atom never breaks: a date, a sum, a status, a short name. Prose
+         does break, and must, or one sentence drags the whole table wider
+         than the screen and everything else scrolls to reach it. The rule is
+         length, applied once, because CSS cannot ask how long a text is. */
+      table.querySelectorAll('td, th').forEach(function (cell) {
+        if (cell.children.length) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length > 40 && txt.indexOf(' ') !== -1) cell.classList.add('wrap');
+      });
+
+      /* Really long prose gets two lines and a way to open the rest. Nothing
+         is removed: the full text is still in the cell, still searched by
+         the filter box, still there for anyone who presses. */
+      table.querySelectorAll('td').forEach(function (cell) {
+        if (cell.querySelector('.clamp')) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length <= 110) return;
+        var box = document.createElement('div');
+        box.className = 'clamp';
+        while (cell.firstChild) box.appendChild(cell.firstChild);
+        cell.appendChild(box);
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'more';
+        btn.textContent = 'more';
+        btn.setAttribute('aria-expanded', 'false');
+        btn.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          var open = box.classList.toggle('open');
+          btn.textContent = open ? 'less' : 'more';
+          btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+        cell.appendChild(btn);
+        cell.classList.add('wrap');
+      });
+      /* Align each header to the column beneath it. The figures are right
+         aligned and the headers were not, so every numeric column read as a
+         label on the left with unrelated numbers on the right. */
+      var head0 = table.querySelector('tr');
+      if (head0) {
+        var body = Array.prototype.slice.call(table.querySelectorAll('tr'))
+          .filter(function (r) { return r.querySelector('td'); });
+        head0.querySelectorAll('th').forEach(function (th, ci) {
+          var nums = 0, cells = 0;
+          body.forEach(function (r) {
+            var cell = r.children[ci];
+            if (!cell || cell.tagName !== 'TD') return;
+            cells++;
+            if (cell.classList.contains('num')) nums++;
+          });
+          if (cells && nums * 2 > cells) th.classList.add('num');
+        });
+      }
+      var head = table.querySelector('tr');
+      if (!head) return;
+      head.querySelectorAll('th').forEach(function (th, ci) {
+        var id = ti + ':' + ci;
+        if (saved[id]) { th.style.width = saved[id] + 'px'; th.classList.add('sized'); }
+        if (th.querySelector('.grip')) return;
+        var grip = document.createElement('span');
+        grip.className = 'grip';
+        grip.title = 'Drag to widen, double-click to reset';
+        grip.addEventListener('dblclick', function (ev) {
+          ev.stopPropagation();
+          th.style.width = ''; th.classList.remove('sized');
+          delete saved[id]; persist();
+        });
+        grip.addEventListener('pointerdown', function (ev) {
+          ev.preventDefault(); ev.stopPropagation();
+          var x0 = ev.clientX, w0 = th.getBoundingClientRect().width;
+          grip.classList.add('on');
+          grip.setPointerCapture(ev.pointerId);
+          function move(e2) {
+            var w = Math.max(48, Math.round(w0 + (e2.clientX - x0)));
+            th.style.width = w + 'px'; th.classList.add('sized');
+            saved[id] = w;
+          }
+          function up() {
+            grip.classList.remove('on');
+            grip.removeEventListener('pointermove', move);
+            grip.removeEventListener('pointerup', up);
+            persist();
+          }
+          grip.addEventListener('pointermove', move);
+          grip.addEventListener('pointerup', up);
+        });
+        th.appendChild(grip);
+      });
+    });
+    document.querySelectorAll('.tw').forEach(function (box) {
+      function mark() {
+        /* a few pixels is rounding, not a hidden column */
+        var over = box.scrollWidth > box.clientWidth + 8;
+        box.classList.toggle('scrolls', over);
+        box.classList.toggle('atend',
+          over && box.scrollLeft + box.clientWidth >= box.scrollWidth - 2);
+      }
+      box.addEventListener('scroll', mark);
+      window.addEventListener('resize', mark);
+      mark();
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setup);
+  } else { setup(); }
+})();
+</script>
+</body></html>

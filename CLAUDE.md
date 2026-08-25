@@ -9,9 +9,10 @@ estate's shared records and what it deliberately does not.
 ## What this is
 
 A FinOps analyst console in which a crew of agents does the work, and a person
-reviews it. Rewritten from the Python version, which is frozen at
-`~/Development/FinOps analyst service` and is the parity reference and nothing
-else.
+reviews it. Rewritten from a Python version, now finished: the Python original
+was deleted 2026-08-25, and `parity/captures/golden` is the only surviving
+record of its HTTP surface (see `parity/README.md` for what that does and
+does not prove).
 
 Single static binary, pure-Go SQLite (`modernc.org/sqlite`), no build step, no
 runtime to install, no network. Money is integer cents everywhere.

@@ -1,0 +1,73 @@
+month,team,service,billed_usd,effective_usd
+2025-09,data,Snowflake Data platform seats,4272.0,4272.0
+2025-09,product-web,Atlassian Jira + Confluence,4828.5,4828.5
+2025-09,product-web,Figma Design,1770.0,1770.0
+2025-09,product-web,GitHub Enterprise,6153.0,6153.0
+2025-09,sre-platform,Datadog Observability,6913.0,6913.0
+2025-09,sre-platform,Snyk Security scanning,3344.0,3344.0
+2025-10,data,Snowflake Data platform seats,4224.0,4224.0
+2025-10,product-web,Atlassian Jira + Confluence,4872.0,4872.0
+2025-10,product-web,Figma Design,1800.0,1800.0
+2025-10,product-web,GitHub Enterprise,6153.0,6153.0
+2025-10,sre-platform,Datadog Observability,6758.0,6758.0
+2025-10,sre-platform,Snyk Security scanning,3325.0,3325.0
+2025-11,data,Snowflake Data platform seats,4320.0,4320.0
+2025-11,product-web,Atlassian Jira + Confluence,4872.0,4872.0
+2025-11,product-web,Figma Design,1785.0,1785.0
+2025-11,product-web,GitHub Enterprise,6216.0,6216.0
+2025-11,sre-platform,Datadog Observability,6634.0,6634.0
+2025-11,sre-platform,Snyk Security scanning,3325.0,3325.0
+2025-12,data,Snowflake Data platform seats,4368.0,4368.0
+2025-12,product-web,Atlassian Jira + Confluence,4886.5,4886.5
+2025-12,product-web,Figma Design,1830.0,1830.0
+2025-12,product-web,GitHub Enterprise,6174.0,6174.0
+2025-12,sre-platform,Datadog Observability,6758.0,6758.0
+2025-12,sre-platform,Snyk Security scanning,3420.0,3420.0
+2026-01,data,Snowflake Data platform seats,4272.0,4272.0
+2026-01,product-web,Atlassian Jira + Confluence,4857.5,4857.5
+2026-01,product-web,Figma Design,1770.0,1770.0
+2026-01,product-web,GitHub Enterprise,6195.0,6195.0
+2026-01,sre-platform,Datadog Observability,6727.0,6727.0
+2026-01,sre-platform,Snyk Security scanning,3420.0,3420.0
+2026-02,data,Snowflake Data platform seats,4368.0,4368.0
+2026-02,product-web,Atlassian Jira + Confluence,4857.5,4857.5
+2026-02,product-web,Figma Design,1770.0,1770.0
+2026-02,product-web,GitHub Enterprise,6321.0,6321.0
+2026-02,sre-platform,Datadog Observability,6665.0,6665.0
+2026-02,sre-platform,Snyk Security scanning,3420.0,3420.0
+2026-03,data,Snowflake Data platform seats,4368.0,4368.0
+2026-03,product-web,Atlassian Jira + Confluence,4828.5,4828.5
+2026-03,product-web,Figma Design,1815.0,1815.0
+2026-03,product-web,GitHub Enterprise,6321.0,6321.0
+2026-03,sre-platform,Datadog Observability,6789.0,6789.0
+2026-03,sre-platform,Snyk Security scanning,3458.0,3458.0
+2026-04,data,Snowflake Data platform seats,4368.0,4368.0
+2026-04,product-web,Atlassian Jira + Confluence,4930.0,4930.0
+2026-04,product-web,Figma Design,1800.0,1800.0
+2026-04,product-web,GitHub Enterprise,6195.0,6195.0
+2026-04,sre-platform,Datadog Observability,6882.0,6882.0
+2026-04,sre-platform,Snyk Security scanning,3363.0,3363.0
+2026-05,data,Snowflake Data platform seats,4368.0,4368.0
+2026-05,product-web,Atlassian Jira + Confluence,4901.0,4901.0
+2026-05,product-web,Figma Design,1755.0,1755.0
+2026-05,product-web,GitHub Enterprise,6258.0,6258.0
+2026-05,sre-platform,Datadog Observability,6665.0,6665.0
+2026-05,sre-platform,Snyk Security scanning,3458.0,3458.0
+2026-06,data,Snowflake Data platform seats,4320.0,4320.0
+2026-06,product-web,Atlassian Jira + Confluence,4886.5,4886.5
+2026-06,product-web,Figma Design,1770.0,1770.0
+2026-06,product-web,GitHub Enterprise,6405.0,6405.0
+2026-06,sre-platform,Datadog Observability,6820.0,6820.0
+2026-06,sre-platform,Snyk Security scanning,3401.0,3401.0
+2026-07,data,Snowflake Data platform seats,4272.0,4272.0
+2026-07,product-web,Atlassian Jira + Confluence,4988.0,4988.0
+2026-07,product-web,Figma Design,1815.0,1815.0
+2026-07,product-web,GitHub Enterprise,6216.0,6216.0
+2026-07,sre-platform,Datadog Observability,6851.0,6851.0
+2026-07,sre-platform,Snyk Security scanning,3363.0,3363.0
+2026-08,data,Snowflake Data platform seats,4224.0,4224.0
+2026-08,product-web,Atlassian Jira + Confluence,4959.0,4959.0
+2026-08,product-web,Figma Design,1800.0,1800.0
+2026-08,product-web,GitHub Enterprise,6216.0,6216.0
+2026-08,sre-platform,Datadog Observability,6665.0,6665.0
+2026-08,sre-platform,Snyk Security scanning,3382.0,3382.0

@@ -1,0 +1,383 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CostCrew</title>
+<link rel="stylesheet" href="/static/style.css"></head><body>
+<div class="shell">
+<nav class="rail">
+  <div class="brand">CostCrew</div>
+  <a href="/" class="">Today</a>
+  <a href="/board" class="on">Board</a>
+  <a href="/board?view=month" class="sub">Calendar</a>
+  <a href="/teams" class="">Teams</a>
+  <a href="/sprints" class="">Sprints</a>
+  <a href="/feed" class="">Chats</a>
+  <a href="/feed?ch=aws" class="sub">#aws</a>
+  <a href="/feed?ch=gcp" class="sub">#gcp</a>
+  <a href="/feed?ch=onprem" class="sub">#onprem</a>
+  <a href="/kpis" class="">KPIs</a>
+  <a href="/library" class="sub ">Library</a>
+  <a href="/assessment" class="sub ">Assessment</a>
+  <a href="/allocation" class="">Allocation</a>
+  <a href="/chargeback" class="">Chargeback</a>
+  <a href="/exec" class="">Executive</a>
+  <a href="/results" class="">Results</a>
+  <a href="/ai" class="">AI spend</a>
+  <a href="/saas" class="">SaaS</a>
+  <a href="/utilisation" class="">Utilisation</a>
+  <a href="/explainers" class="">Explainers</a>
+  <a href="/staff" class="">Staff</a>
+  <a href="/workbench" class="">Workbench</a>
+  <a href="/data" class="">Data</a>
+  <a href="/connectors" class="sub ">Connectors</a>
+  <a href="/audit" class="">Audit</a>
+  <a href="/settings" class="">Engines</a>
+  
+  <a href="/accounts" class="">Accounts</a>
+  <div class="railfoot">
+    
+    <div>parity · admin</div>
+    <form method="post" action="/logout" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+      <button class="btn back">Sign out</button></form>
+    
+    <div>MVP · local</div>
+  </div>
+</nav>
+<main class="content">
+<p class="crumb"><a href="/board">Board</a> / task:116</p>
+<h1>Apply the GCP ESR lift package and re-measure ESR (covers open task #67)</h1>
+<p><span class="chip st-done">done</span>
+   <a class="chip" href="/staff/optimizer-gcp">optimizer-gcp</a> <a class="chip" href="/sprint/16">sprint:2026-W38</a>
+   <span class="src gcp">gcp</span>
+   <span class="chip">$0.38 / $18.00</span> <span class="cbadge c3">C3</span></p>
+
+<p class="goal">Apply the W37-approved ESR lift and recompute ESR 9.0% [qid:6681bdbe], with AWS 13.3% [qid:1a8d6537] as the benchmark. Declare close-covered on open task #67 (weekend idle dips): finish the remaining services from its 7-of-12 review inside this package as its idle-scheduling component rather than shipping a separate proposal. Report the measured post-application ESR and the split between realized and modelled saving. Routing: idle-scheduling, commitment-coverage, commitment-optimization, price-c</p>
+
+<form method="post" action="/task/116/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+  <button class="btn run">Run agent</button>
+  <span class="fine">figures are computed first; the agent writes around them</span>
+</form>
+<section class="panel"><h2>Comments (operator = top-priority instruction)</h2>
+  
+  <form method="post" action="/task/116/comment" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+    <input name="text" placeholder="Say it like you would to an employee" size="50" required>
+    <button class="btn">Comment</button></form>
+</section>
+
+<section class="panel artifact">
+  <div class="arthead"><h2>artifact:AR-0114@v1</h2>
+  <div class="stamp posted">POSTED · 2026-08-16 · operator</div></div>
+  <div class="md"><h1>Apply the GCP ESR lift package and re-measure ESR (covers open task #67)</h1>
+<h1>GCP ESR lift package: application status and re-measurement</h1>
+<h2>Executive summary</h2>
+<p>The package could not be applied and ESR could not be re-measured. Two hard blocks: my desk is <strong>propose-only</strong>, so I have no right to apply a lift, and the figures supplied contain no post-application ESR, so any "measured post-application" number would be invented. The only ESR in evidence remains <strong>9.0% for 2026-07</strong> (billed 2552.92 USD against effective 2323.03 USD) [qid:6681bdbe]. Realized commitment saving month-to-date is <strong>118.28 USD</strong> on a partial August (through 2026-08-15) [qid:70accc39]; modelled saving is <strong>0.00 by evidence</strong>, because no sizing figure for any lift component exists in the dataset. I am <strong>not</strong> declaring coverage on task #67, for the reason given in the last section.</p>
+<h2>1. What blocks the "apply and re-measure" instruction</h2>
+<table>
+<thead>
+<tr>
+<th>Instruction</th>
+<th>Status</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Apply the W37-approved ESR lift package</td>
+<td>Not done</td>
+<td>Permission set is <code>propose-only</code>. No lift package, its components, or its approval record appear in the figures.</td>
+</tr>
+<tr>
+<td>Recompute ESR post-application</td>
+<td>Not done</td>
+<td>Boundary forbids recomputation. The dataset carries one ESR value, 9.0% for 2026-07 [qid:6681bdbe], and no post-application successor.</td>
+</tr>
+<tr>
+<td>Benchmark against AWS 13.3% [qid:1a8d6537]</td>
+<td>Cannot verify</td>
+<td><code>1a8d6537</code> is not in my figures, and my permissions are <code>platform-gcp</code> only. See the warning below.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Warning on the 13.3 figure.</strong> The number 13.3 does appear in my data, but it is not an ESR: it is <code>worst_abs_pct</code>, the worst monthly budget variance (2026-05, forecast under actual by 13.3%) [qid:4f560380]. Setting a GCP ESR target against "13.3" without first confirming which of the two quantities the card means risks anchoring a commitment decision on a forecast-error percentage. I am flagging this rather than resolving it, because the AWS-side qid is outside my desk.</p>
+<h2>2. ESR as it actually stands</h2>
+<p>The measured position, unchanged: 2026-07 billed 2552.92 USD, effective 2323.03 USD, ESR 9.0% [qid:6681bdbe]. Commitment purchase sat at 700.00 USD in both 2026-07 and 2026-08 [qid:9ef9f242][qid:73ee955c], so nothing in the purchase line moved between the two months.</p>
+<p>The stated boundary on this metric still holds and is the reason a lift cannot be sized: <strong>coverage and utilization against the 80% waterline require a commitment inventory that is not in the datasets</strong> [qid:6681bdbe]. Without it, I can report the effective-rate spread but cannot attribute it, cannot say which commitments are under-utilized, and cannot say what headroom a lift would fill.</p>
+<h2>3. Realized versus modelled saving</h2>
+<p><strong>Realized: 118.28 USD</strong>, the billed-minus-effective spread for 2026-08 (billed 1270.34, effective 1152.07), month-to-date through 2026-08-15 [qid:70accc39][qid:b8954e40]. This is a partial month and must not be presented beside a full month, nor annualized here.</p>
+<p><strong>Modelled: none available.</strong> No component of the lift package carries a saving estimate in the supplied figures.</p>
+<p>One correction worth making before this reaches a report: the month-over-month service deltas are <strong>not</strong> realized saving. Compute Engine shows -446.47, GKE -274.12, Cloud SQL -220.82 against July [qid:596c5ae7], but August is partial through the 15th [qid:b8954e40]. Those deltas are a half-month-versus-full-month artifact. Booking them as lift results would overstate the package by roughly the whole calendar effect.</p>
+<h2>4. Idle scheduling (task #67 component)</h2>
+<p>The weekend signal is real and measured: weekday average 68.79 USD/day against weekend average 55.45, a weekend ratio of 0.806 [qid:9cbac9e2]. Weekend load runs at about four fifths of weekday load, which means the dip is shallow: a large fixed floor is running through Saturday and Sunday.</p>
+<p>Where the floor most likely sits, by billed weight: Compute Engine 473.11, GKE 266.92, Cloud SQL 201.12 [qid:ce571a15]. These three are the only services with a service-level figure in the optimizer block.</p>
+<p><strong>What I cannot finish here.</strong> The card asks me to complete the remaining services from #67's 7-of-12 review. The dataset gives me at most six named services [qid:596c5ae7] and no record of which seven were reviewed or what the twelve are. The five outstanding services are not identifiable from what I hold, so the idle-scheduling component is incomplete, not merely unsized.</p>
+<h2>5. Candidate register</h2>
+<p>House rule requires a saving estimate per candidate. Where the dataset cannot support one, I state that instead of estimating.</p>
+<table>
+<thead>
+<tr>
+<th>Candidate</th>
+<th>Monthly saving</th>
+<th>Risk note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Weekend suspend on non-production Compute Engine</td>
+<td>Not computable: no per-environment or per-instance split in the figures. Anchors: weekend ratio 0.806 [qid:9cbac9e2], Compute Engine billed 473.11 [qid:ce571a15]</td>
+<td>Weekend ratio 0.806 implies most weekend cost is not idle. Suspending on a wrong environment tag hits live workloads.</td>
+</tr>
+<tr>
+<td>GKE node-pool scale-down out of hours</td>
+<td>Not computable: no node-pool or utilization data supplied</td>
+<td>GKE 266.92 [qid:ce571a15] overlaps open task #69 (ml GKE step change, blocked). Acting before that step is explained risks scheduling away capacity that has a reason.</td>
+</tr>
+<tr>
+<td>Cloud SQL non-production stop windows</td>
+<td>Not computable: no instance inventory</td>
+<td>Cloud SQL 201.12 [qid:ce571a15]. Stop windows on a replica or a shared dev instance break dependent jobs.</td>
+</tr>
+<tr>
+<td>Commitment coverage adjustment</td>
+<td>Not computable, and out of scope to recommend</td>
+<td>The 80% waterline check needs a commitment inventory that does not exist yet [qid:6681bdbe]. House rule: I do not recommend committing money in any case.</td>
+</tr>
+</tbody>
+</table>
+<h2>6. Two things the operator should see before approving anything</h2>
+<p><strong>The forecast has run low three months in a row.</strong> Variance was -13.3%, -7.6%, -11.2% for May, June and July, worst absolute 13.3%, ladder position "walk" against the 20/15/12 canon [qid:4f560380]. The in-sample winner is seasonal-naive(7) at MAPE 2.60, with a next-30-day point of 2522.11 USD in a band of 2423.70 to 2620.52 [qid:1736e3d2][qid:6507499b]. In-sample fit is good, but the walk-forward record says actuals land above forecast. Any modelled saving expressed as a percentage of forecast will therefore read optimistic.</p>
+<p><strong>One large anomaly is still unexplained.</strong> 2026-08-06, Compute Engine, team ml: 33.63 USD against a 7.84 baseline, excess 25.78, z 23.56, driver null [qid:f3780134]. It sits in the same team and adjacent to the same period as blocked task #69. The two supplied drivers do not cover it: the 2026-08-02 heraldyx launch is scoped to an AWS Compute service, so it does not apply to this GCP series, and the 2026-08-04 cloud range exercise was torn down the same day. An idle schedule laid over a baseline that contains an unexplained 25.78 USD excess will misprice its own effect.</p>
+<h2>7. Coverage</h2>
+<p>No coverage is declared. Task #67 is not answered in full: its idle-scheduling review remains at 7 of 12 services, the outstanding five cannot be identified from the figures I hold, and no candidate in this package carries a saving estimate. Declaring it covered would close a task on an unfinished review. Tasks #69, #215 and #216 sit with other desks.</p>
+<p><strong>To unblock:</strong> a commitment inventory (for the ESR waterline and any lift sizing), the #67 service list showing which 7 of 12 were reviewed, and the AWS-side qid behind the 13.3% benchmark.</p>
+<hr />
+<h2>Figures (deterministic engine; every value carries its qid)</h2>
+<table>
+<thead>
+<tr>
+<th>category</th>
+<th style="text-align: right;">2026-07</th>
+<th style="text-align: right;">2026-08</th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Credit</td>
+<td style="text-align: right;">-68.62</td>
+<td style="text-align: right;">0.00</td>
+<td><code>⌗73ee955c</code></td>
+</tr>
+<tr>
+<td>Purchase</td>
+<td style="text-align: right;">700.00</td>
+<td style="text-align: right;">700.00</td>
+<td><code>⌗73ee955c</code></td>
+</tr>
+<tr>
+<td>Tax</td>
+<td style="text-align: right;">114.36</td>
+<td style="text-align: right;">0.00</td>
+<td><code>⌗73ee955c</code></td>
+</tr>
+<tr>
+<td>Usage</td>
+<td style="text-align: right;">2,552.92</td>
+<td style="text-align: right;">1,270.34</td>
+<td><code>⌗73ee955c</code></td>
+</tr>
+</tbody>
+</table>
+<p>Forecast next 30d: <strong>USD 2,522.11</strong> (2,423.70..2,620.52), method seasonal-naive(7), backtest MAPE 2.6% <code>⌗6507499b</code></p>
+<p>Top anomalies <code>⌗f3780134</code>:
+- 2026-08-06 Compute Engine (ml): +25.78 USD vs baseline - needs a look
+- 2026-02-11 BigQuery (data): +18.37 USD vs baseline - needs a look
+- 2026-06-17 Networking (product-web): +4.69 USD vs baseline - needs a look
+- 2026-04-09 GKE (ml): +2.47 USD vs baseline - needs a look
+- 2026-04-07 GKE (ml): +2.33 USD vs baseline - needs a look</p>
+<hr />
+<p>Provenance: source <code>gcp</code>, engine qids above, agent provider <code>claude-cli (engine: claude-strong, auto by complexity C3)</code>, run cost USD 0.3781.</p></div>
+  
+</section>
+
+</main>
+</div>
+<script>
+document.addEventListener('input', function (e) {
+  var box = e.target.closest('.filterbox'); if (!box) return;
+  var root = document.querySelector(box.dataset.target); if (!root) return;
+  var q = box.value.trim().toLowerCase();
+  root.querySelectorAll('[data-search]').forEach(function (el) {
+    var hit = !q || el.dataset.search.toLowerCase().indexOf(q) !== -1;
+    if (el.classList.contains('deskgroup')) {
+      var inner = Array.prototype.some.call(el.querySelectorAll('[data-search]'),
+        function (x) { return x.dataset.search.toLowerCase().indexOf(q) !== -1; });
+      el.style.display = (hit || inner || !q) ? '' : 'none';
+      el.querySelectorAll('[data-search]').forEach(function (x) {
+        x.style.display = (!q || hit || x.dataset.search.toLowerCase().indexOf(q) !== -1) ? '' : 'none';
+      });
+    } else if (!el.closest('.deskgroup')) {
+      el.style.display = hit ? '' : 'none';
+    }
+  });
+});
+document.addEventListener('click', function (e) {
+  if (e.target.classList && e.target.classList.contains('grip')) return;
+  var th = e.target.closest('th'); if (!th) return;
+  var table = th.closest('table'); if (!table) return;
+  var idx = Array.prototype.indexOf.call(th.parentNode.children, th);
+  var rows = Array.prototype.slice.call(table.querySelectorAll('tr')).filter(
+    function (r) { return r.querySelector('td'); });
+  var dir = th.dataset.dir === 'asc' ? -1 : 1;
+  table.querySelectorAll('th').forEach(function (h) { delete h.dataset.dir;
+    var a = h.querySelector('.arrow'); if (a) a.remove(); });
+  th.dataset.dir = dir === 1 ? 'asc' : 'desc';
+  var arrow = document.createElement('span');
+  arrow.className = 'arrow';
+  arrow.textContent = dir === 1 ? ' \u25B2' : ' \u25BC';
+  th.appendChild(arrow);
+  function key(r) {
+    var c = r.children[idx]; if (!c) return '';
+    var txt = c.textContent.trim().replace(/[$,%]/g, '').replace(/,/g, '');
+    if (/\d{4}-\d{2}-\d{2}/.test(txt)) return txt.replace(/[^\d-]/g, '');
+    var n = parseFloat(txt);
+    return isNaN(n) ? txt.toLowerCase() : n;
+  }
+  rows.sort(function (a, b) {
+    var ka = key(a), kb = key(b);
+    if (typeof ka === 'number' && typeof kb === 'number') return (ka - kb) * dir;
+    return String(ka).localeCompare(String(kb)) * dir;
+  });
+  rows.forEach(function (r) { r.parentNode.appendChild(r); });
+});
+
+/* ---- tables you can widen, and that fit any screen -----------------------
+   Every table is put in its own horizontally scrolling box, so a wide table
+   scrolls inside its panel instead of pushing the whole page sideways. Each
+   header cell gets a grip on its right edge: drag it to widen the column,
+   double-click it to give the column back to the browser. Widths are
+   remembered per page, because a column you widened once you almost always
+   want wide again.                                                          */
+(function () {
+  var KEY = 'costcrew.colw.' + location.pathname;
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (err) { saved = {}; }
+
+  function persist() {
+    try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (err) { /* private mode */ }
+  }
+
+  function setup() {
+    document.querySelectorAll('table').forEach(function (table, ti) {
+      if (!table.parentNode.classList.contains('tw')) {
+        var box = document.createElement('div');
+        box.className = 'tw';
+        table.parentNode.insertBefore(box, table);
+        box.appendChild(table);
+      }
+      /* An atom never breaks: a date, a sum, a status, a short name. Prose
+         does break, and must, or one sentence drags the whole table wider
+         than the screen and everything else scrolls to reach it. The rule is
+         length, applied once, because CSS cannot ask how long a text is. */
+      table.querySelectorAll('td, th').forEach(function (cell) {
+        if (cell.children.length) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length > 40 && txt.indexOf(' ') !== -1) cell.classList.add('wrap');
+      });
+
+      /* Really long prose gets two lines and a way to open the rest. Nothing
+         is removed: the full text is still in the cell, still searched by
+         the filter box, still there for anyone who presses. */
+      table.querySelectorAll('td').forEach(function (cell) {
+        if (cell.querySelector('.clamp')) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length <= 110) return;
+        var box = document.createElement('div');
+        box.className = 'clamp';
+        while (cell.firstChild) box.appendChild(cell.firstChild);
+        cell.appendChild(box);
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'more';
+        btn.textContent = 'more';
+        btn.setAttribute('aria-expanded', 'false');
+        btn.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          var open = box.classList.toggle('open');
+          btn.textContent = open ? 'less' : 'more';
+          btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+        cell.appendChild(btn);
+        cell.classList.add('wrap');
+      });
+      /* Align each header to the column beneath it. The figures are right
+         aligned and the headers were not, so every numeric column read as a
+         label on the left with unrelated numbers on the right. */
+      var head0 = table.querySelector('tr');
+      if (head0) {
+        var body = Array.prototype.slice.call(table.querySelectorAll('tr'))
+          .filter(function (r) { return r.querySelector('td'); });
+        head0.querySelectorAll('th').forEach(function (th, ci) {
+          var nums = 0, cells = 0;
+          body.forEach(function (r) {
+            var cell = r.children[ci];
+            if (!cell || cell.tagName !== 'TD') return;
+            cells++;
+            if (cell.classList.contains('num')) nums++;
+          });
+          if (cells && nums * 2 > cells) th.classList.add('num');
+        });
+      }
+      var head = table.querySelector('tr');
+      if (!head) return;
+      head.querySelectorAll('th').forEach(function (th, ci) {
+        var id = ti + ':' + ci;
+        if (saved[id]) { th.style.width = saved[id] + 'px'; th.classList.add('sized'); }
+        if (th.querySelector('.grip')) return;
+        var grip = document.createElement('span');
+        grip.className = 'grip';
+        grip.title = 'Drag to widen, double-click to reset';
+        grip.addEventListener('dblclick', function (ev) {
+          ev.stopPropagation();
+          th.style.width = ''; th.classList.remove('sized');
+          delete saved[id]; persist();
+        });
+        grip.addEventListener('pointerdown', function (ev) {
+          ev.preventDefault(); ev.stopPropagation();
+          var x0 = ev.clientX, w0 = th.getBoundingClientRect().width;
+          grip.classList.add('on');
+          grip.setPointerCapture(ev.pointerId);
+          function move(e2) {
+            var w = Math.max(48, Math.round(w0 + (e2.clientX - x0)));
+            th.style.width = w + 'px'; th.classList.add('sized');
+            saved[id] = w;
+          }
+          function up() {
+            grip.classList.remove('on');
+            grip.removeEventListener('pointermove', move);
+            grip.removeEventListener('pointerup', up);
+            persist();
+          }
+          grip.addEventListener('pointermove', move);
+          grip.addEventListener('pointerup', up);
+        });
+        th.appendChild(grip);
+      });
+    });
+    document.querySelectorAll('.tw').forEach(function (box) {
+      function mark() {
+        /* a few pixels is rounding, not a hidden column */
+        var over = box.scrollWidth > box.clientWidth + 8;
+        box.classList.toggle('scrolls', over);
+        box.classList.toggle('atend',
+          over && box.scrollLeft + box.clientWidth >= box.scrollWidth - 2);
+      }
+      box.addEventListener('scroll', mark);
+      window.addEventListener('resize', mark);
+      mark();
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setup);
+  } else { setup(); }
+})();
+</script>
+</body></html>

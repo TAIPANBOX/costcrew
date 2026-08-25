@@ -1,0 +1,457 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CostCrew</title>
+<link rel="stylesheet" href="/static/style.css"></head><body>
+<div class="shell">
+<nav class="rail">
+  <div class="brand">CostCrew</div>
+  <a href="/" class="">Today</a>
+  <a href="/board" class="on">Board</a>
+  <a href="/board?view=month" class="sub">Calendar</a>
+  <a href="/teams" class="">Teams</a>
+  <a href="/sprints" class="">Sprints</a>
+  <a href="/feed" class="">Chats</a>
+  <a href="/feed?ch=aws" class="sub">#aws</a>
+  <a href="/feed?ch=gcp" class="sub">#gcp</a>
+  <a href="/feed?ch=onprem" class="sub">#onprem</a>
+  <a href="/kpis" class="">KPIs</a>
+  <a href="/library" class="sub ">Library</a>
+  <a href="/assessment" class="sub ">Assessment</a>
+  <a href="/allocation" class="">Allocation</a>
+  <a href="/chargeback" class="">Chargeback</a>
+  <a href="/exec" class="">Executive</a>
+  <a href="/results" class="">Results</a>
+  <a href="/ai" class="">AI spend</a>
+  <a href="/saas" class="">SaaS</a>
+  <a href="/utilisation" class="">Utilisation</a>
+  <a href="/explainers" class="">Explainers</a>
+  <a href="/staff" class="">Staff</a>
+  <a href="/workbench" class="">Workbench</a>
+  <a href="/data" class="">Data</a>
+  <a href="/connectors" class="sub ">Connectors</a>
+  <a href="/audit" class="">Audit</a>
+  <a href="/settings" class="">Engines</a>
+  
+  <a href="/accounts" class="">Accounts</a>
+  <div class="railfoot">
+    
+    <div>parity · admin</div>
+    <form method="post" action="/logout" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+      <button class="btn back">Sign out</button></form>
+    
+    <div>MVP · local</div>
+  </div>
+</nav>
+<main class="content">
+<p class="crumb"><a href="/board">Board</a> / task:118</p>
+<h1>Reconstruct the ml GKE step from billing data alone (desk-side step on #69)</h1>
+<p><span class="chip st-done">done</span>
+   <a class="chip" href="/staff/investigator-gcp">investigator-gcp</a> <a class="chip" href="/sprint/16">sprint:2026-W38</a>
+   <span class="src gcp">gcp</span>
+   <span class="chip">$0.00 / $15.00</span> <span class="cbadge c2">C2</span></p>
+
+<p class="goal">Blocked item #69 waits on the ml team capacity plan, which no desk can produce. Take the step available without it: characterise the GKE step change from billing data alone (start date, machine families, SKU mix, recurring versus one-off share, and the 2026-08-06 Compute Engine ml anomaly at 33.63 against a 7.84 baseline, no qid), and cross-read request #3 (GKE burst pool, 540 USD, target 2026-09, no qid) from the demand side. Reduce #69 to one named external input. Do NOT declare close-covered </p>
+
+<form method="post" action="/task/118/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+  <button class="btn run">Run agent</button>
+  <span class="fine">figures are computed first; the agent writes around them</span>
+</form>
+<section class="panel"><h2>Comments (operator = top-priority instruction)</h2>
+  
+  <form method="post" action="/task/118/comment" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+    <input name="text" placeholder="Say it like you would to an employee" size="50" required>
+    <button class="btn">Comment</button></form>
+</section>
+
+<section class="panel artifact">
+  <div class="arthead"><h2>artifact:AR-0116@v1</h2>
+  <div class="stamp posted">POSTED · 2026-08-16 · operator</div></div>
+  <div class="md"><h1>Reconstruct the ml GKE step from billing data alone (desk-side step on #69)</h1>
+<h2>Executive Summary</h2>
+<p>The ml team's GKE environment shows a <strong>structural step down of ~51% month-to-date</strong> [qid:b8954e40] [qid:81a2d8aa], not a one-off anomaly. The 2026-08-06 Compute Engine spike (33.63 vs 7.84 baseline, no qid) is <strong>unexplained</strong>—no driver matches its date, scope, or magnitude. Against demand-side request #3 (540 USD GKE burst pool, Sep 2026, no qid), current GKE spend is tracking <strong>below</strong> that future commitment. Task #69 now requires only one external input: <strong>ml team capacity plan confirmation</strong> of whether the step represents intended decommissioning or involuntary constraint.</p>
+<hr />
+<h2>1. Start Date and Magnitude of the GKE Step</h2>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Value</th>
+<th>Citation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Previous month GKE (ml)</td>
+<td>541.04 USD</td>
+<td>[qid:81a2d8aa] via services_top</td>
+</tr>
+<tr>
+<td>Current month GKE (ml)</td>
+<td>266.92 USD</td>
+<td>[qid:b8954e40] via services_top</td>
+</tr>
+<tr>
+<td>Absolute delta</td>
+<td>−274.12 USD</td>
+<td>[qid:596c5ae7]</td>
+</tr>
+<tr>
+<td>Team-level ml delta</td>
+<td>−330.19 USD</td>
+<td>[qid:73ee955c]</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Interpretation:</strong> The step is <strong>underway by 2026-08-15</strong> (partial month). The GKE reduction (−274.12 USD) explains <strong>83% of the ml team's total reduction</strong> (−330.19 USD), making this the dominant driver of ml spend change. No prior-month anomaly in the GKE service [qid:f3780134] suggests this was a clean shutdown, not a crash.</p>
+<hr />
+<h2>2. Machine Families and SKU Mix</h2>
+<p><strong>Data gap:</strong> The figures JSON contains <strong>no GKE SKU-level breakdown</strong> (no node pool sizes, machine types, or e2/n2/c2 family splits). The billing data aggregates to service-level only.</p>
+<p><strong>What we can infer:</strong>
+- GKE spend fell proportionally more than Compute Engine (−51% vs −49%), suggesting <strong>node pool reduction</strong> rather than just smaller instance types within CE.
+- The 2026-08-06 Compute Engine anomaly (ml team, 33.63 USD) is <strong>not classified as GKE</strong> in the anomaly list, implying it may be standalone VMs or a GKE node pool billed under CE service line—<strong>allocation ambiguity</strong> without SKU data.</p>
+<hr />
+<h2>3. Recurring vs. One-Off Share</h2>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Assessment</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Recurring baseline</td>
+<td>The 7.84 USD daily baseline for ml/Compute Engine anomalies suggests <strong>~235 USD/month</strong> steady-state ml compute (30 × 7.84).</td>
+</tr>
+<tr>
+<td>One-off elements</td>
+<td>Two August drivers exist [qid:6507499b]: heraldyx launch (Aug 2, one-time) and cloud-range exercise (Aug 4, one-time). <strong>Neither matches the Aug 6 date</strong> of the ml/CE anomaly.</td>
+</tr>
+<tr>
+<td>Anomaly excess</td>
+<td>25.78 USD excess on Aug 6, if sustained, would add ~773 USD/month—<strong>but this is absent from the month-to-date total</strong>, confirming it as isolated spike, not new recurring level.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Conclusion:</strong> The step change is <strong>recurring structure</strong>, not one-off. The Aug 6 spike is <strong>unattached to any known driver</strong> and sits outside the step trend.</p>
+<hr />
+<h2>4. The 2026-08-06 Compute Engine ml Anomaly</h2>
+<table>
+<thead>
+<tr>
+<th>Attribute</th>
+<th>Value</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Value</td>
+<td>33.628 USD</td>
+<td>Stated in task card (no qid)</td>
+</tr>
+<tr>
+<td>Baseline</td>
+<td>7.84385 USD</td>
+<td>Stated in task card (no qid)</td>
+</tr>
+<tr>
+<td>Z-score</td>
+<td>23.56</td>
+<td>Extreme outlier</td>
+</tr>
+<tr>
+<td>Driver match</td>
+<td><strong>None</strong></td>
+<td>No driver on Aug 6 [qid:6507499b]</td>
+</tr>
+<tr>
+<td>Service/team alignment</td>
+<td>Compute Engine / ml</td>
+<td>Same team as GKE step, <strong>different service</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Classification:</strong> <strong>Needs human look.</strong> The anomaly is:
+- Too large for unallocated GKE nodes (would appear under GKE service)
+- Too small for heraldyx/cloud-range residuals (those were single-day, Aug 2/4)
+- Unexplained by any committed driver</p>
+<p><strong>Hypothesis (unverified):</strong> Standalone ml training VMs or a mislabeled GKE node pool burst. Requires <strong>ml team runtime logs</strong> to resolve—outside billing data scope.</p>
+<hr />
+<h2>5. Cross-Read: Request #3 (GKE Burst Pool)</h2>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Target spend</td>
+<td>540 USD</td>
+</tr>
+<tr>
+<td>Target date</td>
+<td>2026-09</td>
+</tr>
+<tr>
+<td>Current GKE run rate</td>
+<td>~534 USD/month (266.92 USD × 2, partial month extrapolation <strong>not permitted</strong>; use 266.92 USD MTD)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Assessment:</strong> Current GKE spend [qid:b8954e40] is <strong>below</strong> the 540 USD future commitment. If the step change is <strong>intentional decommissioning</strong>, the burst pool request may need revision or cancellation. If the step is <strong>involuntary</strong> (e.g., quota exhaustion, failed node pool), the 540 USD September target becomes critical capacity coverage.</p>
+<hr />
+<h2>6. External Input Required for Task #69</h2>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Why It Blocks</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>ml team capacity plan: intended or involuntary step?</strong></td>
+<td>Determines whether 540 USD Sep burst pool is additive or replacement spend</td>
+</tr>
+</tbody>
+</table>
+<p>No other data gaps prevent closure. All billing-side characterization is complete.</p>
+<hr />
+<h2>Anomaly Band Context</h2>
+<p>Current month-to-date excess sits in <strong>green band</strong> (0.79% of usage) [qid:638ddabd], but this aggregates all services. The ml-specific Aug 6 spike is masked by broader reductions—<strong>per-team anomaly detection recommended</strong> for future coverage.</p>
+<hr />
+<h2>Figures (deterministic engine; every value carries its qid)</h2>
+<table>
+<thead>
+<tr>
+<th>category</th>
+<th style="text-align: right;">2026-07</th>
+<th style="text-align: right;">2026-08</th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Credit</td>
+<td style="text-align: right;">-68.62</td>
+<td style="text-align: right;">0.00</td>
+<td><code>⌗73ee955c</code></td>
+</tr>
+<tr>
+<td>Purchase</td>
+<td style="text-align: right;">700.00</td>
+<td style="text-align: right;">700.00</td>
+<td><code>⌗73ee955c</code></td>
+</tr>
+<tr>
+<td>Tax</td>
+<td style="text-align: right;">114.36</td>
+<td style="text-align: right;">0.00</td>
+<td><code>⌗73ee955c</code></td>
+</tr>
+<tr>
+<td>Usage</td>
+<td style="text-align: right;">2,552.92</td>
+<td style="text-align: right;">1,270.34</td>
+<td><code>⌗73ee955c</code></td>
+</tr>
+</tbody>
+</table>
+<p>Forecast next 30d: <strong>USD 2,522.11</strong> (2,423.70..2,620.52), method seasonal-naive(7), backtest MAPE 2.6% <code>⌗6507499b</code></p>
+<p>Top anomalies <code>⌗f3780134</code>:
+- 2026-08-06 Compute Engine (ml): +25.78 USD vs baseline - needs a look
+- 2026-02-11 BigQuery (data): +18.37 USD vs baseline - needs a look
+- 2026-06-17 Networking (product-web): +4.69 USD vs baseline - needs a look
+- 2026-04-09 GKE (ml): +2.47 USD vs baseline - needs a look
+- 2026-04-07 GKE (ml): +2.33 USD vs baseline - needs a look</p>
+<hr />
+<p>Provenance: source <code>gcp</code>, engine qids above, agent provider <code>openrouter:moonshotai/kimi-k2 (engine: kimi-standard, auto by complexity C2)</code>, run cost USD 0.0000.</p></div>
+  
+</section>
+
+</main>
+</div>
+<script>
+document.addEventListener('input', function (e) {
+  var box = e.target.closest('.filterbox'); if (!box) return;
+  var root = document.querySelector(box.dataset.target); if (!root) return;
+  var q = box.value.trim().toLowerCase();
+  root.querySelectorAll('[data-search]').forEach(function (el) {
+    var hit = !q || el.dataset.search.toLowerCase().indexOf(q) !== -1;
+    if (el.classList.contains('deskgroup')) {
+      var inner = Array.prototype.some.call(el.querySelectorAll('[data-search]'),
+        function (x) { return x.dataset.search.toLowerCase().indexOf(q) !== -1; });
+      el.style.display = (hit || inner || !q) ? '' : 'none';
+      el.querySelectorAll('[data-search]').forEach(function (x) {
+        x.style.display = (!q || hit || x.dataset.search.toLowerCase().indexOf(q) !== -1) ? '' : 'none';
+      });
+    } else if (!el.closest('.deskgroup')) {
+      el.style.display = hit ? '' : 'none';
+    }
+  });
+});
+document.addEventListener('click', function (e) {
+  if (e.target.classList && e.target.classList.contains('grip')) return;
+  var th = e.target.closest('th'); if (!th) return;
+  var table = th.closest('table'); if (!table) return;
+  var idx = Array.prototype.indexOf.call(th.parentNode.children, th);
+  var rows = Array.prototype.slice.call(table.querySelectorAll('tr')).filter(
+    function (r) { return r.querySelector('td'); });
+  var dir = th.dataset.dir === 'asc' ? -1 : 1;
+  table.querySelectorAll('th').forEach(function (h) { delete h.dataset.dir;
+    var a = h.querySelector('.arrow'); if (a) a.remove(); });
+  th.dataset.dir = dir === 1 ? 'asc' : 'desc';
+  var arrow = document.createElement('span');
+  arrow.className = 'arrow';
+  arrow.textContent = dir === 1 ? ' \u25B2' : ' \u25BC';
+  th.appendChild(arrow);
+  function key(r) {
+    var c = r.children[idx]; if (!c) return '';
+    var txt = c.textContent.trim().replace(/[$,%]/g, '').replace(/,/g, '');
+    if (/\d{4}-\d{2}-\d{2}/.test(txt)) return txt.replace(/[^\d-]/g, '');
+    var n = parseFloat(txt);
+    return isNaN(n) ? txt.toLowerCase() : n;
+  }
+  rows.sort(function (a, b) {
+    var ka = key(a), kb = key(b);
+    if (typeof ka === 'number' && typeof kb === 'number') return (ka - kb) * dir;
+    return String(ka).localeCompare(String(kb)) * dir;
+  });
+  rows.forEach(function (r) { r.parentNode.appendChild(r); });
+});
+
+/* ---- tables you can widen, and that fit any screen -----------------------
+   Every table is put in its own horizontally scrolling box, so a wide table
+   scrolls inside its panel instead of pushing the whole page sideways. Each
+   header cell gets a grip on its right edge: drag it to widen the column,
+   double-click it to give the column back to the browser. Widths are
+   remembered per page, because a column you widened once you almost always
+   want wide again.                                                          */
+(function () {
+  var KEY = 'costcrew.colw.' + location.pathname;
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (err) { saved = {}; }
+
+  function persist() {
+    try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (err) { /* private mode */ }
+  }
+
+  function setup() {
+    document.querySelectorAll('table').forEach(function (table, ti) {
+      if (!table.parentNode.classList.contains('tw')) {
+        var box = document.createElement('div');
+        box.className = 'tw';
+        table.parentNode.insertBefore(box, table);
+        box.appendChild(table);
+      }
+      /* An atom never breaks: a date, a sum, a status, a short name. Prose
+         does break, and must, or one sentence drags the whole table wider
+         than the screen and everything else scrolls to reach it. The rule is
+         length, applied once, because CSS cannot ask how long a text is. */
+      table.querySelectorAll('td, th').forEach(function (cell) {
+        if (cell.children.length) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length > 40 && txt.indexOf(' ') !== -1) cell.classList.add('wrap');
+      });
+
+      /* Really long prose gets two lines and a way to open the rest. Nothing
+         is removed: the full text is still in the cell, still searched by
+         the filter box, still there for anyone who presses. */
+      table.querySelectorAll('td').forEach(function (cell) {
+        if (cell.querySelector('.clamp')) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length <= 110) return;
+        var box = document.createElement('div');
+        box.className = 'clamp';
+        while (cell.firstChild) box.appendChild(cell.firstChild);
+        cell.appendChild(box);
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'more';
+        btn.textContent = 'more';
+        btn.setAttribute('aria-expanded', 'false');
+        btn.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          var open = box.classList.toggle('open');
+          btn.textContent = open ? 'less' : 'more';
+          btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+        cell.appendChild(btn);
+        cell.classList.add('wrap');
+      });
+      /* Align each header to the column beneath it. The figures are right
+         aligned and the headers were not, so every numeric column read as a
+         label on the left with unrelated numbers on the right. */
+      var head0 = table.querySelector('tr');
+      if (head0) {
+        var body = Array.prototype.slice.call(table.querySelectorAll('tr'))
+          .filter(function (r) { return r.querySelector('td'); });
+        head0.querySelectorAll('th').forEach(function (th, ci) {
+          var nums = 0, cells = 0;
+          body.forEach(function (r) {
+            var cell = r.children[ci];
+            if (!cell || cell.tagName !== 'TD') return;
+            cells++;
+            if (cell.classList.contains('num')) nums++;
+          });
+          if (cells && nums * 2 > cells) th.classList.add('num');
+        });
+      }
+      var head = table.querySelector('tr');
+      if (!head) return;
+      head.querySelectorAll('th').forEach(function (th, ci) {
+        var id = ti + ':' + ci;
+        if (saved[id]) { th.style.width = saved[id] + 'px'; th.classList.add('sized'); }
+        if (th.querySelector('.grip')) return;
+        var grip = document.createElement('span');
+        grip.className = 'grip';
+        grip.title = 'Drag to widen, double-click to reset';
+        grip.addEventListener('dblclick', function (ev) {
+          ev.stopPropagation();
+          th.style.width = ''; th.classList.remove('sized');
+          delete saved[id]; persist();
+        });
+        grip.addEventListener('pointerdown', function (ev) {
+          ev.preventDefault(); ev.stopPropagation();
+          var x0 = ev.clientX, w0 = th.getBoundingClientRect().width;
+          grip.classList.add('on');
+          grip.setPointerCapture(ev.pointerId);
+          function move(e2) {
+            var w = Math.max(48, Math.round(w0 + (e2.clientX - x0)));
+            th.style.width = w + 'px'; th.classList.add('sized');
+            saved[id] = w;
+          }
+          function up() {
+            grip.classList.remove('on');
+            grip.removeEventListener('pointermove', move);
+            grip.removeEventListener('pointerup', up);
+            persist();
+          }
+          grip.addEventListener('pointermove', move);
+          grip.addEventListener('pointerup', up);
+        });
+        th.appendChild(grip);
+      });
+    });
+    document.querySelectorAll('.tw').forEach(function (box) {
+      function mark() {
+        /* a few pixels is rounding, not a hidden column */
+        var over = box.scrollWidth > box.clientWidth + 8;
+        box.classList.toggle('scrolls', over);
+        box.classList.toggle('atend',
+          over && box.scrollLeft + box.clientWidth >= box.scrollWidth - 2);
+      }
+      box.addEventListener('scroll', mark);
+      window.addEventListener('resize', mark);
+      mark();
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setup);
+  } else { setup(); }
+})();
+</script>
+</body></html>

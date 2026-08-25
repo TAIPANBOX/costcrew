@@ -1,0 +1,472 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CostCrew</title>
+<link rel="stylesheet" href="/static/style.css"></head><body>
+<div class="shell">
+<nav class="rail">
+  <div class="brand">CostCrew</div>
+  <a href="/" class="">Today</a>
+  <a href="/board" class="">Board</a>
+  <a href="/board?view=month" class="sub">Calendar</a>
+  <a href="/teams" class="">Teams</a>
+  <a href="/sprints" class="">Sprints</a>
+  <a href="/feed" class="">Chats</a>
+  <a href="/feed?ch=aws" class="sub">#aws</a>
+  <a href="/feed?ch=gcp" class="sub">#gcp</a>
+  <a href="/feed?ch=onprem" class="sub">#onprem</a>
+  <a href="/kpis" class="">KPIs</a>
+  <a href="/library" class="sub ">Library</a>
+  <a href="/assessment" class="sub ">Assessment</a>
+  <a href="/allocation" class="">Allocation</a>
+  <a href="/chargeback" class="">Chargeback</a>
+  <a href="/exec" class="">Executive</a>
+  <a href="/results" class="">Results</a>
+  <a href="/ai" class="">AI spend</a>
+  <a href="/saas" class="">SaaS</a>
+  <a href="/utilisation" class="">Utilisation</a>
+  <a href="/explainers" class="">Explainers</a>
+  <a href="/staff" class="on">Staff</a>
+  <a href="/workbench" class="">Workbench</a>
+  <a href="/data" class="">Data</a>
+  <a href="/connectors" class="sub ">Connectors</a>
+  <a href="/audit" class="">Audit</a>
+  <a href="/settings" class="">Engines</a>
+  
+  <a href="/accounts" class="">Accounts</a>
+  <div class="railfoot">
+    
+    <div>parity · admin</div>
+    <form method="post" action="/logout" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+      <button class="btn back">Sign out</button></form>
+    
+    <div>MVP · local</div>
+  </div>
+</nav>
+<main class="content">
+<p class="crumb"><a href="/staff">Staff</a> / hire</p>
+<h1>Edit agent: optimizer-gcp</h1>
+<p class="subtitle">Pick a role and a desk - the preset fills in typical skills and permissions; fine-tune with the checkboxes below. The job description assembles itself and stays visible in the personnel file.</p>
+
+<form method="post" action="/staff/optimizer-gcp/update" class="hireform"><input type="hidden" name="csrf" value="<CSRF>">
+  <input type="hidden" name="template" value="custom">
+  <input type="hidden" name="desk" value="gcp">
+  <section class="panel">
+    <h2>Identity</h2>
+    <div class="hirerow">
+      <input name="name" value="optimizer-gcp" readonly>
+      <input type="hidden" name="role" value="FinOps Analyst - Optimizer (gcp desk)">
+      <label class="fine">desk</label>
+      <select name="desk"><option >aws</option><option selected>gcp</option><option >onprem</option><option >management</option></select>
+
+      <input name="role" placeholder="role title (empty = from template)" size="34">
+      <select name="provider">
+        <option value="claude-cli" >Claude (subscription CLI)</option><option value="openrouter" selected>OpenRouter (hundreds of models)</option><option value="deepseek" >DeepSeek (direct) (no key)</option><option value="kiro" >Kiro CLI (headless) (no key)</option><option value="local-command" >Any local agent CLI (no key)</option><option value="custom" >Custom OpenAI-compatible endpoint (no key)</option>
+      </select>
+      <input name="model" placeholder="model (empty = default)" value="moonshotai/kimi-k2" size="26">
+    </div>
+    <textarea name="mission" rows="2" placeholder="mission (empty = from template)">Optimizer duties for the gcp platform desk, every number tied to its computed source.
+</textarea>
+  </section>
+  <section class="panel">
+    <h2>Skills</h2>
+    <p class="fine">Base skills every analyst carries (built-in): <span class="chip">Computed figures</span><span class="chip">Billing store queries</span><span class="chip">Report writing</span><span class="chip">Executive summaries</span><span class="chip">Variance commentary</span><span class="chip">Anomaly triage</span><span class="chip">Team intake reading</span><span class="chip">Desk chat participation</span></p>
+    <h3>Specialized - pick</h3>
+    <div class="pickgrid">
+    
+      <label class="pick"><input type="checkbox" name="skills" value="forecasting-commentary" >
+        <b>Forecast interpretation</b><span class="fine">Read backtests, call a forecast usable or not</span></label>
+    
+      <label class="pick"><input type="checkbox" name="skills" value="backtest-interpretation" >
+        <b>Backtest analysis</b><span class="fine">MAPE ladders, method selection commentary</span></label>
+    
+      <label class="pick"><input type="checkbox" name="skills" value="commitment-optimization" checked>
+        <b>Commitments (RI/SP/CUD)</b><span class="fine">Coverage, effective rates, decision packages</span></label>
+    
+      <label class="pick"><input type="checkbox" name="skills" value="idle-scheduling" checked>
+        <b>Idle scheduling</b><span class="fine">Weekend/off-hours stop-start candidates</span></label>
+    
+      <label class="pick"><input type="checkbox" name="skills" value="rightsizing-analysis" checked>
+        <b>Rightsizing</b><span class="fine">Candidates with estimated savings and risk notes</span></label>
+    
+      <label class="pick"><input type="checkbox" name="skills" value="unit-economics" >
+        <b>Unit economics</b><span class="fine">Cost per team/service/request storytelling</span></label>
+    
+      <label class="pick"><input type="checkbox" name="skills" value="capacity-estimation" >
+        <b>Capacity estimation</b><span class="fine">Turn team requests into cost estimates</span></label>
+    
+      <label class="pick"><input type="checkbox" name="skills" value="chargeback-prep" >
+        <b>Chargeback preparation</b><span class="fine">Allocation completeness, close discipline</span></label>
+    
+      <label class="pick"><input type="checkbox" name="skills" value="showback-narration" >
+        <b>Showback statements</b><span class="fine">Per-team statements teams actually read</span></label>
+    
+      <label class="pick"><input type="checkbox" name="skills" value="tag-hygiene" >
+        <b>Tag hygiene</b><span class="fine">Coverage scoring, gap lists</span></label>
+    
+      <label class="pick"><input type="checkbox" name="skills" value="data-quality-watch" >
+        <b>Data quality watch</b><span class="fine">Missing days, broken feeds, suspicious zeros</span></label>
+    
+      <label class="pick"><input type="checkbox" name="skills" value="price-catalog-analysis" checked>
+        <b>Price analysis</b><span class="fine">List vs effective, cross-provider comparisons</span></label>
+    
+      <label class="pick"><input type="checkbox" name="skills" value="driver-classification" >
+        <b>Driver classification</b><span class="fine">Explained vs needs-a-look, registry upkeep</span></label>
+    
+      <label class="pick"><input type="checkbox" name="skills" value="cross-desk-synthesis" >
+        <b>Cross-desk synthesis</b><span class="fine">Patterns spanning platforms</span></label>
+    
+      <label class="pick"><input type="checkbox" name="skills" value="sprint-planning" >
+        <b>Sprint planning</b><span class="fine">Decompose estate state into a week of work</span></label>
+    
+      <label class="pick"><input type="checkbox" name="skills" value="pre-review" >
+        <b>Pre-review</b><span class="fine">Review peers&#39; drafts before the operator</span></label>
+    
+      <label class="pick"><input type="checkbox" name="skills" value="allocation-rules" >
+        <b>Allocation &amp; shared cost</b><span class="fine">Tag-to-team mapping, unallocated triage, even/fixed/proportional split models, AAI discipline</span></label>
+    
+      <label class="pick"><input type="checkbox" name="skills" value="forecast-accuracy" checked>
+        <b>Forecast accuracy tracking</b><span class="fine">Frozen forecast vs actual, variance vs the 20/15/12% maturity ladder, drift watch</span></label>
+    
+      <label class="pick"><input type="checkbox" name="skills" value="commitment-coverage" checked>
+        <b>Commitment coverage</b><span class="fine">Coverage and utilization rates, 80% waterline, expiry pipeline, effective savings rate</span></label>
+    
+      <label class="pick"><input type="checkbox" name="skills" value="anomaly-response-ops" >
+        <b>Anomaly response ops</b><span class="fine">Two-sided triage, time-to-detect/notify tracking, green/yellow/red spend-share bands</span></label>
+    
+      <label class="pick"><input type="checkbox" name="skills" value="kpi-benchmarking" >
+        <b>KPIs &amp; benchmarking</b><span class="fine">Curate the practice KPI set against FinOps KPI-library targets, trend the movement</span></label>
+    
+      <label class="pick"><input type="checkbox" name="skills" value="ai-spend-analysis" >
+        <b>AI spend analysis</b><span class="fine">Token/GPU unit costs, cost per agent action, FOCUS-style consumption columns</span></label>
+    
+      <label class="pick"><input type="checkbox" name="skills" value="saas-license-review" >
+        <b>Licensing &amp; SaaS review</b><span class="fine">License utilization, active-to-provisioned ratio, renewal calendar</span></label>
+    
+      <label class="pick"><input type="checkbox" name="skills" value="finops-assessment" >
+        <b>FinOps assessment</b><span class="fine">Periodic maturity self-assessment of the practice against the capability matrix</span></label>
+    
+      <label class="pick"><input type="checkbox" name="skills" value="exec-reporting" >
+        <b>Executive reporting</b><span class="fine">Leadership packet tying spend to priorities, tradeoffs and guardrails</span></label>
+    
+      <label class="pick"><input type="checkbox" name="skills" value="education-enablement" >
+        <b>Education &amp; enablement</b><span class="fine">Plain-language explainers for engineering teams out of delivered analyses</span></label>
+    
+    </div>
+  </section>
+  <section class="panel">
+    <h2>Permissions</h2>
+    <h3>Data access</h3>
+    <div class="pickgrid">
+    
+      <label class="pick risk-normal"><input type="checkbox" name="permissions" value="platform-aws" >
+        <b>AWS estate</b><span class="fine">Read the aws platform data</span></label>
+    
+      <label class="pick risk-normal"><input type="checkbox" name="permissions" value="platform-gcp" checked>
+        <b>GCP estate</b><span class="fine">Read the gcp platform data</span></label>
+    
+      <label class="pick risk-normal"><input type="checkbox" name="permissions" value="platform-onprem" >
+        <b>On-prem estate</b><span class="fine">Read the onprem platform data</span></label>
+    
+      <label class="pick risk-elevated"><input type="checkbox" name="permissions" value="source-aws-live" >
+        <b>Live AWS account</b><span class="fine">Read the connected live billing account · risk: elevated</span></label>
+    
+      <label class="pick risk-normal"><input type="checkbox" name="permissions" value="budgets-read" checked>
+        <b>Team budgets</b><span class="fine">Read the intake budgets plane</span></label>
+    
+      <label class="pick risk-normal"><input type="checkbox" name="permissions" value="requests-read" checked>
+        <b>Team requests</b><span class="fine">Read the intake requests pipeline</span></label>
+    
+      <label class="pick risk-normal"><input type="checkbox" name="permissions" value="crew-costs-read" >
+        <b>Crew costs</b><span class="fine">Read what the crew itself costs</span></label>
+    
+      <label class="pick risk-high"><input type="checkbox" name="permissions" value="pii-unmasked" >
+        <b>Unmasked owner tags</b><span class="fine">See engineer names in tags (default masked) · risk: high</span></label>
+    
+      <label class="pick risk-normal"><input type="checkbox" name="permissions" value="kpi-registry" checked>
+        <b>Practice KPI registry</b><span class="fine">Read the computed practice KPIs (AAI, accuracy ladder, ESR, bands)</span></label>
+    
+      <label class="pick risk-normal"><input type="checkbox" name="permissions" value="source-ai" >
+        <b>Org AI spend</b><span class="fine">Read the organisation&#39;s AI/LLM spend dataset when connected</span></label>
+    
+    </div>
+    <h3>Action rights</h3>
+    <div class="pickgrid">
+    
+      <label class="pick risk-normal"><input type="checkbox" name="permissions" value="propose-only" checked>
+        <b>Read and propose</b><span class="fine">Never acts outward; deliverables only</span></label>
+    
+      <label class="pick risk-normal"><input type="checkbox" name="permissions" value="create-subtask" >
+        <b>Open subtasks</b><span class="fine">Delegate to peers on the same desk</span></label>
+    
+      <label class="pick risk-elevated"><input type="checkbox" name="permissions" value="cross-desk-subtask" >
+        <b>Cross-desk subtasks</b><span class="fine">Request work from another desk (its supervisor accepts) · risk: elevated</span></label>
+    
+      <label class="pick risk-normal"><input type="checkbox" name="permissions" value="channel-post" checked>
+        <b>Post to desk chat</b><span class="fine">Write to the desk channel</span></label>
+    
+      <label class="pick risk-elevated"><input type="checkbox" name="permissions" value="pre-review" >
+        <b>Pre-review deliverables</b><span class="fine">Gate peers&#39; drafts before the operator · risk: elevated</span></label>
+    
+      <label class="pick risk-elevated"><input type="checkbox" name="permissions" value="plan-sprint" >
+        <b>Plan sprints</b><span class="fine">Produce sprint plans for operator approval · risk: elevated</span></label>
+    
+      <label class="pick risk-normal"><input type="checkbox" name="permissions" value="export-data" >
+        <b>Export CSV</b><span class="fine">Produce business exports</span></label>
+    
+      <label class="pick risk-elevated"><input type="checkbox" name="permissions" value="run-assessment" >
+        <b>Run practice assessment</b><span class="fine">Run the periodic maturity self-assessment · risk: elevated</span></label>
+    
+      <label class="pick risk-normal"><input type="checkbox" name="permissions" value="publish-explainer" >
+        <b>Publish explainers</b><span class="fine">Publish educational explainers addressed to human teams</span></label>
+    
+      <label class="pick risk-elevated"><input type="checkbox" name="permissions" value="exec-packet" >
+        <b>Executive packet</b><span class="fine">Assemble the monthly executive strategy packet · risk: elevated</span></label>
+    
+      <label class="pick risk-elevated"><input type="checkbox" name="permissions" value="close-covered" checked>
+        <b>Declare covered tasks</b><span class="fine">Declare that a deliverable already covers another open task on the same desk; the task closes when the operator posts the deliverable · risk: elevated</span></label>
+    
+    </div>
+  </section>
+  <section class="panel">
+    <h2>Reporting</h2>
+    <p class="fine">How often this analyst reports on its own work, and who
+    reads it. An analyst nobody reads is a cost with no reader; one that
+    reports daily on a quiet desk is noise. Pick what the desk actually needs.</p>
+    <div class="hirerow">
+      <label class="fine">Cadence</label>
+      <select name="cadence" class="sel" style="width:auto">
+        
+        <option value="daily" >Daily - a short pulse every working day</option>
+        
+        <option value="weekly" selected>Weekly - one report per week, on the chosen day</option>
+        
+        <option value="biweekly" >Every two weeks - for a desk that moves slowly</option>
+        
+        <option value="monthly" >Monthly - tied to the close cycle</option>
+        
+        <option value="on-request" >On request - produces nothing unless asked</option>
+        
+      </select>
+      <label class="fine">On</label>
+      <select name="cadence_day" class="sel" style="width:auto">
+        
+        <option value="monday" selected>Monday</option>
+        
+        <option value="tuesday" >Tuesday</option>
+        
+        <option value="wednesday" >Wednesday</option>
+        
+        <option value="thursday" >Thursday</option>
+        
+        <option value="friday" >Friday</option>
+        
+      </select>
+      <label class="fine">Read by</label>
+      <select name="audience" class="sel" style="width:auto">
+        
+        <option value="desk-channel" selected>The desk channel - posted to #aws, #gcp or #onprem</option>
+        
+        <option value="supervisor" >The supervisor - rolled up into the sprint review</option>
+        
+        <option value="finance" >Finance - chargeback and showback recipients</option>
+        
+        <option value="executives" >Executives - the monthly packet</option>
+        
+      </select>
+    </div>
+    <textarea name="reporting_note" rows="2" placeholder="anything else about when this analyst should report (optional)"></textarea>
+  </section>
+  <section class="panel">
+    <h2>Budgets and rules</h2>
+    <div class="hirerow">
+      <label class="fine">$/task</label><input name="per_task_usd" type="number" step="0.5" value="18.0">
+      <label class="fine">$/month</label><input name="monthly_usd" type="number" step="5" value="75.0">
+    </div>
+    <textarea name="house_rules" rows="3" placeholder="house rules, one per line">Every candidate carries an estimated monthly saving and a risk note.
+Never recommend committing money; propose, the operator decides.</textarea>
+  </section>
+  <button class="btn big">Save changes</button>
+</form>
+</main>
+</div>
+<script>
+document.addEventListener('input', function (e) {
+  var box = e.target.closest('.filterbox'); if (!box) return;
+  var root = document.querySelector(box.dataset.target); if (!root) return;
+  var q = box.value.trim().toLowerCase();
+  root.querySelectorAll('[data-search]').forEach(function (el) {
+    var hit = !q || el.dataset.search.toLowerCase().indexOf(q) !== -1;
+    if (el.classList.contains('deskgroup')) {
+      var inner = Array.prototype.some.call(el.querySelectorAll('[data-search]'),
+        function (x) { return x.dataset.search.toLowerCase().indexOf(q) !== -1; });
+      el.style.display = (hit || inner || !q) ? '' : 'none';
+      el.querySelectorAll('[data-search]').forEach(function (x) {
+        x.style.display = (!q || hit || x.dataset.search.toLowerCase().indexOf(q) !== -1) ? '' : 'none';
+      });
+    } else if (!el.closest('.deskgroup')) {
+      el.style.display = hit ? '' : 'none';
+    }
+  });
+});
+document.addEventListener('click', function (e) {
+  if (e.target.classList && e.target.classList.contains('grip')) return;
+  var th = e.target.closest('th'); if (!th) return;
+  var table = th.closest('table'); if (!table) return;
+  var idx = Array.prototype.indexOf.call(th.parentNode.children, th);
+  var rows = Array.prototype.slice.call(table.querySelectorAll('tr')).filter(
+    function (r) { return r.querySelector('td'); });
+  var dir = th.dataset.dir === 'asc' ? -1 : 1;
+  table.querySelectorAll('th').forEach(function (h) { delete h.dataset.dir;
+    var a = h.querySelector('.arrow'); if (a) a.remove(); });
+  th.dataset.dir = dir === 1 ? 'asc' : 'desc';
+  var arrow = document.createElement('span');
+  arrow.className = 'arrow';
+  arrow.textContent = dir === 1 ? ' \u25B2' : ' \u25BC';
+  th.appendChild(arrow);
+  function key(r) {
+    var c = r.children[idx]; if (!c) return '';
+    var txt = c.textContent.trim().replace(/[$,%]/g, '').replace(/,/g, '');
+    if (/\d{4}-\d{2}-\d{2}/.test(txt)) return txt.replace(/[^\d-]/g, '');
+    var n = parseFloat(txt);
+    return isNaN(n) ? txt.toLowerCase() : n;
+  }
+  rows.sort(function (a, b) {
+    var ka = key(a), kb = key(b);
+    if (typeof ka === 'number' && typeof kb === 'number') return (ka - kb) * dir;
+    return String(ka).localeCompare(String(kb)) * dir;
+  });
+  rows.forEach(function (r) { r.parentNode.appendChild(r); });
+});
+
+/* ---- tables you can widen, and that fit any screen -----------------------
+   Every table is put in its own horizontally scrolling box, so a wide table
+   scrolls inside its panel instead of pushing the whole page sideways. Each
+   header cell gets a grip on its right edge: drag it to widen the column,
+   double-click it to give the column back to the browser. Widths are
+   remembered per page, because a column you widened once you almost always
+   want wide again.                                                          */
+(function () {
+  var KEY = 'costcrew.colw.' + location.pathname;
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (err) { saved = {}; }
+
+  function persist() {
+    try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (err) { /* private mode */ }
+  }
+
+  function setup() {
+    document.querySelectorAll('table').forEach(function (table, ti) {
+      if (!table.parentNode.classList.contains('tw')) {
+        var box = document.createElement('div');
+        box.className = 'tw';
+        table.parentNode.insertBefore(box, table);
+        box.appendChild(table);
+      }
+      /* An atom never breaks: a date, a sum, a status, a short name. Prose
+         does break, and must, or one sentence drags the whole table wider
+         than the screen and everything else scrolls to reach it. The rule is
+         length, applied once, because CSS cannot ask how long a text is. */
+      table.querySelectorAll('td, th').forEach(function (cell) {
+        if (cell.children.length) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length > 40 && txt.indexOf(' ') !== -1) cell.classList.add('wrap');
+      });
+
+      /* Really long prose gets two lines and a way to open the rest. Nothing
+         is removed: the full text is still in the cell, still searched by
+         the filter box, still there for anyone who presses. */
+      table.querySelectorAll('td').forEach(function (cell) {
+        if (cell.querySelector('.clamp')) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length <= 110) return;
+        var box = document.createElement('div');
+        box.className = 'clamp';
+        while (cell.firstChild) box.appendChild(cell.firstChild);
+        cell.appendChild(box);
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'more';
+        btn.textContent = 'more';
+        btn.setAttribute('aria-expanded', 'false');
+        btn.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          var open = box.classList.toggle('open');
+          btn.textContent = open ? 'less' : 'more';
+          btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+        cell.appendChild(btn);
+        cell.classList.add('wrap');
+      });
+      /* Align each header to the column beneath it. The figures are right
+         aligned and the headers were not, so every numeric column read as a
+         label on the left with unrelated numbers on the right. */
+      var head0 = table.querySelector('tr');
+      if (head0) {
+        var body = Array.prototype.slice.call(table.querySelectorAll('tr'))
+          .filter(function (r) { return r.querySelector('td'); });
+        head0.querySelectorAll('th').forEach(function (th, ci) {
+          var nums = 0, cells = 0;
+          body.forEach(function (r) {
+            var cell = r.children[ci];
+            if (!cell || cell.tagName !== 'TD') return;
+            cells++;
+            if (cell.classList.contains('num')) nums++;
+          });
+          if (cells && nums * 2 > cells) th.classList.add('num');
+        });
+      }
+      var head = table.querySelector('tr');
+      if (!head) return;
+      head.querySelectorAll('th').forEach(function (th, ci) {
+        var id = ti + ':' + ci;
+        if (saved[id]) { th.style.width = saved[id] + 'px'; th.classList.add('sized'); }
+        if (th.querySelector('.grip')) return;
+        var grip = document.createElement('span');
+        grip.className = 'grip';
+        grip.title = 'Drag to widen, double-click to reset';
+        grip.addEventListener('dblclick', function (ev) {
+          ev.stopPropagation();
+          th.style.width = ''; th.classList.remove('sized');
+          delete saved[id]; persist();
+        });
+        grip.addEventListener('pointerdown', function (ev) {
+          ev.preventDefault(); ev.stopPropagation();
+          var x0 = ev.clientX, w0 = th.getBoundingClientRect().width;
+          grip.classList.add('on');
+          grip.setPointerCapture(ev.pointerId);
+          function move(e2) {
+            var w = Math.max(48, Math.round(w0 + (e2.clientX - x0)));
+            th.style.width = w + 'px'; th.classList.add('sized');
+            saved[id] = w;
+          }
+          function up() {
+            grip.classList.remove('on');
+            grip.removeEventListener('pointermove', move);
+            grip.removeEventListener('pointerup', up);
+            persist();
+          }
+          grip.addEventListener('pointermove', move);
+          grip.addEventListener('pointerup', up);
+        });
+        th.appendChild(grip);
+      });
+    });
+    document.querySelectorAll('.tw').forEach(function (box) {
+      function mark() {
+        /* a few pixels is rounding, not a hidden column */
+        var over = box.scrollWidth > box.clientWidth + 8;
+        box.classList.toggle('scrolls', over);
+        box.classList.toggle('atend',
+          over && box.scrollLeft + box.clientWidth >= box.scrollWidth - 2);
+      }
+      box.addEventListener('scroll', mark);
+      window.addEventListener('resize', mark);
+      mark();
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setup);
+  } else { setup(); }
+})();
+</script>
+</body></html>

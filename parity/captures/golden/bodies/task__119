@@ -1,0 +1,373 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CostCrew</title>
+<link rel="stylesheet" href="/static/style.css"></head><body>
+<div class="shell">
+<nav class="rail">
+  <div class="brand">CostCrew</div>
+  <a href="/" class="">Today</a>
+  <a href="/board" class="on">Board</a>
+  <a href="/board?view=month" class="sub">Calendar</a>
+  <a href="/teams" class="">Teams</a>
+  <a href="/sprints" class="">Sprints</a>
+  <a href="/feed" class="">Chats</a>
+  <a href="/feed?ch=aws" class="sub">#aws</a>
+  <a href="/feed?ch=gcp" class="sub">#gcp</a>
+  <a href="/feed?ch=onprem" class="sub">#onprem</a>
+  <a href="/kpis" class="">KPIs</a>
+  <a href="/library" class="sub ">Library</a>
+  <a href="/assessment" class="sub ">Assessment</a>
+  <a href="/allocation" class="">Allocation</a>
+  <a href="/chargeback" class="">Chargeback</a>
+  <a href="/exec" class="">Executive</a>
+  <a href="/results" class="">Results</a>
+  <a href="/ai" class="">AI spend</a>
+  <a href="/saas" class="">SaaS</a>
+  <a href="/utilisation" class="">Utilisation</a>
+  <a href="/explainers" class="">Explainers</a>
+  <a href="/staff" class="">Staff</a>
+  <a href="/workbench" class="">Workbench</a>
+  <a href="/data" class="">Data</a>
+  <a href="/connectors" class="sub ">Connectors</a>
+  <a href="/audit" class="">Audit</a>
+  <a href="/settings" class="">Engines</a>
+  
+  <a href="/accounts" class="">Accounts</a>
+  <div class="railfoot">
+    
+    <div>parity · admin</div>
+    <form method="post" action="/logout" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+      <button class="btn back">Sign out</button></form>
+    
+    <div>MVP · local</div>
+  </div>
+</nav>
+<main class="content">
+<p class="crumb"><a href="/board">Board</a> / task:119</p>
+<h1>Apply the onprem split rules to shared infrastructure and re-measure AAI (covers open task #68)</h1>
+<p><span class="chip st-done">done</span>
+   <a class="chip" href="/staff/investigator-onprem">investigator-onprem</a> <a class="chip" href="/sprint/16">sprint:2026-W38</a>
+   <span class="src onprem">onprem</span>
+   <span class="chip">$0.37 / $15.00</span> <span class="cbadge c3">C3</span></p>
+
+<p class="goal">Targets AAI 62.1% [qid:07456c65], the largest gap to the 90% target on a mature feed, where tag coverage already reads 100.0% so the defect is in the split rules for shared assets (VMware licensing, colo power and cooling, the storage array). Declare close-covered on open task #68 (storage growth after the array step): its storage series is the evidence this split needs, and request #5 (storage array tranche 2, 610 USD, no qid) rests on the same data. Report the measured post-application AAI and</p>
+
+<form method="post" action="/task/119/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+  <button class="btn run">Run agent</button>
+  <span class="fine">figures are computed first; the agent writes around them</span>
+</form>
+<section class="panel"><h2>Comments (operator = top-priority instruction)</h2>
+  
+  <form method="post" action="/task/119/comment" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+    <input name="text" placeholder="Say it like you would to an employee" size="50" required>
+    <button class="btn">Comment</button></form>
+</section>
+
+<section class="panel artifact">
+  <div class="arthead"><h2>artifact:AR-0117@v1</h2>
+  <div class="stamp posted">POSTED · 2026-08-16 · operator</div></div>
+  <div class="md"><h1>Apply the onprem split rules to shared infrastructure and re-measure AAI (covers open task #68)</h1>
+<h1>Onprem allocation: applying split rules to shared infrastructure</h1>
+<h2>Executive summary</h2>
+<p>AAI on the onprem desk reads 62.1% against a 90% target [qid:07456c65], but the defect is not where the task card assumes. Tag coverage is 100.0% and the allocated pool (2,477.13 USD) is exactly the full 2026-07 Usage total [qid:f8b13338], so every usage row, including VMware Licensing, Colo Power &amp; Cooling and Storage Array, already carries a team. The entire unallocated remainder is the Purchase and Tax pool [qid:de117efd], which has no team dimension at all and therefore no split rule to fix. <strong>I cannot report a measured post-application AAI: it is not in the figures and producing it requires a re-run of the allocation engine on 2026-07, which is outside propose-only.</strong> The storage check for task #68 shows no growth step, which removes the measured trigger for request #5.</p>
+<h2>1. Where the gap actually sits</h2>
+<p>The allocation snapshot for 2026-07 [qid:07456c65] decomposes cleanly:</p>
+<ul>
+<li>Allocated (direct): 2,477.13 USD, identical to the 2026-07 Usage total [qid:f8b13338]. Usage is fully attributed.</li>
+<li>Unallocated (shared/indirect): Purchase 1,400.00 and Tax 111.78 [qid:de117efd].</li>
+</ul>
+<p>Two consequences worth stating plainly:</p>
+<p><strong>The three named shared assets are already split.</strong> VMware Licensing, Colo Power &amp; Cooling and Storage Array all appear as Usage services with per-service and per-team breakdowns [qid:9f2f688b, qid:5a353afd], inside the 100%-attributed pool. Rewriting their split rules moves money between <code>sre-platform</code>, <code>ml</code>, <code>product-web</code> and <code>data</code>; it does not move a single dollar from unallocated to allocated, so it cannot raise AAI. The task card's premise is not supported by the measurement.</p>
+<p><strong>The real blocker is that Purchase has no asset breakdown.</strong> Purchase is 1,400.00 in both 2026-07 and 2026-08 [qid:5a353afd], a flat recurring pool. The figures do not say which assets it covers (array capex amortisation, licence subscription, colo contract, or a mix). Without that, no defensible driver can be attached to it. This is the one input that gates the whole exercise.</p>
+<h2>2. Proposed split rules (propose-only, not applied)</h2>
+<table>
+<thead>
+<tr>
+<th>Pool</th>
+<th>Amount</th>
+<th>Proposed rule</th>
+<th>Gate</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Purchase</td>
+<td>1,400.00 [qid:de117efd]</td>
+<td>Amortise per asset, then reuse each asset's existing Usage-service team weights (the same weights that already produce the direct split for VMware Licensing, Colo Power &amp; Cooling and Storage Array)</td>
+<td>Blocked: no per-asset breakdown of Purchase in the figures</td>
+</tr>
+<tr>
+<td>Tax</td>
+<td>111.78 [qid:de117efd]</td>
+<td>Follow-the-base, pro rata to whatever line it is levied on, so it inherits that line's team split</td>
+<td>Blocked: the figures do not state the tax base</td>
+</tr>
+</tbody>
+</table>
+<p>Both rules are mechanically safe, in that they add no new tagging requirement and reuse weights that already exist. Neither can be applied from the data in hand.</p>
+<p>Note for whoever runs this: Tax is 111.78 in 2026-07 and 0.00 in 2026-08 [qid:5a353afd]. A rule tuned on the July shape will allocate nothing in August. That is a data-shape question for a human, not an allocation defect.</p>
+<h2>3. Post-application AAI</h2>
+<p>Not measurable from these figures, and I will not estimate it. The deliverable the card asks for requires the allocation engine to be re-run on 2026-07 with the two rules above in place, which produces a new AAI figure with its own qid. What I can state:</p>
+<ul>
+<li>The only lever available on AAI is the Purchase and Tax pool [qid:de117efd]. Nothing in the shared-asset split rules touches it.</li>
+<li>Direct allocation is already at its ceiling: 2,477.13 allocated against 2,477.13 of Usage [qid:f8b13338].</li>
+</ul>
+<p><strong>Ask:</strong> a per-asset breakdown of the 1,400.00 Purchase pool and the tax base, then a re-measured <code>aai_pct</code> with a fresh qid. Until then any post-application AAI number would be invented.</p>
+<h2>4. Task #68: storage growth after the array step</h2>
+<p>Storage Array runs 455.42 in 2026-07 against 223.93 in 2026-08 [qid:9f2f688b]. August is partial, through 2026-08-15 [qid:0925bda9], so it covers roughly half the month, and the partial figure sits at roughly half the prior full month. That is the shape of a flat run rate. <strong>No growth step is visible after the array step.</strong></p>
+<p>The same flat pattern holds across the whole desk: every top service and every team shows a roughly halved delta on the half-month window [qid:9f2f688b], and the forecast winner is a moving average rather than anything trend-bearing [qid:cbaa95ba]. Storage is not diverging from the desk.</p>
+<p>Caveat, stated rather than papered over: the figures contain no same-length window comparison and no capacity or headroom series, so this is a level check, not a capacity check. If #68 was meant to establish headroom, that needs a capacity figure the desk does not currently compute.</p>
+<h2>5. Request #5, storage array tranche 2 (610 USD)</h2>
+<p>The 610 USD carries no qid, so it is outside the ground truth and I cannot cite, validate or endorse it. Setting that aside, the evidence this request rests on does not support it:</p>
+<ul>
+<li>No storage growth step is present after the first array step (section 4).</li>
+<li>No headroom, utilisation or capacity figure exists in the data to establish a need.</li>
+</ul>
+<p><strong>Recommendation: hold.</strong> Route to a human with two specific asks, a utilisation or headroom measurement on the array, and a qid'd cost figure for the tranche. Approving on a flat storage series and an uncited number would be a purchase without a measured trigger.</p>
+<h2>6. Anomalies: explained by shape, not worth money</h2>
+<p>Ranked by money, as the house rule requires, there is nothing here. The full anomaly excess across 2026-07 and 2026-08 is 5.81 USD against 3,694.22 USD of usage, 0.16%, green band [qid:29a3c255]. The largest single item is 2.62 USD of excess on VMware Licensing, 2026-01-05 [qid:6666867a].</p>
+<p>Ranked by z-score they look alarming (up to 10.47), which is exactly the inversion the house rule exists to prevent. Two observations for the detector owner rather than the budget owner:</p>
+<ul>
+<li>Four of the five items are VMware Licensing on <code>sre-platform</code> inside one week of January 2026 [qid:6666867a]. One service, one team, one week is a pattern, and it suggests a baseline that has not learned a recurring January licensing event.</li>
+<li><strong>None of these is explained by a known driver.</strong> Both registered drivers are cloud-scoped (the 2026-08-02 heraldyx launch on EC2, the 2026-08-04 cloud range exercise). Neither covers onprem in January. The <code>driver</code> field is null on all five items.</li>
+</ul>
+<p>So: needs a human look, but a detector-tuning look, not a spend look. At 0.16% of spend this consumes no budget attention.</p>
+<h2>7. Forward level</h2>
+<p>The 30-day usage forecast is 2,417.26 USD [qid:2c1e49a2], band 2,363.86 to 2,470.66, from moving-average(28), the lowest-MAPE model of the three tested at 1.4728 [qid:cbaa95ba]. Two things a reader should not miss: this forecasts Usage only, so the flat 1,400.00 Purchase pool sits entirely outside it, and it is a flat-level model, which is consistent with the no-growth reading in section 4 but also means it would not anticipate a step change if tranche 2 were approved.</p>
+<h2>Figures I needed and do not have</h2>
+<ol>
+<li>Per-asset breakdown of the 1,400.00 Purchase pool (gates both split rules and the AAI re-measure).</li>
+<li>The tax base for the 111.78 Tax line.</li>
+<li>Re-measured <code>aai_pct</code> after rule application, with a qid.</li>
+<li>Array capacity or utilisation headroom (gates request #5).</li>
+<li>A qid'd cost figure for storage array tranche 2; the 610 USD in the request is uncited.</li>
+</ol>
+<p><code>covers
+{"task_ids": [68], "reason": "Section 4 completes the storage growth check after the array step: Storage Array 455.42 -&gt; 223.93 on a half-month window [qid:9f2f688b, qid:0925bda9] shows no growth step, and that finding is carried through to the request #5 recommendation."}</code></p>
+<hr />
+<h2>Figures (deterministic engine; every value carries its qid)</h2>
+<table>
+<thead>
+<tr>
+<th>category</th>
+<th style="text-align: right;">2026-07</th>
+<th style="text-align: right;">2026-08</th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Purchase</td>
+<td style="text-align: right;">1,400.00</td>
+<td style="text-align: right;">1,400.00</td>
+<td><code>⌗5a353afd</code></td>
+</tr>
+<tr>
+<td>Tax</td>
+<td style="text-align: right;">111.78</td>
+<td style="text-align: right;">0.00</td>
+<td><code>⌗5a353afd</code></td>
+</tr>
+<tr>
+<td>Usage</td>
+<td style="text-align: right;">2,477.13</td>
+<td style="text-align: right;">1,217.09</td>
+<td><code>⌗5a353afd</code></td>
+</tr>
+</tbody>
+</table>
+<p>Forecast next 30d: <strong>USD 2,417.26</strong> (2,363.86..2,470.66), method moving-average(28), backtest MAPE 1.5% <code>⌗cbaa95ba</code></p>
+<p>Top anomalies <code>⌗6666867a</code>:
+- 2026-01-05 VMware Licensing (sre-platform): +2.62 USD vs baseline - needs a look
+- 2026-07-09 Colo Power &amp; Cooling (sre-platform): +2.20 USD vs baseline - needs a look
+- 2026-01-04 VMware Licensing (sre-platform): +2.02 USD vs baseline - needs a look
+- 2026-01-09 VMware Licensing (sre-platform): +2.01 USD vs baseline - needs a look
+- 2026-01-02 VMware Licensing (sre-platform): +1.98 USD vs baseline - needs a look</p>
+<hr />
+<p>Provenance: source <code>onprem</code>, engine qids above, agent provider <code>claude-cli (engine: claude-strong, auto by complexity C3)</code>, run cost USD 0.3675.</p></div>
+  
+</section>
+
+</main>
+</div>
+<script>
+document.addEventListener('input', function (e) {
+  var box = e.target.closest('.filterbox'); if (!box) return;
+  var root = document.querySelector(box.dataset.target); if (!root) return;
+  var q = box.value.trim().toLowerCase();
+  root.querySelectorAll('[data-search]').forEach(function (el) {
+    var hit = !q || el.dataset.search.toLowerCase().indexOf(q) !== -1;
+    if (el.classList.contains('deskgroup')) {
+      var inner = Array.prototype.some.call(el.querySelectorAll('[data-search]'),
+        function (x) { return x.dataset.search.toLowerCase().indexOf(q) !== -1; });
+      el.style.display = (hit || inner || !q) ? '' : 'none';
+      el.querySelectorAll('[data-search]').forEach(function (x) {
+        x.style.display = (!q || hit || x.dataset.search.toLowerCase().indexOf(q) !== -1) ? '' : 'none';
+      });
+    } else if (!el.closest('.deskgroup')) {
+      el.style.display = hit ? '' : 'none';
+    }
+  });
+});
+document.addEventListener('click', function (e) {
+  if (e.target.classList && e.target.classList.contains('grip')) return;
+  var th = e.target.closest('th'); if (!th) return;
+  var table = th.closest('table'); if (!table) return;
+  var idx = Array.prototype.indexOf.call(th.parentNode.children, th);
+  var rows = Array.prototype.slice.call(table.querySelectorAll('tr')).filter(
+    function (r) { return r.querySelector('td'); });
+  var dir = th.dataset.dir === 'asc' ? -1 : 1;
+  table.querySelectorAll('th').forEach(function (h) { delete h.dataset.dir;
+    var a = h.querySelector('.arrow'); if (a) a.remove(); });
+  th.dataset.dir = dir === 1 ? 'asc' : 'desc';
+  var arrow = document.createElement('span');
+  arrow.className = 'arrow';
+  arrow.textContent = dir === 1 ? ' \u25B2' : ' \u25BC';
+  th.appendChild(arrow);
+  function key(r) {
+    var c = r.children[idx]; if (!c) return '';
+    var txt = c.textContent.trim().replace(/[$,%]/g, '').replace(/,/g, '');
+    if (/\d{4}-\d{2}-\d{2}/.test(txt)) return txt.replace(/[^\d-]/g, '');
+    var n = parseFloat(txt);
+    return isNaN(n) ? txt.toLowerCase() : n;
+  }
+  rows.sort(function (a, b) {
+    var ka = key(a), kb = key(b);
+    if (typeof ka === 'number' && typeof kb === 'number') return (ka - kb) * dir;
+    return String(ka).localeCompare(String(kb)) * dir;
+  });
+  rows.forEach(function (r) { r.parentNode.appendChild(r); });
+});
+
+/* ---- tables you can widen, and that fit any screen -----------------------
+   Every table is put in its own horizontally scrolling box, so a wide table
+   scrolls inside its panel instead of pushing the whole page sideways. Each
+   header cell gets a grip on its right edge: drag it to widen the column,
+   double-click it to give the column back to the browser. Widths are
+   remembered per page, because a column you widened once you almost always
+   want wide again.                                                          */
+(function () {
+  var KEY = 'costcrew.colw.' + location.pathname;
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (err) { saved = {}; }
+
+  function persist() {
+    try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (err) { /* private mode */ }
+  }
+
+  function setup() {
+    document.querySelectorAll('table').forEach(function (table, ti) {
+      if (!table.parentNode.classList.contains('tw')) {
+        var box = document.createElement('div');
+        box.className = 'tw';
+        table.parentNode.insertBefore(box, table);
+        box.appendChild(table);
+      }
+      /* An atom never breaks: a date, a sum, a status, a short name. Prose
+         does break, and must, or one sentence drags the whole table wider
+         than the screen and everything else scrolls to reach it. The rule is
+         length, applied once, because CSS cannot ask how long a text is. */
+      table.querySelectorAll('td, th').forEach(function (cell) {
+        if (cell.children.length) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length > 40 && txt.indexOf(' ') !== -1) cell.classList.add('wrap');
+      });
+
+      /* Really long prose gets two lines and a way to open the rest. Nothing
+         is removed: the full text is still in the cell, still searched by
+         the filter box, still there for anyone who presses. */
+      table.querySelectorAll('td').forEach(function (cell) {
+        if (cell.querySelector('.clamp')) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length <= 110) return;
+        var box = document.createElement('div');
+        box.className = 'clamp';
+        while (cell.firstChild) box.appendChild(cell.firstChild);
+        cell.appendChild(box);
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'more';
+        btn.textContent = 'more';
+        btn.setAttribute('aria-expanded', 'false');
+        btn.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          var open = box.classList.toggle('open');
+          btn.textContent = open ? 'less' : 'more';
+          btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+        cell.appendChild(btn);
+        cell.classList.add('wrap');
+      });
+      /* Align each header to the column beneath it. The figures are right
+         aligned and the headers were not, so every numeric column read as a
+         label on the left with unrelated numbers on the right. */
+      var head0 = table.querySelector('tr');
+      if (head0) {
+        var body = Array.prototype.slice.call(table.querySelectorAll('tr'))
+          .filter(function (r) { return r.querySelector('td'); });
+        head0.querySelectorAll('th').forEach(function (th, ci) {
+          var nums = 0, cells = 0;
+          body.forEach(function (r) {
+            var cell = r.children[ci];
+            if (!cell || cell.tagName !== 'TD') return;
+            cells++;
+            if (cell.classList.contains('num')) nums++;
+          });
+          if (cells && nums * 2 > cells) th.classList.add('num');
+        });
+      }
+      var head = table.querySelector('tr');
+      if (!head) return;
+      head.querySelectorAll('th').forEach(function (th, ci) {
+        var id = ti + ':' + ci;
+        if (saved[id]) { th.style.width = saved[id] + 'px'; th.classList.add('sized'); }
+        if (th.querySelector('.grip')) return;
+        var grip = document.createElement('span');
+        grip.className = 'grip';
+        grip.title = 'Drag to widen, double-click to reset';
+        grip.addEventListener('dblclick', function (ev) {
+          ev.stopPropagation();
+          th.style.width = ''; th.classList.remove('sized');
+          delete saved[id]; persist();
+        });
+        grip.addEventListener('pointerdown', function (ev) {
+          ev.preventDefault(); ev.stopPropagation();
+          var x0 = ev.clientX, w0 = th.getBoundingClientRect().width;
+          grip.classList.add('on');
+          grip.setPointerCapture(ev.pointerId);
+          function move(e2) {
+            var w = Math.max(48, Math.round(w0 + (e2.clientX - x0)));
+            th.style.width = w + 'px'; th.classList.add('sized');
+            saved[id] = w;
+          }
+          function up() {
+            grip.classList.remove('on');
+            grip.removeEventListener('pointermove', move);
+            grip.removeEventListener('pointerup', up);
+            persist();
+          }
+          grip.addEventListener('pointermove', move);
+          grip.addEventListener('pointerup', up);
+        });
+        th.appendChild(grip);
+      });
+    });
+    document.querySelectorAll('.tw').forEach(function (box) {
+      function mark() {
+        /* a few pixels is rounding, not a hidden column */
+        var over = box.scrollWidth > box.clientWidth + 8;
+        box.classList.toggle('scrolls', over);
+        box.classList.toggle('atend',
+          over && box.scrollLeft + box.clientWidth >= box.scrollWidth - 2);
+      }
+      box.addEventListener('scroll', mark);
+      window.addEventListener('resize', mark);
+      mark();
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setup);
+  } else { setup(); }
+})();
+</script>
+</body></html>

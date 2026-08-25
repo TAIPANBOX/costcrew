@@ -1,0 +1,353 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CostCrew</title>
+<link rel="stylesheet" href="/static/style.css"></head><body>
+<div class="shell">
+<nav class="rail">
+  <div class="brand">CostCrew</div>
+  <a href="/" class="">Today</a>
+  <a href="/board" class="on">Board</a>
+  <a href="/board?view=month" class="sub">Calendar</a>
+  <a href="/teams" class="">Teams</a>
+  <a href="/sprints" class="">Sprints</a>
+  <a href="/feed" class="">Chats</a>
+  <a href="/feed?ch=aws" class="sub">#aws</a>
+  <a href="/feed?ch=gcp" class="sub">#gcp</a>
+  <a href="/feed?ch=onprem" class="sub">#onprem</a>
+  <a href="/kpis" class="">KPIs</a>
+  <a href="/library" class="sub ">Library</a>
+  <a href="/assessment" class="sub ">Assessment</a>
+  <a href="/allocation" class="">Allocation</a>
+  <a href="/chargeback" class="">Chargeback</a>
+  <a href="/exec" class="">Executive</a>
+  <a href="/results" class="">Results</a>
+  <a href="/ai" class="">AI spend</a>
+  <a href="/saas" class="">SaaS</a>
+  <a href="/utilisation" class="">Utilisation</a>
+  <a href="/explainers" class="">Explainers</a>
+  <a href="/staff" class="">Staff</a>
+  <a href="/workbench" class="">Workbench</a>
+  <a href="/data" class="">Data</a>
+  <a href="/connectors" class="sub ">Connectors</a>
+  <a href="/audit" class="">Audit</a>
+  <a href="/settings" class="">Engines</a>
+  
+  <a href="/accounts" class="">Accounts</a>
+  <div class="railfoot">
+    
+    <div>parity · admin</div>
+    <form method="post" action="/logout" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+      <button class="btn back">Sign out</button></form>
+    
+    <div>MVP · local</div>
+  </div>
+</nav>
+<main class="content">
+<p class="crumb"><a href="/board">Board</a> / task:097</p>
+<h1>GKE burst pool for training: decision pack (request #3)</h1>
+<p><span class="chip st-done">done</span>
+   <a class="chip" href="/staff/investigator-gcp">investigator-gcp</a> <a class="chip" href="/sprint/14">sprint:2026-W36</a>
+   <span class="src gcp">gcp</span>
+   <span class="chip">$0.42 / $15.00</span> <span class="cbadge c3">C3</span></p>
+
+<p class="goal">Re-scope of blocked item #69. Build the full decision pack for the USD 540 GKE burst pool from the cost data we hold, without waiting on the ml team capacity plan. State explicitly which parts of the decision remain unanswerable without that plan, weigh the request against ml already projecting over budget on GCP, and give a conditional recommendation. September target: the operator needs this in hand this week.</p>
+
+<form method="post" action="/task/97/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+  <button class="btn run">Run agent</button>
+  <span class="fine">figures are computed first; the agent writes around them</span>
+</form>
+<section class="panel"><h2>Comments (operator = top-priority instruction)</h2>
+  
+  <form method="post" action="/task/97/comment" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+    <input name="text" placeholder="Say it like you would to an employee" size="50" required>
+    <button class="btn">Comment</button></form>
+</section>
+
+<section class="panel artifact">
+  <div class="arthead"><h2>artifact:AR-0095@v1</h2>
+  <div class="stamp posted">POSTED · 2026-08-16 · operator</div></div>
+  <div class="md"><h1>GKE burst pool for training: decision pack (request #3)</h1>
+<h1>GKE burst pool for training (USD 540): decision pack</h1>
+<p><em>Request #3, re-scope of blocked item #69. Source: GCP account data. Every figure below carries its qid; the USD 540 is the requested amount from the task card, not a billing figure.</em></p>
+<h2>Executive summary</h2>
+<p>The ask is not small relative to what it joins: USD 540/month is about the size of the entire GKE bill for all four teams in July, 541.0359 [qid:596c5ae7]. Approving it as a standing line roughly doubles the GKE service line and adds new spend on top of a 30-day forecast of 2522.1089 USD [qid:1736e3d2] that was fitted without it. The requesting team, ml, is already the largest GCP consumer at 709.5617 in July [qid:73ee955c], and it owns the single largest unexplained anomaly in the account. I cannot verify the "ml is over budget" claim: no budget figure exists in the data I hold. Recommendation is conditional approval of a time-boxed, separately-labelled trial pool, not a permanent budget increase, with the permanent decision gated on the capacity plan.</p>
+<h2>1. What USD 540/month buys against the current run rate</h2>
+<p>July usage across the whole GCP account was 2552.9248 [qid:81a2d8aa]. GKE inside that was 541.0359 [qid:596c5ae7], the second-largest service after Compute Engine at 919.5827 [qid:596c5ae7]. So the requested pool is, on its own, approximately a second GKE estate.</p>
+<p>Two framing points the operator should carry into the meeting:</p>
+<ul>
+<li><strong>August-to-date is not a decline.</strong> Usage through 2026-08-15 is 1270.3442 [qid:b8954e40] against 2552.9248 for full July [qid:81a2d8aa], and every service and every team shows a negative delta. That pattern is the calendar, not savings. GKE at 266.9157 [qid:596c5ae7] is tracking its July pace, not shrinking. Nobody should argue "we have room because August looks lower".</li>
+<li><strong>August-to-date also understates net cost.</strong> Credits post at -68.6175 in July and 0.0 so far in August; tax posts at 114.3624 in July and 0.0 so far [qid:73ee955c]. Both are billing-lag artefacts of a partial month. Anchoring the decision on the August net would be wrong twice over.</li>
+</ul>
+<p>The right comparison is the forecast: 2522.1089 USD over the next 30 days, band 2423.6954 to 2620.5224, from seasonal-naive(7) at 2.60% MAPE [qid:6507499b] [qid:1736e3d2]. The requested pool is larger than the entire distance from the low to the high end of that band, which means it is not absorbable as forecast noise. It would be a visible, out-of-band step change in the GCP bill.</p>
+<p>One caveat on the forecast itself: the fit excludes nothing [qid:6507499b], so the one-time cloud range exercise of 2026-08-04 and the unexplained 2026-08-06 spike sit inside the history the model learned from. With a 7-day seasonal-naive method, one-time days can be carried forward. The 2522.1089 point is therefore, if anything, a slightly generous baseline rather than a conservative one. <em>(@claude inference from the model choice and the empty exclusion list, not a measured result.)</em></p>
+<h2>2. Where ml already sits</h2>
+<p>ml is the largest team in both periods: 709.5617 in July and 379.3761 through 2026-08-15 [qid:73ee955c]. It leads sre-platform (689.8787), product-web (655.1167) and data (498.3677) [qid:73ee955c]. Adding USD 540/month lands the largest increment of the year on the account's largest consumer.</p>
+<p><strong>The over-budget claim is unverifiable from my data.</strong> The figures set contains no budget, no target, no allocation per team. I can confirm ml is the top spender; I cannot confirm by how much it exceeds a budget, or whether the burst pool would breach it. That number has to come from whoever holds the budget, and it should be in hand before a permanent approval, not after.</p>
+<h2>3. What the cost data does say about the pool itself</h2>
+<p>The most decision-relevant signal in the anomaly set is on 2026-08-06: Compute Engine, team ml, 33.628 against a baseline of 7.84385, excess 25.78415, z 23.56, no driver attached [qid:f3780134]. This is the largest anomaly excess in the account and it belongs to the requesting team, on compute, in the month the request was raised.</p>
+<p>That raises the substitution question, which is the single most valuable thing to ask the ml team and does not require their full capacity plan to answer:</p>
+<blockquote>
+<p>Is training work already running on ml's Compute Engine instances outside GKE? If yes, is the burst pool net-new spend, or does it move existing spend from Compute Engine into GKE?</p>
+</blockquote>
+<p>If it is a move, the true incremental cost is well below USD 540 and the request gets much easier to approve. If it is net-new, USD 540 stacks on top of a compute line that already spikes without explanation.</p>
+<p>Supporting context on ml's GKE behaviour: the two GKE anomalies in the set are both ml, both in April, at 5.3665 and 5.2247 against baselines near 2.90 [qid:f3780134]. Trivial in money (excess 2.467 and 2.3257) but they show ml's GKE usage is already bursty against a small daily base. Bursty demand is the correct argument <em>for</em> a burst pool with scale-to-zero, and the correct argument <em>against</em> provisioning it as always-on capacity.</p>
+<h2>4. Explained by a known driver vs needs a human look</h2>
+<p><strong>Explained.</strong> The 2026-08-04 cost bump has a driver: the cloud range exercise, scope <code>*</code>, torn down the same day (journal cloud-range-2026-08-04). One-time, self-limiting, not a factor here.</p>
+<p><strong>Needs a human look, and it is the largest one.</strong> The 2026-08-06 Compute Engine / ml excess of 25.78415 [qid:f3780134] has no driver. Note that the heraldyx launch driver of 2026-08-02 is scoped to "Amazon Elastic Compute Cloud - Compute" (@yurii 2026-08-16), so it is AWS and cannot explain a GCP Compute Engine spike. The cloud range exercise is two days earlier and was torn down. Neither driver covers 08-06. It is unattributed, it is ml, and it should be attributed before ml is handed more capacity.</p>
+<p><strong>Also unexplained, and possibly material.</strong> The Purchase category is flat at 700.0000 in both July and August-to-date [qid:73ee955c] while every usage line moved with the calendar. A flat, non-prorated 700.00 reads like a commitment or licence rather than metered usage. If it is committed-use coverage, then how the burst pool interacts with it (on-demand nodes on top of an existing commitment, or spot capacity that a commitment never covers) changes the real marginal cost of the request. I do not have the composition of that line and will not guess it. Somebody needs to identify what the 700.00 is before the permanent decision.</p>
+<h2>5. What stays unanswerable without the ml capacity plan</h2>
+<p>Stated plainly so the operator can say it in the meeting rather than discover it there. My data is USD by service, team and day. It carries no usage quantities at all. Therefore:</p>
+<ol>
+<li><strong>Is USD 540 right-sized?</strong> No accelerator hours, node types, run durations or job counts in the data. I cannot tell whether 540 is a costed plan or a round-number placeholder.</li>
+<li><strong>What utilisation should be expected?</strong> Nothing in the data indicates whether the pool would be preemptible or on-demand, or whether it scales to zero between runs. Idle burst capacity is the dominant failure mode for this class of request and I cannot price the risk.</li>
+<li><strong>Is it net-new or a move from Compute Engine?</strong> Answerable by ml directly (see §3), but not from billing data alone, because the current data has no GKE-vs-Compute-Engine workload mapping.</li>
+<li><strong>Is it one month or recurring?</strong> The card frames a September target. Whether this is a single training cycle or a standing pool changes the annual commitment by an order of magnitude and is not derivable here.</li>
+<li><strong>Does it fit the ml budget?</strong> No budget figure exists in my data at all.</li>
+</ol>
+<p>Items 1, 2 and 4 genuinely require the capacity plan. Item 3 does not, and should be asked this week regardless. Item 5 requires the budget owner, not the ml team.</p>
+<h2>6. Conditional recommendation</h2>
+<p><strong>Approve a time-boxed trial, decline the standing line for now.</strong></p>
+<p>Approve up to the requested USD 540 as a <strong>single-cycle, 30-day pool for September</strong>, subject to four conditions, all verifiable in billing without the capacity plan:</p>
+<ol>
+<li><strong>Separately labelled.</strong> The pool carries its own label so its spend is isolated in the next reporting cycle. Without this, the pool disappears into a GKE line that is currently 541.0359/month [qid:596c5ae7] and nobody can ever measure whether it was worth it.</li>
+<li><strong>Spot or preemptible with scale-to-zero.</strong> Bursty demand is what ml's own GKE pattern shows [qid:f3780134]; the pool should be priced for bursts, not for standing capacity.</li>
+<li><strong>ml answers the substitution question in writing</strong> before provisioning: does Compute Engine spend for ml go down when this pool goes up? Their July Compute Engine footprint sits inside a service line of 919.5827 [qid:596c5ae7], so the offset, if real, is findable.</li>
+<li><strong>A hard budget alert at the requested amount</strong>, so an overrun surfaces during September rather than in the October close.</li>
+</ol>
+<p><strong>Decline, for now, the permanent line item.</strong> Convert it to permanent only when three things land: the ml capacity plan (items 1, 2 and 4 above), the actual ml budget number and the size of the projected overrun, and an attribution for the 2026-08-06 excess of 25.78415 [qid:f3780134].</p>
+<p><strong>If the operator must give a single-sentence answer this week:</strong> yes for September as a labelled, spot-backed, scale-to-zero trial with an alert at the cap, no on making it permanent until the capacity plan and the budget number are in hand.</p>
+<hr />
+<p><em>Notes on provenance. The figures set assigns qids to the category breakdown (73ee955c) and the service breakdown (596c5ae7); the team-level split carries no qid of its own, so team figures above are cited under [qid:73ee955c] as part of the same monthly computation. All August figures are partial, through 2026-08-15, and are never compared to a full month as if complete. The USD 540 request amount and the "ml projecting over budget" premise come from the task card, not from the billing data; the second of these I could not verify. Everything not marked otherwise is @claude reading of the supplied figures.</em></p>
+<hr />
+<h2>Figures (deterministic engine; every value carries its qid)</h2>
+<table>
+<thead>
+<tr>
+<th>category</th>
+<th style="text-align: right;">2026-07</th>
+<th style="text-align: right;">2026-08</th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Credit</td>
+<td style="text-align: right;">-68.62</td>
+<td style="text-align: right;">0.00</td>
+<td><code>⌗73ee955c</code></td>
+</tr>
+<tr>
+<td>Purchase</td>
+<td style="text-align: right;">700.00</td>
+<td style="text-align: right;">700.00</td>
+<td><code>⌗73ee955c</code></td>
+</tr>
+<tr>
+<td>Tax</td>
+<td style="text-align: right;">114.36</td>
+<td style="text-align: right;">0.00</td>
+<td><code>⌗73ee955c</code></td>
+</tr>
+<tr>
+<td>Usage</td>
+<td style="text-align: right;">2,552.92</td>
+<td style="text-align: right;">1,270.34</td>
+<td><code>⌗73ee955c</code></td>
+</tr>
+</tbody>
+</table>
+<p>Forecast next 30d: <strong>USD 2,522.11</strong> (2,423.70..2,620.52), method seasonal-naive(7), backtest MAPE 2.6% <code>⌗6507499b</code></p>
+<p>Top anomalies <code>⌗f3780134</code>:
+- 2026-08-06 Compute Engine (ml): +25.78 USD vs baseline - needs a look
+- 2026-02-11 BigQuery (data): +18.37 USD vs baseline - needs a look
+- 2026-06-17 Networking (product-web): +4.69 USD vs baseline - needs a look
+- 2026-04-09 GKE (ml): +2.47 USD vs baseline - needs a look
+- 2026-04-07 GKE (ml): +2.33 USD vs baseline - needs a look</p>
+<hr />
+<p>Provenance: source <code>gcp</code>, engine qids above, agent provider <code>claude-cli (engine: claude-strong, auto by complexity C3)</code>, run cost USD 0.4215.</p></div>
+  
+</section>
+
+</main>
+</div>
+<script>
+document.addEventListener('input', function (e) {
+  var box = e.target.closest('.filterbox'); if (!box) return;
+  var root = document.querySelector(box.dataset.target); if (!root) return;
+  var q = box.value.trim().toLowerCase();
+  root.querySelectorAll('[data-search]').forEach(function (el) {
+    var hit = !q || el.dataset.search.toLowerCase().indexOf(q) !== -1;
+    if (el.classList.contains('deskgroup')) {
+      var inner = Array.prototype.some.call(el.querySelectorAll('[data-search]'),
+        function (x) { return x.dataset.search.toLowerCase().indexOf(q) !== -1; });
+      el.style.display = (hit || inner || !q) ? '' : 'none';
+      el.querySelectorAll('[data-search]').forEach(function (x) {
+        x.style.display = (!q || hit || x.dataset.search.toLowerCase().indexOf(q) !== -1) ? '' : 'none';
+      });
+    } else if (!el.closest('.deskgroup')) {
+      el.style.display = hit ? '' : 'none';
+    }
+  });
+});
+document.addEventListener('click', function (e) {
+  if (e.target.classList && e.target.classList.contains('grip')) return;
+  var th = e.target.closest('th'); if (!th) return;
+  var table = th.closest('table'); if (!table) return;
+  var idx = Array.prototype.indexOf.call(th.parentNode.children, th);
+  var rows = Array.prototype.slice.call(table.querySelectorAll('tr')).filter(
+    function (r) { return r.querySelector('td'); });
+  var dir = th.dataset.dir === 'asc' ? -1 : 1;
+  table.querySelectorAll('th').forEach(function (h) { delete h.dataset.dir;
+    var a = h.querySelector('.arrow'); if (a) a.remove(); });
+  th.dataset.dir = dir === 1 ? 'asc' : 'desc';
+  var arrow = document.createElement('span');
+  arrow.className = 'arrow';
+  arrow.textContent = dir === 1 ? ' \u25B2' : ' \u25BC';
+  th.appendChild(arrow);
+  function key(r) {
+    var c = r.children[idx]; if (!c) return '';
+    var txt = c.textContent.trim().replace(/[$,%]/g, '').replace(/,/g, '');
+    if (/\d{4}-\d{2}-\d{2}/.test(txt)) return txt.replace(/[^\d-]/g, '');
+    var n = parseFloat(txt);
+    return isNaN(n) ? txt.toLowerCase() : n;
+  }
+  rows.sort(function (a, b) {
+    var ka = key(a), kb = key(b);
+    if (typeof ka === 'number' && typeof kb === 'number') return (ka - kb) * dir;
+    return String(ka).localeCompare(String(kb)) * dir;
+  });
+  rows.forEach(function (r) { r.parentNode.appendChild(r); });
+});
+
+/* ---- tables you can widen, and that fit any screen -----------------------
+   Every table is put in its own horizontally scrolling box, so a wide table
+   scrolls inside its panel instead of pushing the whole page sideways. Each
+   header cell gets a grip on its right edge: drag it to widen the column,
+   double-click it to give the column back to the browser. Widths are
+   remembered per page, because a column you widened once you almost always
+   want wide again.                                                          */
+(function () {
+  var KEY = 'costcrew.colw.' + location.pathname;
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (err) { saved = {}; }
+
+  function persist() {
+    try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (err) { /* private mode */ }
+  }
+
+  function setup() {
+    document.querySelectorAll('table').forEach(function (table, ti) {
+      if (!table.parentNode.classList.contains('tw')) {
+        var box = document.createElement('div');
+        box.className = 'tw';
+        table.parentNode.insertBefore(box, table);
+        box.appendChild(table);
+      }
+      /* An atom never breaks: a date, a sum, a status, a short name. Prose
+         does break, and must, or one sentence drags the whole table wider
+         than the screen and everything else scrolls to reach it. The rule is
+         length, applied once, because CSS cannot ask how long a text is. */
+      table.querySelectorAll('td, th').forEach(function (cell) {
+        if (cell.children.length) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length > 40 && txt.indexOf(' ') !== -1) cell.classList.add('wrap');
+      });
+
+      /* Really long prose gets two lines and a way to open the rest. Nothing
+         is removed: the full text is still in the cell, still searched by
+         the filter box, still there for anyone who presses. */
+      table.querySelectorAll('td').forEach(function (cell) {
+        if (cell.querySelector('.clamp')) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length <= 110) return;
+        var box = document.createElement('div');
+        box.className = 'clamp';
+        while (cell.firstChild) box.appendChild(cell.firstChild);
+        cell.appendChild(box);
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'more';
+        btn.textContent = 'more';
+        btn.setAttribute('aria-expanded', 'false');
+        btn.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          var open = box.classList.toggle('open');
+          btn.textContent = open ? 'less' : 'more';
+          btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+        cell.appendChild(btn);
+        cell.classList.add('wrap');
+      });
+      /* Align each header to the column beneath it. The figures are right
+         aligned and the headers were not, so every numeric column read as a
+         label on the left with unrelated numbers on the right. */
+      var head0 = table.querySelector('tr');
+      if (head0) {
+        var body = Array.prototype.slice.call(table.querySelectorAll('tr'))
+          .filter(function (r) { return r.querySelector('td'); });
+        head0.querySelectorAll('th').forEach(function (th, ci) {
+          var nums = 0, cells = 0;
+          body.forEach(function (r) {
+            var cell = r.children[ci];
+            if (!cell || cell.tagName !== 'TD') return;
+            cells++;
+            if (cell.classList.contains('num')) nums++;
+          });
+          if (cells && nums * 2 > cells) th.classList.add('num');
+        });
+      }
+      var head = table.querySelector('tr');
+      if (!head) return;
+      head.querySelectorAll('th').forEach(function (th, ci) {
+        var id = ti + ':' + ci;
+        if (saved[id]) { th.style.width = saved[id] + 'px'; th.classList.add('sized'); }
+        if (th.querySelector('.grip')) return;
+        var grip = document.createElement('span');
+        grip.className = 'grip';
+        grip.title = 'Drag to widen, double-click to reset';
+        grip.addEventListener('dblclick', function (ev) {
+          ev.stopPropagation();
+          th.style.width = ''; th.classList.remove('sized');
+          delete saved[id]; persist();
+        });
+        grip.addEventListener('pointerdown', function (ev) {
+          ev.preventDefault(); ev.stopPropagation();
+          var x0 = ev.clientX, w0 = th.getBoundingClientRect().width;
+          grip.classList.add('on');
+          grip.setPointerCapture(ev.pointerId);
+          function move(e2) {
+            var w = Math.max(48, Math.round(w0 + (e2.clientX - x0)));
+            th.style.width = w + 'px'; th.classList.add('sized');
+            saved[id] = w;
+          }
+          function up() {
+            grip.classList.remove('on');
+            grip.removeEventListener('pointermove', move);
+            grip.removeEventListener('pointerup', up);
+            persist();
+          }
+          grip.addEventListener('pointermove', move);
+          grip.addEventListener('pointerup', up);
+        });
+        th.appendChild(grip);
+      });
+    });
+    document.querySelectorAll('.tw').forEach(function (box) {
+      function mark() {
+        /* a few pixels is rounding, not a hidden column */
+        var over = box.scrollWidth > box.clientWidth + 8;
+        box.classList.toggle('scrolls', over);
+        box.classList.toggle('atend',
+          over && box.scrollLeft + box.clientWidth >= box.scrollWidth - 2);
+      }
+      box.addEventListener('scroll', mark);
+      window.addEventListener('resize', mark);
+      mark();
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setup);
+  } else { setup(); }
+})();
+</script>
+</body></html>

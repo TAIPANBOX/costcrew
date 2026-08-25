@@ -1,0 +1,486 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CostCrew</title>
+<link rel="stylesheet" href="/static/style.css"></head><body>
+<div class="shell">
+<nav class="rail">
+  <div class="brand">CostCrew</div>
+  <a href="/" class="">Today</a>
+  <a href="/board" class="">Board</a>
+  <a href="/board?view=month" class="sub">Calendar</a>
+  <a href="/teams" class="">Teams</a>
+  <a href="/sprints" class="">Sprints</a>
+  <a href="/feed" class="">Chats</a>
+  <a href="/feed?ch=aws" class="sub">#aws</a>
+  <a href="/feed?ch=gcp" class="sub">#gcp</a>
+  <a href="/feed?ch=onprem" class="sub">#onprem</a>
+  <a href="/kpis" class="">KPIs</a>
+  <a href="/library" class="sub ">Library</a>
+  <a href="/assessment" class="sub ">Assessment</a>
+  <a href="/allocation" class="">Allocation</a>
+  <a href="/chargeback" class="">Chargeback</a>
+  <a href="/exec" class="">Executive</a>
+  <a href="/results" class="">Results</a>
+  <a href="/ai" class="">AI spend</a>
+  <a href="/saas" class="">SaaS</a>
+  <a href="/utilisation" class="on">Utilisation</a>
+  <a href="/explainers" class="">Explainers</a>
+  <a href="/staff" class="">Staff</a>
+  <a href="/workbench" class="">Workbench</a>
+  <a href="/data" class="">Data</a>
+  <a href="/connectors" class="sub ">Connectors</a>
+  <a href="/audit" class="">Audit</a>
+  <a href="/settings" class="">Engines</a>
+  
+  <a href="/accounts" class="">Accounts</a>
+  <div class="railfoot">
+    
+    <div>parity · admin</div>
+    <form method="post" action="/logout" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+      <button class="btn back">Sign out</button></form>
+    
+    <div>MVP · local</div>
+  </div>
+</nav>
+<main class="content">
+<h1>Utilisation</h1>
+
+<p class="subtitle">What a bill cannot tell you: whether anything was running in the
+hours you paid for. Findings here are proven against measured utilisation, and the
+coverage figure says how much of the estate they speak for.</p>
+<p class="fine">platform: <a class="chip " href="/utilisation?source=ai">ai</a><a class="chip " href="/utilisation?source=aws">aws</a><a class="chip on" href="/utilisation?source=gcp">gcp</a></p>
+
+<div class="tiles">
+  <div class="tile accent-amber">
+    <div class="tv">73.7%</div>
+    <div class="tl">of spend has telemetry <span class="qid">⌗29591d0d</span></div></div>
+  <div class="tile accent-red"><div class="tv">$670.37</div>
+    <div class="tl">spend with no measurement at all</div></div>
+  <div class="tile accent-green"><div class="tv">$445.00</div>
+    <div class="tl">proven monthly saving, 10 candidates</div></div>
+  <div class="tile accent-amber"><div class="tv">$294.53</div>
+    <div class="tl">3 idle resources</div></div>
+</div>
+
+<section class="panel">
+  <h2>Rightsizing candidates <span class="fine">proven, not guessed</span></h2>
+  
+  <table><tr><th>resource</th><th>service</th><th>team</th><th>p95 now</th>
+    <th>p95 after</th><th>$/mo</th><th>saving $/mo</th><th>action</th></tr>
+  
+  <tr><td><b>engine-gcp-05</b></td><td>Compute Engine</td><td>product-web</td>
+    <td class="num">16.4%</td><td class="num">32.8%</td>
+    <td class="num">102.18</td>
+    <td class="num"><b>51.09</b></td>
+    <td class="fine">propose one size down (halve the capacity)</td></tr>
+  
+  <tr><td><b>engine-gcp-08</b></td><td>Compute Engine</td><td>sre-platform</td>
+    <td class="num">17.8%</td><td class="num">35.6%</td>
+    <td class="num">102.18</td>
+    <td class="num"><b>51.09</b></td>
+    <td class="fine">propose one size down (halve the capacity)</td></tr>
+  
+  <tr><td><b>engine-gcp-06</b></td><td>Compute Engine</td><td>data</td>
+    <td class="num">18.2%</td><td class="num">36.4%</td>
+    <td class="num">102.18</td>
+    <td class="num"><b>51.09</b></td>
+    <td class="fine">propose one size down (halve the capacity)</td></tr>
+  
+  <tr><td><b>engine-gcp-07</b></td><td>Compute Engine</td><td>ml</td>
+    <td class="num">20.5%</td><td class="num">41.0%</td>
+    <td class="num">102.18</td>
+    <td class="num"><b>51.09</b></td>
+    <td class="fine">propose one size down (halve the capacity)</td></tr>
+  
+  <tr><td><b>gke-gcp-00</b></td><td>GKE</td><td>sre-platform</td>
+    <td class="num">17.0%</td><td class="num">34.0%</td>
+    <td class="num">90.17</td>
+    <td class="num"><b>45.09</b></td>
+    <td class="fine">propose one size down (halve the capacity)</td></tr>
+  
+  <tr><td><b>gke-gcp-08</b></td><td>GKE</td><td>sre-platform</td>
+    <td class="num">18.5%</td><td class="num">37.0%</td>
+    <td class="num">90.17</td>
+    <td class="num"><b>45.09</b></td>
+    <td class="fine">propose one size down (halve the capacity)</td></tr>
+  
+  <tr><td><b>gke-gcp-11</b></td><td>GKE</td><td>ml</td>
+    <td class="num">20.1%</td><td class="num">40.2%</td>
+    <td class="num">90.17</td>
+    <td class="num"><b>45.09</b></td>
+    <td class="fine">propose one size down (halve the capacity)</td></tr>
+  
+  <tr><td><b>gke-gcp-02</b></td><td>GKE</td><td>data</td>
+    <td class="num">20.8%</td><td class="num">41.6%</td>
+    <td class="num">90.17</td>
+    <td class="num"><b>45.09</b></td>
+    <td class="fine">propose one size down (halve the capacity)</td></tr>
+  
+  <tr><td><b>sql-gcp-05</b></td><td>Cloud SQL</td><td>product-web</td>
+    <td class="num">20.2%</td><td class="num">40.4%</td>
+    <td class="num">60.28</td>
+    <td class="num"><b>30.14</b></td>
+    <td class="fine">propose one size down (halve the capacity)</td></tr>
+  
+  <tr><td><b>sql-gcp-01</b></td><td>Cloud SQL</td><td>product-web</td>
+    <td class="num">27.6%</td><td class="num">55.2%</td>
+    <td class="num">60.28</td>
+    <td class="num"><b>30.14</b></td>
+    <td class="fine">propose one size down (halve the capacity)</td></tr>
+  </table>
+  
+  <p class="fine"><b>Rule:</b> proposed only when p95 utilisation is at or under 35% and stays under 70% after halving capacity; saving is half the resource&#39;s share of its service&#39;s spend. per-resource cost is the service&#39;s spend split across the resources measured on it; the billing feed does not price a single instance</p>
+</section>
+
+
+<section class="panel">
+  <h2>Idle resources</h2>
+  <table><tr><th>resource</th><th>service</th><th>team</th><th>p95</th><th>$/mo</th></tr>
+  
+  <tr><td><b>engine-gcp-01</b></td><td>Compute Engine</td><td>product-web</td>
+    <td class="num">4.1%</td><td class="num">102.18</td></tr>
+  
+  <tr><td><b>engine-gcp-00</b></td><td>Compute Engine</td><td>sre-platform</td>
+    <td class="num">4.5%</td><td class="num">102.18</td></tr>
+  
+  <tr><td><b>gke-gcp-09</b></td><td>GKE</td><td>product-web</td>
+    <td class="num">2.5%</td><td class="num">90.17</td></tr>
+  </table>
+  <p class="fine">near-zero utilisation is not proof a resource is unused: warm standbys and disaster-recovery capacity look identical from here, which is why this proposes and never acts</p>
+</section>
+
+
+
+<section class="panel">
+  <h2>Accelerators <span class="fine">the utilisation question of 2026</span></h2>
+  <p class="subtitle">Mean utilisation across the measured training fleet:
+    <b>49.4%</b>, worst node 30.9%.</p>
+  <table><tr><th>node</th><th>team</th><th>average</th><th>p95</th><th>$/mo</th></tr>
+  
+  <tr><td>h200-node-00</td><td>ml</td>
+    <td class="num">30.9%</td><td class="num">37.0%</td>
+    <td class="num">89.36</td></tr>
+  
+  <tr><td>h200-node-01</td><td>ml</td>
+    <td class="num">40.5%</td><td class="num">48.6%</td>
+    <td class="num">89.36</td></tr>
+  
+  <tr><td>h200-node-04</td><td>ml</td>
+    <td class="num">43.4%</td><td class="num">52.1%</td>
+    <td class="num">89.36</td></tr>
+  
+  <tr><td>h200-node-02</td><td>ml</td>
+    <td class="num">47.9%</td><td class="num">57.4%</td>
+    <td class="num">89.36</td></tr>
+  
+  <tr><td>h200-node-05</td><td>ml</td>
+    <td class="num">65.7%</td><td class="num">78.9%</td>
+    <td class="num">89.36</td></tr>
+  
+  <tr><td>h200-node-03</td><td>ml</td>
+    <td class="num">67.9%</td><td class="num">81.5%</td>
+    <td class="num">89.36</td></tr>
+  </table>
+</section>
+
+
+<section class="panel">
+  <h2>All measured resources (22)</h2>
+  <table><tr><th>resource</th><th>service</th><th>team</th><th>metric</th>
+    <th>average</th><th>p95</th><th>days</th><th>$/mo</th></tr>
+  
+  <tr><td>gke-gcp-09</td><td>GKE</td><td>product-web</td>
+    <td>cpu</td><td class="num">2.0%</td>
+    <td class="num">2.5%</td><td class="num">31</td>
+    <td class="num">90.17</td></tr>
+  
+  <tr><td>engine-gcp-01</td><td>Compute Engine</td><td>product-web</td>
+    <td>cpu</td><td class="num">3.1%</td>
+    <td class="num">4.1%</td><td class="num">31</td>
+    <td class="num">102.18</td></tr>
+  
+  <tr><td>engine-gcp-00</td><td>Compute Engine</td><td>sre-platform</td>
+    <td>cpu</td><td class="num">3.5%</td>
+    <td class="num">4.5%</td><td class="num">31</td>
+    <td class="num">102.18</td></tr>
+  
+  <tr><td>engine-gcp-05</td><td>Compute Engine</td><td>product-web</td>
+    <td>cpu</td><td class="num">12.5%</td>
+    <td class="num">16.4%</td><td class="num">31</td>
+    <td class="num">102.18</td></tr>
+  
+  <tr><td>gke-gcp-00</td><td>GKE</td><td>sre-platform</td>
+    <td>cpu</td><td class="num">13.2%</td>
+    <td class="num">17.0%</td><td class="num">31</td>
+    <td class="num">90.17</td></tr>
+  
+  <tr><td>engine-gcp-08</td><td>Compute Engine</td><td>sre-platform</td>
+    <td>cpu</td><td class="num">13.6%</td>
+    <td class="num">17.8%</td><td class="num">31</td>
+    <td class="num">102.18</td></tr>
+  
+  <tr><td>engine-gcp-06</td><td>Compute Engine</td><td>data</td>
+    <td>cpu</td><td class="num">13.9%</td>
+    <td class="num">18.2%</td><td class="num">31</td>
+    <td class="num">102.18</td></tr>
+  
+  <tr><td>gke-gcp-08</td><td>GKE</td><td>sre-platform</td>
+    <td>cpu</td><td class="num">14.3%</td>
+    <td class="num">18.5%</td><td class="num">31</td>
+    <td class="num">90.17</td></tr>
+  
+  <tr><td>gke-gcp-11</td><td>GKE</td><td>ml</td>
+    <td>cpu</td><td class="num">15.4%</td>
+    <td class="num">20.1%</td><td class="num">31</td>
+    <td class="num">90.17</td></tr>
+  
+  <tr><td>sql-gcp-05</td><td>Cloud SQL</td><td>product-web</td>
+    <td>cpu</td><td class="num">15.7%</td>
+    <td class="num">20.2%</td><td class="num">31</td>
+    <td class="num">60.28</td></tr>
+  
+  <tr><td>engine-gcp-07</td><td>Compute Engine</td><td>ml</td>
+    <td>cpu</td><td class="num">15.9%</td>
+    <td class="num">20.5%</td><td class="num">31</td>
+    <td class="num">102.18</td></tr>
+  
+  <tr><td>gke-gcp-02</td><td>GKE</td><td>data</td>
+    <td>cpu</td><td class="num">16.1%</td>
+    <td class="num">20.8%</td><td class="num">31</td>
+    <td class="num">90.17</td></tr>
+  
+  <tr><td>sql-gcp-01</td><td>Cloud SQL</td><td>product-web</td>
+    <td>cpu</td><td class="num">21.2%</td>
+    <td class="num">27.6%</td><td class="num">31</td>
+    <td class="num">60.28</td></tr>
+  
+  <tr><td>sql-gcp-04</td><td>Cloud SQL</td><td>sre-platform</td>
+    <td>cpu</td><td class="num">39.3%</td>
+    <td class="num">51.9%</td><td class="num">31</td>
+    <td class="num">60.28</td></tr>
+  
+  <tr><td>sql-gcp-07</td><td>Cloud SQL</td><td>ml</td>
+    <td>cpu</td><td class="num">52.1%</td>
+    <td class="num">68.5%</td><td class="num">31</td>
+    <td class="num">60.28</td></tr>
+  
+  <tr><td>sql-gcp-06</td><td>Cloud SQL</td><td>data</td>
+    <td>cpu</td><td class="num">58.3%</td>
+    <td class="num">75.9%</td><td class="num">31</td>
+    <td class="num">60.28</td></tr>
+  
+  <tr><td>engine-gcp-02</td><td>Compute Engine</td><td>data</td>
+    <td>cpu</td><td class="num">58.3%</td>
+    <td class="num">77.3%</td><td class="num">31</td>
+    <td class="num">102.18</td></tr>
+  
+  <tr><td>sql-gcp-08</td><td>Cloud SQL</td><td>sre-platform</td>
+    <td>cpu</td><td class="num">62.0%</td>
+    <td class="num">80.7%</td><td class="num">31</td>
+    <td class="num">60.28</td></tr>
+  
+  <tr><td>engine-gcp-11</td><td>Compute Engine</td><td>ml</td>
+    <td>cpu</td><td class="num">62.2%</td>
+    <td class="num">81.6%</td><td class="num">31</td>
+    <td class="num">102.18</td></tr>
+  
+  <tr><td>gke-gcp-03</td><td>GKE</td><td>ml</td>
+    <td>cpu</td><td class="num">75.1%</td>
+    <td class="num">94.2%</td><td class="num">31</td>
+    <td class="num">90.17</td></tr>
+  
+  <tr><td>sql-gcp-02</td><td>Cloud SQL</td><td>data</td>
+    <td>cpu</td><td class="num">87.1%</td>
+    <td class="num">98.7%</td><td class="num">31</td>
+    <td class="num">60.28</td></tr>
+  
+  <tr><td>engine-gcp-04</td><td>Compute Engine</td><td>sre-platform</td>
+    <td>cpu</td><td class="num">89.4%</td>
+    <td class="num">98.9%</td><td class="num">31</td>
+    <td class="num">102.18</td></tr>
+  </table>
+</section>
+
+</main>
+</div>
+<script>
+document.addEventListener('input', function (e) {
+  var box = e.target.closest('.filterbox'); if (!box) return;
+  var root = document.querySelector(box.dataset.target); if (!root) return;
+  var q = box.value.trim().toLowerCase();
+  root.querySelectorAll('[data-search]').forEach(function (el) {
+    var hit = !q || el.dataset.search.toLowerCase().indexOf(q) !== -1;
+    if (el.classList.contains('deskgroup')) {
+      var inner = Array.prototype.some.call(el.querySelectorAll('[data-search]'),
+        function (x) { return x.dataset.search.toLowerCase().indexOf(q) !== -1; });
+      el.style.display = (hit || inner || !q) ? '' : 'none';
+      el.querySelectorAll('[data-search]').forEach(function (x) {
+        x.style.display = (!q || hit || x.dataset.search.toLowerCase().indexOf(q) !== -1) ? '' : 'none';
+      });
+    } else if (!el.closest('.deskgroup')) {
+      el.style.display = hit ? '' : 'none';
+    }
+  });
+});
+document.addEventListener('click', function (e) {
+  if (e.target.classList && e.target.classList.contains('grip')) return;
+  var th = e.target.closest('th'); if (!th) return;
+  var table = th.closest('table'); if (!table) return;
+  var idx = Array.prototype.indexOf.call(th.parentNode.children, th);
+  var rows = Array.prototype.slice.call(table.querySelectorAll('tr')).filter(
+    function (r) { return r.querySelector('td'); });
+  var dir = th.dataset.dir === 'asc' ? -1 : 1;
+  table.querySelectorAll('th').forEach(function (h) { delete h.dataset.dir;
+    var a = h.querySelector('.arrow'); if (a) a.remove(); });
+  th.dataset.dir = dir === 1 ? 'asc' : 'desc';
+  var arrow = document.createElement('span');
+  arrow.className = 'arrow';
+  arrow.textContent = dir === 1 ? ' \u25B2' : ' \u25BC';
+  th.appendChild(arrow);
+  function key(r) {
+    var c = r.children[idx]; if (!c) return '';
+    var txt = c.textContent.trim().replace(/[$,%]/g, '').replace(/,/g, '');
+    if (/\d{4}-\d{2}-\d{2}/.test(txt)) return txt.replace(/[^\d-]/g, '');
+    var n = parseFloat(txt);
+    return isNaN(n) ? txt.toLowerCase() : n;
+  }
+  rows.sort(function (a, b) {
+    var ka = key(a), kb = key(b);
+    if (typeof ka === 'number' && typeof kb === 'number') return (ka - kb) * dir;
+    return String(ka).localeCompare(String(kb)) * dir;
+  });
+  rows.forEach(function (r) { r.parentNode.appendChild(r); });
+});
+
+/* ---- tables you can widen, and that fit any screen -----------------------
+   Every table is put in its own horizontally scrolling box, so a wide table
+   scrolls inside its panel instead of pushing the whole page sideways. Each
+   header cell gets a grip on its right edge: drag it to widen the column,
+   double-click it to give the column back to the browser. Widths are
+   remembered per page, because a column you widened once you almost always
+   want wide again.                                                          */
+(function () {
+  var KEY = 'costcrew.colw.' + location.pathname;
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (err) { saved = {}; }
+
+  function persist() {
+    try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (err) { /* private mode */ }
+  }
+
+  function setup() {
+    document.querySelectorAll('table').forEach(function (table, ti) {
+      if (!table.parentNode.classList.contains('tw')) {
+        var box = document.createElement('div');
+        box.className = 'tw';
+        table.parentNode.insertBefore(box, table);
+        box.appendChild(table);
+      }
+      /* An atom never breaks: a date, a sum, a status, a short name. Prose
+         does break, and must, or one sentence drags the whole table wider
+         than the screen and everything else scrolls to reach it. The rule is
+         length, applied once, because CSS cannot ask how long a text is. */
+      table.querySelectorAll('td, th').forEach(function (cell) {
+        if (cell.children.length) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length > 40 && txt.indexOf(' ') !== -1) cell.classList.add('wrap');
+      });
+
+      /* Really long prose gets two lines and a way to open the rest. Nothing
+         is removed: the full text is still in the cell, still searched by
+         the filter box, still there for anyone who presses. */
+      table.querySelectorAll('td').forEach(function (cell) {
+        if (cell.querySelector('.clamp')) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length <= 110) return;
+        var box = document.createElement('div');
+        box.className = 'clamp';
+        while (cell.firstChild) box.appendChild(cell.firstChild);
+        cell.appendChild(box);
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'more';
+        btn.textContent = 'more';
+        btn.setAttribute('aria-expanded', 'false');
+        btn.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          var open = box.classList.toggle('open');
+          btn.textContent = open ? 'less' : 'more';
+          btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+        cell.appendChild(btn);
+        cell.classList.add('wrap');
+      });
+      /* Align each header to the column beneath it. The figures are right
+         aligned and the headers were not, so every numeric column read as a
+         label on the left with unrelated numbers on the right. */
+      var head0 = table.querySelector('tr');
+      if (head0) {
+        var body = Array.prototype.slice.call(table.querySelectorAll('tr'))
+          .filter(function (r) { return r.querySelector('td'); });
+        head0.querySelectorAll('th').forEach(function (th, ci) {
+          var nums = 0, cells = 0;
+          body.forEach(function (r) {
+            var cell = r.children[ci];
+            if (!cell || cell.tagName !== 'TD') return;
+            cells++;
+            if (cell.classList.contains('num')) nums++;
+          });
+          if (cells && nums * 2 > cells) th.classList.add('num');
+        });
+      }
+      var head = table.querySelector('tr');
+      if (!head) return;
+      head.querySelectorAll('th').forEach(function (th, ci) {
+        var id = ti + ':' + ci;
+        if (saved[id]) { th.style.width = saved[id] + 'px'; th.classList.add('sized'); }
+        if (th.querySelector('.grip')) return;
+        var grip = document.createElement('span');
+        grip.className = 'grip';
+        grip.title = 'Drag to widen, double-click to reset';
+        grip.addEventListener('dblclick', function (ev) {
+          ev.stopPropagation();
+          th.style.width = ''; th.classList.remove('sized');
+          delete saved[id]; persist();
+        });
+        grip.addEventListener('pointerdown', function (ev) {
+          ev.preventDefault(); ev.stopPropagation();
+          var x0 = ev.clientX, w0 = th.getBoundingClientRect().width;
+          grip.classList.add('on');
+          grip.setPointerCapture(ev.pointerId);
+          function move(e2) {
+            var w = Math.max(48, Math.round(w0 + (e2.clientX - x0)));
+            th.style.width = w + 'px'; th.classList.add('sized');
+            saved[id] = w;
+          }
+          function up() {
+            grip.classList.remove('on');
+            grip.removeEventListener('pointermove', move);
+            grip.removeEventListener('pointerup', up);
+            persist();
+          }
+          grip.addEventListener('pointermove', move);
+          grip.addEventListener('pointerup', up);
+        });
+        th.appendChild(grip);
+      });
+    });
+    document.querySelectorAll('.tw').forEach(function (box) {
+      function mark() {
+        /* a few pixels is rounding, not a hidden column */
+        var over = box.scrollWidth > box.clientWidth + 8;
+        box.classList.toggle('scrolls', over);
+        box.classList.toggle('atend',
+          over && box.scrollLeft + box.clientWidth >= box.scrollWidth - 2);
+      }
+      box.addEventListener('scroll', mark);
+      window.addEventListener('resize', mark);
+      mark();
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setup);
+  } else { setup(); }
+})();
+</script>
+</body></html>

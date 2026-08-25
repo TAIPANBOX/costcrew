@@ -1,0 +1,742 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CostCrew</title>
+<link rel="stylesheet" href="/static/style.css"></head><body>
+<div class="shell">
+<nav class="rail">
+  <div class="brand">CostCrew</div>
+  <a href="/" class="">Today</a>
+  <a href="/board" class="">Board</a>
+  <a href="/board?view=month" class="sub">Calendar</a>
+  <a href="/teams" class="">Teams</a>
+  <a href="/sprints" class="">Sprints</a>
+  <a href="/feed" class="">Chats</a>
+  <a href="/feed?ch=aws" class="sub">#aws</a>
+  <a href="/feed?ch=gcp" class="sub">#gcp</a>
+  <a href="/feed?ch=onprem" class="sub">#onprem</a>
+  <a href="/kpis" class="">KPIs</a>
+  <a href="/library" class="sub ">Library</a>
+  <a href="/assessment" class="sub ">Assessment</a>
+  <a href="/allocation" class="on">Allocation</a>
+  <a href="/chargeback" class="">Chargeback</a>
+  <a href="/exec" class="">Executive</a>
+  <a href="/results" class="">Results</a>
+  <a href="/ai" class="">AI spend</a>
+  <a href="/saas" class="">SaaS</a>
+  <a href="/utilisation" class="">Utilisation</a>
+  <a href="/explainers" class="">Explainers</a>
+  <a href="/staff" class="">Staff</a>
+  <a href="/workbench" class="">Workbench</a>
+  <a href="/data" class="">Data</a>
+  <a href="/connectors" class="sub ">Connectors</a>
+  <a href="/audit" class="">Audit</a>
+  <a href="/settings" class="">Engines</a>
+  
+  <a href="/accounts" class="">Accounts</a>
+  <div class="railfoot">
+    
+    <div>parity · admin</div>
+    <form method="post" action="/logout" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+      <button class="btn back">Sign out</button></form>
+    
+    <div>MVP · local</div>
+  </div>
+</nav>
+<main class="content">
+<h1>Allocation rules</h1>
+<p class="subtitle">Cost that carries no team of its own - untagged usage, commitment
+purchases, tax, credits - is redistributed onto teams by an explicit model, the way
+the Allocation capability prescribes: proportional to usage, evenly, or by declared
+weights. A pool with no basis stays unsplit and says why. Changing a rule changes the
+numbers everywhere, including each figure's qid.</p>
+
+
+
+<section class="panel">
+  <h2><span class="eyebrow hue-ai">platform ai</span>
+      2026-07</h2>
+  
+  <div class="tiles">
+    <div class="tile accent-amber"><div class="tv">100.0%</div>
+      <div class="tl">directly attributed (before rules)</div></div>
+    <div class="tile accent-green">
+      <div class="tv">100.0%</div>
+      <div class="tl">allocated after rules (target 90%) <span class="qid">⌗e2bdf62d</span></div></div>
+    <div class="tile accent-green">
+      <div class="tv">$0.00</div>
+      <div class="tl">left unallocated</div></div>
+  </div>
+
+  <h3>Pools and their rules</h3>
+  <table><tr><th>pool</th><th>amount $</th><th>method</th><th>status</th><th>change it</th></tr>
+  
+  <tr><td colspan="5" class="fine">Nothing to redistribute: every row already carries a team.</td></tr>
+  
+  </table>
+
+  <h3>Fully loaded cost per team</h3>
+  <table><tr><th>team</th><th>direct $</th><th>+ split $</th><th>fully loaded $</th><th>share</th>
+    </tr>
+  
+  <tr>
+    <td>ml</td>
+    <td class="num">1,052.56</td>
+    <td class="num">0.00</td>
+    <td class="num"><b>1,052.56</b></td>
+    <td class="num">44.22%</td>
+    
+  </tr>
+  
+  <tr>
+    <td>product-web</td>
+    <td class="num">774.61</td>
+    <td class="num">0.00</td>
+    <td class="num"><b>774.61</b></td>
+    <td class="num">32.54%</td>
+    
+  </tr>
+  
+  <tr>
+    <td>data</td>
+    <td class="num">331.98</td>
+    <td class="num">0.00</td>
+    <td class="num"><b>331.98</b></td>
+    <td class="num">13.95%</td>
+    
+  </tr>
+  
+  <tr>
+    <td>sre-platform</td>
+    <td class="num">221.32</td>
+    <td class="num">0.00</td>
+    <td class="num"><b>221.32</b></td>
+    <td class="num">9.3%</td>
+    
+  </tr>
+  
+  <tr class="win"><td><b>total</b></td><td class="num">2,380.46</td>
+    <td class="num">0.00</td><td class="num"><b>2,380.46</b></td>
+    <td class="num">100.0%</td>
+    </tr>
+  </table>
+  <p class="fine">Estate total $2,380.46 · rule set e8b79fa2a741 ·
+    <a href="/export/showback.csv?source=ai">export showback (CSV)</a></p>
+  
+</section>
+
+<section class="panel">
+  <h2><span class="eyebrow hue-aws">platform aws</span>
+      2026-07</h2>
+  
+  <div class="tiles">
+    <div class="tile accent-amber"><div class="tv">76.45%</div>
+      <div class="tl">directly attributed (before rules)</div></div>
+    <div class="tile accent-green">
+      <div class="tv">100.0%</div>
+      <div class="tl">allocated after rules (target 90%) <span class="qid">⌗33a5b724</span></div></div>
+    <div class="tile accent-green">
+      <div class="tv">$0.00</div>
+      <div class="tl">left unallocated</div></div>
+  </div>
+
+  <h3>Pools and their rules</h3>
+  <table><tr><th>pool</th><th>amount $</th><th>method</th><th>status</th><th>change it</th></tr>
+  
+  <tr>
+    <td><b>Credit</b></td>
+    <td class="num">-59.21</td>
+    <td>proportional-usage</td>
+    <td><span class="chip st-done">split</span>
+        </td>
+    <td>
+      <form method="post" action="/allocation/rule" class="inline ruleform"><input type="hidden" name="csrf" value="<CSRF>">
+        <input type="hidden" name="source" value="aws">
+        <input type="hidden" name="pool" value="Credit">
+        <select name="method">
+          <option selected>proportional-usage</option><option >even</option><option >fixed</option><option >unallocated</option>
+        </select>
+        <input name="weights" placeholder="team:weight, team:weight" size="22"
+               value="">
+        <button class="btn">Apply</button>
+      </form>
+    </td>
+  </tr>
+  
+  <tr>
+    <td><b>Purchase</b></td>
+    <td class="num">950.00</td>
+    <td>proportional-usage</td>
+    <td><span class="chip st-done">split</span>
+        </td>
+    <td>
+      <form method="post" action="/allocation/rule" class="inline ruleform"><input type="hidden" name="csrf" value="<CSRF>">
+        <input type="hidden" name="source" value="aws">
+        <input type="hidden" name="pool" value="Purchase">
+        <select name="method">
+          <option selected>proportional-usage</option><option >even</option><option >fixed</option><option >unallocated</option>
+        </select>
+        <input name="weights" placeholder="team:weight, team:weight" size="22"
+               value="">
+        <button class="btn">Apply</button>
+      </form>
+    </td>
+  </tr>
+  
+  <tr>
+    <td><b>Tax</b></td>
+    <td class="num">148.04</td>
+    <td>proportional-usage</td>
+    <td><span class="chip st-done">split</span>
+        </td>
+    <td>
+      <form method="post" action="/allocation/rule" class="inline ruleform"><input type="hidden" name="csrf" value="<CSRF>">
+        <input type="hidden" name="source" value="aws">
+        <input type="hidden" name="pool" value="Tax">
+        <select name="method">
+          <option selected>proportional-usage</option><option >even</option><option >fixed</option><option >unallocated</option>
+        </select>
+        <input name="weights" placeholder="team:weight, team:weight" size="22"
+               value="">
+        <button class="btn">Apply</button>
+      </form>
+    </td>
+  </tr>
+  
+  </table>
+
+  <h3>Fully loaded cost per team</h3>
+  <table><tr><th>team</th><th>direct $</th><th>+ split $</th><th>fully loaded $</th><th>share</th>
+    <th>Credit $</th><th>Purchase $</th><th>Tax $</th></tr>
+  
+  <tr>
+    <td>product-web</td>
+    <td class="num">991.02</td>
+    <td class="num">305.24</td>
+    <td class="num"><b>1,296.26</b></td>
+    <td class="num">29.38%</td>
+    <td class="num">-17.40</td><td class="num">279.14</td><td class="num">43.50</td>
+  </tr>
+  
+  <tr>
+    <td>sre-platform</td>
+    <td class="num">908.90</td>
+    <td class="num">279.94</td>
+    <td class="num"><b>1,188.85</b></td>
+    <td class="num">26.95%</td>
+    <td class="num">-15.96</td><td class="num">256.01</td><td class="num">39.89</td>
+  </tr>
+  
+  <tr>
+    <td>ml</td>
+    <td class="num">892.97</td>
+    <td class="num">275.04</td>
+    <td class="num"><b>1,168.00</b></td>
+    <td class="num">26.48%</td>
+    <td class="num">-15.68</td><td class="num">251.52</td><td class="num">39.19</td>
+  </tr>
+  
+  <tr>
+    <td>data</td>
+    <td class="num">579.87</td>
+    <td class="num">178.60</td>
+    <td class="num"><b>758.47</b></td>
+    <td class="num">17.19%</td>
+    <td class="num">-10.18</td><td class="num">163.33</td><td class="num">25.45</td>
+  </tr>
+  
+  <tr class="win"><td><b>total</b></td><td class="num">3,372.76</td>
+    <td class="num">1,038.82</td><td class="num"><b>4,411.58</b></td>
+    <td class="num">100.0%</td>
+    <td class="num">-59.21</td><td class="num">950.00</td><td class="num">148.04</td></tr>
+  </table>
+  <p class="fine">Estate total $4,411.58 · rule set e8b79fa2a741 ·
+    <a href="/export/showback.csv?source=aws">export showback (CSV)</a></p>
+  
+</section>
+
+<section class="panel">
+  <h2><span class="eyebrow hue-gcp">platform gcp</span>
+      2026-07</h2>
+  
+  <div class="tiles">
+    <div class="tile accent-amber"><div class="tv">77.39%</div>
+      <div class="tl">directly attributed (before rules)</div></div>
+    <div class="tile accent-green">
+      <div class="tv">100.0%</div>
+      <div class="tl">allocated after rules (target 90%) <span class="qid">⌗0b8a7ac1</span></div></div>
+    <div class="tile accent-green">
+      <div class="tv">$0.00</div>
+      <div class="tl">left unallocated</div></div>
+  </div>
+
+  <h3>Pools and their rules</h3>
+  <table><tr><th>pool</th><th>amount $</th><th>method</th><th>status</th><th>change it</th></tr>
+  
+  <tr>
+    <td><b>Credit</b></td>
+    <td class="num">-68.62</td>
+    <td>proportional-usage</td>
+    <td><span class="chip st-done">split</span>
+        </td>
+    <td>
+      <form method="post" action="/allocation/rule" class="inline ruleform"><input type="hidden" name="csrf" value="<CSRF>">
+        <input type="hidden" name="source" value="gcp">
+        <input type="hidden" name="pool" value="Credit">
+        <select name="method">
+          <option selected>proportional-usage</option><option >even</option><option >fixed</option><option >unallocated</option>
+        </select>
+        <input name="weights" placeholder="team:weight, team:weight" size="22"
+               value="">
+        <button class="btn">Apply</button>
+      </form>
+    </td>
+  </tr>
+  
+  <tr>
+    <td><b>Purchase</b></td>
+    <td class="num">700.00</td>
+    <td>proportional-usage</td>
+    <td><span class="chip st-done">split</span>
+        </td>
+    <td>
+      <form method="post" action="/allocation/rule" class="inline ruleform"><input type="hidden" name="csrf" value="<CSRF>">
+        <input type="hidden" name="source" value="gcp">
+        <input type="hidden" name="pool" value="Purchase">
+        <select name="method">
+          <option selected>proportional-usage</option><option >even</option><option >fixed</option><option >unallocated</option>
+        </select>
+        <input name="weights" placeholder="team:weight, team:weight" size="22"
+               value="">
+        <button class="btn">Apply</button>
+      </form>
+    </td>
+  </tr>
+  
+  <tr>
+    <td><b>Tax</b></td>
+    <td class="num">114.36</td>
+    <td>proportional-usage</td>
+    <td><span class="chip st-done">split</span>
+        </td>
+    <td>
+      <form method="post" action="/allocation/rule" class="inline ruleform"><input type="hidden" name="csrf" value="<CSRF>">
+        <input type="hidden" name="source" value="gcp">
+        <input type="hidden" name="pool" value="Tax">
+        <select name="method">
+          <option selected>proportional-usage</option><option >even</option><option >fixed</option><option >unallocated</option>
+        </select>
+        <input name="weights" placeholder="team:weight, team:weight" size="22"
+               value="">
+        <button class="btn">Apply</button>
+      </form>
+    </td>
+  </tr>
+  
+  </table>
+
+  <h3>Fully loaded cost per team</h3>
+  <table><tr><th>team</th><th>direct $</th><th>+ split $</th><th>fully loaded $</th><th>share</th>
+    <th>Credit $</th><th>Purchase $</th><th>Tax $</th></tr>
+  
+  <tr>
+    <td>ml</td>
+    <td class="num">709.56</td>
+    <td class="num">207.27</td>
+    <td class="num"><b>916.83</b></td>
+    <td class="num">27.79%</td>
+    <td class="num">-19.07</td><td class="num">194.56</td><td class="num">31.79</td>
+  </tr>
+  
+  <tr>
+    <td>sre-platform</td>
+    <td class="num">689.88</td>
+    <td class="num">201.52</td>
+    <td class="num"><b>891.40</b></td>
+    <td class="num">27.02%</td>
+    <td class="num">-18.54</td><td class="num">189.16</td><td class="num">30.90</td>
+  </tr>
+  
+  <tr>
+    <td>product-web</td>
+    <td class="num">655.12</td>
+    <td class="num">191.37</td>
+    <td class="num"><b>846.49</b></td>
+    <td class="num">25.66%</td>
+    <td class="num">-17.61</td><td class="num">179.63</td><td class="num">29.35</td>
+  </tr>
+  
+  <tr>
+    <td>data</td>
+    <td class="num">498.37</td>
+    <td class="num">145.58</td>
+    <td class="num"><b>643.95</b></td>
+    <td class="num">19.52%</td>
+    <td class="num">-13.40</td><td class="num">136.65</td><td class="num">22.33</td>
+  </tr>
+  
+  <tr class="win"><td><b>total</b></td><td class="num">2,552.92</td>
+    <td class="num">745.74</td><td class="num"><b>3,298.67</b></td>
+    <td class="num">100.0%</td>
+    <td class="num">-68.62</td><td class="num">700.00</td><td class="num">114.36</td></tr>
+  </table>
+  <p class="fine">Estate total $3,298.67 · rule set e8b79fa2a741 ·
+    <a href="/export/showback.csv?source=gcp">export showback (CSV)</a></p>
+  
+</section>
+
+<section class="panel">
+  <h2><span class="eyebrow hue-onprem">platform onprem</span>
+      2026-07</h2>
+  
+  <div class="tiles">
+    <div class="tile accent-amber"><div class="tv">62.1%</div>
+      <div class="tl">directly attributed (before rules)</div></div>
+    <div class="tile accent-green">
+      <div class="tv">100.0%</div>
+      <div class="tl">allocated after rules (target 90%) <span class="qid">⌗f2c0ebc6</span></div></div>
+    <div class="tile accent-green">
+      <div class="tv">$0.00</div>
+      <div class="tl">left unallocated</div></div>
+  </div>
+
+  <h3>Pools and their rules</h3>
+  <table><tr><th>pool</th><th>amount $</th><th>method</th><th>status</th><th>change it</th></tr>
+  
+  <tr>
+    <td><b>Purchase</b></td>
+    <td class="num">1,400.00</td>
+    <td>proportional-usage</td>
+    <td><span class="chip st-done">split</span>
+        </td>
+    <td>
+      <form method="post" action="/allocation/rule" class="inline ruleform"><input type="hidden" name="csrf" value="<CSRF>">
+        <input type="hidden" name="source" value="onprem">
+        <input type="hidden" name="pool" value="Purchase">
+        <select name="method">
+          <option selected>proportional-usage</option><option >even</option><option >fixed</option><option >unallocated</option>
+        </select>
+        <input name="weights" placeholder="team:weight, team:weight" size="22"
+               value="">
+        <button class="btn">Apply</button>
+      </form>
+    </td>
+  </tr>
+  
+  <tr>
+    <td><b>Tax</b></td>
+    <td class="num">111.78</td>
+    <td>proportional-usage</td>
+    <td><span class="chip st-done">split</span>
+        </td>
+    <td>
+      <form method="post" action="/allocation/rule" class="inline ruleform"><input type="hidden" name="csrf" value="<CSRF>">
+        <input type="hidden" name="source" value="onprem">
+        <input type="hidden" name="pool" value="Tax">
+        <select name="method">
+          <option selected>proportional-usage</option><option >even</option><option >fixed</option><option >unallocated</option>
+        </select>
+        <input name="weights" placeholder="team:weight, team:weight" size="22"
+               value="">
+        <button class="btn">Apply</button>
+      </form>
+    </td>
+  </tr>
+  
+  </table>
+
+  <h3>Fully loaded cost per team</h3>
+  <table><tr><th>team</th><th>direct $</th><th>+ split $</th><th>fully loaded $</th><th>share</th>
+    <th>Purchase $</th><th>Tax $</th></tr>
+  
+  <tr>
+    <td>sre-platform</td>
+    <td class="num">734.76</td>
+    <td class="num">448.42</td>
+    <td class="num"><b>1,183.18</b></td>
+    <td class="num">29.66%</td>
+    <td class="num">415.26</td><td class="num">33.16</td>
+  </tr>
+  
+  <tr>
+    <td>product-web</td>
+    <td class="num">628.63</td>
+    <td class="num">383.65</td>
+    <td class="num"><b>1,012.27</b></td>
+    <td class="num">25.38%</td>
+    <td class="num">355.28</td><td class="num">28.37</td>
+  </tr>
+  
+  <tr>
+    <td>ml</td>
+    <td class="num">608.69</td>
+    <td class="num">371.48</td>
+    <td class="num"><b>980.17</b></td>
+    <td class="num">24.57%</td>
+    <td class="num">344.01</td><td class="num">27.47</td>
+  </tr>
+  
+  <tr>
+    <td>data</td>
+    <td class="num">505.06</td>
+    <td class="num">308.24</td>
+    <td class="num"><b>813.30</b></td>
+    <td class="num">20.39%</td>
+    <td class="num">285.44</td><td class="num">22.79</td>
+  </tr>
+  
+  <tr class="win"><td><b>total</b></td><td class="num">2,477.13</td>
+    <td class="num">1,511.78</td><td class="num"><b>3,988.91</b></td>
+    <td class="num">100.0%</td>
+    <td class="num">1,400.00</td><td class="num">111.78</td></tr>
+  </table>
+  <p class="fine">Estate total $3,988.91 · rule set e8b79fa2a741 ·
+    <a href="/export/showback.csv?source=onprem">export showback (CSV)</a></p>
+  
+</section>
+
+<section class="panel">
+  <h2><span class="eyebrow hue-saas">platform saas</span>
+      2026-07</h2>
+  
+  <div class="tiles">
+    <div class="tile accent-amber"><div class="tv">100.0%</div>
+      <div class="tl">directly attributed (before rules)</div></div>
+    <div class="tile accent-green">
+      <div class="tv">100.0%</div>
+      <div class="tl">allocated after rules (target 90%) <span class="qid">⌗e20ec458</span></div></div>
+    <div class="tile accent-green">
+      <div class="tv">$0.00</div>
+      <div class="tl">left unallocated</div></div>
+  </div>
+
+  <h3>Pools and their rules</h3>
+  <table><tr><th>pool</th><th>amount $</th><th>method</th><th>status</th><th>change it</th></tr>
+  
+  <tr><td colspan="5" class="fine">Nothing to redistribute: every row already carries a team.</td></tr>
+  
+  </table>
+
+  <h3>Fully loaded cost per team</h3>
+  <table><tr><th>team</th><th>direct $</th><th>+ split $</th><th>fully loaded $</th><th>share</th>
+    </tr>
+  
+  <tr>
+    <td>product-web</td>
+    <td class="num">13,019.00</td>
+    <td class="num">0.00</td>
+    <td class="num"><b>13,019.00</b></td>
+    <td class="num">47.33%</td>
+    
+  </tr>
+  
+  <tr>
+    <td>sre-platform</td>
+    <td class="num">10,214.00</td>
+    <td class="num">0.00</td>
+    <td class="num"><b>10,214.00</b></td>
+    <td class="num">37.14%</td>
+    
+  </tr>
+  
+  <tr>
+    <td>data</td>
+    <td class="num">4,272.00</td>
+    <td class="num">0.00</td>
+    <td class="num"><b>4,272.00</b></td>
+    <td class="num">15.53%</td>
+    
+  </tr>
+  
+  <tr class="win"><td><b>total</b></td><td class="num">27,505.00</td>
+    <td class="num">0.00</td><td class="num"><b>27,505.00</b></td>
+    <td class="num">100.0%</td>
+    </tr>
+  </table>
+  <p class="fine">Estate total $27,505.00 · rule set e8b79fa2a741 ·
+    <a href="/export/showback.csv?source=saas">export showback (CSV)</a></p>
+  
+</section>
+
+</main>
+</div>
+<script>
+document.addEventListener('input', function (e) {
+  var box = e.target.closest('.filterbox'); if (!box) return;
+  var root = document.querySelector(box.dataset.target); if (!root) return;
+  var q = box.value.trim().toLowerCase();
+  root.querySelectorAll('[data-search]').forEach(function (el) {
+    var hit = !q || el.dataset.search.toLowerCase().indexOf(q) !== -1;
+    if (el.classList.contains('deskgroup')) {
+      var inner = Array.prototype.some.call(el.querySelectorAll('[data-search]'),
+        function (x) { return x.dataset.search.toLowerCase().indexOf(q) !== -1; });
+      el.style.display = (hit || inner || !q) ? '' : 'none';
+      el.querySelectorAll('[data-search]').forEach(function (x) {
+        x.style.display = (!q || hit || x.dataset.search.toLowerCase().indexOf(q) !== -1) ? '' : 'none';
+      });
+    } else if (!el.closest('.deskgroup')) {
+      el.style.display = hit ? '' : 'none';
+    }
+  });
+});
+document.addEventListener('click', function (e) {
+  if (e.target.classList && e.target.classList.contains('grip')) return;
+  var th = e.target.closest('th'); if (!th) return;
+  var table = th.closest('table'); if (!table) return;
+  var idx = Array.prototype.indexOf.call(th.parentNode.children, th);
+  var rows = Array.prototype.slice.call(table.querySelectorAll('tr')).filter(
+    function (r) { return r.querySelector('td'); });
+  var dir = th.dataset.dir === 'asc' ? -1 : 1;
+  table.querySelectorAll('th').forEach(function (h) { delete h.dataset.dir;
+    var a = h.querySelector('.arrow'); if (a) a.remove(); });
+  th.dataset.dir = dir === 1 ? 'asc' : 'desc';
+  var arrow = document.createElement('span');
+  arrow.className = 'arrow';
+  arrow.textContent = dir === 1 ? ' \u25B2' : ' \u25BC';
+  th.appendChild(arrow);
+  function key(r) {
+    var c = r.children[idx]; if (!c) return '';
+    var txt = c.textContent.trim().replace(/[$,%]/g, '').replace(/,/g, '');
+    if (/\d{4}-\d{2}-\d{2}/.test(txt)) return txt.replace(/[^\d-]/g, '');
+    var n = parseFloat(txt);
+    return isNaN(n) ? txt.toLowerCase() : n;
+  }
+  rows.sort(function (a, b) {
+    var ka = key(a), kb = key(b);
+    if (typeof ka === 'number' && typeof kb === 'number') return (ka - kb) * dir;
+    return String(ka).localeCompare(String(kb)) * dir;
+  });
+  rows.forEach(function (r) { r.parentNode.appendChild(r); });
+});
+
+/* ---- tables you can widen, and that fit any screen -----------------------
+   Every table is put in its own horizontally scrolling box, so a wide table
+   scrolls inside its panel instead of pushing the whole page sideways. Each
+   header cell gets a grip on its right edge: drag it to widen the column,
+   double-click it to give the column back to the browser. Widths are
+   remembered per page, because a column you widened once you almost always
+   want wide again.                                                          */
+(function () {
+  var KEY = 'costcrew.colw.' + location.pathname;
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (err) { saved = {}; }
+
+  function persist() {
+    try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (err) { /* private mode */ }
+  }
+
+  function setup() {
+    document.querySelectorAll('table').forEach(function (table, ti) {
+      if (!table.parentNode.classList.contains('tw')) {
+        var box = document.createElement('div');
+        box.className = 'tw';
+        table.parentNode.insertBefore(box, table);
+        box.appendChild(table);
+      }
+      /* An atom never breaks: a date, a sum, a status, a short name. Prose
+         does break, and must, or one sentence drags the whole table wider
+         than the screen and everything else scrolls to reach it. The rule is
+         length, applied once, because CSS cannot ask how long a text is. */
+      table.querySelectorAll('td, th').forEach(function (cell) {
+        if (cell.children.length) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length > 40 && txt.indexOf(' ') !== -1) cell.classList.add('wrap');
+      });
+
+      /* Really long prose gets two lines and a way to open the rest. Nothing
+         is removed: the full text is still in the cell, still searched by
+         the filter box, still there for anyone who presses. */
+      table.querySelectorAll('td').forEach(function (cell) {
+        if (cell.querySelector('.clamp')) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length <= 110) return;
+        var box = document.createElement('div');
+        box.className = 'clamp';
+        while (cell.firstChild) box.appendChild(cell.firstChild);
+        cell.appendChild(box);
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'more';
+        btn.textContent = 'more';
+        btn.setAttribute('aria-expanded', 'false');
+        btn.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          var open = box.classList.toggle('open');
+          btn.textContent = open ? 'less' : 'more';
+          btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+        cell.appendChild(btn);
+        cell.classList.add('wrap');
+      });
+      /* Align each header to the column beneath it. The figures are right
+         aligned and the headers were not, so every numeric column read as a
+         label on the left with unrelated numbers on the right. */
+      var head0 = table.querySelector('tr');
+      if (head0) {
+        var body = Array.prototype.slice.call(table.querySelectorAll('tr'))
+          .filter(function (r) { return r.querySelector('td'); });
+        head0.querySelectorAll('th').forEach(function (th, ci) {
+          var nums = 0, cells = 0;
+          body.forEach(function (r) {
+            var cell = r.children[ci];
+            if (!cell || cell.tagName !== 'TD') return;
+            cells++;
+            if (cell.classList.contains('num')) nums++;
+          });
+          if (cells && nums * 2 > cells) th.classList.add('num');
+        });
+      }
+      var head = table.querySelector('tr');
+      if (!head) return;
+      head.querySelectorAll('th').forEach(function (th, ci) {
+        var id = ti + ':' + ci;
+        if (saved[id]) { th.style.width = saved[id] + 'px'; th.classList.add('sized'); }
+        if (th.querySelector('.grip')) return;
+        var grip = document.createElement('span');
+        grip.className = 'grip';
+        grip.title = 'Drag to widen, double-click to reset';
+        grip.addEventListener('dblclick', function (ev) {
+          ev.stopPropagation();
+          th.style.width = ''; th.classList.remove('sized');
+          delete saved[id]; persist();
+        });
+        grip.addEventListener('pointerdown', function (ev) {
+          ev.preventDefault(); ev.stopPropagation();
+          var x0 = ev.clientX, w0 = th.getBoundingClientRect().width;
+          grip.classList.add('on');
+          grip.setPointerCapture(ev.pointerId);
+          function move(e2) {
+            var w = Math.max(48, Math.round(w0 + (e2.clientX - x0)));
+            th.style.width = w + 'px'; th.classList.add('sized');
+            saved[id] = w;
+          }
+          function up() {
+            grip.classList.remove('on');
+            grip.removeEventListener('pointermove', move);
+            grip.removeEventListener('pointerup', up);
+            persist();
+          }
+          grip.addEventListener('pointermove', move);
+          grip.addEventListener('pointerup', up);
+        });
+        th.appendChild(grip);
+      });
+    });
+    document.querySelectorAll('.tw').forEach(function (box) {
+      function mark() {
+        /* a few pixels is rounding, not a hidden column */
+        var over = box.scrollWidth > box.clientWidth + 8;
+        box.classList.toggle('scrolls', over);
+        box.classList.toggle('atend',
+          over && box.scrollLeft + box.clientWidth >= box.scrollWidth - 2);
+      }
+      box.addEventListener('scroll', mark);
+      window.addEventListener('resize', mark);
+      mark();
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setup);
+  } else { setup(); }
+})();
+</script>
+</body></html>

@@ -565,6 +565,112 @@ func compare(dirA, dirB string, partial bool) error {
 	return fmt.Errorf("%d gone, %d extra, %d differing", len(missing), len(added), len(differ))
 }
 
+// ------------------------------------------------------------------- fault
+//
+// mutate and drop plant a fault directly into a captured directory's bytes,
+// for parity/gate-has-teeth.sh. The three faults that gate used to plant
+// lived in the Python SOURCE and needed parity/capture-python.sh to boot a
+// server and re-capture it; the Python original was deleted 2026-08-25 and
+// parity/captures/golden is now the only surviving record of its surface,
+// so the gate now plants its fault on a COPY of that record with nothing
+// running.
+//
+// "Structurally valid" is what makes this a fault-planting tool rather than
+// a cheat: compare() above decides CONTENT differs by reading the
+// manifest's recorded sha256, never by rehashing the body file itself.
+// Mutating a body without updating its entry's sha256 would leave compare()
+// blind to the change instead of red on it, which would prove nothing. Both
+// verbs below write every field a real capture of a genuinely different
+// server would have written, so a mutated capture is corrupt in zero ways a
+// human or compare() could tell apart from a real one, and differs only on
+// the one purpose-planted fact.
+
+// rollDigest mirrors the digest capture() computes over Path, Status,
+// SHA256 and Location (see the capture loop above), so a mutated manifest's
+// top-level digest still describes its own entries instead of a capture
+// that no longer exists. compare() itself never reads this field today (it
+// is only printed once both sides are already known identical, which a
+// deliberately mutated pair never is), but a manifest that lies about its
+// own contents is exactly the "look corrupt rather than different" failure
+// mode the gate must not trip over, so it is kept correct anyway.
+func rollDigest(m *manifest) string {
+	roll := sha256.New()
+	for _, e := range m.Entries {
+		fmt.Fprintf(roll, "%s %d %s %s\n", e.Path, e.Status, e.SHA256, e.Location)
+	}
+	return hex.EncodeToString(roll.Sum(nil))
+}
+
+// save writes a mutated manifest back, recomputing Count and Digest so
+// neither field can go stale relative to Entries. Every mutation in this
+// file ends by calling save rather than writing json.Marshal itself, so
+// there is exactly one place that can forget one of the two.
+func save(dir string, m *manifest) error {
+	m.Count = len(m.Entries)
+	m.Digest = rollDigest(m)
+	buf, err := json.MarshalIndent(m, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(dir, "manifest.json"), append(buf, '\n'), 0o644)
+}
+
+// mutateBody rewrites the one and only occurrence of old in path's captured
+// body, and updates that entry's sha256 and bytes to match. Refusing when
+// old occurs zero or more than once is deliberate: a silent no-op would
+// make the gate pass for the wrong reason (nothing actually changed), and a
+// silent multi-replace would touch bytes nobody asked to change.
+func mutateBody(dir, path, old, repl string) error {
+	m, err := load(dir)
+	if err != nil {
+		return err
+	}
+	for i, e := range m.Entries {
+		if e.Path != path {
+			continue
+		}
+		bodyPath := filepath.Join(dir, "bodies", e.File)
+		body, err := os.ReadFile(bodyPath)
+		if err != nil {
+			return err
+		}
+		if n := bytes.Count(body, []byte(old)); n != 1 {
+			return fmt.Errorf("%q occurs %d times in %s, want exactly 1", old, n, bodyPath)
+		}
+		mutated := bytes.Replace(body, []byte(old), []byte(repl), 1)
+		if err := os.WriteFile(bodyPath, mutated, 0o644); err != nil {
+			return err
+		}
+		sum := sha256.Sum256(mutated)
+		m.Entries[i].SHA256 = hex.EncodeToString(sum[:])
+		m.Entries[i].Bytes = len(mutated)
+		return save(dir, m)
+	}
+	return fmt.Errorf("no entry for path %s in %s", path, dir)
+}
+
+// dropEntry removes path's entry and body file entirely: the shape a route
+// takes when it moves or is deleted. Golden still expects it; the mutated
+// capture no longer serves it, so compare reports it GONE rather than
+// CONTENT-different, the same distinction a status-only check would miss.
+func dropEntry(dir, path string) error {
+	m, err := load(dir)
+	if err != nil {
+		return err
+	}
+	for i, e := range m.Entries {
+		if e.Path != path {
+			continue
+		}
+		if err := os.Remove(filepath.Join(dir, "bodies", e.File)); err != nil {
+			return err
+		}
+		m.Entries = append(m.Entries[:i], m.Entries[i+1:]...)
+		return save(dir, m)
+	}
+	return fmt.Errorf("no entry for path %s in %s", path, dir)
+}
+
 // -------------------------------------------------------------------- main
 
 func usage() {
@@ -572,9 +678,15 @@ func usage() {
 
   parity capture -base URL -out DIR [-max N]
   parity compare -a GOLDEN -b ACTUAL
+  parity mutate -dir DIR -path PATH -old OLD -new NEW
+  parity drop -dir DIR -path PATH
 
 The capture is the observable HTTP surface, normalised for the clock and the
-session. Compare exits non-zero on any difference.`)
+session. Compare exits non-zero on any difference.
+
+mutate and drop plant a fault straight into an existing capture (sha256,
+bytes, count and digest all kept consistent), for parity/gate-has-teeth.sh
+to run against a COPY of parity/captures/golden with nothing running.`)
 }
 
 func main() {
@@ -606,6 +718,34 @@ func main() {
 		}
 		if err := compare(*a, *b, *partial); err != nil {
 			fmt.Fprintln(os.Stderr, "\nNO PARITY:", err)
+			os.Exit(1)
+		}
+	case "mutate":
+		fs := flag.NewFlagSet("mutate", flag.ExitOnError)
+		dir := fs.String("dir", "", "capture directory to mutate in place")
+		path := fs.String("path", "", "captured path whose body to edit, e.g. /kpis")
+		old := fs.String("old", "", "substring that must occur exactly once")
+		newv := fs.String("new", "", "its replacement")
+		fs.Parse(os.Args[2:])
+		if *dir == "" || *path == "" || *old == "" {
+			usage()
+			os.Exit(2)
+		}
+		if err := mutateBody(*dir, *path, *old, *newv); err != nil {
+			fmt.Fprintln(os.Stderr, "mutate failed:", err)
+			os.Exit(1)
+		}
+	case "drop":
+		fs := flag.NewFlagSet("drop", flag.ExitOnError)
+		dir := fs.String("dir", "", "capture directory to mutate in place")
+		path := fs.String("path", "", "captured path to remove entirely")
+		fs.Parse(os.Args[2:])
+		if *dir == "" || *path == "" {
+			usage()
+			os.Exit(2)
+		}
+		if err := dropEntry(*dir, *path); err != nil {
+			fmt.Fprintln(os.Stderr, "drop failed:", err)
 			os.Exit(1)
 		}
 	default:

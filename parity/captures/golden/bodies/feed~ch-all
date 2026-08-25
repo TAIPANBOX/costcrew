@@ -1,0 +1,844 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CostCrew</title>
+<link rel="stylesheet" href="/static/style.css"></head><body>
+<div class="shell">
+<nav class="rail">
+  <div class="brand">CostCrew</div>
+  <a href="/" class="">Today</a>
+  <a href="/board" class="">Board</a>
+  <a href="/board?view=month" class="sub">Calendar</a>
+  <a href="/teams" class="">Teams</a>
+  <a href="/sprints" class="">Sprints</a>
+  <a href="/feed" class="on">Chats</a>
+  <a href="/feed?ch=aws" class="sub">#aws</a>
+  <a href="/feed?ch=gcp" class="sub">#gcp</a>
+  <a href="/feed?ch=onprem" class="sub">#onprem</a>
+  <a href="/kpis" class="">KPIs</a>
+  <a href="/library" class="sub ">Library</a>
+  <a href="/assessment" class="sub ">Assessment</a>
+  <a href="/allocation" class="">Allocation</a>
+  <a href="/chargeback" class="">Chargeback</a>
+  <a href="/exec" class="">Executive</a>
+  <a href="/results" class="">Results</a>
+  <a href="/ai" class="">AI spend</a>
+  <a href="/saas" class="">SaaS</a>
+  <a href="/utilisation" class="">Utilisation</a>
+  <a href="/explainers" class="">Explainers</a>
+  <a href="/staff" class="">Staff</a>
+  <a href="/workbench" class="">Workbench</a>
+  <a href="/data" class="">Data</a>
+  <a href="/connectors" class="sub ">Connectors</a>
+  <a href="/audit" class="">Audit</a>
+  <a href="/settings" class="">Engines</a>
+  
+  <a href="/accounts" class="">Accounts</a>
+  <div class="railfoot">
+    
+    <div>parity · admin</div>
+    <form method="post" action="/logout" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+      <button class="btn back">Sign out</button></form>
+    
+    <div>MVP · local</div>
+  </div>
+</nav>
+<main class="content">
+<h1>Chats</h1>
+<p>
+  <a class="chip on" href="/feed?ch=all">All activity</a>
+  <a class="chip " href="/feed?ch=aws">#aws</a><a class="chip " href="/feed?ch=gcp">#gcp</a><a class="chip " href="/feed?ch=onprem">#onprem</a>
+</p>
+
+<div id="feedbox"><ul class="feed">
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">system</span>
+    login</li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">system</span>
+    user_registered</li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">system</span>
+    user_created</li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/reporter-aws">reporter-aws</a>
+    <a href="/task/121">submits deliverable v1 for &#34;Weekly spend pulse 2026-W35 (aws)&#34;, cost $0.004466</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/reporter-aws">reporter-aws</a>
+    <a href="/task/121">receives a task: Weekly spend pulse 2026-W35 (aws)</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/120">stamps POSTED: &#34;Re-measure onprem allocation and publish the desk showback delta&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/reporter-onprem">reporter-onprem</a>
+    <a href="/task/120">submits deliverable v1 for &#34;Re-measure onprem allocation and publish the desk showback delta&#34;, cost $0.0</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/reporter-onprem">reporter-onprem</a>
+    <a href="/task/120">receives a task: Re-measure onprem allocation and publish the desk showback delta</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/119">stamps POSTED: &#34;Apply the onprem split rules to shared infrastructure and re-measure AAI (covers open task #68)&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/investigator-onprem">investigator-onprem</a>
+    <a href="/task/119">submits deliverable v1 for &#34;Apply the onprem split rules to shared infrastructure and re-measure AAI (covers open task #68)&#34;, cost $0.36754450000000005</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/investigator-onprem">investigator-onprem</a>
+    <a href="/task/119">receives a task: Apply the onprem split rules to shared infrastructure and re-measure AAI (covers open task #68)</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/118">stamps POSTED: &#34;Reconstruct the ml GKE step from billing data alone (desk-side step on #69)&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/investigator-gcp">investigator-gcp</a>
+    <a href="/task/118">submits deliverable v1 for &#34;Reconstruct the ml GKE step from billing data alone (desk-side step on #69)&#34;, cost $0.0</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/investigator-gcp">investigator-gcp</a>
+    <a href="/task/118">receives a task: Reconstruct the ml GKE step from billing data alone (desk-side step on #69)</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/117">stamps POSTED: &#34;Re-measure GCP ESR and ml budget variance after the lift&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/reporter-gcp">reporter-gcp</a>
+    <a href="/task/117">submits deliverable v1 for &#34;Re-measure GCP ESR and ml budget variance after the lift&#34;, cost $0.0</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/reporter-gcp">reporter-gcp</a>
+    <a href="/task/117">receives a task: Re-measure GCP ESR and ml budget variance after the lift</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/116">stamps POSTED: &#34;Apply the GCP ESR lift package and re-measure ESR (covers open task #67)&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/optimizer-gcp">optimizer-gcp</a>
+    <a href="/task/116">submits deliverable v1 for &#34;Apply the GCP ESR lift package and re-measure ESR (covers open task #67)&#34;, cost $0.3781445</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/optimizer-gcp">optimizer-gcp</a>
+    <a href="/task/116">receives a task: Apply the GCP ESR lift package and re-measure ESR (covers open task #67)</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/115">stamps POSTED: &#34;Classify the ml GPU driver and firm up the request #1 estimate&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/capacity-aws">capacity-aws</a>
+    <a href="/task/115">submits deliverable v1 for &#34;Classify the ml GPU driver and firm up the request #1 estimate&#34;, cost $0.0</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/capacity-aws">capacity-aws</a>
+    <a href="/task/115">receives a task: Classify the ml GPU driver and firm up the request #1 estimate</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/114">stamps POSTED: &#34;Apply the walk-to-run ladder step and re-measure AWS forecast error&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/reporter-aws">reporter-aws</a>
+    <a href="/task/114">submits deliverable v1 for &#34;Apply the walk-to-run ladder step and re-measure AWS forecast error&#34;, cost $0.0</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/reporter-aws">reporter-aws</a>
+    <a href="/task/114">receives a task: Apply the walk-to-run ladder step and re-measure AWS forecast error</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/113">stamps POSTED: &#34;Apply the RI coverage extension (request #7) and re-measure AWS ESR&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/optimizer-aws">optimizer-aws</a>
+    <a href="/task/113">submits deliverable v1 for &#34;Apply the RI coverage extension (request #7) and re-measure AWS ESR&#34;, cost $0.0</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/optimizer-aws">optimizer-aws</a>
+    <a href="/task/113">receives a task: Apply the RI coverage extension (request #7) and re-measure AWS ESR</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/112">stamps POSTED: &#34;Size request #1 (GPU nodes) and profile ml AI spend&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/capacity-aws">capacity-aws</a>
+    <a href="/task/112">submits deliverable v1 for &#34;Size request #1 (GPU nodes) and profile ml AI spend&#34;, cost $0.0</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/capacity-aws">capacity-aws</a>
+    <a href="/task/112">receives a task: Size request #1 (GPU nodes) and profile ml AI spend</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/111">stamps POSTED: &#34;Rework returned pulse #65 and clear the on-prem queue&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/reporter-onprem">reporter-onprem</a>
+    <a href="/task/111">submits deliverable v1 for &#34;Rework returned pulse #65 and clear the on-prem queue&#34;, cost $0.0</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/reporter-onprem">reporter-onprem</a>
+    <a href="/task/111">receives a task: Rework returned pulse #65 and clear the on-prem queue</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/110">stamps POSTED: &#34;AWS W34 pulse and KPI benchmark card&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/reporter-aws">reporter-aws</a>
+    <a href="/task/110">submits deliverable v1 for &#34;AWS W34 pulse and KPI benchmark card&#34;, cost $0.0</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/reporter-aws">reporter-aws</a>
+    <a href="/task/110">receives a task: AWS W34 pulse and KPI benchmark card</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/109">stamps POSTED: &#34;GCP forecast ladder: walk to run&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/reporter-gcp">reporter-gcp</a>
+    <a href="/task/109">submits deliverable v1 for &#34;GCP forecast ladder: walk to run&#34;, cost $0.0</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/reporter-gcp">reporter-gcp</a>
+    <a href="/task/109">receives a task: GCP forecast ladder: walk to run</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/108">stamps POSTED: &#34;Close out RI coverage extension, request #7&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/optimizer-aws">optimizer-aws</a>
+    <a href="/task/108">submits deliverable v1 for &#34;Close out RI coverage extension, request #7&#34;, cost $0.0</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/optimizer-aws">optimizer-aws</a>
+    <a href="/task/108">receives a task: Close out RI coverage extension, request #7</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/107">stamps POSTED: &#34;Finish idle-schedule proposal #67 (weekend dips)&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/optimizer-gcp">optimizer-gcp</a>
+    <a href="/task/107">submits deliverable v1 for &#34;Finish idle-schedule proposal #67 (weekend dips)&#34;, cost $0.0</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/optimizer-gcp">optimizer-gcp</a>
+    <a href="/task/107">receives a task: Finish idle-schedule proposal #67 (weekend dips)</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/106">stamps POSTED: &#34;GCP commitment coverage to lift effective savings rate&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/optimizer-gcp">optimizer-gcp</a>
+    <a href="/task/106">submits deliverable v1 for &#34;GCP commitment coverage to lift effective savings rate&#34;, cost $0.42278950000000004</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/optimizer-gcp">optimizer-gcp</a>
+    <a href="/task/106">receives a task: GCP commitment coverage to lift effective savings rate</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/105">stamps POSTED: &#34;On-prem shared-pool allocation: colo, power, licensing&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/investigator-onprem">investigator-onprem</a>
+    <a href="/task/105">submits deliverable v1 for &#34;On-prem shared-pool allocation: colo, power, licensing&#34;, cost $0.4330545</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/investigator-onprem">investigator-onprem</a>
+    <a href="/task/105">receives a task: On-prem shared-pool allocation: colo, power, licensing</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/104">stamps POSTED: &#34;Apply the split-rule shape to GCP allocation&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/investigator-gcp">investigator-gcp</a>
+    <a href="/task/104">submits deliverable v1 for &#34;Apply the split-rule shape to GCP allocation&#34;, cost $0.0</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/investigator-gcp">investigator-gcp</a>
+    <a href="/task/104">receives a task: Apply the split-rule shape to GCP allocation</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/103">stamps POSTED: &#34;AWS split rules for Purchase, Tax and Credit&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/investigator-aws">investigator-aws</a>
+    <a href="/task/103">submits deliverable v1 for &#34;AWS split rules for Purchase, Tax and Credit&#34;, cost $0.38777950000000005</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/investigator-aws">investigator-aws</a>
+    <a href="/task/103">receives a task: AWS split rules for Purchase, Tax and Credit</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/102">stamps POSTED: &#34;Cross-desk ml position note for the operator&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/reporter-gcp">reporter-gcp</a>
+    <a href="/task/102">submits deliverable v1 for &#34;Cross-desk ml position note for the operator&#34;, cost $0.0</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/reporter-gcp">reporter-gcp</a>
+    <a href="/task/102">receives a task: Cross-desk ml position note for the operator</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/101">stamps POSTED: &#34;Finish the storage growth check after the array step (item #68)&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/investigator-onprem">investigator-onprem</a>
+    <a href="/task/101">submits deliverable v1 for &#34;Finish the storage growth check after the array step (item #68)&#34;, cost $0.0</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/investigator-onprem">investigator-onprem</a>
+    <a href="/task/101">receives a task: Finish the storage growth check after the array step (item #68)</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/100">stamps POSTED: &#34;Redo the returned weekly spend pulse 2026-W33 (onprem)&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/reporter-onprem">reporter-onprem</a>
+    <a href="/task/100">submits deliverable v1 for &#34;Redo the returned weekly spend pulse 2026-W33 (onprem)&#34;, cost $0.0</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/reporter-onprem">reporter-onprem</a>
+    <a href="/task/100">receives a task: Redo the returned weekly spend pulse 2026-W33 (onprem)</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/99">stamps POSTED: &#34;August 2026 month-close report (onprem)&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/reporter-onprem">reporter-onprem</a>
+    <a href="/task/99">submits deliverable v1 for &#34;August 2026 month-close report (onprem)&#34;, cost $0.0</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/reporter-onprem">reporter-onprem</a>
+    <a href="/task/99">receives a task: August 2026 month-close report (onprem)</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/98">stamps POSTED: &#34;Finish the weekend-dip idle schedule proposal (item #67)&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/optimizer-gcp">optimizer-gcp</a>
+    <a href="/task/98">submits deliverable v1 for &#34;Finish the weekend-dip idle schedule proposal (item #67)&#34;, cost $0.0</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/optimizer-gcp">optimizer-gcp</a>
+    <a href="/task/98">receives a task: Finish the weekend-dip idle schedule proposal (item #67)</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/97">stamps POSTED: &#34;GKE burst pool for training: decision pack (request #3)&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/investigator-gcp">investigator-gcp</a>
+    <a href="/task/97">submits deliverable v1 for &#34;GKE burst pool for training: decision pack (request #3)&#34;, cost $0.42148450000000004</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/investigator-gcp">investigator-gcp</a>
+    <a href="/task/97">receives a task: GKE burst pool for training: decision pack (request #3)</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/96">stamps POSTED: &#34;August 2026 month-close report (gcp)&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/reporter-gcp">reporter-gcp</a>
+    <a href="/task/96">submits deliverable v1 for &#34;August 2026 month-close report (gcp)&#34;, cost $0.0</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/reporter-gcp">reporter-gcp</a>
+    <a href="/task/96">receives a task: August 2026 month-close report (gcp)</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/95">stamps POSTED: &#34;First-pass sizing: two extra GPU training nodes (request #1)&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/capacity-aws">capacity-aws</a>
+    <a href="/task/95">submits deliverable v1 for &#34;First-pass sizing: two extra GPU training nodes (request #1)&#34;, cost $0.0</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/capacity-aws">capacity-aws</a>
+    <a href="/task/95">receives a task: First-pass sizing: two extra GPU training nodes (request #1)</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/94">stamps POSTED: &#34;RI coverage extension: verification and decision pack (request #7)&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/optimizer-aws">optimizer-aws</a>
+    <a href="/task/94">submits deliverable v1 for &#34;RI coverage extension: verification and decision pack (request #7)&#34;, cost $0.0</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/optimizer-aws">optimizer-aws</a>
+    <a href="/task/94">receives a task: RI coverage extension: verification and decision pack (request #7)</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/93">stamps POSTED: &#34;August 2026 month-close report (aws)&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/reporter-aws">reporter-aws</a>
+    <a href="/task/93">submits deliverable v1 for &#34;August 2026 month-close report (aws)&#34;, cost $0.0</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/reporter-aws">reporter-aws</a>
+    <a href="/task/93">receives a task: August 2026 month-close report (aws)</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/92">stamps POSTED: &#34;Routine gcp pulse (C1, auto engine)&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/reporter-gcp">reporter-gcp</a>
+    <a href="/task/92">submits deliverable v1 for &#34;Routine gcp pulse (C1, auto engine)&#34;, cost $0.0</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/reporter-gcp">reporter-gcp</a>
+    <a href="/task/92">receives a task: Routine gcp pulse (C1, auto engine)</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/91">stamps POSTED: &#34;Deep aws analysis (strong engine, supervisor&#39;s pick)&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/reporter-aws">reporter-aws</a>
+    <a href="/task/91">submits deliverable v1 for &#34;Deep aws analysis (strong engine, supervisor&#39;s pick)&#34;, cost $0.3415745</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/reporter-aws">reporter-aws</a>
+    <a href="/task/91">receives a task: Deep aws analysis (strong engine, supervisor&#39;s pick)</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/90">stamps POSTED: &#34;Economy pulse aws (default engine)&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/reporter-aws">reporter-aws</a>
+    <a href="/task/90">submits deliverable v1 for &#34;Economy pulse aws (default engine)&#34;, cost $0.0</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/reporter-aws">reporter-aws</a>
+    <a href="/task/90">receives a task: Economy pulse aws (default engine)</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/89">stamps POSTED: &#34;Weekly spend pulse (Kimi test, onprem)&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/reporter-onprem">reporter-onprem</a>
+    <a href="/task/89">submits deliverable v2 for &#34;Weekly spend pulse (Kimi test, onprem)&#34;, cost $0.0</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/reporter-onprem">reporter-onprem</a>
+    <a href="/task/89">submits deliverable v1 for &#34;Weekly spend pulse (Kimi test, onprem)&#34;, cost $0.0</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/reporter-onprem">reporter-onprem</a>
+    <a href="/task/89">receives a task: Weekly spend pulse (Kimi test, onprem)</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/88">stamps POSTED: &#34;Sprint review 2026-W35 (closing)&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor sup" href="/staff/supervisor">supervisor</a>
+    <a href="/task/88">submits deliverable v1 for &#34;Sprint review 2026-W35 (closing)&#34;, cost $0.3572045</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor sup" href="/staff/supervisor">supervisor</a>
+    <a href="/task/88">receives a task: Sprint review 2026-W35 (closing)</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/87">stamps POSTED: &#34;Close #68: storage growth after the array step&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/investigator-onprem">investigator-onprem</a>
+    <a href="/task/87">submits deliverable v1 for &#34;Close #68: storage growth after the array step&#34;, cost $0.29839249999999995</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/investigator-onprem">investigator-onprem</a>
+    <a href="/task/87">receives a task: Close #68: storage growth after the array step</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/86">stamps POSTED: &#34;Rework the returned W33 spend pulse (onprem)&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/reporter-onprem">reporter-onprem</a>
+    <a href="/task/86">submits deliverable v1 for &#34;Rework the returned W33 spend pulse (onprem)&#34;, cost $0.3003515</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/reporter-onprem">reporter-onprem</a>
+    <a href="/task/86">receives a task: Rework the returned W33 spend pulse (onprem)</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/85">stamps POSTED: &#34;GCP showback and variance 2026-W35&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/reporter-gcp">reporter-gcp</a>
+    <a href="/task/85">submits deliverable v1 for &#34;GCP showback and variance 2026-W35&#34;, cost $0.25478449999999997</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/reporter-gcp">reporter-gcp</a>
+    <a href="/task/85">receives a task: GCP showback and variance 2026-W35</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/84">stamps POSTED: &#34;Close #67 and size request #4 (Black Friday scale test)&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/optimizer-gcp">optimizer-gcp</a>
+    <a href="/task/84">submits deliverable v1 for &#34;Close #67 and size request #4 (Black Friday scale test)&#34;, cost $0.36577950000000004</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/optimizer-gcp">optimizer-gcp</a>
+    <a href="/task/84">receives a task: Close #67 and size request #4 (Black Friday scale test)</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/83">stamps POSTED: &#34;Unblock or re-scope #69: ml GKE step change&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/investigator-gcp">investigator-gcp</a>
+    <a href="/task/83">submits deliverable v1 for &#34;Unblock or re-scope #69: ml GKE step change&#34;, cost $0.32055150000000004</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/investigator-gcp">investigator-gcp</a>
+    <a href="/task/83">receives a task: Unblock or re-scope #69: ml GKE step change</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/82">stamps POSTED: &#34;AWS variance commentary 2026-W35&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/reporter-aws">reporter-aws</a>
+    <a href="/task/82">submits deliverable v1 for &#34;AWS variance commentary 2026-W35&#34;, cost $0.3138705</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/reporter-aws">reporter-aws</a>
+    <a href="/task/82">receives a task: AWS variance commentary 2026-W35</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/81">stamps POSTED: &#34;Firm up request #7: extend RI coverage&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/optimizer-aws">optimizer-aws</a>
+    <a href="/task/81">submits deliverable v1 for &#34;Firm up request #7: extend RI coverage&#34;, cost $0.3460175</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/optimizer-aws">optimizer-aws</a>
+    <a href="/task/81">receives a task: Firm up request #7: extend RI coverage</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/80">stamps POSTED: &#34;Cross-platform unit economics for ml training (aws + gcp)&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/capacity-aws">capacity-aws</a>
+    <a href="/task/80">submits deliverable v1 for &#34;Cross-platform unit economics for ml training (aws + gcp)&#34;, cost $0.355505</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/capacity-aws">capacity-aws</a>
+    <a href="/task/80">receives a task: Cross-platform unit economics for ml training (aws + gcp)</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/79">stamps POSTED: &#34;Rightsizing sweep of the ml AWS compute fleet&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/capacity-aws">capacity-aws</a>
+    <a href="/task/79">submits deliverable v1 for &#34;Rightsizing sweep of the ml AWS compute fleet&#34;, cost $0.3267685</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/capacity-aws">capacity-aws</a>
+    <a href="/task/79">receives a task: Rightsizing sweep of the ml AWS compute fleet</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/78">stamps POSTED: &#34;Capacity estimate for request #1: two extra GPU training nodes&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/capacity-aws">capacity-aws</a>
+    <a href="/task/78">submits deliverable v1 for &#34;Capacity estimate for request #1: two extra GPU training nodes&#34;, cost $0.32315950000000004</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/capacity-aws">capacity-aws</a>
+    <a href="/task/78">receives a task: Capacity estimate for request #1: two extra GPU training nodes</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/77">stamps POSTED: &#34;Classify the 2026-07-30 EC2 spike on ml (aws)&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/investigator-aws">investigator-aws</a>
+    <a href="/task/77">submits deliverable v1 for &#34;Classify the 2026-07-30 EC2 spike on ml (aws)&#34;, cost $0.3062045</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/investigator-aws">investigator-aws</a>
+    <a href="/task/77">receives a task: Classify the 2026-07-30 EC2 spike on ml (aws)</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/76">stamps POSTED: &#34;Permission-boundary test: GCP question to a newcomer&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/capacity-aws">capacity-aws</a>
+    <a href="/task/76">submits deliverable v1 for &#34;Permission-boundary test: GCP question to a newcomer&#34;, cost $0.3118915</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/capacity-aws">capacity-aws</a>
+    <a href="/task/76">receives a task: Permission-boundary test: GCP question to a newcomer</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/75">stamps POSTED: &#34;Is the on-prem ml overrun the same problem as AWS and GCP?&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/investigator-onprem">investigator-onprem</a>
+    <a href="/task/75">submits deliverable v1 for &#34;Is the on-prem ml overrun the same problem as AWS and GCP?&#34;, cost $0.3220765</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/investigator-onprem">investigator-onprem</a>
+    <a href="/task/75">receives a task: Is the on-prem ml overrun the same problem as AWS and GCP?</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/74">stamps POSTED: &#34;Finish item #68 and rule on tranche 2&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/investigator-onprem">investigator-onprem</a>
+    <a href="/task/74">submits deliverable v1 for &#34;Finish item #68 and rule on tranche 2&#34;, cost $0.2969265</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/investigator-onprem">investigator-onprem</a>
+    <a href="/task/74">receives a task: Finish item #68 and rule on tranche 2</a></li>
+
+<li><span class="when"><WHEN></span>
+    <span class="actor op">operator</span>
+    <a href="/task/73">stamps POSTED: &#34;Redo the returned pulse (item #65) and cover 2026-W34 (onprem)&#34;</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/reporter-onprem">reporter-onprem</a>
+    <a href="/task/73">submits deliverable v1 for &#34;Redo the returned pulse (item #65) and cover 2026-W34 (onprem)&#34;, cost $0.33915249999999997</a></li>
+
+<li><span class="when"><WHEN></span>
+    <a class="actor " href="/staff/reporter-onprem">reporter-onprem</a>
+    <a href="/task/73">receives a task: Redo the returned pulse (item #65) and cover 2026-W34 (onprem)</a></li>
+
+</ul></div>
+<script>
+setInterval(function () {
+  fetch('/feed?ch=all&partial=1').then(r => r.text()).then(html => {
+    document.getElementById('feedbox').innerHTML = html;
+  });
+}, 5000);
+</script>
+</main>
+</div>
+<script>
+document.addEventListener('input', function (e) {
+  var box = e.target.closest('.filterbox'); if (!box) return;
+  var root = document.querySelector(box.dataset.target); if (!root) return;
+  var q = box.value.trim().toLowerCase();
+  root.querySelectorAll('[data-search]').forEach(function (el) {
+    var hit = !q || el.dataset.search.toLowerCase().indexOf(q) !== -1;
+    if (el.classList.contains('deskgroup')) {
+      var inner = Array.prototype.some.call(el.querySelectorAll('[data-search]'),
+        function (x) { return x.dataset.search.toLowerCase().indexOf(q) !== -1; });
+      el.style.display = (hit || inner || !q) ? '' : 'none';
+      el.querySelectorAll('[data-search]').forEach(function (x) {
+        x.style.display = (!q || hit || x.dataset.search.toLowerCase().indexOf(q) !== -1) ? '' : 'none';
+      });
+    } else if (!el.closest('.deskgroup')) {
+      el.style.display = hit ? '' : 'none';
+    }
+  });
+});
+document.addEventListener('click', function (e) {
+  if (e.target.classList && e.target.classList.contains('grip')) return;
+  var th = e.target.closest('th'); if (!th) return;
+  var table = th.closest('table'); if (!table) return;
+  var idx = Array.prototype.indexOf.call(th.parentNode.children, th);
+  var rows = Array.prototype.slice.call(table.querySelectorAll('tr')).filter(
+    function (r) { return r.querySelector('td'); });
+  var dir = th.dataset.dir === 'asc' ? -1 : 1;
+  table.querySelectorAll('th').forEach(function (h) { delete h.dataset.dir;
+    var a = h.querySelector('.arrow'); if (a) a.remove(); });
+  th.dataset.dir = dir === 1 ? 'asc' : 'desc';
+  var arrow = document.createElement('span');
+  arrow.className = 'arrow';
+  arrow.textContent = dir === 1 ? ' \u25B2' : ' \u25BC';
+  th.appendChild(arrow);
+  function key(r) {
+    var c = r.children[idx]; if (!c) return '';
+    var txt = c.textContent.trim().replace(/[$,%]/g, '').replace(/,/g, '');
+    if (/\d{4}-\d{2}-\d{2}/.test(txt)) return txt.replace(/[^\d-]/g, '');
+    var n = parseFloat(txt);
+    return isNaN(n) ? txt.toLowerCase() : n;
+  }
+  rows.sort(function (a, b) {
+    var ka = key(a), kb = key(b);
+    if (typeof ka === 'number' && typeof kb === 'number') return (ka - kb) * dir;
+    return String(ka).localeCompare(String(kb)) * dir;
+  });
+  rows.forEach(function (r) { r.parentNode.appendChild(r); });
+});
+
+/* ---- tables you can widen, and that fit any screen -----------------------
+   Every table is put in its own horizontally scrolling box, so a wide table
+   scrolls inside its panel instead of pushing the whole page sideways. Each
+   header cell gets a grip on its right edge: drag it to widen the column,
+   double-click it to give the column back to the browser. Widths are
+   remembered per page, because a column you widened once you almost always
+   want wide again.                                                          */
+(function () {
+  var KEY = 'costcrew.colw.' + location.pathname;
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (err) { saved = {}; }
+
+  function persist() {
+    try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (err) { /* private mode */ }
+  }
+
+  function setup() {
+    document.querySelectorAll('table').forEach(function (table, ti) {
+      if (!table.parentNode.classList.contains('tw')) {
+        var box = document.createElement('div');
+        box.className = 'tw';
+        table.parentNode.insertBefore(box, table);
+        box.appendChild(table);
+      }
+      /* An atom never breaks: a date, a sum, a status, a short name. Prose
+         does break, and must, or one sentence drags the whole table wider
+         than the screen and everything else scrolls to reach it. The rule is
+         length, applied once, because CSS cannot ask how long a text is. */
+      table.querySelectorAll('td, th').forEach(function (cell) {
+        if (cell.children.length) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length > 40 && txt.indexOf(' ') !== -1) cell.classList.add('wrap');
+      });
+
+      /* Really long prose gets two lines and a way to open the rest. Nothing
+         is removed: the full text is still in the cell, still searched by
+         the filter box, still there for anyone who presses. */
+      table.querySelectorAll('td').forEach(function (cell) {
+        if (cell.querySelector('.clamp')) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length <= 110) return;
+        var box = document.createElement('div');
+        box.className = 'clamp';
+        while (cell.firstChild) box.appendChild(cell.firstChild);
+        cell.appendChild(box);
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'more';
+        btn.textContent = 'more';
+        btn.setAttribute('aria-expanded', 'false');
+        btn.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          var open = box.classList.toggle('open');
+          btn.textContent = open ? 'less' : 'more';
+          btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+        cell.appendChild(btn);
+        cell.classList.add('wrap');
+      });
+      /* Align each header to the column beneath it. The figures are right
+         aligned and the headers were not, so every numeric column read as a
+         label on the left with unrelated numbers on the right. */
+      var head0 = table.querySelector('tr');
+      if (head0) {
+        var body = Array.prototype.slice.call(table.querySelectorAll('tr'))
+          .filter(function (r) { return r.querySelector('td'); });
+        head0.querySelectorAll('th').forEach(function (th, ci) {
+          var nums = 0, cells = 0;
+          body.forEach(function (r) {
+            var cell = r.children[ci];
+            if (!cell || cell.tagName !== 'TD') return;
+            cells++;
+            if (cell.classList.contains('num')) nums++;
+          });
+          if (cells && nums * 2 > cells) th.classList.add('num');
+        });
+      }
+      var head = table.querySelector('tr');
+      if (!head) return;
+      head.querySelectorAll('th').forEach(function (th, ci) {
+        var id = ti + ':' + ci;
+        if (saved[id]) { th.style.width = saved[id] + 'px'; th.classList.add('sized'); }
+        if (th.querySelector('.grip')) return;
+        var grip = document.createElement('span');
+        grip.className = 'grip';
+        grip.title = 'Drag to widen, double-click to reset';
+        grip.addEventListener('dblclick', function (ev) {
+          ev.stopPropagation();
+          th.style.width = ''; th.classList.remove('sized');
+          delete saved[id]; persist();
+        });
+        grip.addEventListener('pointerdown', function (ev) {
+          ev.preventDefault(); ev.stopPropagation();
+          var x0 = ev.clientX, w0 = th.getBoundingClientRect().width;
+          grip.classList.add('on');
+          grip.setPointerCapture(ev.pointerId);
+          function move(e2) {
+            var w = Math.max(48, Math.round(w0 + (e2.clientX - x0)));
+            th.style.width = w + 'px'; th.classList.add('sized');
+            saved[id] = w;
+          }
+          function up() {
+            grip.classList.remove('on');
+            grip.removeEventListener('pointermove', move);
+            grip.removeEventListener('pointerup', up);
+            persist();
+          }
+          grip.addEventListener('pointermove', move);
+          grip.addEventListener('pointerup', up);
+        });
+        th.appendChild(grip);
+      });
+    });
+    document.querySelectorAll('.tw').forEach(function (box) {
+      function mark() {
+        /* a few pixels is rounding, not a hidden column */
+        var over = box.scrollWidth > box.clientWidth + 8;
+        box.classList.toggle('scrolls', over);
+        box.classList.toggle('atend',
+          over && box.scrollLeft + box.clientWidth >= box.scrollWidth - 2);
+      }
+      box.addEventListener('scroll', mark);
+      window.addEventListener('resize', mark);
+      mark();
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setup);
+  } else { setup(); }
+})();
+</script>
+</body></html>

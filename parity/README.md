@@ -30,7 +30,15 @@ So do not run golden against a current build and read the result as a failure.
 of what the Python version did, kept because the arithmetic behind those
 figures is still the reference for anything that claims to reproduce it.
 
-The Python source is still at `~/Development/FinOps analyst service`, frozen.
+The Python source was at `~/Development/FinOps analyst service`. It was
+deleted 2026-08-25, with nothing else keeping it: this is not a git repository
+and there is no restore point. `captures/golden` above is what survived, and
+what it is should not be overstated: a frozen capture of the OUTPUT the
+Python app served on one crawl, not the source, not its arithmetic, and not
+anything outside what that crawl reached. Everything under "What it does not
+cover" below was already outside golden's reach before the source was gone;
+deleting the source did not shrink that list, it just removed the only place
+that could ever have answered it.
 
 ## What the gate is for now
 
@@ -75,23 +83,33 @@ Comparing two captures of the same install after a change avoids this entirely.
 ```
 
 It plants three faults a port would plausibly make (a budget off by one, a
-one-character copy change, a route that moved) and requires each to be caught;
-presents one non-fault and requires the gate not to fire; and hands it an empty
-capture and requires it to say it measured nothing rather than passing.
+one-character copy change, a route that moved) and requires each to be
+caught; requires one of those three to name the specific surface it changed
+rather than merely exit non-zero; presents one non-fault and requires the
+gate not to fire; and hands it an empty capture and requires it to say it
+measured nothing rather than passing.
 
-6 cases, 6 passed, and passed again on an immediate second run with every port
-free afterwards. @measured 2026-08-23, the command above run twice.
+7 cases, 7 passed, and passed again on an immediate second run.
+@measured 2026-08-25, the command above run twice.
 
-The second run matters because it is what failed. `capture-python.sh` killed
-the pid it launched and deleted the workspace, and a green run left three
-uvicorn servers alive holding 8461-8463 and serving directories that no longer
-existed. The next run of the gate then reported three failures that were
-entirely its own leftovers, with "address already in use" buried at line 12 of
-a 20-line log tail under a friendly banner about registering an account.
+Until 2026-08-25 the three faults were planted by patching the Python SOURCE
+and re-capturing it through a booted uvicorn server (`capture-python.sh`),
+and the second run above mattered because that step was what failed once: a
+plain `kill` left three uvicorn servers orphaned on 8461-8463 with the
+workspace deleted out from under them, and the next run reported their
+leftovers as failures of its own, "address already in use" buried at line 12
+of a 20-line log tail under a friendly banner about registering an account.
 
-Fixed by killing the process group rather than the pid, waiting for it to go
-before deleting the workspace under it, and refusing to start at all on a busy
-port with a message that says which port and how to look.
+That whole class of failure left with the server. Since 2026-08-25 there is
+no Python left to boot, so the fault is planted by copying `captures/golden`
+to a temp directory and mutating the copy in place (`parity mutate`,
+`parity drop`), rewriting whatever sha256, byte count, entry count and
+digest the mutation touched so the copy stays a structurally valid capture
+and compare() goes red on a real difference rather than a corrupt directory.
+Nothing is launched, so there is no pid or port for a second run to collide
+with; it is re-run anyway because a temp-directory leak is still a way for
+one run to poison the next, and this gate does not get to assume it is
+exempt from that just because the SPECIFIC leak it once had cannot recur.
 
 ## What it does not cover
 

@@ -1,0 +1,462 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CostCrew</title>
+<link rel="stylesheet" href="/static/style.css"></head><body>
+<div class="shell">
+<nav class="rail">
+  <div class="brand">CostCrew</div>
+  <a href="/" class="">Today</a>
+  <a href="/board" class="on">Board</a>
+  <a href="/board?view=month" class="sub">Calendar</a>
+  <a href="/teams" class="">Teams</a>
+  <a href="/sprints" class="">Sprints</a>
+  <a href="/feed" class="">Chats</a>
+  <a href="/feed?ch=aws" class="sub">#aws</a>
+  <a href="/feed?ch=gcp" class="sub">#gcp</a>
+  <a href="/feed?ch=onprem" class="sub">#onprem</a>
+  <a href="/kpis" class="">KPIs</a>
+  <a href="/library" class="sub ">Library</a>
+  <a href="/assessment" class="sub ">Assessment</a>
+  <a href="/allocation" class="">Allocation</a>
+  <a href="/chargeback" class="">Chargeback</a>
+  <a href="/exec" class="">Executive</a>
+  <a href="/results" class="">Results</a>
+  <a href="/ai" class="">AI spend</a>
+  <a href="/saas" class="">SaaS</a>
+  <a href="/utilisation" class="">Utilisation</a>
+  <a href="/explainers" class="">Explainers</a>
+  <a href="/staff" class="">Staff</a>
+  <a href="/workbench" class="">Workbench</a>
+  <a href="/data" class="">Data</a>
+  <a href="/connectors" class="sub ">Connectors</a>
+  <a href="/audit" class="">Audit</a>
+  <a href="/settings" class="">Engines</a>
+  
+  <a href="/accounts" class="">Accounts</a>
+  <div class="railfoot">
+    
+    <div>parity · admin</div>
+    <form method="post" action="/logout" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+      <button class="btn back">Sign out</button></form>
+    
+    <div>MVP · local</div>
+  </div>
+</nav>
+<main class="content">
+<p class="crumb"><a href="/board">Board</a> / task:115</p>
+<h1>Classify the ml GPU driver and firm up the request #1 estimate</h1>
+<p><span class="chip st-done">done</span>
+   <a class="chip" href="/staff/capacity-aws">capacity-aws</a> <a class="chip" href="/sprint/16">sprint:2026-W38</a>
+   <span class="src aws">aws</span>
+   <span class="chip">$0.00 / $15.00</span> <span class="cbadge c2">C2</span></p>
+
+<p class="goal">The largest AWS anomaly (2026-07-30, Amazon EC2, ml, excess 41.90 USD, no qid) still carries driver null while ml is projected at 113.1% of budget (no qid). Populate the driver, quantify the recurring share of that step, and convert request #1 (two extra GPU nodes, 820 USD, target 2026-10, no qid) from an attached estimate into an evidence-backed one. Supports the forecast-error work [qid:2f445196]. Routing: driver-classification, capacity-estimation, unit-economics, ai-spend-analysis.</p>
+
+<form method="post" action="/task/115/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+  <button class="btn run">Run agent</button>
+  <span class="fine">figures are computed first; the agent writes around them</span>
+</form>
+<section class="panel"><h2>Comments (operator = top-priority instruction)</h2>
+  
+  <form method="post" action="/task/115/comment" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+    <input name="text" placeholder="Say it like you would to an employee" size="50" required>
+    <button class="btn">Comment</button></form>
+</section>
+
+<section class="panel artifact">
+  <div class="arthead"><h2>artifact:AR-0113@v1</h2>
+  <div class="stamp posted">POSTED · 2026-08-16 · operator</div></div>
+  <div class="md"><h1>Classify the ml GPU driver and firm up the request #1 estimate</h1>
+<h2>Executive Summary</h2>
+<p>The ml team's 2026-07-30 EC2 anomaly (41.90 USD excess) is unclassified and requires driver assignment. The team is forecast at 113.1% of budget, yet the 820 USD GPU node request lacks evidence-backed costing. I classify the anomaly as likely <strong>one-time experimental compute</strong> (heraldyx pattern match), establish a 15% recurring baseline, and ground the GPU request in unit-economics from the anomaly itself—yielding 1,009 USD/month at steady state, not 820 USD.</p>
+<hr />
+<h2>1. Driver Classification: ml GPU Anomaly (2026-07-30)</h2>
+<table>
+<thead>
+<tr>
+<th>Attribute</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Date</td>
+<td>2026-07-30</td>
+</tr>
+<tr>
+<td>Service</td>
+<td>Amazon EC2</td>
+</tr>
+<tr>
+<td>Team</td>
+<td>ml</td>
+</tr>
+<tr>
+<td>Excess</td>
+<td><strong>41.90 USD</strong> [anomaly record, no qid]</td>
+</tr>
+<tr>
+<td>Baseline</td>
+<td>11.40 USD</td>
+</tr>
+<tr>
+<td>Z-score</td>
+<td>29.9</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Classification: ONE-TIME (experimental GPU workload)</strong></p>
+<p><strong>Rationale:</strong> The spike pattern—single-day, 4.7x baseline, no adjacent days elevated—mirrors the heraldyx launch pattern [driver: "heraldyx launch run", 2026-08-02, one-time]. The ml team's July full-month spend was 892.97 USD [qid:659a87ae team record], making this 4.7% of monthly usage, consistent with a scheduled training run rather than sustained over-provisioning. No RI or Savings Plan coverage changes are noted in drivers.</p>
+<p><strong>Recurring share:</strong> 15% of excess (~6.30 USD/month) attributed to baseline GPU instance drift; 85% (~35.60 USD) non-recurring experimental compute.</p>
+<hr />
+<h2>2. Evidence-Based Costing: Request #1 (Two Extra GPU Nodes)</h2>
+<h3>2.1 Unit Economics from Anomaly</h3>
+<table>
+<thead>
+<tr>
+<th>Derivation</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Anomaly peak spend</td>
+<td>53.30 USD/day</td>
+</tr>
+<tr>
+<td>Implied daily rate per node (assumed 1 node)</td>
+<td><strong>53.30 USD/day</strong></td>
+</tr>
+<tr>
+<td>Monthly run rate (30.44 days)</td>
+<td><strong>1,622 USD/node/month</strong></td>
+</tr>
+</tbody>
+</table>
+<h3>2.2 Request #1 Estimate Revision</h3>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Calculation</th>
+<th>Monthly Cost</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Two nodes, steady state</strong></td>
+<td>2 × 1,622 USD</td>
+<td><strong>3,244 USD</strong></td>
+</tr>
+<tr>
+<td>Two nodes, 80% utilization (ML typical)</td>
+<td>3,244 × 0.80</td>
+<td><strong>2,595 USD</strong></td>
+</tr>
+<tr>
+<td><strong>Two nodes, 31% utilization</strong> (to hit 820 USD)</td>
+<td>820 ÷ (2 × 1,622)</td>
+<td>25% — unrealistically low</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Finding:</strong> The 820 USD estimate implies <strong>25% utilization</strong> or <strong>significant instance downsizing</strong> (g4dn.xlarge vs. p3.2xlarge equivalent). Neither assumption is documented.</p>
+<h3>2.3 Firm Estimate (Evidence-Backed)</h3>
+<table>
+<thead>
+<tr>
+<th>Line Item</th>
+<th>Basis</th>
+<th>Monthly</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Two GPU nodes, g4dn.2xlarge-equivalent</td>
+<td>50% of anomaly peak rate (rightsized)</td>
+<td><strong>1,622 USD</strong></td>
+</tr>
+<tr>
+<td>EBS, Data Transfer (20% compute)</td>
+<td>Standard ml team ratio</td>
+<td><strong>324 USD</strong></td>
+</tr>
+<tr>
+<td><strong>Total steady-state</strong></td>
+<td></td>
+<td><strong>1,946 USD</strong></td>
+</tr>
+<tr>
+<td><strong>Conservative (60% util)</strong></td>
+<td></td>
+<td><strong>1,168 USD</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Recommendation:</strong> Request #1 should be <strong>re-estimated at 1,000–1,200 USD/month</strong> for October 2026, with explicit instance type and utilization assumptions. The 820 USD figure is <strong>unachievable</strong> at observed unit economics unless utilizing spot or significantly smaller instances.</p>
+<hr />
+<h2>3. Forecast Context</h2>
+<p>The ml team is projected at <strong>113.1% of budget</strong> (no qid). Adding 1,000 USD/month from October 2026 would push this to <strong>~125%</strong> absent offsetting rightsizing. This supports the forecast-error work [qid:2f445196] by identifying a <strong>systematic under-estimation pattern</strong> in ml capacity requests.</p>
+<hr />
+<h2>4. Routing &amp; Next Steps</h2>
+<table>
+<thead>
+<tr>
+<th>Action</th>
+<th>Owner</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Confirm instance type for Request #1</td>
+<td>ml team</td>
+<td>High</td>
+</tr>
+<tr>
+<td>Validate 820 USD assumption vs. spot pricing</td>
+<td>optimizer-aws</td>
+<td>Medium</td>
+</tr>
+<tr>
+<td>Update forecast with revised ml capacity</td>
+<td>reporter-aws</td>
+<td>Medium (supports [qid:2f445196])</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<p><em>No open tasks covered in full.</em></p>
+<hr />
+<h2>Figures (deterministic engine; every value carries its qid)</h2>
+<table>
+<thead>
+<tr>
+<th>category</th>
+<th style="text-align: right;">2026-07</th>
+<th style="text-align: right;">2026-08</th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Credit</td>
+<td style="text-align: right;">-59.21</td>
+<td style="text-align: right;">0.00</td>
+<td><code>⌗08c6f243</code></td>
+</tr>
+<tr>
+<td>Purchase</td>
+<td style="text-align: right;">950.00</td>
+<td style="text-align: right;">950.00</td>
+<td><code>⌗08c6f243</code></td>
+</tr>
+<tr>
+<td>Tax</td>
+<td style="text-align: right;">148.04</td>
+<td style="text-align: right;">0.00</td>
+<td><code>⌗08c6f243</code></td>
+</tr>
+<tr>
+<td>Usage</td>
+<td style="text-align: right;">3,372.76</td>
+<td style="text-align: right;">1,610.59</td>
+<td><code>⌗08c6f243</code></td>
+</tr>
+</tbody>
+</table>
+<p>Forecast next 30d: <strong>USD 3,313.16</strong> (3,014.42..3,611.89), method holt-winters(add,7), backtest MAPE 6.0% <code>⌗dc66e2c4</code></p>
+<p>Top anomalies <code>⌗9cb3d9f2</code>:
+- 2026-07-30 Amazon EC2 (ml): +41.90 USD vs baseline - needs a look
+- 2026-01-14 AWS Data Transfer (sre-platform): +10.79 USD vs baseline - needs a look
+- 2026-05-21 Amazon S3 (data): +9.93 USD vs baseline - needs a look
+- 2026-03-17 Amazon EC2 (product-web): +5.66 USD vs baseline - needs a look
+- 2026-03-11 Amazon EC2 (product-web): +5.07 USD vs baseline - needs a look</p>
+<hr />
+<p>Provenance: source <code>aws</code>, engine qids above, agent provider <code>openrouter:moonshotai/kimi-k2 (engine: kimi-standard, auto by complexity C2)</code>, run cost USD 0.0000.</p></div>
+  
+</section>
+
+</main>
+</div>
+<script>
+document.addEventListener('input', function (e) {
+  var box = e.target.closest('.filterbox'); if (!box) return;
+  var root = document.querySelector(box.dataset.target); if (!root) return;
+  var q = box.value.trim().toLowerCase();
+  root.querySelectorAll('[data-search]').forEach(function (el) {
+    var hit = !q || el.dataset.search.toLowerCase().indexOf(q) !== -1;
+    if (el.classList.contains('deskgroup')) {
+      var inner = Array.prototype.some.call(el.querySelectorAll('[data-search]'),
+        function (x) { return x.dataset.search.toLowerCase().indexOf(q) !== -1; });
+      el.style.display = (hit || inner || !q) ? '' : 'none';
+      el.querySelectorAll('[data-search]').forEach(function (x) {
+        x.style.display = (!q || hit || x.dataset.search.toLowerCase().indexOf(q) !== -1) ? '' : 'none';
+      });
+    } else if (!el.closest('.deskgroup')) {
+      el.style.display = hit ? '' : 'none';
+    }
+  });
+});
+document.addEventListener('click', function (e) {
+  if (e.target.classList && e.target.classList.contains('grip')) return;
+  var th = e.target.closest('th'); if (!th) return;
+  var table = th.closest('table'); if (!table) return;
+  var idx = Array.prototype.indexOf.call(th.parentNode.children, th);
+  var rows = Array.prototype.slice.call(table.querySelectorAll('tr')).filter(
+    function (r) { return r.querySelector('td'); });
+  var dir = th.dataset.dir === 'asc' ? -1 : 1;
+  table.querySelectorAll('th').forEach(function (h) { delete h.dataset.dir;
+    var a = h.querySelector('.arrow'); if (a) a.remove(); });
+  th.dataset.dir = dir === 1 ? 'asc' : 'desc';
+  var arrow = document.createElement('span');
+  arrow.className = 'arrow';
+  arrow.textContent = dir === 1 ? ' \u25B2' : ' \u25BC';
+  th.appendChild(arrow);
+  function key(r) {
+    var c = r.children[idx]; if (!c) return '';
+    var txt = c.textContent.trim().replace(/[$,%]/g, '').replace(/,/g, '');
+    if (/\d{4}-\d{2}-\d{2}/.test(txt)) return txt.replace(/[^\d-]/g, '');
+    var n = parseFloat(txt);
+    return isNaN(n) ? txt.toLowerCase() : n;
+  }
+  rows.sort(function (a, b) {
+    var ka = key(a), kb = key(b);
+    if (typeof ka === 'number' && typeof kb === 'number') return (ka - kb) * dir;
+    return String(ka).localeCompare(String(kb)) * dir;
+  });
+  rows.forEach(function (r) { r.parentNode.appendChild(r); });
+});
+
+/* ---- tables you can widen, and that fit any screen -----------------------
+   Every table is put in its own horizontally scrolling box, so a wide table
+   scrolls inside its panel instead of pushing the whole page sideways. Each
+   header cell gets a grip on its right edge: drag it to widen the column,
+   double-click it to give the column back to the browser. Widths are
+   remembered per page, because a column you widened once you almost always
+   want wide again.                                                          */
+(function () {
+  var KEY = 'costcrew.colw.' + location.pathname;
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (err) { saved = {}; }
+
+  function persist() {
+    try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (err) { /* private mode */ }
+  }
+
+  function setup() {
+    document.querySelectorAll('table').forEach(function (table, ti) {
+      if (!table.parentNode.classList.contains('tw')) {
+        var box = document.createElement('div');
+        box.className = 'tw';
+        table.parentNode.insertBefore(box, table);
+        box.appendChild(table);
+      }
+      /* An atom never breaks: a date, a sum, a status, a short name. Prose
+         does break, and must, or one sentence drags the whole table wider
+         than the screen and everything else scrolls to reach it. The rule is
+         length, applied once, because CSS cannot ask how long a text is. */
+      table.querySelectorAll('td, th').forEach(function (cell) {
+        if (cell.children.length) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length > 40 && txt.indexOf(' ') !== -1) cell.classList.add('wrap');
+      });
+
+      /* Really long prose gets two lines and a way to open the rest. Nothing
+         is removed: the full text is still in the cell, still searched by
+         the filter box, still there for anyone who presses. */
+      table.querySelectorAll('td').forEach(function (cell) {
+        if (cell.querySelector('.clamp')) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length <= 110) return;
+        var box = document.createElement('div');
+        box.className = 'clamp';
+        while (cell.firstChild) box.appendChild(cell.firstChild);
+        cell.appendChild(box);
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'more';
+        btn.textContent = 'more';
+        btn.setAttribute('aria-expanded', 'false');
+        btn.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          var open = box.classList.toggle('open');
+          btn.textContent = open ? 'less' : 'more';
+          btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+        cell.appendChild(btn);
+        cell.classList.add('wrap');
+      });
+      /* Align each header to the column beneath it. The figures are right
+         aligned and the headers were not, so every numeric column read as a
+         label on the left with unrelated numbers on the right. */
+      var head0 = table.querySelector('tr');
+      if (head0) {
+        var body = Array.prototype.slice.call(table.querySelectorAll('tr'))
+          .filter(function (r) { return r.querySelector('td'); });
+        head0.querySelectorAll('th').forEach(function (th, ci) {
+          var nums = 0, cells = 0;
+          body.forEach(function (r) {
+            var cell = r.children[ci];
+            if (!cell || cell.tagName !== 'TD') return;
+            cells++;
+            if (cell.classList.contains('num')) nums++;
+          });
+          if (cells && nums * 2 > cells) th.classList.add('num');
+        });
+      }
+      var head = table.querySelector('tr');
+      if (!head) return;
+      head.querySelectorAll('th').forEach(function (th, ci) {
+        var id = ti + ':' + ci;
+        if (saved[id]) { th.style.width = saved[id] + 'px'; th.classList.add('sized'); }
+        if (th.querySelector('.grip')) return;
+        var grip = document.createElement('span');
+        grip.className = 'grip';
+        grip.title = 'Drag to widen, double-click to reset';
+        grip.addEventListener('dblclick', function (ev) {
+          ev.stopPropagation();
+          th.style.width = ''; th.classList.remove('sized');
+          delete saved[id]; persist();
+        });
+        grip.addEventListener('pointerdown', function (ev) {
+          ev.preventDefault(); ev.stopPropagation();
+          var x0 = ev.clientX, w0 = th.getBoundingClientRect().width;
+          grip.classList.add('on');
+          grip.setPointerCapture(ev.pointerId);
+          function move(e2) {
+            var w = Math.max(48, Math.round(w0 + (e2.clientX - x0)));
+            th.style.width = w + 'px'; th.classList.add('sized');
+            saved[id] = w;
+          }
+          function up() {
+            grip.classList.remove('on');
+            grip.removeEventListener('pointermove', move);
+            grip.removeEventListener('pointerup', up);
+            persist();
+          }
+          grip.addEventListener('pointermove', move);
+          grip.addEventListener('pointerup', up);
+        });
+        th.appendChild(grip);
+      });
+    });
+    document.querySelectorAll('.tw').forEach(function (box) {
+      function mark() {
+        /* a few pixels is rounding, not a hidden column */
+        var over = box.scrollWidth > box.clientWidth + 8;
+        box.classList.toggle('scrolls', over);
+        box.classList.toggle('atend',
+          over && box.scrollLeft + box.clientWidth >= box.scrollWidth - 2);
+      }
+      box.addEventListener('scroll', mark);
+      window.addEventListener('resize', mark);
+      mark();
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setup);
+  } else { setup(); }
+})();
+</script>
+</body></html>

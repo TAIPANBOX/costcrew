@@ -1,0 +1,379 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CostCrew</title>
+<link rel="stylesheet" href="/static/style.css"></head><body>
+<div class="shell">
+<nav class="rail">
+  <div class="brand">CostCrew</div>
+  <a href="/" class="">Today</a>
+  <a href="/board" class="">Board</a>
+  <a href="/board?view=month" class="sub">Calendar</a>
+  <a href="/teams" class="">Teams</a>
+  <a href="/sprints" class="on">Sprints</a>
+  <a href="/feed" class="">Chats</a>
+  <a href="/feed?ch=aws" class="sub">#aws</a>
+  <a href="/feed?ch=gcp" class="sub">#gcp</a>
+  <a href="/feed?ch=onprem" class="sub">#onprem</a>
+  <a href="/kpis" class="">KPIs</a>
+  <a href="/library" class="sub ">Library</a>
+  <a href="/assessment" class="sub ">Assessment</a>
+  <a href="/allocation" class="">Allocation</a>
+  <a href="/chargeback" class="">Chargeback</a>
+  <a href="/exec" class="">Executive</a>
+  <a href="/results" class="">Results</a>
+  <a href="/ai" class="">AI spend</a>
+  <a href="/saas" class="">SaaS</a>
+  <a href="/utilisation" class="">Utilisation</a>
+  <a href="/explainers" class="">Explainers</a>
+  <a href="/staff" class="">Staff</a>
+  <a href="/workbench" class="">Workbench</a>
+  <a href="/data" class="">Data</a>
+  <a href="/connectors" class="sub ">Connectors</a>
+  <a href="/audit" class="">Audit</a>
+  <a href="/settings" class="">Engines</a>
+  
+  <a href="/accounts" class="">Accounts</a>
+  <div class="railfoot">
+    
+    <div>parity · admin</div>
+    <form method="post" action="/logout" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+      <button class="btn back">Sign out</button></form>
+    
+    <div>MVP · local</div>
+  </div>
+</nav>
+<main class="content">
+<h1>Sprints</h1>
+
+<form method="post" action="/sprint/plan" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+  <button class="btn">Plan next sprint (supervisor)</button>
+  <span class="fine">rule-based planner until the crew is authenticated</span>
+</form>
+
+<section class="panel">
+  <h2><a href="/sprint/16">sprint:2026-W38</a> <span class="chip st-open">open</span></h2>
+  <p class="fine">Application sprint: turn the approved W37 proposals into applied change on the data and prove each one with a re-measured KPI, starting at the worst gaps (aws-live zero allocation and red band, onprem AAI 62.1%, GCP ESR 9.0%).</p>
+  <p><span class="chip">done: 8</span></p>
+  
+</section>
+
+<section class="panel">
+  <h2><a href="/sprint/15">sprint:2026-W37</a> <span class="chip st-closed">closed</span></h2>
+  <p class="fine">Close the practice KPI gaps: bring aws-live from zero allocation to a working attribution baseline, set the Purchase/Tax/Credit split rules on AWS and propagate the shape to GCP and on-prem, lift GCP effective savings rate toward the AWS level, and move the GCP forecast ladder from walk to run - while clearing returned and queued reporting work.</p>
+  <p><span class="chip">done: 10</span></p>
+  <p class="review"># Sprint review 2026-W37 (closing)
+
+# Sprint review 2026-W37 (closing)
+
+## Executive summary
+
+W37 delivered all 12 planned tasks, 4 at complexity 3 on the strong engine and 8 on the standard engine, with no engine overrides. The one KPI that genuinely moved is the aws-live baseline: it now exists as a measured starting point, and it reads bad on every axis (AAI 0.0% [qid:9e8099c8], tag coverage 0.0%, ESR 0.0% [qid:71128134], anomaly band red at 59.05% of spend share [qid:55459384]). Everything else the sprint produced is an approved proposal, and proposals do not move KPIs: the split rules, the GCP ESR lift and the walk-to-run ladder step will show up in the numbers only after they are applied to the data and re-measured. Crew spend against the USD 120 envelope cannot be confirmed from this pack: the ledger holds per-agent month-to-date totals, not sprint slices, and the 8 standard-engine runs are not captured at all. Two long-standing blockers (#69, #98) survived the sprint untouched and both need someone outside the desks.
+
+## 1. Delivery vs plan
+
+Twelve for twelve on the planned set. The mix was 4 deep-analysis tasks routed to `claude-strong` and 8 to `kimi-standard` by the complexity rule alone, which is the intended behaviour: no task needed a manual engine override, so complexity ratings were doing their job as the routing signal.
+
+Two honesty notes on that count. First, 
+
+(Full text: artifact AR-0124.)</p>
+</section>
+
+<section class="panel">
+  <h2><a href="/sprint/14">sprint:2026-W36</a> <span class="chip st-open">open</span></h2>
+  <p class="fine">Close August across all three desks, resolve the two September-target requests, and get to the bottom of ml running over budget on all three platforms simultaneously.</p>
+  <p><span class="chip">done: 10</span></p>
+  
+</section>
+
+<section class="panel">
+  <h2><a href="/sprint/13">sprint:2026-W35</a> <span class="chip st-closed">closed</span></h2>
+  <p class="fine">Close the ml cross-platform overrun: classify its drivers on aws and gcp, turn the two savings requests into approvable proposals, clear the returned and blocked items, and land the new hire capacity-aws on real capacity and unit-economics work.</p>
+  <p><span class="chip">done: 11</span><span class="chip">your-review: 1</span></p>
+  <p class="review"># Sprint review 2026-W35 (closing)
+
+# Sprint review 2026-W35 (closing)
+
+## Executive summary
+
+W35 closed with every planned task delivered and approved, including the new hire&#39;s first-week set and the cross-desk ml synthesis. One task self-declared BLOCKED-as-specified: cross-platform unit economics could only be built from single-source figures, which is a product gap, not an execution failure, and it is logged for the roadmap. The ml over-budget thread is still open and is now the estate&#39;s only structural cost problem. Crew spend against the USD 120 envelope cannot be confirmed from the figures supplied, and that is stated below rather than estimated.
+
+## Delivery vs plan
+
+Twelve for twelve on the planned set, plus the blocked unit-economics task. The delivery count and the blocked task overlap in the brief, so the honest statement is: nothing planned was dropped, and one scoped piece of work stopped at the point where the data ran out instead of inventing a cross-platform view. That is the behaviour the desks are supposed to show, and it should be recorded as a correct outcome, not a miss.
+
+The new hire&#39;s three tasks landed and passed pre-review without rework. The cross-desk ml synthesis also cleared. The board counters in the estate context are cumulative per desk and are not sprint-scoped, so they cannot be used to verify this sprint&#39;s twelve; the count above comes from the sprint record, not the board.
+
+## Crew spend vs the USD 120 envelope
+
+I cannot report this. The r
+
+(Full text: artifact AR-0093.)</p>
+</section>
+
+<section class="panel">
+  <h2><a href="/sprint/12">sprint:2026-W34</a> <span class="chip st-open">open</span></h2>
+  <p class="fine">Close the ml cross-platform budget overrun into a single explained driver, clear the blocked and returned carry-over items, and make the two 2026-09 requests decision-ready, all inside the USD 120 envelope.</p>
+  <p><span class="chip">done: 7</span></p>
+  
+</section>
+
+<section class="panel">
+  <h2><a href="/sprint/11">sprint:2026-W33</a> <span class="chip st-review">review</span></h2>
+  <p class="fine">Weekly FinOps cycle: pulses per desk, monthlies on month close, triage on anomalies.</p>
+  <p><span class="chip">blocked: 1</span><span class="chip">done: 1</span><span class="chip">in-progress: 3</span><span class="chip">returned: 1</span><span class="chip">your-review: 2</span></p>
+  
+</section>
+
+<section class="panel">
+  <h2><a href="/sprint/10">sprint:2026-W32</a> <span class="chip st-closed">closed</span></h2>
+  <p class="fine">Weekly FinOps cycle: pulses per desk, monthlies on month close, triage on anomalies.</p>
+  <p><span class="chip">done: 8</span></p>
+  <p class="review">Sprint 2026-W32: delivered 7 deliverables across three desks; crew cost this sprint USD 159.54. No escalations.</p>
+</section>
+
+<section class="panel">
+  <h2><a href="/sprint/9">sprint:2026-W31</a> <span class="chip st-closed">closed</span></h2>
+  <p class="fine">Weekly FinOps cycle: pulses per desk, monthlies on month close, triage on anomalies.</p>
+  <p><span class="chip">done: 6</span></p>
+  <p class="review">Sprint 2026-W31: delivered 5 deliverables across three desks; crew cost this sprint USD 69.19. No escalations.</p>
+</section>
+
+<section class="panel">
+  <h2><a href="/sprint/8">sprint:2026-W30</a> <span class="chip st-closed">closed</span></h2>
+  <p class="fine">Weekly FinOps cycle: pulses per desk, monthlies on month close, triage on anomalies.</p>
+  <p><span class="chip">done: 5</span></p>
+  <p class="review">Sprint 2026-W30: delivered 4 deliverables across three desks; crew cost this sprint USD 53.50. No escalations.</p>
+</section>
+
+<section class="panel">
+  <h2><a href="/sprint/7">sprint:2026-W29</a> <span class="chip st-closed">closed</span></h2>
+  <p class="fine">Weekly FinOps cycle: pulses per desk, monthlies on month close, triage on anomalies.</p>
+  <p><span class="chip">done: 5</span></p>
+  <p class="review">Sprint 2026-W29: delivered 4 deliverables across three desks; crew cost this sprint USD 49.28. No escalations.</p>
+</section>
+
+<section class="panel">
+  <h2><a href="/sprint/6">sprint:2026-W28</a> <span class="chip st-closed">closed</span></h2>
+  <p class="fine">Weekly FinOps cycle: pulses per desk, monthlies on month close, triage on anomalies.</p>
+  <p><span class="chip">done: 6</span></p>
+  <p class="review">Sprint 2026-W28: delivered 5 deliverables across three desks; crew cost this sprint USD 63.14. No escalations.</p>
+</section>
+
+<section class="panel">
+  <h2><a href="/sprint/5">sprint:2026-W27</a> <span class="chip st-closed">closed</span></h2>
+  <p class="fine">Weekly FinOps cycle: pulses per desk, monthlies on month close, triage on anomalies.</p>
+  <p><span class="chip">done: 7</span></p>
+  <p class="review">Sprint 2026-W27: delivered 6 deliverables across three desks; crew cost this sprint USD 135.23. No escalations.</p>
+</section>
+
+<section class="panel">
+  <h2><a href="/sprint/4">sprint:2026-W26</a> <span class="chip st-closed">closed</span></h2>
+  <p class="fine">Weekly FinOps cycle: pulses per desk, monthlies on month close, triage on anomalies.</p>
+  <p><span class="chip">done: 5</span></p>
+  <p class="review">Sprint 2026-W26: delivered 4 deliverables across three desks; crew cost this sprint USD 51.15. No escalations.</p>
+</section>
+
+<section class="panel">
+  <h2><a href="/sprint/3">sprint:2026-W25</a> <span class="chip st-closed">closed</span></h2>
+  <p class="fine">Weekly FinOps cycle: pulses per desk, monthlies on month close, triage on anomalies.</p>
+  <p><span class="chip">done: 6</span></p>
+  <p class="review">Sprint 2026-W25: delivered 5 deliverables across three desks; crew cost this sprint USD 79.80. No escalations.</p>
+</section>
+
+<section class="panel">
+  <h2><a href="/sprint/2">sprint:2026-W24</a> <span class="chip st-closed">closed</span></h2>
+  <p class="fine">Weekly FinOps cycle: pulses per desk, monthlies on month close, triage on anomalies.</p>
+  <p><span class="chip">done: 5</span></p>
+  <p class="review">Sprint 2026-W24: delivered 4 deliverables across three desks; crew cost this sprint USD 45.24. No escalations.</p>
+</section>
+
+<section class="panel">
+  <h2><a href="/sprint/1">sprint:2026-W23</a> <span class="chip st-closed">closed</span></h2>
+  <p class="fine">Weekly FinOps cycle: pulses per desk, monthlies on month close, triage on anomalies.</p>
+  <p><span class="chip">done: 7</span></p>
+  <p class="review">Sprint 2026-W23: delivered 6 deliverables across three desks; crew cost this sprint USD 131.46. No escalations.</p>
+</section>
+
+</main>
+</div>
+<script>
+document.addEventListener('input', function (e) {
+  var box = e.target.closest('.filterbox'); if (!box) return;
+  var root = document.querySelector(box.dataset.target); if (!root) return;
+  var q = box.value.trim().toLowerCase();
+  root.querySelectorAll('[data-search]').forEach(function (el) {
+    var hit = !q || el.dataset.search.toLowerCase().indexOf(q) !== -1;
+    if (el.classList.contains('deskgroup')) {
+      var inner = Array.prototype.some.call(el.querySelectorAll('[data-search]'),
+        function (x) { return x.dataset.search.toLowerCase().indexOf(q) !== -1; });
+      el.style.display = (hit || inner || !q) ? '' : 'none';
+      el.querySelectorAll('[data-search]').forEach(function (x) {
+        x.style.display = (!q || hit || x.dataset.search.toLowerCase().indexOf(q) !== -1) ? '' : 'none';
+      });
+    } else if (!el.closest('.deskgroup')) {
+      el.style.display = hit ? '' : 'none';
+    }
+  });
+});
+document.addEventListener('click', function (e) {
+  if (e.target.classList && e.target.classList.contains('grip')) return;
+  var th = e.target.closest('th'); if (!th) return;
+  var table = th.closest('table'); if (!table) return;
+  var idx = Array.prototype.indexOf.call(th.parentNode.children, th);
+  var rows = Array.prototype.slice.call(table.querySelectorAll('tr')).filter(
+    function (r) { return r.querySelector('td'); });
+  var dir = th.dataset.dir === 'asc' ? -1 : 1;
+  table.querySelectorAll('th').forEach(function (h) { delete h.dataset.dir;
+    var a = h.querySelector('.arrow'); if (a) a.remove(); });
+  th.dataset.dir = dir === 1 ? 'asc' : 'desc';
+  var arrow = document.createElement('span');
+  arrow.className = 'arrow';
+  arrow.textContent = dir === 1 ? ' \u25B2' : ' \u25BC';
+  th.appendChild(arrow);
+  function key(r) {
+    var c = r.children[idx]; if (!c) return '';
+    var txt = c.textContent.trim().replace(/[$,%]/g, '').replace(/,/g, '');
+    if (/\d{4}-\d{2}-\d{2}/.test(txt)) return txt.replace(/[^\d-]/g, '');
+    var n = parseFloat(txt);
+    return isNaN(n) ? txt.toLowerCase() : n;
+  }
+  rows.sort(function (a, b) {
+    var ka = key(a), kb = key(b);
+    if (typeof ka === 'number' && typeof kb === 'number') return (ka - kb) * dir;
+    return String(ka).localeCompare(String(kb)) * dir;
+  });
+  rows.forEach(function (r) { r.parentNode.appendChild(r); });
+});
+
+/* ---- tables you can widen, and that fit any screen -----------------------
+   Every table is put in its own horizontally scrolling box, so a wide table
+   scrolls inside its panel instead of pushing the whole page sideways. Each
+   header cell gets a grip on its right edge: drag it to widen the column,
+   double-click it to give the column back to the browser. Widths are
+   remembered per page, because a column you widened once you almost always
+   want wide again.                                                          */
+(function () {
+  var KEY = 'costcrew.colw.' + location.pathname;
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (err) { saved = {}; }
+
+  function persist() {
+    try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (err) { /* private mode */ }
+  }
+
+  function setup() {
+    document.querySelectorAll('table').forEach(function (table, ti) {
+      if (!table.parentNode.classList.contains('tw')) {
+        var box = document.createElement('div');
+        box.className = 'tw';
+        table.parentNode.insertBefore(box, table);
+        box.appendChild(table);
+      }
+      /* An atom never breaks: a date, a sum, a status, a short name. Prose
+         does break, and must, or one sentence drags the whole table wider
+         than the screen and everything else scrolls to reach it. The rule is
+         length, applied once, because CSS cannot ask how long a text is. */
+      table.querySelectorAll('td, th').forEach(function (cell) {
+        if (cell.children.length) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length > 40 && txt.indexOf(' ') !== -1) cell.classList.add('wrap');
+      });
+
+      /* Really long prose gets two lines and a way to open the rest. Nothing
+         is removed: the full text is still in the cell, still searched by
+         the filter box, still there for anyone who presses. */
+      table.querySelectorAll('td').forEach(function (cell) {
+        if (cell.querySelector('.clamp')) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length <= 110) return;
+        var box = document.createElement('div');
+        box.className = 'clamp';
+        while (cell.firstChild) box.appendChild(cell.firstChild);
+        cell.appendChild(box);
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'more';
+        btn.textContent = 'more';
+        btn.setAttribute('aria-expanded', 'false');
+        btn.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          var open = box.classList.toggle('open');
+          btn.textContent = open ? 'less' : 'more';
+          btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+        cell.appendChild(btn);
+        cell.classList.add('wrap');
+      });
+      /* Align each header to the column beneath it. The figures are right
+         aligned and the headers were not, so every numeric column read as a
+         label on the left with unrelated numbers on the right. */
+      var head0 = table.querySelector('tr');
+      if (head0) {
+        var body = Array.prototype.slice.call(table.querySelectorAll('tr'))
+          .filter(function (r) { return r.querySelector('td'); });
+        head0.querySelectorAll('th').forEach(function (th, ci) {
+          var nums = 0, cells = 0;
+          body.forEach(function (r) {
+            var cell = r.children[ci];
+            if (!cell || cell.tagName !== 'TD') return;
+            cells++;
+            if (cell.classList.contains('num')) nums++;
+          });
+          if (cells && nums * 2 > cells) th.classList.add('num');
+        });
+      }
+      var head = table.querySelector('tr');
+      if (!head) return;
+      head.querySelectorAll('th').forEach(function (th, ci) {
+        var id = ti + ':' + ci;
+        if (saved[id]) { th.style.width = saved[id] + 'px'; th.classList.add('sized'); }
+        if (th.querySelector('.grip')) return;
+        var grip = document.createElement('span');
+        grip.className = 'grip';
+        grip.title = 'Drag to widen, double-click to reset';
+        grip.addEventListener('dblclick', function (ev) {
+          ev.stopPropagation();
+          th.style.width = ''; th.classList.remove('sized');
+          delete saved[id]; persist();
+        });
+        grip.addEventListener('pointerdown', function (ev) {
+          ev.preventDefault(); ev.stopPropagation();
+          var x0 = ev.clientX, w0 = th.getBoundingClientRect().width;
+          grip.classList.add('on');
+          grip.setPointerCapture(ev.pointerId);
+          function move(e2) {
+            var w = Math.max(48, Math.round(w0 + (e2.clientX - x0)));
+            th.style.width = w + 'px'; th.classList.add('sized');
+            saved[id] = w;
+          }
+          function up() {
+            grip.classList.remove('on');
+            grip.removeEventListener('pointermove', move);
+            grip.removeEventListener('pointerup', up);
+            persist();
+          }
+          grip.addEventListener('pointermove', move);
+          grip.addEventListener('pointerup', up);
+        });
+        th.appendChild(grip);
+      });
+    });
+    document.querySelectorAll('.tw').forEach(function (box) {
+      function mark() {
+        /* a few pixels is rounding, not a hidden column */
+        var over = box.scrollWidth > box.clientWidth + 8;
+        box.classList.toggle('scrolls', over);
+        box.classList.toggle('atend',
+          over && box.scrollLeft + box.clientWidth >= box.scrollWidth - 2);
+      }
+      box.addEventListener('scroll', mark);
+      window.addEventListener('resize', mark);
+      mark();
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setup);
+  } else { setup(); }
+})();
+</script>
+</body></html>

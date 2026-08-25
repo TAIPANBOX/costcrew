@@ -1,0 +1,425 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CostCrew</title>
+<link rel="stylesheet" href="/static/style.css"></head><body>
+<div class="shell">
+<nav class="rail">
+  <div class="brand">CostCrew</div>
+  <a href="/" class="">Today</a>
+  <a href="/board" class="">Board</a>
+  <a href="/board?view=month" class="sub">Calendar</a>
+  <a href="/teams" class="">Teams</a>
+  <a href="/sprints" class="">Sprints</a>
+  <a href="/feed" class="">Chats</a>
+  <a href="/feed?ch=aws" class="sub">#aws</a>
+  <a href="/feed?ch=gcp" class="sub">#gcp</a>
+  <a href="/feed?ch=onprem" class="sub">#onprem</a>
+  <a href="/kpis" class="">KPIs</a>
+  <a href="/library" class="sub ">Library</a>
+  <a href="/assessment" class="sub ">Assessment</a>
+  <a href="/allocation" class="">Allocation</a>
+  <a href="/chargeback" class="">Chargeback</a>
+  <a href="/exec" class="">Executive</a>
+  <a href="/results" class="">Results</a>
+  <a href="/ai" class="on">AI spend</a>
+  <a href="/saas" class="">SaaS</a>
+  <a href="/utilisation" class="">Utilisation</a>
+  <a href="/explainers" class="">Explainers</a>
+  <a href="/staff" class="">Staff</a>
+  <a href="/workbench" class="">Workbench</a>
+  <a href="/data" class="">Data</a>
+  <a href="/connectors" class="sub ">Connectors</a>
+  <a href="/audit" class="">Audit</a>
+  <a href="/settings" class="">Engines</a>
+  
+  <a href="/accounts" class="">Accounts</a>
+  <div class="railfoot">
+    
+    <div>parity · admin</div>
+    <form method="post" action="/logout" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+      <button class="btn back">Sign out</button></form>
+    
+    <div>MVP · local</div>
+  </div>
+</nav>
+<main class="content">
+<h1>AI spend</h1>
+
+<p class="subtitle">The organisation's AI spend for 2026-07, measured the way the
+FinOps for AI category asks: consumption stored next to cost, unit price separated from
+volume, and business denominators where the product side supplies them.</p>
+
+<div class="tiles">
+  <div class="tile accent-green"><div class="tv">$2,380.46</div>
+    <div class="tl">AI spend, 2026-07 <span class="qid">⌗b10a5ff7</span></div></div>
+  
+  <div class="tile accent-blue"><div class="tv">299M</div>
+    <div class="tl">tokens consumed</div></div>
+  <div class="tile accent-blue">
+    <div class="tv">77%</div>
+    <div class="tl">inference share (training 23%)</div></div>
+  <div class="tile accent-green">
+    <div class="tv">green</div>
+    <div class="tl">anomaly band · 0.0% in excess <span class="qid">⌗b207c1d5</span></div></div>
+</div>
+
+<section class="panel">
+  <h2>What is being bought</h2>
+  <table><tr><th>meter</th><th>quantity</th><th>unit</th><th>cost $</th>
+    <th>$/1M tokens</th><th>share</th></tr>
+  
+  <tr><td><b>output-tokens</b></td>
+    <td class="num">53,806,692</td>
+    <td>tokens</td>
+    <td class="num">1,060.64</td>
+    <td class="num">19.71</td>
+    <td class="num">44.6%</td></tr>
+  
+  <tr><td><b>input-tokens</b></td>
+    <td class="num">191,193,138</td>
+    <td>tokens</td>
+    <td class="num">762.17</td>
+    <td class="num">3.99</td>
+    <td class="num">32.0%</td></tr>
+  
+  <tr><td><b>gpu-hours</b></td>
+    <td class="num">160</td>
+    <td>hours</td>
+    <td class="num">536.15</td>
+    <td class="num">—</td>
+    <td class="num">22.5%</td></tr>
+  
+  <tr><td><b>cached-input-tokens</b></td>
+    <td class="num">53,926,260</td>
+    <td>tokens</td>
+    <td class="num">21.50</td>
+    <td class="num">0.40</td>
+    <td class="num">0.9%</td></tr>
+  </table>
+  <p class="fine">Consumption is read from the store, never divided out of a dollar amount
+    <span class="qid">⌗1591d5b5</span></p>
+</section>
+
+<section class="panel">
+  <h2>Per model <span class="fine">routing is the cheapest lever there is</span></h2>
+  <table><tr><th>model</th><th>cost $</th><th>tokens</th><th>blended $/1M</th><th>share</th></tr>
+  
+  <tr><td><b>claude-opus-5</b></td><td class="num">1,106.31</td>
+    <td class="num">53,806,698</td>
+    <td class="num">20.56</td>
+    <td class="num">46.5%</td></tr>
+  
+  <tr><td><b>h200-node</b></td><td class="num">536.15</td>
+    <td class="num">0</td>
+    <td class="num">0.00</td>
+    <td class="num">22.5%</td></tr>
+  
+  <tr><td><b>claude-sonnet-5</b></td><td class="num">417.94</td>
+    <td class="num">101,634,870</td>
+    <td class="num">4.11</td>
+    <td class="num">17.6%</td></tr>
+  
+  <tr><td><b>gpt-5.2</b></td><td class="num">280.19</td>
+    <td class="num">83,699,301</td>
+    <td class="num">3.35</td>
+    <td class="num">11.8%</td></tr>
+  
+  <tr><td><b>kimi-k2</b></td><td class="num">39.86</td>
+    <td class="num">59,785,221</td>
+    <td class="num">0.67</td>
+    <td class="num">1.7%</td></tr>
+  </table>
+  <p class="fine"><span class="qid">⌗f53638f4</span></p>
+</section>
+
+<section class="panel">
+  <h2>Unit economics <span class="fine">past cost per token</span></h2>
+  
+  <table><tr><th>team</th><th>cost $</th><th>agent actions</th><th>cost per action $</th>
+    <th>cases deflected</th><th>cost per case $</th></tr>
+  
+  <tr><td>ml</td><td class="num">1,052.56</td>
+    <td class="num">21,848</td>
+    <td class="num">0.0482</td>
+    <td class="num">—</td>
+    <td class="num">—</td></tr>
+  
+  <tr><td>product-web</td><td class="num">774.61</td>
+    <td class="num">32,596</td>
+    <td class="num">0.0238</td>
+    <td class="num">3,585</td>
+    <td class="num">0.2161</td></tr>
+  
+  <tr><td>data</td><td class="num">331.98</td>
+    <td class="num">13,612</td>
+    <td class="num">0.0244</td>
+    <td class="num">—</td>
+    <td class="num">—</td></tr>
+  </table>
+  
+  
+  <p class="fine">No denominator reported by:
+    <span class="chip">sre-platform</span>
+    - agent actions and cases deflected are product-side counts, not billing data; a team that reports none gets no unit metric rather than a made-up one</p>
+  
+  <p class="fine">cost per token alone is an efficiency metric, not a business one: it falls while the bill grows. Pair it with a denominator - cost per agent action, cost per case deflected.</p>
+</section>
+
+<section class="panel">
+  <h2>Price versus volume <span class="fine">blended $/1M tokens across all models: a flat line with a rising bill means volume, not price</span></h2>
+  <table><tr><th>month</th><th>tokens</th><th>blended $/1M</th><th>token spend $</th></tr>
+  
+  <tr><td>2025-09</td>
+    <td class="num">144,424,746</td>
+    <td class="num">7.01</td>
+    <td class="num">1,012.58</td></tr>
+  
+  <tr><td>2025-10</td>
+    <td class="num">158,574,754</td>
+    <td class="num">6.59</td>
+    <td class="num">1,045.08</td></tr>
+  
+  <tr><td>2025-11</td>
+    <td class="num">157,227,112</td>
+    <td class="num">6.17</td>
+    <td class="num">970.12</td></tr>
+  
+  <tr><td>2025-12</td>
+    <td class="num">185,008,371</td>
+    <td class="num">6.17</td>
+    <td class="num">1,141.46</td></tr>
+  
+  <tr><td>2026-01</td>
+    <td class="num">195,127,324</td>
+    <td class="num">6.17</td>
+    <td class="num">1,203.89</td></tr>
+  
+  <tr><td>2026-02</td>
+    <td class="num">185,585,746</td>
+    <td class="num">6.17</td>
+    <td class="num">1,145.02</td></tr>
+  
+  <tr><td>2026-03</td>
+    <td class="num">216,085,957</td>
+    <td class="num">6.17</td>
+    <td class="num">1,333.20</td></tr>
+  
+  <tr><td>2026-04</td>
+    <td class="num">228,350,518</td>
+    <td class="num">6.17</td>
+    <td class="num">1,408.87</td></tr>
+  
+  <tr><td>2026-05</td>
+    <td class="num">243,695,183</td>
+    <td class="num">6.17</td>
+    <td class="num">1,503.54</td></tr>
+  
+  <tr><td>2026-06</td>
+    <td class="num">263,622,179</td>
+    <td class="num">6.17</td>
+    <td class="num">1,626.49</td></tr>
+  
+  <tr><td>2026-07</td>
+    <td class="num">298,926,090</td>
+    <td class="num">6.17</td>
+    <td class="num">1,844.31</td></tr>
+  
+  <tr><td>2026-08 <span class="fine">(partial)</span></td>
+    <td class="num">143,077,283</td>
+    <td class="num">6.17</td>
+    <td class="num">882.75</td></tr>
+  </table>
+  <p class="fine"><span class="qid">⌗1c5ad42f</span></p>
+</section>
+
+<section class="panel">
+  <h2>Allocation</h2>
+  <p class="fine">AI spend goes through the same allocation rules as everything else:
+    100.0% directly attributed &rarr; <b>100.0%</b>
+    after rules, $0.00 left unallocated
+    (<a href="/allocation">rules</a>) <span class="qid">⌗e2bdf62d</span></p>
+</section>
+
+</main>
+</div>
+<script>
+document.addEventListener('input', function (e) {
+  var box = e.target.closest('.filterbox'); if (!box) return;
+  var root = document.querySelector(box.dataset.target); if (!root) return;
+  var q = box.value.trim().toLowerCase();
+  root.querySelectorAll('[data-search]').forEach(function (el) {
+    var hit = !q || el.dataset.search.toLowerCase().indexOf(q) !== -1;
+    if (el.classList.contains('deskgroup')) {
+      var inner = Array.prototype.some.call(el.querySelectorAll('[data-search]'),
+        function (x) { return x.dataset.search.toLowerCase().indexOf(q) !== -1; });
+      el.style.display = (hit || inner || !q) ? '' : 'none';
+      el.querySelectorAll('[data-search]').forEach(function (x) {
+        x.style.display = (!q || hit || x.dataset.search.toLowerCase().indexOf(q) !== -1) ? '' : 'none';
+      });
+    } else if (!el.closest('.deskgroup')) {
+      el.style.display = hit ? '' : 'none';
+    }
+  });
+});
+document.addEventListener('click', function (e) {
+  if (e.target.classList && e.target.classList.contains('grip')) return;
+  var th = e.target.closest('th'); if (!th) return;
+  var table = th.closest('table'); if (!table) return;
+  var idx = Array.prototype.indexOf.call(th.parentNode.children, th);
+  var rows = Array.prototype.slice.call(table.querySelectorAll('tr')).filter(
+    function (r) { return r.querySelector('td'); });
+  var dir = th.dataset.dir === 'asc' ? -1 : 1;
+  table.querySelectorAll('th').forEach(function (h) { delete h.dataset.dir;
+    var a = h.querySelector('.arrow'); if (a) a.remove(); });
+  th.dataset.dir = dir === 1 ? 'asc' : 'desc';
+  var arrow = document.createElement('span');
+  arrow.className = 'arrow';
+  arrow.textContent = dir === 1 ? ' \u25B2' : ' \u25BC';
+  th.appendChild(arrow);
+  function key(r) {
+    var c = r.children[idx]; if (!c) return '';
+    var txt = c.textContent.trim().replace(/[$,%]/g, '').replace(/,/g, '');
+    if (/\d{4}-\d{2}-\d{2}/.test(txt)) return txt.replace(/[^\d-]/g, '');
+    var n = parseFloat(txt);
+    return isNaN(n) ? txt.toLowerCase() : n;
+  }
+  rows.sort(function (a, b) {
+    var ka = key(a), kb = key(b);
+    if (typeof ka === 'number' && typeof kb === 'number') return (ka - kb) * dir;
+    return String(ka).localeCompare(String(kb)) * dir;
+  });
+  rows.forEach(function (r) { r.parentNode.appendChild(r); });
+});
+
+/* ---- tables you can widen, and that fit any screen -----------------------
+   Every table is put in its own horizontally scrolling box, so a wide table
+   scrolls inside its panel instead of pushing the whole page sideways. Each
+   header cell gets a grip on its right edge: drag it to widen the column,
+   double-click it to give the column back to the browser. Widths are
+   remembered per page, because a column you widened once you almost always
+   want wide again.                                                          */
+(function () {
+  var KEY = 'costcrew.colw.' + location.pathname;
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (err) { saved = {}; }
+
+  function persist() {
+    try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (err) { /* private mode */ }
+  }
+
+  function setup() {
+    document.querySelectorAll('table').forEach(function (table, ti) {
+      if (!table.parentNode.classList.contains('tw')) {
+        var box = document.createElement('div');
+        box.className = 'tw';
+        table.parentNode.insertBefore(box, table);
+        box.appendChild(table);
+      }
+      /* An atom never breaks: a date, a sum, a status, a short name. Prose
+         does break, and must, or one sentence drags the whole table wider
+         than the screen and everything else scrolls to reach it. The rule is
+         length, applied once, because CSS cannot ask how long a text is. */
+      table.querySelectorAll('td, th').forEach(function (cell) {
+        if (cell.children.length) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length > 40 && txt.indexOf(' ') !== -1) cell.classList.add('wrap');
+      });
+
+      /* Really long prose gets two lines and a way to open the rest. Nothing
+         is removed: the full text is still in the cell, still searched by
+         the filter box, still there for anyone who presses. */
+      table.querySelectorAll('td').forEach(function (cell) {
+        if (cell.querySelector('.clamp')) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length <= 110) return;
+        var box = document.createElement('div');
+        box.className = 'clamp';
+        while (cell.firstChild) box.appendChild(cell.firstChild);
+        cell.appendChild(box);
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'more';
+        btn.textContent = 'more';
+        btn.setAttribute('aria-expanded', 'false');
+        btn.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          var open = box.classList.toggle('open');
+          btn.textContent = open ? 'less' : 'more';
+          btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+        cell.appendChild(btn);
+        cell.classList.add('wrap');
+      });
+      /* Align each header to the column beneath it. The figures are right
+         aligned and the headers were not, so every numeric column read as a
+         label on the left with unrelated numbers on the right. */
+      var head0 = table.querySelector('tr');
+      if (head0) {
+        var body = Array.prototype.slice.call(table.querySelectorAll('tr'))
+          .filter(function (r) { return r.querySelector('td'); });
+        head0.querySelectorAll('th').forEach(function (th, ci) {
+          var nums = 0, cells = 0;
+          body.forEach(function (r) {
+            var cell = r.children[ci];
+            if (!cell || cell.tagName !== 'TD') return;
+            cells++;
+            if (cell.classList.contains('num')) nums++;
+          });
+          if (cells && nums * 2 > cells) th.classList.add('num');
+        });
+      }
+      var head = table.querySelector('tr');
+      if (!head) return;
+      head.querySelectorAll('th').forEach(function (th, ci) {
+        var id = ti + ':' + ci;
+        if (saved[id]) { th.style.width = saved[id] + 'px'; th.classList.add('sized'); }
+        if (th.querySelector('.grip')) return;
+        var grip = document.createElement('span');
+        grip.className = 'grip';
+        grip.title = 'Drag to widen, double-click to reset';
+        grip.addEventListener('dblclick', function (ev) {
+          ev.stopPropagation();
+          th.style.width = ''; th.classList.remove('sized');
+          delete saved[id]; persist();
+        });
+        grip.addEventListener('pointerdown', function (ev) {
+          ev.preventDefault(); ev.stopPropagation();
+          var x0 = ev.clientX, w0 = th.getBoundingClientRect().width;
+          grip.classList.add('on');
+          grip.setPointerCapture(ev.pointerId);
+          function move(e2) {
+            var w = Math.max(48, Math.round(w0 + (e2.clientX - x0)));
+            th.style.width = w + 'px'; th.classList.add('sized');
+            saved[id] = w;
+          }
+          function up() {
+            grip.classList.remove('on');
+            grip.removeEventListener('pointermove', move);
+            grip.removeEventListener('pointerup', up);
+            persist();
+          }
+          grip.addEventListener('pointermove', move);
+          grip.addEventListener('pointerup', up);
+        });
+        th.appendChild(grip);
+      });
+    });
+    document.querySelectorAll('.tw').forEach(function (box) {
+      function mark() {
+        /* a few pixels is rounding, not a hidden column */
+        var over = box.scrollWidth > box.clientWidth + 8;
+        box.classList.toggle('scrolls', over);
+        box.classList.toggle('atend',
+          over && box.scrollLeft + box.clientWidth >= box.scrollWidth - 2);
+      }
+      box.addEventListener('scroll', mark);
+      window.addEventListener('resize', mark);
+      mark();
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setup);
+  } else { setup(); }
+})();
+</script>
+</body></html>

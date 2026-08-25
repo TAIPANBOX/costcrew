@@ -1,0 +1,749 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CostCrew</title>
+<link rel="stylesheet" href="/static/style.css"></head><body>
+<div class="shell">
+<nav class="rail">
+  <div class="brand">CostCrew</div>
+  <a href="/" class="">Today</a>
+  <a href="/board" class="">Board</a>
+  <a href="/board?view=month" class="sub">Calendar</a>
+  <a href="/teams" class="">Teams</a>
+  <a href="/sprints" class="">Sprints</a>
+  <a href="/feed" class="">Chats</a>
+  <a href="/feed?ch=aws" class="sub">#aws</a>
+  <a href="/feed?ch=gcp" class="sub">#gcp</a>
+  <a href="/feed?ch=onprem" class="sub">#onprem</a>
+  <a href="/kpis" class="on">KPIs</a>
+  <a href="/library" class="sub ">Library</a>
+  <a href="/assessment" class="sub ">Assessment</a>
+  <a href="/allocation" class="">Allocation</a>
+  <a href="/chargeback" class="">Chargeback</a>
+  <a href="/exec" class="">Executive</a>
+  <a href="/results" class="">Results</a>
+  <a href="/ai" class="">AI spend</a>
+  <a href="/saas" class="">SaaS</a>
+  <a href="/utilisation" class="">Utilisation</a>
+  <a href="/explainers" class="">Explainers</a>
+  <a href="/staff" class="">Staff</a>
+  <a href="/workbench" class="">Workbench</a>
+  <a href="/data" class="">Data</a>
+  <a href="/connectors" class="sub ">Connectors</a>
+  <a href="/audit" class="">Audit</a>
+  <a href="/settings" class="">Engines</a>
+  
+  <a href="/accounts" class="">Accounts</a>
+  <div class="railfoot">
+    
+    <div>parity · admin</div>
+    <form method="post" action="/logout" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+      <button class="btn back">Sign out</button></form>
+    
+    <div>MVP · local</div>
+  </div>
+</nav>
+<main class="content">
+<h1>Practice KPIs</h1>
+
+<p class="subtitle">The FinOps practice measured against the FinOps Framework's published targets:
+allocation accuracy (tag target &ge;90%), the 20/15/12% forecast-variance maturity ladder,
+effective savings rate, and anomaly spend-share bands (green &lt;2% / yellow 2-7% / red &gt;7%).
+Every number is deterministic and carries its qid.</p>
+
+
+<section class="panel">
+  <h2><span class="eyebrow hue-aws">platform aws</span></h2>
+  
+  <div class="tiles">
+    <div class="tile accent-green">
+      <div class="tv">76.5%
+        <span class="arrowto">&rarr;</span> 100.0%</div>
+      <div class="tl">Allocation Accuracy Index, direct &rarr; after <a href="/allocation">rules</a>, 2026-07
+        <span class="qid">⌗33a5b724</span></div></div>
+    <div class="tile accent-green">
+      <div class="tv">100.0%</div>
+      <div class="tl">rows with a team tag (target &ge;90%)</div></div>
+    
+    
+    <div class="tile accent-green">
+      <div class="tv">run</div>
+      <div class="tl">forecast ladder · worst |variance| 2.0% ·
+        2 frozen forecast(s) graded
+        
+        <span class="qid">⌗2f445196</span></div></div>
+    <div class="tile accent-blue">
+      <div class="tv">13.3%</div>
+      <div class="tl">effective savings rate, 2026-07 <span class="qid">⌗1a8d6537</span></div></div>
+    <div class="tile accent-green">
+      <div class="tv">green</div>
+      <div class="tl">anomaly band · 0.91% of spend in excess ·
+        2&#9650; 0&#9660;
+        <span class="qid">⌗8860e2df</span></div></div>
+  </div>
+  <table>
+    <tr><th>detail</th><th>value</th></tr>
+    <tr><td>directly attributed (Usage with a team), 2026-07</td>
+        <td class="num">$3,372.76 of $4,411.58</td></tr>
+    <tr><td>pools redistributed by <a href="/allocation">allocation rules</a></td>
+        <td>Credit $-59.21
+            <span class="fine">(proportional-usage)</span> · Purchase $950.00
+            <span class="fine">(proportional-usage)</span> · Tax $148.04
+            <span class="fine">(proportional-usage)</span></td></tr>
+    <tr><td>left unallocated after rules</td>
+        <td class="num">$0.00</td></tr>
+    <tr><td>forecast walk-forward (trailing-3mo-mean walk-forward)</td>
+        <td>2026-05: -12.4% · 2026-06: -3.7% · 2026-07: -10.6%</td></tr>
+    <tr><td>commitments (2026-07)</td>
+        <td>billed $3,372.76 → effective $2,923.68 · purchase $950.00</td></tr>
+    <tr><td class="fine">stated boundaries</td>
+        <td class="fine">coverage/utilization vs the 80% waterline needs a commitment inventory (not in the datasets yet) · excess is counted by magnitude, so a collapse weighs the same as a spike of equal size</td></tr>
+  </table>
+
+  <h3>Commitments <span class="fine">is what was bought being used? the canon
+    waterline is 80%</span></h3>
+  
+  <table><tr><th>commitment</th><th>scope</th><th>$/mo</th><th>spend on scope $</th>
+    <th>utilisation</th><th>coverage</th><th>realised savings $</th><th>reading</th></tr>
+  
+  <tr>
+    <td><b>EC2 Compute Savings Plan</b> <span class="fine">savings-plan, ends 2026-08-31</span></td>
+    <td>Amazon EC2</td>
+    <td class="num">950.00</td>
+    <td class="num">1,154.79</td>
+    <td class="num"><span class="chip st-done">121.6%</span></td>
+    <td class="num">100.0%</td>
+    <td class="num">449.08
+      <span class="fine">(0.473 per $1)</span></td>
+    <td class="fine">under-committed: consumption exceeds the commitment, so more of it could be bought at the discounted rate</td>
+  </tr>
+  </table>
+  <p class="fine">utilisation is a monthly average, so intra-month idle hours are invisible; coverage is the share of the scope&#39;s spend billed at a discounted rate, which this dataset applies to the whole service <span class="qid">⌗88307702</span></p>
+  
+
+  <h3>Frozen forecasts <span class="fine">graded on what was actually published,
+    not on a trailing-mean proxy</span></h3>
+  
+  <table><tr><th>window</th><th>published</th><th>forecast $</th><th>actual $</th>
+    <th>variance</th><th>grade</th><th>in interval</th><th>method</th></tr>
+  
+  <tr>
+    <td>2026-06-01 &rarr; 2026-06-30</td>
+    <td class="fine">2026-05-31 (backfill)</td>
+    <td class="num">3,130.42</td>
+    <td class="num">3,099.00</td>
+    <td class="num">+1.0%</td>
+    <td><span class="chip st-done">run</span>
+        </td>
+    <td>yes</td>
+    <td class="fine">holt-winters(add,7) <span class="qid">⌗b99afab8</span></td>
+  </tr>
+  
+  <tr>
+    <td>2026-07-01 &rarr; 2026-07-30</td>
+    <td class="fine">2026-06-30 (backfill)</td>
+    <td class="num">3,200.85</td>
+    <td class="num">3,263.86</td>
+    <td class="num">-2.0%</td>
+    <td><span class="chip st-done">run</span>
+        </td>
+    <td>yes</td>
+    <td class="fine">holt-winters(add,7) <span class="qid">⌗8911db89</span></td>
+  </tr>
+  
+  <tr>
+    <td>2026-08-01 &rarr; 2026-08-30</td>
+    <td class="fine">2026-07-31 (backfill)</td>
+    <td class="num">3,926.05</td>
+    <td class="num">—</td>
+    <td class="num">—</td>
+    <td><span class="chip">window open</span></td>
+    <td>—</td>
+    <td class="fine">holt-winters(add,7) <span class="qid">⌗e181bc4f</span></td>
+  </tr>
+  </table>
+  <p class="fine">2 scored, 1 still open ·
+    worst |variance| 2.0% &rarr; ladder
+    <b>run</b> (20% crawl / 15% walk / 12% run) ·
+    interval hit rate 100.0%</p>
+  
+  <form method="post" action="/kpis/freeze" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+    <input type="hidden" name="source" value="aws">
+    <button class="btn">Freeze today's forecast</button>
+    <span class="fine">stores the current 30-day figure so the next review can
+      grade it; re-freezing the same window changes nothing</span>
+  </form>
+  
+</section>
+
+<section class="panel">
+  <h2><span class="eyebrow hue-gcp">platform gcp</span></h2>
+  
+  <div class="tiles">
+    <div class="tile accent-green">
+      <div class="tv">77.4%
+        <span class="arrowto">&rarr;</span> 100.0%</div>
+      <div class="tl">Allocation Accuracy Index, direct &rarr; after <a href="/allocation">rules</a>, 2026-07
+        <span class="qid">⌗0b8a7ac1</span></div></div>
+    <div class="tile accent-green">
+      <div class="tv">100.0%</div>
+      <div class="tl">rows with a team tag (target &ge;90%)</div></div>
+    
+    
+    <div class="tile accent-green">
+      <div class="tv">run</div>
+      <div class="tl">forecast ladder · worst |variance| 4.2% ·
+        2 frozen forecast(s) graded
+        
+        <span class="qid">⌗4f560380</span></div></div>
+    <div class="tile accent-blue">
+      <div class="tv">9.0%</div>
+      <div class="tl">effective savings rate, 2026-07 <span class="qid">⌗6681bdbe</span></div></div>
+    <div class="tile accent-green">
+      <div class="tv">green</div>
+      <div class="tl">anomaly band · 0.83% of spend in excess ·
+        4&#9650; 0&#9660;
+        <span class="qid">⌗638ddabd</span></div></div>
+  </div>
+  <table>
+    <tr><th>detail</th><th>value</th></tr>
+    <tr><td>directly attributed (Usage with a team), 2026-07</td>
+        <td class="num">$2,552.92 of $3,298.67</td></tr>
+    <tr><td>pools redistributed by <a href="/allocation">allocation rules</a></td>
+        <td>Credit $-68.62
+            <span class="fine">(proportional-usage)</span> · Purchase $700.00
+            <span class="fine">(proportional-usage)</span> · Tax $114.36
+            <span class="fine">(proportional-usage)</span></td></tr>
+    <tr><td>left unallocated after rules</td>
+        <td class="num">$0.00</td></tr>
+    <tr><td>forecast walk-forward (trailing-3mo-mean walk-forward)</td>
+        <td>2026-05: -13.3% · 2026-06: -7.6% · 2026-07: -11.2%</td></tr>
+    <tr><td>commitments (2026-07)</td>
+        <td>billed $2,552.92 → effective $2,323.03 · purchase $700.00</td></tr>
+    <tr><td class="fine">stated boundaries</td>
+        <td class="fine">coverage/utilization vs the 80% waterline needs a commitment inventory (not in the datasets yet) · excess is counted by magnitude, so a collapse weighs the same as a spike of equal size</td></tr>
+  </table>
+
+  <h3>Commitments <span class="fine">is what was bought being used? the canon
+    waterline is 80%</span></h3>
+  
+  <table><tr><th>commitment</th><th>scope</th><th>$/mo</th><th>spend on scope $</th>
+    <th>utilisation</th><th>coverage</th><th>realised savings $</th><th>reading</th></tr>
+  
+  <tr>
+    <td><b>Compute Engine CUD</b> <span class="fine">committed-use-discount, ends 2026-08-31</span></td>
+    <td>Compute Engine</td>
+    <td class="num">700.00</td>
+    <td class="num">689.69</td>
+    <td class="num"><span class="chip st-done">98.5%</span></td>
+    <td class="num">100.0%</td>
+    <td class="num">229.90
+      <span class="fine">(0.328 per $1)</span></td>
+    <td class="fine">healthy: the commitment is being consumed</td>
+  </tr>
+  </table>
+  <p class="fine">utilisation is a monthly average, so intra-month idle hours are invisible; coverage is the share of the scope&#39;s spend billed at a discounted rate, which this dataset applies to the whole service <span class="qid">⌗e20a0bab</span></p>
+  
+
+  <h3>Frozen forecasts <span class="fine">graded on what was actually published,
+    not on a trailing-mean proxy</span></h3>
+  
+  <table><tr><th>window</th><th>published</th><th>forecast $</th><th>actual $</th>
+    <th>variance</th><th>grade</th><th>in interval</th><th>method</th></tr>
+  
+  <tr>
+    <td>2026-06-01 &rarr; 2026-06-30</td>
+    <td class="fine">2026-05-31 (backfill)</td>
+    <td class="num">2,402.73</td>
+    <td class="num">2,378.47</td>
+    <td class="num">+1.0%</td>
+    <td><span class="chip st-done">run</span>
+        </td>
+    <td>yes</td>
+    <td class="fine">holt-winters(add,7) <span class="qid">⌗43a6c968</span></td>
+  </tr>
+  
+  <tr>
+    <td>2026-07-01 &rarr; 2026-07-30</td>
+    <td class="fine">2026-06-30 (backfill)</td>
+    <td class="num">2,367.42</td>
+    <td class="num">2,466.07</td>
+    <td class="num">-4.2%</td>
+    <td><span class="chip st-done">run</span>
+        </td>
+    <td>no</td>
+    <td class="fine">holt-winters(add,7) <span class="qid">⌗a0f025e0</span></td>
+  </tr>
+  
+  <tr>
+    <td>2026-08-01 &rarr; 2026-08-30</td>
+    <td class="fine">2026-07-31 (backfill)</td>
+    <td class="num">2,552.75</td>
+    <td class="num">—</td>
+    <td class="num">—</td>
+    <td><span class="chip">window open</span></td>
+    <td>—</td>
+    <td class="fine">holt-winters(add,7) <span class="qid">⌗e186f9bc</span></td>
+  </tr>
+  </table>
+  <p class="fine">2 scored, 1 still open ·
+    worst |variance| 4.2% &rarr; ladder
+    <b>run</b> (20% crawl / 15% walk / 12% run) ·
+    interval hit rate 50.0%</p>
+  
+  <form method="post" action="/kpis/freeze" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+    <input type="hidden" name="source" value="gcp">
+    <button class="btn">Freeze today's forecast</button>
+    <span class="fine">stores the current 30-day figure so the next review can
+      grade it; re-freezing the same window changes nothing</span>
+  </form>
+  
+</section>
+
+<section class="panel">
+  <h2><span class="eyebrow hue-onprem">platform onprem</span></h2>
+  
+  <div class="tiles">
+    <div class="tile accent-green">
+      <div class="tv">62.1%
+        <span class="arrowto">&rarr;</span> 100.0%</div>
+      <div class="tl">Allocation Accuracy Index, direct &rarr; after <a href="/allocation">rules</a>, 2026-07
+        <span class="qid">⌗f2c0ebc6</span></div></div>
+    <div class="tile accent-green">
+      <div class="tv">100.0%</div>
+      <div class="tl">rows with a team tag (target &ge;90%)</div></div>
+    
+    
+    <div class="tile accent-green">
+      <div class="tv">run</div>
+      <div class="tl">forecast ladder · worst |variance| 2.6% ·
+        2 frozen forecast(s) graded
+        
+        <span class="qid">⌗cb0b6f74</span></div></div>
+    <div class="tile accent-blue">
+      <div class="tv">0.0%</div>
+      <div class="tl">effective savings rate, 2026-07 <span class="qid">⌗5731f30d</span></div></div>
+    <div class="tile accent-green">
+      <div class="tv">green</div>
+      <div class="tl">anomaly band · 0.11% of spend in excess ·
+        2&#9650; 0&#9660;
+        <span class="qid">⌗29a3c255</span></div></div>
+  </div>
+  <table>
+    <tr><th>detail</th><th>value</th></tr>
+    <tr><td>directly attributed (Usage with a team), 2026-07</td>
+        <td class="num">$2,477.13 of $3,988.91</td></tr>
+    <tr><td>pools redistributed by <a href="/allocation">allocation rules</a></td>
+        <td>Purchase $1,400.00
+            <span class="fine">(proportional-usage)</span> · Tax $111.78
+            <span class="fine">(proportional-usage)</span></td></tr>
+    <tr><td>left unallocated after rules</td>
+        <td class="num">$0.00</td></tr>
+    <tr><td>forecast walk-forward (trailing-3mo-mean walk-forward)</td>
+        <td>2026-05: -9.4% · 2026-06: -1.7% · 2026-07: -6.8%</td></tr>
+    <tr><td>commitments (2026-07)</td>
+        <td>billed $2,477.13 → effective $2,477.13 · purchase $1,400.00</td></tr>
+    <tr><td class="fine">stated boundaries</td>
+        <td class="fine">coverage/utilization vs the 80% waterline needs a commitment inventory (not in the datasets yet) · excess is counted by magnitude, so a collapse weighs the same as a spike of equal size</td></tr>
+  </table>
+
+  <h3>Commitments <span class="fine">is what was bought being used? the canon
+    waterline is 80%</span></h3>
+  
+  <p class="fine">no commitment inventory for this platform: capital purchases are not commitments, and nothing is inferred from billing rows <span class="qid">⌗42690a18</span></p>
+  
+
+  <h3>Frozen forecasts <span class="fine">graded on what was actually published,
+    not on a trailing-mean proxy</span></h3>
+  
+  <table><tr><th>window</th><th>published</th><th>forecast $</th><th>actual $</th>
+    <th>variance</th><th>grade</th><th>in interval</th><th>method</th></tr>
+  
+  <tr>
+    <td>2026-06-01 &rarr; 2026-06-30</td>
+    <td class="fine">2026-05-31 (backfill)</td>
+    <td class="num">2,361.78</td>
+    <td class="num">2,338.29</td>
+    <td class="num">+1.0%</td>
+    <td><span class="chip st-done">run</span>
+        </td>
+    <td>yes</td>
+    <td class="fine">holt-winters(add,7) <span class="qid">⌗edd609d0</span></td>
+  </tr>
+  
+  <tr>
+    <td>2026-07-01 &rarr; 2026-07-30</td>
+    <td class="fine">2026-06-30 (backfill)</td>
+    <td class="num">2,336.76</td>
+    <td class="num">2,397.63</td>
+    <td class="num">-2.6%</td>
+    <td><span class="chip st-done">run</span>
+        </td>
+    <td>yes</td>
+    <td class="fine">moving-average(28) <span class="qid">⌗3f4916c1</span></td>
+  </tr>
+  
+  <tr>
+    <td>2026-08-01 &rarr; 2026-08-30</td>
+    <td class="fine">2026-07-31 (backfill)</td>
+    <td class="num">2,415.11</td>
+    <td class="num">—</td>
+    <td class="num">—</td>
+    <td><span class="chip">window open</span></td>
+    <td>—</td>
+    <td class="fine">holt-winters(add,7) <span class="qid">⌗3a2c50cb</span></td>
+  </tr>
+  </table>
+  <p class="fine">2 scored, 1 still open ·
+    worst |variance| 2.6% &rarr; ladder
+    <b>run</b> (20% crawl / 15% walk / 12% run) ·
+    interval hit rate 100.0%</p>
+  
+  <form method="post" action="/kpis/freeze" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+    <input type="hidden" name="source" value="onprem">
+    <button class="btn">Freeze today's forecast</button>
+    <span class="fine">stores the current 30-day figure so the next review can
+      grade it; re-freezing the same window changes nothing</span>
+  </form>
+  
+</section>
+
+<section class="panel">
+  <h2><span class="eyebrow hue-ai">platform ai</span></h2>
+  
+  <div class="tiles">
+    <div class="tile accent-green">
+      <div class="tv">100.0%
+        <span class="arrowto">&rarr;</span> 100.0%</div>
+      <div class="tl">Allocation Accuracy Index, direct &rarr; after <a href="/allocation">rules</a>, 2026-07
+        <span class="qid">⌗e2bdf62d</span></div></div>
+    <div class="tile accent-green">
+      <div class="tv">100.0%</div>
+      <div class="tl">rows with a team tag (target &ge;90%)</div></div>
+    
+    
+    <div class="tile accent-amber">
+      <div class="tv">below-crawl</div>
+      <div class="tl">forecast ladder · worst |variance| 55.0% ·
+        2 frozen forecast(s) graded
+        
+        <span class="qid">⌗86be631d</span></div></div>
+    <div class="tile accent-blue">
+      <div class="tv">0.0%</div>
+      <div class="tl">effective savings rate, 2026-07 <span class="qid">⌗8c80d7a9</span></div></div>
+    <div class="tile accent-green">
+      <div class="tv">green</div>
+      <div class="tl">anomaly band · 0.0% of spend in excess ·
+        3&#9650; 0&#9660;
+        <span class="qid">⌗b207c1d5</span></div></div>
+  </div>
+  <table>
+    <tr><th>detail</th><th>value</th></tr>
+    <tr><td>directly attributed (Usage with a team), 2026-07</td>
+        <td class="num">$2,380.46 of $2,380.46</td></tr>
+    <tr><td>pools redistributed by <a href="/allocation">allocation rules</a></td>
+        <td></td></tr>
+    <tr><td>left unallocated after rules</td>
+        <td class="num">$0.00</td></tr>
+    <tr><td>forecast walk-forward (trailing-3mo-mean walk-forward)</td>
+        <td>2026-05: -11.7% · 2026-06: -17.6% · 2026-07: -15.9%</td></tr>
+    <tr><td>commitments (2026-07)</td>
+        <td>billed $2,380.46 → effective $2,380.46 · purchase $0.00</td></tr>
+    <tr><td class="fine">stated boundaries</td>
+        <td class="fine">coverage/utilization vs the 80% waterline needs a commitment inventory (not in the datasets yet) · excess is counted by magnitude, so a collapse weighs the same as a spike of equal size</td></tr>
+  </table>
+
+  <h3>Commitments <span class="fine">is what was bought being used? the canon
+    waterline is 80%</span></h3>
+  
+  <p class="fine">no commitment inventory for this platform: capital purchases are not commitments, and nothing is inferred from billing rows <span class="qid">⌗ad1b9bf2</span></p>
+  
+
+  <h3>Frozen forecasts <span class="fine">graded on what was actually published,
+    not on a trailing-mean proxy</span></h3>
+  
+  <table><tr><th>window</th><th>published</th><th>forecast $</th><th>actual $</th>
+    <th>variance</th><th>grade</th><th>in interval</th><th>method</th></tr>
+  
+  <tr>
+    <td>2026-06-01 &rarr; 2026-06-30</td>
+    <td class="fine">2026-05-31 (backfill)</td>
+    <td class="num">1,455.04</td>
+    <td class="num">2,255.23</td>
+    <td class="num">-55.0%</td>
+    <td><span class="chip st-blocked">below-crawl</span>
+        </td>
+    <td>yes</td>
+    <td class="fine">seasonal-naive(7) <span class="qid">⌗2632d4bd</span></td>
+  </tr>
+  
+  <tr>
+    <td>2026-07-01 &rarr; 2026-07-30</td>
+    <td class="fine">2026-06-30 (backfill)</td>
+    <td class="num">1,628.41</td>
+    <td class="num">2,309.31</td>
+    <td class="num">-41.8%</td>
+    <td><span class="chip st-blocked">below-crawl</span>
+        </td>
+    <td>yes</td>
+    <td class="fine">seasonal-naive(7) <span class="qid">⌗03429c77</span></td>
+  </tr>
+  
+  <tr>
+    <td>2026-08-01 &rarr; 2026-08-30</td>
+    <td class="fine">2026-07-31 (backfill)</td>
+    <td class="num">1,772.30</td>
+    <td class="num">—</td>
+    <td class="num">—</td>
+    <td><span class="chip">window open</span></td>
+    <td>—</td>
+    <td class="fine">seasonal-naive(7) <span class="qid">⌗87418925</span></td>
+  </tr>
+  </table>
+  <p class="fine">2 scored, 1 still open ·
+    worst |variance| 55.0% &rarr; ladder
+    <b>below-crawl</b> (20% crawl / 15% walk / 12% run) ·
+    interval hit rate 100.0%</p>
+  
+  <form method="post" action="/kpis/freeze" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+    <input type="hidden" name="source" value="ai">
+    <button class="btn">Freeze today's forecast</button>
+    <span class="fine">stores the current 30-day figure so the next review can
+      grade it; re-freezing the same window changes nothing</span>
+  </form>
+  
+</section>
+
+
+
+<section class="panel">
+  <h2><span class="eyebrow">expiry pipeline</span> Commitments running out</h2>
+  <p class="subtitle">As of 2026-08-15 (the estate's own clock), within the next
+  90 days: <b>$1,650.00</b> of monthly
+  commitment falls due. A lapsed commitment silently reverts its scope to list price.</p>
+  <table><tr><th>platform</th><th>commitment</th><th>scope</th><th>ends</th>
+    <th>days left</th><th>$/mo at risk</th></tr>
+  
+  <tr class="win">
+    <td><span class="chip hue-aws">aws</span></td>
+    <td>EC2 Compute Savings Plan <span class="fine">1-year, no upfront</span></td>
+    <td>Amazon EC2</td><td>2026-08-31</td>
+    <td class="num">16</td>
+    <td class="num">950.00</td>
+  </tr>
+  
+  <tr class="win">
+    <td><span class="chip hue-gcp">gcp</span></td>
+    <td>Compute Engine CUD <span class="fine">1-year resource-based</span></td>
+    <td>Compute Engine</td><td>2026-08-31</td>
+    <td class="num">16</td>
+    <td class="num">700.00</td>
+  </tr>
+  </table>
+  <p class="fine">Renewal is an operator decision; the crew proposes, never buys
+    <span class="qid">⌗be74d5d3</span></p>
+</section>
+
+
+<section class="panel">
+  <h2><span class="eyebrow">the crew itself</span> FinOps-for-AI unit economics</h2>
+  <div class="tiles">
+    <div class="tile accent-green"><div class="tv">$9.23</div>
+      <div class="tl">crew engine spend, 2026-08</div></div>
+    <div class="tile accent-blue"><div class="tv">61</div>
+      <div class="tl">tasks closed this month</div></div>
+    <div class="tile accent-blue"><div class="tv">$0.34</div>
+      <div class="tl">cost per agent action, over 27 priced runs
+        (canon FinOps-for-AI unit metric)</div></div>
+    <div class="tile accent-amber">
+      <div class="tv">51.9%</div>
+      <div class="tl">of runs have a known price
+        (25 unpriced)</div></div>
+  </div>
+  <p class="fine">runs on an engine with no configured price are counted separately, never as free deliverables; configure usd_per_mtok in providers.yaml to bring them in</p>
+  <p class="fine">The crew applies to itself what it preaches: per-task and per-agent budget
+  guards, complexity-tiered engines, and this unit metric. Detailed per-agent economics:
+  <a href="/stats">Statistics</a>.</p>
+</section>
+</main>
+</div>
+<script>
+document.addEventListener('input', function (e) {
+  var box = e.target.closest('.filterbox'); if (!box) return;
+  var root = document.querySelector(box.dataset.target); if (!root) return;
+  var q = box.value.trim().toLowerCase();
+  root.querySelectorAll('[data-search]').forEach(function (el) {
+    var hit = !q || el.dataset.search.toLowerCase().indexOf(q) !== -1;
+    if (el.classList.contains('deskgroup')) {
+      var inner = Array.prototype.some.call(el.querySelectorAll('[data-search]'),
+        function (x) { return x.dataset.search.toLowerCase().indexOf(q) !== -1; });
+      el.style.display = (hit || inner || !q) ? '' : 'none';
+      el.querySelectorAll('[data-search]').forEach(function (x) {
+        x.style.display = (!q || hit || x.dataset.search.toLowerCase().indexOf(q) !== -1) ? '' : 'none';
+      });
+    } else if (!el.closest('.deskgroup')) {
+      el.style.display = hit ? '' : 'none';
+    }
+  });
+});
+document.addEventListener('click', function (e) {
+  if (e.target.classList && e.target.classList.contains('grip')) return;
+  var th = e.target.closest('th'); if (!th) return;
+  var table = th.closest('table'); if (!table) return;
+  var idx = Array.prototype.indexOf.call(th.parentNode.children, th);
+  var rows = Array.prototype.slice.call(table.querySelectorAll('tr')).filter(
+    function (r) { return r.querySelector('td'); });
+  var dir = th.dataset.dir === 'asc' ? -1 : 1;
+  table.querySelectorAll('th').forEach(function (h) { delete h.dataset.dir;
+    var a = h.querySelector('.arrow'); if (a) a.remove(); });
+  th.dataset.dir = dir === 1 ? 'asc' : 'desc';
+  var arrow = document.createElement('span');
+  arrow.className = 'arrow';
+  arrow.textContent = dir === 1 ? ' \u25B2' : ' \u25BC';
+  th.appendChild(arrow);
+  function key(r) {
+    var c = r.children[idx]; if (!c) return '';
+    var txt = c.textContent.trim().replace(/[$,%]/g, '').replace(/,/g, '');
+    if (/\d{4}-\d{2}-\d{2}/.test(txt)) return txt.replace(/[^\d-]/g, '');
+    var n = parseFloat(txt);
+    return isNaN(n) ? txt.toLowerCase() : n;
+  }
+  rows.sort(function (a, b) {
+    var ka = key(a), kb = key(b);
+    if (typeof ka === 'number' && typeof kb === 'number') return (ka - kb) * dir;
+    return String(ka).localeCompare(String(kb)) * dir;
+  });
+  rows.forEach(function (r) { r.parentNode.appendChild(r); });
+});
+
+/* ---- tables you can widen, and that fit any screen -----------------------
+   Every table is put in its own horizontally scrolling box, so a wide table
+   scrolls inside its panel instead of pushing the whole page sideways. Each
+   header cell gets a grip on its right edge: drag it to widen the column,
+   double-click it to give the column back to the browser. Widths are
+   remembered per page, because a column you widened once you almost always
+   want wide again.                                                          */
+(function () {
+  var KEY = 'costcrew.colw.' + location.pathname;
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (err) { saved = {}; }
+
+  function persist() {
+    try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (err) { /* private mode */ }
+  }
+
+  function setup() {
+    document.querySelectorAll('table').forEach(function (table, ti) {
+      if (!table.parentNode.classList.contains('tw')) {
+        var box = document.createElement('div');
+        box.className = 'tw';
+        table.parentNode.insertBefore(box, table);
+        box.appendChild(table);
+      }
+      /* An atom never breaks: a date, a sum, a status, a short name. Prose
+         does break, and must, or one sentence drags the whole table wider
+         than the screen and everything else scrolls to reach it. The rule is
+         length, applied once, because CSS cannot ask how long a text is. */
+      table.querySelectorAll('td, th').forEach(function (cell) {
+        if (cell.children.length) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length > 40 && txt.indexOf(' ') !== -1) cell.classList.add('wrap');
+      });
+
+      /* Really long prose gets two lines and a way to open the rest. Nothing
+         is removed: the full text is still in the cell, still searched by
+         the filter box, still there for anyone who presses. */
+      table.querySelectorAll('td').forEach(function (cell) {
+        if (cell.querySelector('.clamp')) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length <= 110) return;
+        var box = document.createElement('div');
+        box.className = 'clamp';
+        while (cell.firstChild) box.appendChild(cell.firstChild);
+        cell.appendChild(box);
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'more';
+        btn.textContent = 'more';
+        btn.setAttribute('aria-expanded', 'false');
+        btn.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          var open = box.classList.toggle('open');
+          btn.textContent = open ? 'less' : 'more';
+          btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+        cell.appendChild(btn);
+        cell.classList.add('wrap');
+      });
+      /* Align each header to the column beneath it. The figures are right
+         aligned and the headers were not, so every numeric column read as a
+         label on the left with unrelated numbers on the right. */
+      var head0 = table.querySelector('tr');
+      if (head0) {
+        var body = Array.prototype.slice.call(table.querySelectorAll('tr'))
+          .filter(function (r) { return r.querySelector('td'); });
+        head0.querySelectorAll('th').forEach(function (th, ci) {
+          var nums = 0, cells = 0;
+          body.forEach(function (r) {
+            var cell = r.children[ci];
+            if (!cell || cell.tagName !== 'TD') return;
+            cells++;
+            if (cell.classList.contains('num')) nums++;
+          });
+          if (cells && nums * 2 > cells) th.classList.add('num');
+        });
+      }
+      var head = table.querySelector('tr');
+      if (!head) return;
+      head.querySelectorAll('th').forEach(function (th, ci) {
+        var id = ti + ':' + ci;
+        if (saved[id]) { th.style.width = saved[id] + 'px'; th.classList.add('sized'); }
+        if (th.querySelector('.grip')) return;
+        var grip = document.createElement('span');
+        grip.className = 'grip';
+        grip.title = 'Drag to widen, double-click to reset';
+        grip.addEventListener('dblclick', function (ev) {
+          ev.stopPropagation();
+          th.style.width = ''; th.classList.remove('sized');
+          delete saved[id]; persist();
+        });
+        grip.addEventListener('pointerdown', function (ev) {
+          ev.preventDefault(); ev.stopPropagation();
+          var x0 = ev.clientX, w0 = th.getBoundingClientRect().width;
+          grip.classList.add('on');
+          grip.setPointerCapture(ev.pointerId);
+          function move(e2) {
+            var w = Math.max(48, Math.round(w0 + (e2.clientX - x0)));
+            th.style.width = w + 'px'; th.classList.add('sized');
+            saved[id] = w;
+          }
+          function up() {
+            grip.classList.remove('on');
+            grip.removeEventListener('pointermove', move);
+            grip.removeEventListener('pointerup', up);
+            persist();
+          }
+          grip.addEventListener('pointermove', move);
+          grip.addEventListener('pointerup', up);
+        });
+        th.appendChild(grip);
+      });
+    });
+    document.querySelectorAll('.tw').forEach(function (box) {
+      function mark() {
+        /* a few pixels is rounding, not a hidden column */
+        var over = box.scrollWidth > box.clientWidth + 8;
+        box.classList.toggle('scrolls', over);
+        box.classList.toggle('atend',
+          over && box.scrollLeft + box.clientWidth >= box.scrollWidth - 2);
+      }
+      box.addEventListener('scroll', mark);
+      window.addEventListener('resize', mark);
+      mark();
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setup);
+  } else { setup(); }
+})();
+</script>
+</body></html>

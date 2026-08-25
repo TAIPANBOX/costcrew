@@ -1,0 +1,494 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CostCrew</title>
+<link rel="stylesheet" href="/static/style.css"></head><body>
+<div class="shell">
+<nav class="rail">
+  <div class="brand">CostCrew</div>
+  <a href="/" class="">Today</a>
+  <a href="/board" class="">Board</a>
+  <a href="/board?view=month" class="sub">Calendar</a>
+  <a href="/teams" class="">Teams</a>
+  <a href="/sprints" class="">Sprints</a>
+  <a href="/feed" class="">Chats</a>
+  <a href="/feed?ch=aws" class="sub">#aws</a>
+  <a href="/feed?ch=gcp" class="sub">#gcp</a>
+  <a href="/feed?ch=onprem" class="sub">#onprem</a>
+  <a href="/kpis" class="">KPIs</a>
+  <a href="/library" class="sub ">Library</a>
+  <a href="/assessment" class="sub ">Assessment</a>
+  <a href="/allocation" class="">Allocation</a>
+  <a href="/chargeback" class="">Chargeback</a>
+  <a href="/exec" class="">Executive</a>
+  <a href="/results" class="">Results</a>
+  <a href="/ai" class="">AI spend</a>
+  <a href="/saas" class="">SaaS</a>
+  <a href="/utilisation" class="">Utilisation</a>
+  <a href="/explainers" class="">Explainers</a>
+  <a href="/staff" class="">Staff</a>
+  <a href="/workbench" class="">Workbench</a>
+  <a href="/data" class="">Data</a>
+  <a href="/connectors" class="sub ">Connectors</a>
+  <a href="/audit" class="">Audit</a>
+  <a href="/settings" class="on">Engines</a>
+  
+  <a href="/accounts" class="">Accounts</a>
+  <div class="railfoot">
+    
+    <div>parity · admin</div>
+    <form method="post" action="/logout" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+      <button class="btn back">Sign out</button></form>
+    
+    <div>MVP · local</div>
+  </div>
+</nav>
+<main class="content">
+<h1>Engines</h1>
+
+
+<section class="panel">
+  <h2>Which one do you need?</h2>
+  <p>The crew needs exactly <b>one</b> way to reach a model. Everything else on
+  this page is optional. Pick by how you want to pay for it:</p>
+  <ul class="rules">
+    <li><b>You already pay for Claude.</b> Run <code>claude</code> in a terminal
+      and log in once. Nothing to paste here, and no key is stored anywhere.</li>
+    <li><b>You want the simplest start.</b> Get an OpenRouter key and paste it
+      below. It reports what every call costs, which is why the crew's own
+      spending figures are honest.</li>
+    <li><b>Your company already pays for an assistant</b> and would never
+      approve an outbound key. Point CostCrew at that tool on this machine:
+      the spend stays on the contract you already have.</li>
+  </ul>
+  <p class="fine">Without any of them the console still works completely: every
+  figure is real, and agent runs say plainly that no engine is connected rather
+  than inventing an analysis.</p>
+</section>
+
+
+<section class="panel">
+  <h2>A subscription you already pay for</h2>
+  
+  <div class="engine">
+    <div class="ehead">
+      <b>Claude (subscription CLI)</b>
+      
+        <span class="chip st-todo">not checked</span>
+        
+      
+    </div>
+
+    <p class="ewhen">You already pay for Claude and want the crew to use that, with no key stored anywhere.</p>
+    <p class="fine"><b>Cost:</b> Comes out of your Claude subscription, not a separate bill. A deep analysis is roughly USD 0.30-0.60 of usage.</p>
+    <p class="fine"><b>How:</b> Run `claude` in a terminal, then `/login`, once. Nothing to paste here.
+      <a href="https://claude.com/claude-code" target="_blank" rel="noreferrer noopener">Open its page</a>.</p>
+
+    
+    
+    <form method="post" action="/settings/recheck" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+      <button class="btn back">Check now</button>
+    </form>
+    <p class="fine">The check is a real model call and takes a few seconds, so
+    opening this page never runs one.</p>
+    
+  </div>
+  
+</section>
+
+<section class="panel">
+  <h2>Your organisation&#39;s own assistant, on this machine</h2>
+  
+  <div class="engine">
+    <div class="ehead">
+      <b>Kiro CLI (headless)</b>
+      
+        <span class="chip st-blocked">not found on this machine</span>
+        
+      
+    </div>
+
+    <p class="ewhen">Your organisation already pays for Kiro and routes it through its own gateway. Nothing leaves this machine and no key is stored.</p>
+    <p class="fine"><b>Cost:</b> Whatever your organisation already pays. CostCrew adds nothing, and cannot read what a run cost, so those runs are recorded as cost UNKNOWN rather than as free.</p>
+    <p class="fine"><b>How:</b> Install Kiro and sign in once. Confirm the command with `kiro-cli chat --help`, since it changes between versions.
+      <a href="https://kiro.dev" target="_blank" rel="noreferrer noopener">Open its page</a>.</p>
+
+    
+    
+    <form method="post" action="/settings/command" class="erow"><input type="hidden" name="csrf" value="<CSRF>">
+      <input type="hidden" name="provider" value="kiro">
+      <input name="command" class="sel" spellcheck="false"
+             value="kiro-cli chat --no-interactive {prompt}"
+             placeholder="for example: kiro-cli chat --no-interactive {prompt}">
+      <button class="btn">Update</button>
+    </form>
+    <p class="fine">No key is stored: the tool's own sign-in is the credential.
+    Put <code>{prompt}</code> where the question should go; leave it out and it
+    is appended at the end. The command is checked against this machine before
+    it is saved, so a typo is caught here rather than mid-sprint.</p>
+
+    
+    
+  </div>
+  
+  <div class="engine">
+    <div class="ehead">
+      <b>Any local agent CLI</b>
+      
+        <span class="chip st-todo">no command set</span>
+      
+    </div>
+
+    <p class="ewhen">Any other tool on this machine that takes a prompt and prints an answer: Gemini CLI, Codex, an internal wrapper.</p>
+    <p class="fine"><b>Cost:</b> Whatever that tool already costs you. Runs are recorded as cost UNKNOWN, never as free.</p>
+    <p class="fine"><b>How:</b> Type the command below. Use {prompt} where the question should go, or leave it out and it is appended at the end.
+      </p>
+
+    
+    
+    <form method="post" action="/settings/command" class="erow"><input type="hidden" name="csrf" value="<CSRF>">
+      <input type="hidden" name="provider" value="local-command">
+      <input name="command" class="sel" spellcheck="false"
+             value=""
+             placeholder="for example: kiro-cli chat --no-interactive {prompt}">
+      <button class="btn">Set the command</button>
+    </form>
+    <p class="fine">No key is stored: the tool's own sign-in is the credential.
+    Put <code>{prompt}</code> where the question should go; leave it out and it
+    is appended at the end. The command is checked against this machine before
+    it is saved, so a typo is caught here rather than mid-sprint.</p>
+
+    
+    
+  </div>
+  
+</section>
+
+<section class="panel">
+  <h2>An API key, billed per token</h2>
+  
+  <div class="engine">
+    <div class="ehead">
+      <b>OpenRouter (hundreds of models)</b>
+      <span class="chip st-done">key saved</span>
+      
+    </div>
+
+    <p class="ewhen">The simplest start: one key, hundreds of models, and it reports what each call cost.</p>
+    <p class="fine"><b>Cost:</b> Pay per token, billed by OpenRouter. Routine work on a cheap model is cents per sprint.</p>
+    <p class="fine"><b>How:</b> Create a key at openrouter.ai/keys and paste it below.
+      <a href="https://openrouter.ai/keys" target="_blank" rel="noreferrer noopener">Get a key</a>.</p>
+
+    
+    
+    <form method="post" action="/settings/key" class="erow"><input type="hidden" name="csrf" value="<CSRF>">
+      <input type="hidden" name="provider" value="openrouter">
+      <input type="password" name="key" class="sel" autocomplete="off" required
+             placeholder="paste a new key to replace the stored one">
+      <button class="btn">Replace</button>
+    </form>
+    
+    <form method="post" action="/settings/key-clear" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+      <input type="hidden" name="provider" value="openrouter">
+      <button class="btn back">Remove the key</button>
+    </form>
+    
+    <p class="fine">Stored in the <code>.env</code> file beside the app, which
+    is gitignored, and never shown again.</p>
+
+    
+    
+  </div>
+  
+  <div class="engine">
+    <div class="ehead">
+      <b>DeepSeek (direct)</b>
+      <span class="chip st-todo">no key yet</span>
+    </div>
+
+    <p class="ewhen">The cheapest bulk engine, if you want to go direct rather than through OpenRouter.</p>
+    <p class="fine"><b>Cost:</b> USD 0.27 per million input tokens, USD 1.10 per million output.</p>
+    <p class="fine"><b>How:</b> Create a key at platform.deepseek.com and paste it below.
+      <a href="https://platform.deepseek.com/api_keys" target="_blank" rel="noreferrer noopener">Get a key</a>.</p>
+
+    
+    
+    <form method="post" action="/settings/key" class="erow"><input type="hidden" name="csrf" value="<CSRF>">
+      <input type="hidden" name="provider" value="deepseek">
+      <input type="password" name="key" class="sel" autocomplete="off" required
+             placeholder="paste the key here">
+      <button class="btn">Save key</button>
+    </form>
+    
+    <p class="fine">Stored in the <code>.env</code> file beside the app, which
+    is gitignored, and never shown again.</p>
+
+    
+    
+  </div>
+  
+  <div class="engine">
+    <div class="ehead">
+      <b>Custom OpenAI-compatible endpoint</b>
+      <span class="chip st-todo">no key yet</span>
+    </div>
+
+    <p class="ewhen">A server you host yourself or a vendor endpoint that speaks the OpenAI API: vLLM, Ollama, a private deployment.</p>
+    <p class="fine"><b>Cost:</b> Whatever that endpoint costs you. Set a price on the model in providers.yaml if you want its runs priced.</p>
+    <p class="fine"><b>How:</b> Set base_url in providers.yaml, then paste the key below.
+      </p>
+
+    
+    
+    <form method="post" action="/settings/key" class="erow"><input type="hidden" name="csrf" value="<CSRF>">
+      <input type="hidden" name="provider" value="custom">
+      <input type="password" name="key" class="sel" autocomplete="off" required
+             placeholder="paste the key here">
+      <button class="btn">Save key</button>
+    </form>
+    
+    <p class="fine">Stored in the <code>.env</code> file beside the app, which
+    is gitignored, and never shown again.</p>
+
+    
+    
+  </div>
+  
+</section>
+
+
+<section class="panel">
+  <h2>What the crew will actually run</h2>
+  <p class="fine">The supervisor picks an engine by how hard a task is: routine
+  work goes to a cheap one, deep analysis to the strong one. An engine whose
+  provider is not set up is simply skipped.</p>
+  <div class="tw"><table>
+    <tr><th>engine</th><th>tier</th><th>provider</th><th>ready</th><th>price it reports</th></tr>
+    
+    <tr>
+      <td><b>claude-strong</b><div class="fine">Claude via the operator&#39;s subscription; the deep-analysis engine</div></td>
+      <td><span class="chip">strong</span></td>
+      <td>claude-cli</td>
+      <td><span class="chip st-done">ready</span>
+          </td>
+      <td class="fine">no price configured, so its runs are recorded as cost unknown - never as free</td>
+    </tr>
+    
+    <tr>
+      <td><b>kimi-standard</b><div class="fine">Fast and cheap; pulses, showback, routine commentary</div></td>
+      <td><span class="chip">standard</span></td>
+      <td>openrouter</td>
+      <td><span class="chip st-done">ready</span>
+          </td>
+      <td class="fine">
+            $0.55 in / $2.2 out per million tokens
+          </td>
+    </tr>
+    
+    <tr>
+      <td><b>kiro-standard</b><div class="fine">Kiro headless on this machine; no key stored, no per-token price reported</div></td>
+      <td><span class="chip">standard</span></td>
+      <td>kiro</td>
+      <td><span class="chip st-todo">not set up</span></td>
+      <td class="fine">no price configured, so its runs are recorded as cost unknown - never as free</td>
+    </tr>
+    
+    <tr>
+      <td><b>deepseek-economy</b><div class="fine">Cheapest bulk engine (needs DEEPSEEK_API_KEY)</div></td>
+      <td><span class="chip">economy</span></td>
+      <td>deepseek</td>
+      <td><span class="chip st-todo">not set up</span></td>
+      <td class="fine">
+            $0.27 in / $1.1 out per million tokens
+          </td>
+    </tr>
+    
+  </table></div>
+  <p class="fine">Where to go next:
+    <a href="/staff">Staff</a> shows which engine each analyst is set to and what
+    it has actually cost them, and
+    <a href="/results">Results</a> carries the crew's own cost against the spend
+    it watches - the FinOps question asked of the FinOps team itself.</p>
+</section>
+</main>
+</div>
+<script>
+document.addEventListener('input', function (e) {
+  var box = e.target.closest('.filterbox'); if (!box) return;
+  var root = document.querySelector(box.dataset.target); if (!root) return;
+  var q = box.value.trim().toLowerCase();
+  root.querySelectorAll('[data-search]').forEach(function (el) {
+    var hit = !q || el.dataset.search.toLowerCase().indexOf(q) !== -1;
+    if (el.classList.contains('deskgroup')) {
+      var inner = Array.prototype.some.call(el.querySelectorAll('[data-search]'),
+        function (x) { return x.dataset.search.toLowerCase().indexOf(q) !== -1; });
+      el.style.display = (hit || inner || !q) ? '' : 'none';
+      el.querySelectorAll('[data-search]').forEach(function (x) {
+        x.style.display = (!q || hit || x.dataset.search.toLowerCase().indexOf(q) !== -1) ? '' : 'none';
+      });
+    } else if (!el.closest('.deskgroup')) {
+      el.style.display = hit ? '' : 'none';
+    }
+  });
+});
+document.addEventListener('click', function (e) {
+  if (e.target.classList && e.target.classList.contains('grip')) return;
+  var th = e.target.closest('th'); if (!th) return;
+  var table = th.closest('table'); if (!table) return;
+  var idx = Array.prototype.indexOf.call(th.parentNode.children, th);
+  var rows = Array.prototype.slice.call(table.querySelectorAll('tr')).filter(
+    function (r) { return r.querySelector('td'); });
+  var dir = th.dataset.dir === 'asc' ? -1 : 1;
+  table.querySelectorAll('th').forEach(function (h) { delete h.dataset.dir;
+    var a = h.querySelector('.arrow'); if (a) a.remove(); });
+  th.dataset.dir = dir === 1 ? 'asc' : 'desc';
+  var arrow = document.createElement('span');
+  arrow.className = 'arrow';
+  arrow.textContent = dir === 1 ? ' \u25B2' : ' \u25BC';
+  th.appendChild(arrow);
+  function key(r) {
+    var c = r.children[idx]; if (!c) return '';
+    var txt = c.textContent.trim().replace(/[$,%]/g, '').replace(/,/g, '');
+    if (/\d{4}-\d{2}-\d{2}/.test(txt)) return txt.replace(/[^\d-]/g, '');
+    var n = parseFloat(txt);
+    return isNaN(n) ? txt.toLowerCase() : n;
+  }
+  rows.sort(function (a, b) {
+    var ka = key(a), kb = key(b);
+    if (typeof ka === 'number' && typeof kb === 'number') return (ka - kb) * dir;
+    return String(ka).localeCompare(String(kb)) * dir;
+  });
+  rows.forEach(function (r) { r.parentNode.appendChild(r); });
+});
+
+/* ---- tables you can widen, and that fit any screen -----------------------
+   Every table is put in its own horizontally scrolling box, so a wide table
+   scrolls inside its panel instead of pushing the whole page sideways. Each
+   header cell gets a grip on its right edge: drag it to widen the column,
+   double-click it to give the column back to the browser. Widths are
+   remembered per page, because a column you widened once you almost always
+   want wide again.                                                          */
+(function () {
+  var KEY = 'costcrew.colw.' + location.pathname;
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (err) { saved = {}; }
+
+  function persist() {
+    try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (err) { /* private mode */ }
+  }
+
+  function setup() {
+    document.querySelectorAll('table').forEach(function (table, ti) {
+      if (!table.parentNode.classList.contains('tw')) {
+        var box = document.createElement('div');
+        box.className = 'tw';
+        table.parentNode.insertBefore(box, table);
+        box.appendChild(table);
+      }
+      /* An atom never breaks: a date, a sum, a status, a short name. Prose
+         does break, and must, or one sentence drags the whole table wider
+         than the screen and everything else scrolls to reach it. The rule is
+         length, applied once, because CSS cannot ask how long a text is. */
+      table.querySelectorAll('td, th').forEach(function (cell) {
+        if (cell.children.length) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length > 40 && txt.indexOf(' ') !== -1) cell.classList.add('wrap');
+      });
+
+      /* Really long prose gets two lines and a way to open the rest. Nothing
+         is removed: the full text is still in the cell, still searched by
+         the filter box, still there for anyone who presses. */
+      table.querySelectorAll('td').forEach(function (cell) {
+        if (cell.querySelector('.clamp')) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length <= 110) return;
+        var box = document.createElement('div');
+        box.className = 'clamp';
+        while (cell.firstChild) box.appendChild(cell.firstChild);
+        cell.appendChild(box);
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'more';
+        btn.textContent = 'more';
+        btn.setAttribute('aria-expanded', 'false');
+        btn.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          var open = box.classList.toggle('open');
+          btn.textContent = open ? 'less' : 'more';
+          btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+        cell.appendChild(btn);
+        cell.classList.add('wrap');
+      });
+      /* Align each header to the column beneath it. The figures are right
+         aligned and the headers were not, so every numeric column read as a
+         label on the left with unrelated numbers on the right. */
+      var head0 = table.querySelector('tr');
+      if (head0) {
+        var body = Array.prototype.slice.call(table.querySelectorAll('tr'))
+          .filter(function (r) { return r.querySelector('td'); });
+        head0.querySelectorAll('th').forEach(function (th, ci) {
+          var nums = 0, cells = 0;
+          body.forEach(function (r) {
+            var cell = r.children[ci];
+            if (!cell || cell.tagName !== 'TD') return;
+            cells++;
+            if (cell.classList.contains('num')) nums++;
+          });
+          if (cells && nums * 2 > cells) th.classList.add('num');
+        });
+      }
+      var head = table.querySelector('tr');
+      if (!head) return;
+      head.querySelectorAll('th').forEach(function (th, ci) {
+        var id = ti + ':' + ci;
+        if (saved[id]) { th.style.width = saved[id] + 'px'; th.classList.add('sized'); }
+        if (th.querySelector('.grip')) return;
+        var grip = document.createElement('span');
+        grip.className = 'grip';
+        grip.title = 'Drag to widen, double-click to reset';
+        grip.addEventListener('dblclick', function (ev) {
+          ev.stopPropagation();
+          th.style.width = ''; th.classList.remove('sized');
+          delete saved[id]; persist();
+        });
+        grip.addEventListener('pointerdown', function (ev) {
+          ev.preventDefault(); ev.stopPropagation();
+          var x0 = ev.clientX, w0 = th.getBoundingClientRect().width;
+          grip.classList.add('on');
+          grip.setPointerCapture(ev.pointerId);
+          function move(e2) {
+            var w = Math.max(48, Math.round(w0 + (e2.clientX - x0)));
+            th.style.width = w + 'px'; th.classList.add('sized');
+            saved[id] = w;
+          }
+          function up() {
+            grip.classList.remove('on');
+            grip.removeEventListener('pointermove', move);
+            grip.removeEventListener('pointerup', up);
+            persist();
+          }
+          grip.addEventListener('pointermove', move);
+          grip.addEventListener('pointerup', up);
+        });
+        th.appendChild(grip);
+      });
+    });
+    document.querySelectorAll('.tw').forEach(function (box) {
+      function mark() {
+        /* a few pixels is rounding, not a hidden column */
+        var over = box.scrollWidth > box.clientWidth + 8;
+        box.classList.toggle('scrolls', over);
+        box.classList.toggle('atend',
+          over && box.scrollLeft + box.clientWidth >= box.scrollWidth - 2);
+      }
+      box.addEventListener('scroll', mark);
+      window.addEventListener('resize', mark);
+      mark();
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setup);
+  } else { setup(); }
+})();
+</script>
+</body></html>
