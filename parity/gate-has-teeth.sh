@@ -58,37 +58,53 @@ fi
 
 echo
 echo "[planted faults: each must be caught]"
+#
+# Each fault is planted on a COPY of $GOLDEN, mutating captured bytes
+# directly instead of Python source re-captured by a running server: the
+# Python original (~/Development/FinOps analyst service) was deleted
+# 2026-08-25 and there is nothing left to boot. `parity mutate` and
+# `parity drop` keep the copy structurally valid (sha256, bytes, count and
+# digest all rewritten to match), so a red result below is compare() naming
+# a real difference, not tripping over a corrupt directory.
 
-# 1. Arithmetic. One rounding step in the engine, the kind of change a port
+# 1. Arithmetic. A dollar figure changed by one, the kind of change a port
 #    makes by accident when a float lands in an int.
-COSTCREW_PARITY_PATCH="sed -i '' 's/round(base \* f \/ 10) \* 10/round(base * f \/ 10) * 10 + 1/' ingest.py" \
-  "$REPO/parity/capture-python.sh" "$TMP/fault-arith" 8461 >"$TMP/cap1.log" 2>&1
-if [[ -f "$TMP/fault-arith/manifest.json" ]]; then
+cp -R "$GOLDEN" "$TMP/fault-arith"
+if "$PARITY" mutate -dir "$TMP/fault-arith" -path /kpis \
+     -old '$1,650.00' -new '$1,651.00' >"$TMP/mut1.log" 2>&1; then
   want_red "a budget off by one is caught" \
     "$PARITY" compare -a "$GOLDEN" -b "$TMP/fault-arith"
+  # Not vacuous: the failure must name /kpis specifically, not just exit
+  # non-zero. A gate that only proves "something, somewhere differs" would
+  # pass just as happily if compare() stopped looking after the first path.
+  if grep -qF 'CONTENT' "$TMP/out" && grep -qF '/kpis' "$TMP/out"; then
+    ok "and it names the surface: CONTENT /kpis"
+  else
+    bad "it went red without naming /kpis"
+  fi
 else
-  bad "fault-arith capture did not run"; tail -5 "$TMP/cap1.log" | sed 's/^/        /'
+  bad "planting fault-arith failed"; tail -5 "$TMP/mut1.log" | sed 's/^/        /'
 fi
 
-# 2. Wording. A template string, the kind a port rewrites without noticing.
-COSTCREW_PARITY_PATCH="sed -i '' 's/Newest first/Newest first./' templates/audit.html" \
-  "$REPO/parity/capture-python.sh" "$TMP/fault-copy" 8462 >"$TMP/cap2.log" 2>&1
-if [[ -f "$TMP/fault-copy/manifest.json" ]]; then
+# 2. Wording. One character in rendered copy, the kind a port rewrites
+#    without noticing.
+cp -R "$GOLDEN" "$TMP/fault-copy"
+if "$PARITY" mutate -dir "$TMP/fault-copy" -path /audit \
+     -old 'Newest first.' -new 'Newest first!' >"$TMP/mut2.log" 2>&1; then
   want_red "a one-character copy change is caught" \
     "$PARITY" compare -a "$GOLDEN" -b "$TMP/fault-copy"
 else
-  bad "fault-copy capture did not run"; tail -5 "$TMP/cap2.log" | sed 's/^/        /'
+  bad "planting fault-copy failed"; tail -5 "$TMP/mut2.log" | sed 's/^/        /'
 fi
 
 # 3. A route disappearing. The failure a port makes by forgetting a handler,
 #    and the one a status-only check would miss if it only walked what exists.
-COSTCREW_PARITY_PATCH="sed -i '' 's|@app.get(\"/teams\", response_class=HTMLResponse)|@app.get(\"/teams-moved\", response_class=HTMLResponse)|' app.py" \
-  "$REPO/parity/capture-python.sh" "$TMP/fault-route" 8463 >"$TMP/cap3.log" 2>&1
-if [[ -f "$TMP/fault-route/manifest.json" ]]; then
+cp -R "$GOLDEN" "$TMP/fault-route"
+if "$PARITY" drop -dir "$TMP/fault-route" -path /teams >"$TMP/mut3.log" 2>&1; then
   want_red "a route that moved is caught" \
     "$PARITY" compare -a "$GOLDEN" -b "$TMP/fault-route"
 else
-  bad "fault-route capture did not run"; tail -5 "$TMP/cap3.log" | sed 's/^/        /'
+  bad "planting fault-route failed"; tail -5 "$TMP/mut3.log" | sed 's/^/        /'
 fi
 
 echo
