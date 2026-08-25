@@ -1,0 +1,1420 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CostCrew</title>
+<link rel="stylesheet" href="/static/style.css"></head><body>
+<div class="shell">
+<nav class="rail">
+  <div class="brand">CostCrew</div>
+  <a href="/" class="">Today</a>
+  <a href="/board" class="">Board</a>
+  <a href="/board?view=month" class="sub">Calendar</a>
+  <a href="/teams" class="">Teams</a>
+  <a href="/sprints" class="">Sprints</a>
+  <a href="/feed" class="">Chats</a>
+  <a href="/feed?ch=aws" class="sub">#aws</a>
+  <a href="/feed?ch=gcp" class="sub">#gcp</a>
+  <a href="/feed?ch=onprem" class="sub">#onprem</a>
+  <a href="/kpis" class="">KPIs</a>
+  <a href="/library" class="sub ">Library</a>
+  <a href="/assessment" class="sub ">Assessment</a>
+  <a href="/allocation" class="">Allocation</a>
+  <a href="/chargeback" class="">Chargeback</a>
+  <a href="/exec" class="">Executive</a>
+  <a href="/results" class="">Results</a>
+  <a href="/ai" class="">AI spend</a>
+  <a href="/saas" class="">SaaS</a>
+  <a href="/utilisation" class="">Utilisation</a>
+  <a href="/explainers" class="">Explainers</a>
+  <a href="/staff" class="">Staff</a>
+  <a href="/workbench" class="">Workbench</a>
+  <a href="/data" class="">Data</a>
+  <a href="/connectors" class="sub ">Connectors</a>
+  <a href="/audit" class="on">Audit</a>
+  <a href="/settings" class="">Engines</a>
+  
+  <a href="/accounts" class="">Accounts</a>
+  <div class="railfoot">
+    
+    <div>parity · admin</div>
+    <form method="post" action="/logout" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+      <button class="btn back">Sign out</button></form>
+    
+    <div>MVP · local</div>
+  </div>
+</nav>
+<main class="content">
+<h1>Audit</h1>
+<p>Every action that changed anything, in the order it happened. Each entry
+carries the hash of the one before it, so a line cannot be edited, removed or
+back-dated without breaking the chain - and the chain is re-checked every time
+this page loads.</p>
+<p class="fine">Chain:
+  <span class="chip st-done">verified</span>
+  across <b><N></b> events. Newest first.
+  This is what makes a stamped deliverable defensible months later: not that
+  somebody remembers approving it, but that the record says who did, when, and
+  what the figures were at the time.</p>
+
+<input class="filterbox" placeholder="Find an event, an agent, a task..." data-target="#auditbody">
+<table id="auditbody">
+  <tr><th>when</th><th>what happened</th><th>details</th><th>hash</th></tr>
+  
+  <tr data-search="login parity">
+    <td><TS></td>
+    <td><span class="chip">login</span></td>
+    <td class="fine">
+      
+      
+      
+      
+        <span class="kv"><b>username</b> parity</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="user_registered True admin parity">
+    <td><TS></td>
+    <td><span class="chip">user registered</span></td>
+    <td class="fine">
+      
+      
+      
+      
+        <span class="kv"><b>first</b> True</span>
+        <span class="kv"><b>role</b> admin</span>
+        <span class="kv"><b>username</b> parity</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="user_created admin parity">
+    <td><TS></td>
+    <td><span class="chip">user created</span></td>
+    <td class="fine">
+      
+      
+      
+      
+        <span class="kv"><b>role</b> admin</span>
+        <span class="kv"><b>username</b> parity</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_produced 119 0.004466 seeded-history 121 1">
+    <td><TS></td>
+    <td><span class="chip">artifact produced</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/121">task 121</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 119</span>
+        <span class="kv"><b>cost usd</b> 0.004466</span>
+        <span class="kv"><b>provider</b> seeded-history</span>
+        <span class="kv"><b>version</b> 1</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="task_created reporter-aws 13 121 Weekly spend pulse 2026-W35 (aws)">
+    <td><TS></td>
+    <td><span class="chip">task created</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/121">task 121</a> 
+      <a class="qid" href="/sprint/13">sprint 13</a> 
+      
+      
+        <span class="kv"><b>assignee</b> reporter-aws</span>
+        <span class="kv"><b>title</b> Weekly spend pulse 2026-W35 (aws)</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_approved 118 POSTED · 2026-08-16 · operator 120">
+    <td><TS></td>
+    <td><span class="chip">artifact approved</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/120">task 120</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 118</span>
+        <span class="kv"><b>stamp</b> POSTED · 2026-08-16 · operator</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_produced 118 0.0 seeded-history 120 1">
+    <td><TS></td>
+    <td><span class="chip">artifact produced</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/120">task 120</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 118</span>
+        <span class="kv"><b>cost usd</b> 0.0</span>
+        <span class="kv"><b>provider</b> seeded-history</span>
+        <span class="kv"><b>version</b> 1</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="task_created reporter-onprem 16 120 Re-measure onprem allocation and publish the desk showback delta">
+    <td><TS></td>
+    <td><span class="chip">task created</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/120">task 120</a> 
+      <a class="qid" href="/sprint/16">sprint 16</a> 
+      
+      
+        <span class="kv"><b>assignee</b> reporter-onprem</span>
+        <span class="kv"><b>title</b> Re-measure onprem allocation and publish the desk showback delta</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_approved 117 POSTED · 2026-08-16 · operator 119">
+    <td><TS></td>
+    <td><span class="chip">artifact approved</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/119">task 119</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 117</span>
+        <span class="kv"><b>stamp</b> POSTED · 2026-08-16 · operator</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_produced 117 0.36754450000000005 seeded-history 119 1">
+    <td><TS></td>
+    <td><span class="chip">artifact produced</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/119">task 119</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 117</span>
+        <span class="kv"><b>cost usd</b> 0.36754450000000005</span>
+        <span class="kv"><b>provider</b> seeded-history</span>
+        <span class="kv"><b>version</b> 1</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="task_created investigator-onprem 16 119 Apply the onprem split rules to shared infrastructure and re-measure AAI (covers open task #68)">
+    <td><TS></td>
+    <td><span class="chip">task created</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/119">task 119</a> 
+      <a class="qid" href="/sprint/16">sprint 16</a> 
+      
+      
+        <span class="kv"><b>assignee</b> investigator-onprem</span>
+        <span class="kv"><b>title</b> Apply the onprem split rules to shared infrastructure and re-measure AAI (covers open task #68)</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_approved 116 POSTED · 2026-08-16 · operator 118">
+    <td><TS></td>
+    <td><span class="chip">artifact approved</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/118">task 118</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 116</span>
+        <span class="kv"><b>stamp</b> POSTED · 2026-08-16 · operator</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_produced 116 0.0 seeded-history 118 1">
+    <td><TS></td>
+    <td><span class="chip">artifact produced</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/118">task 118</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 116</span>
+        <span class="kv"><b>cost usd</b> 0.0</span>
+        <span class="kv"><b>provider</b> seeded-history</span>
+        <span class="kv"><b>version</b> 1</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="task_created investigator-gcp 16 118 Reconstruct the ml GKE step from billing data alone (desk-side step on #69)">
+    <td><TS></td>
+    <td><span class="chip">task created</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/118">task 118</a> 
+      <a class="qid" href="/sprint/16">sprint 16</a> 
+      
+      
+        <span class="kv"><b>assignee</b> investigator-gcp</span>
+        <span class="kv"><b>title</b> Reconstruct the ml GKE step from billing data alone (desk-side step on #69)</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_approved 115 POSTED · 2026-08-16 · operator 117">
+    <td><TS></td>
+    <td><span class="chip">artifact approved</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/117">task 117</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 115</span>
+        <span class="kv"><b>stamp</b> POSTED · 2026-08-16 · operator</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_produced 115 0.0 seeded-history 117 1">
+    <td><TS></td>
+    <td><span class="chip">artifact produced</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/117">task 117</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 115</span>
+        <span class="kv"><b>cost usd</b> 0.0</span>
+        <span class="kv"><b>provider</b> seeded-history</span>
+        <span class="kv"><b>version</b> 1</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="task_created reporter-gcp 16 117 Re-measure GCP ESR and ml budget variance after the lift">
+    <td><TS></td>
+    <td><span class="chip">task created</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/117">task 117</a> 
+      <a class="qid" href="/sprint/16">sprint 16</a> 
+      
+      
+        <span class="kv"><b>assignee</b> reporter-gcp</span>
+        <span class="kv"><b>title</b> Re-measure GCP ESR and ml budget variance after the lift</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_approved 114 POSTED · 2026-08-16 · operator 116">
+    <td><TS></td>
+    <td><span class="chip">artifact approved</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/116">task 116</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 114</span>
+        <span class="kv"><b>stamp</b> POSTED · 2026-08-16 · operator</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_produced 114 0.3781445 seeded-history 116 1">
+    <td><TS></td>
+    <td><span class="chip">artifact produced</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/116">task 116</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 114</span>
+        <span class="kv"><b>cost usd</b> 0.3781445</span>
+        <span class="kv"><b>provider</b> seeded-history</span>
+        <span class="kv"><b>version</b> 1</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="task_created optimizer-gcp 16 116 Apply the GCP ESR lift package and re-measure ESR (covers open task #67)">
+    <td><TS></td>
+    <td><span class="chip">task created</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/116">task 116</a> 
+      <a class="qid" href="/sprint/16">sprint 16</a> 
+      
+      
+        <span class="kv"><b>assignee</b> optimizer-gcp</span>
+        <span class="kv"><b>title</b> Apply the GCP ESR lift package and re-measure ESR (covers open task #67)</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_approved 113 POSTED · 2026-08-16 · operator 115">
+    <td><TS></td>
+    <td><span class="chip">artifact approved</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/115">task 115</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 113</span>
+        <span class="kv"><b>stamp</b> POSTED · 2026-08-16 · operator</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_produced 113 0.0 seeded-history 115 1">
+    <td><TS></td>
+    <td><span class="chip">artifact produced</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/115">task 115</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 113</span>
+        <span class="kv"><b>cost usd</b> 0.0</span>
+        <span class="kv"><b>provider</b> seeded-history</span>
+        <span class="kv"><b>version</b> 1</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="task_created capacity-aws 16 115 Classify the ml GPU driver and firm up the request #1 estimate">
+    <td><TS></td>
+    <td><span class="chip">task created</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/115">task 115</a> 
+      <a class="qid" href="/sprint/16">sprint 16</a> 
+      
+      
+        <span class="kv"><b>assignee</b> capacity-aws</span>
+        <span class="kv"><b>title</b> Classify the ml GPU driver and firm up the request #1 estimate</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_approved 112 POSTED · 2026-08-16 · operator 114">
+    <td><TS></td>
+    <td><span class="chip">artifact approved</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/114">task 114</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 112</span>
+        <span class="kv"><b>stamp</b> POSTED · 2026-08-16 · operator</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_produced 112 0.0 seeded-history 114 1">
+    <td><TS></td>
+    <td><span class="chip">artifact produced</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/114">task 114</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 112</span>
+        <span class="kv"><b>cost usd</b> 0.0</span>
+        <span class="kv"><b>provider</b> seeded-history</span>
+        <span class="kv"><b>version</b> 1</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="task_created reporter-aws 16 114 Apply the walk-to-run ladder step and re-measure AWS forecast error">
+    <td><TS></td>
+    <td><span class="chip">task created</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/114">task 114</a> 
+      <a class="qid" href="/sprint/16">sprint 16</a> 
+      
+      
+        <span class="kv"><b>assignee</b> reporter-aws</span>
+        <span class="kv"><b>title</b> Apply the walk-to-run ladder step and re-measure AWS forecast error</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_approved 111 POSTED · 2026-08-16 · operator 113">
+    <td><TS></td>
+    <td><span class="chip">artifact approved</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/113">task 113</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 111</span>
+        <span class="kv"><b>stamp</b> POSTED · 2026-08-16 · operator</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_produced 111 0.0 seeded-history 113 1">
+    <td><TS></td>
+    <td><span class="chip">artifact produced</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/113">task 113</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 111</span>
+        <span class="kv"><b>cost usd</b> 0.0</span>
+        <span class="kv"><b>provider</b> seeded-history</span>
+        <span class="kv"><b>version</b> 1</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="task_created optimizer-aws 16 113 Apply the RI coverage extension (request #7) and re-measure AWS ESR">
+    <td><TS></td>
+    <td><span class="chip">task created</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/113">task 113</a> 
+      <a class="qid" href="/sprint/16">sprint 16</a> 
+      
+      
+        <span class="kv"><b>assignee</b> optimizer-aws</span>
+        <span class="kv"><b>title</b> Apply the RI coverage extension (request #7) and re-measure AWS ESR</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_approved 110 POSTED · 2026-08-16 · operator 112">
+    <td><TS></td>
+    <td><span class="chip">artifact approved</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/112">task 112</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 110</span>
+        <span class="kv"><b>stamp</b> POSTED · 2026-08-16 · operator</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_produced 110 0.0 seeded-history 112 1">
+    <td><TS></td>
+    <td><span class="chip">artifact produced</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/112">task 112</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 110</span>
+        <span class="kv"><b>cost usd</b> 0.0</span>
+        <span class="kv"><b>provider</b> seeded-history</span>
+        <span class="kv"><b>version</b> 1</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="task_created capacity-aws 15 112 Size request #1 (GPU nodes) and profile ml AI spend">
+    <td><TS></td>
+    <td><span class="chip">task created</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/112">task 112</a> 
+      <a class="qid" href="/sprint/15">sprint 15</a> 
+      
+      
+        <span class="kv"><b>assignee</b> capacity-aws</span>
+        <span class="kv"><b>title</b> Size request #1 (GPU nodes) and profile ml AI spend</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_approved 109 POSTED · 2026-08-16 · operator 111">
+    <td><TS></td>
+    <td><span class="chip">artifact approved</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/111">task 111</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 109</span>
+        <span class="kv"><b>stamp</b> POSTED · 2026-08-16 · operator</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_produced 109 0.0 seeded-history 111 1">
+    <td><TS></td>
+    <td><span class="chip">artifact produced</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/111">task 111</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 109</span>
+        <span class="kv"><b>cost usd</b> 0.0</span>
+        <span class="kv"><b>provider</b> seeded-history</span>
+        <span class="kv"><b>version</b> 1</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="task_created reporter-onprem 15 111 Rework returned pulse #65 and clear the on-prem queue">
+    <td><TS></td>
+    <td><span class="chip">task created</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/111">task 111</a> 
+      <a class="qid" href="/sprint/15">sprint 15</a> 
+      
+      
+        <span class="kv"><b>assignee</b> reporter-onprem</span>
+        <span class="kv"><b>title</b> Rework returned pulse #65 and clear the on-prem queue</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_approved 108 POSTED · 2026-08-16 · operator 110">
+    <td><TS></td>
+    <td><span class="chip">artifact approved</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/110">task 110</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 108</span>
+        <span class="kv"><b>stamp</b> POSTED · 2026-08-16 · operator</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_produced 108 0.0 seeded-history 110 1">
+    <td><TS></td>
+    <td><span class="chip">artifact produced</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/110">task 110</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 108</span>
+        <span class="kv"><b>cost usd</b> 0.0</span>
+        <span class="kv"><b>provider</b> seeded-history</span>
+        <span class="kv"><b>version</b> 1</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="task_created reporter-aws 15 110 AWS W34 pulse and KPI benchmark card">
+    <td><TS></td>
+    <td><span class="chip">task created</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/110">task 110</a> 
+      <a class="qid" href="/sprint/15">sprint 15</a> 
+      
+      
+        <span class="kv"><b>assignee</b> reporter-aws</span>
+        <span class="kv"><b>title</b> AWS W34 pulse and KPI benchmark card</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_approved 107 POSTED · 2026-08-16 · operator 109">
+    <td><TS></td>
+    <td><span class="chip">artifact approved</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/109">task 109</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 107</span>
+        <span class="kv"><b>stamp</b> POSTED · 2026-08-16 · operator</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_produced 107 0.0 seeded-history 109 1">
+    <td><TS></td>
+    <td><span class="chip">artifact produced</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/109">task 109</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 107</span>
+        <span class="kv"><b>cost usd</b> 0.0</span>
+        <span class="kv"><b>provider</b> seeded-history</span>
+        <span class="kv"><b>version</b> 1</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="task_created reporter-gcp 15 109 GCP forecast ladder: walk to run">
+    <td><TS></td>
+    <td><span class="chip">task created</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/109">task 109</a> 
+      <a class="qid" href="/sprint/15">sprint 15</a> 
+      
+      
+        <span class="kv"><b>assignee</b> reporter-gcp</span>
+        <span class="kv"><b>title</b> GCP forecast ladder: walk to run</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_approved 106 POSTED · 2026-08-16 · operator 108">
+    <td><TS></td>
+    <td><span class="chip">artifact approved</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/108">task 108</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 106</span>
+        <span class="kv"><b>stamp</b> POSTED · 2026-08-16 · operator</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_produced 106 0.0 seeded-history 108 1">
+    <td><TS></td>
+    <td><span class="chip">artifact produced</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/108">task 108</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 106</span>
+        <span class="kv"><b>cost usd</b> 0.0</span>
+        <span class="kv"><b>provider</b> seeded-history</span>
+        <span class="kv"><b>version</b> 1</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="task_created optimizer-aws 15 108 Close out RI coverage extension, request #7">
+    <td><TS></td>
+    <td><span class="chip">task created</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/108">task 108</a> 
+      <a class="qid" href="/sprint/15">sprint 15</a> 
+      
+      
+        <span class="kv"><b>assignee</b> optimizer-aws</span>
+        <span class="kv"><b>title</b> Close out RI coverage extension, request #7</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_approved 105 POSTED · 2026-08-16 · operator 107">
+    <td><TS></td>
+    <td><span class="chip">artifact approved</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/107">task 107</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 105</span>
+        <span class="kv"><b>stamp</b> POSTED · 2026-08-16 · operator</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_produced 105 0.0 seeded-history 107 1">
+    <td><TS></td>
+    <td><span class="chip">artifact produced</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/107">task 107</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 105</span>
+        <span class="kv"><b>cost usd</b> 0.0</span>
+        <span class="kv"><b>provider</b> seeded-history</span>
+        <span class="kv"><b>version</b> 1</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="task_created optimizer-gcp 15 107 Finish idle-schedule proposal #67 (weekend dips)">
+    <td><TS></td>
+    <td><span class="chip">task created</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/107">task 107</a> 
+      <a class="qid" href="/sprint/15">sprint 15</a> 
+      
+      
+        <span class="kv"><b>assignee</b> optimizer-gcp</span>
+        <span class="kv"><b>title</b> Finish idle-schedule proposal #67 (weekend dips)</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_approved 104 POSTED · 2026-08-16 · operator 106">
+    <td><TS></td>
+    <td><span class="chip">artifact approved</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/106">task 106</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 104</span>
+        <span class="kv"><b>stamp</b> POSTED · 2026-08-16 · operator</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_produced 104 0.42278950000000004 seeded-history 106 1">
+    <td><TS></td>
+    <td><span class="chip">artifact produced</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/106">task 106</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 104</span>
+        <span class="kv"><b>cost usd</b> 0.42278950000000004</span>
+        <span class="kv"><b>provider</b> seeded-history</span>
+        <span class="kv"><b>version</b> 1</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="task_created optimizer-gcp 15 106 GCP commitment coverage to lift effective savings rate">
+    <td><TS></td>
+    <td><span class="chip">task created</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/106">task 106</a> 
+      <a class="qid" href="/sprint/15">sprint 15</a> 
+      
+      
+        <span class="kv"><b>assignee</b> optimizer-gcp</span>
+        <span class="kv"><b>title</b> GCP commitment coverage to lift effective savings rate</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_approved 103 POSTED · 2026-08-16 · operator 105">
+    <td><TS></td>
+    <td><span class="chip">artifact approved</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/105">task 105</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 103</span>
+        <span class="kv"><b>stamp</b> POSTED · 2026-08-16 · operator</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_produced 103 0.4330545 seeded-history 105 1">
+    <td><TS></td>
+    <td><span class="chip">artifact produced</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/105">task 105</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 103</span>
+        <span class="kv"><b>cost usd</b> 0.4330545</span>
+        <span class="kv"><b>provider</b> seeded-history</span>
+        <span class="kv"><b>version</b> 1</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="task_created investigator-onprem 15 105 On-prem shared-pool allocation: colo, power, licensing">
+    <td><TS></td>
+    <td><span class="chip">task created</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/105">task 105</a> 
+      <a class="qid" href="/sprint/15">sprint 15</a> 
+      
+      
+        <span class="kv"><b>assignee</b> investigator-onprem</span>
+        <span class="kv"><b>title</b> On-prem shared-pool allocation: colo, power, licensing</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_approved 102 POSTED · 2026-08-16 · operator 104">
+    <td><TS></td>
+    <td><span class="chip">artifact approved</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/104">task 104</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 102</span>
+        <span class="kv"><b>stamp</b> POSTED · 2026-08-16 · operator</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_produced 102 0.0 seeded-history 104 1">
+    <td><TS></td>
+    <td><span class="chip">artifact produced</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/104">task 104</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 102</span>
+        <span class="kv"><b>cost usd</b> 0.0</span>
+        <span class="kv"><b>provider</b> seeded-history</span>
+        <span class="kv"><b>version</b> 1</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="task_created investigator-gcp 15 104 Apply the split-rule shape to GCP allocation">
+    <td><TS></td>
+    <td><span class="chip">task created</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/104">task 104</a> 
+      <a class="qid" href="/sprint/15">sprint 15</a> 
+      
+      
+        <span class="kv"><b>assignee</b> investigator-gcp</span>
+        <span class="kv"><b>title</b> Apply the split-rule shape to GCP allocation</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_approved 101 POSTED · 2026-08-16 · operator 103">
+    <td><TS></td>
+    <td><span class="chip">artifact approved</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/103">task 103</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 101</span>
+        <span class="kv"><b>stamp</b> POSTED · 2026-08-16 · operator</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_produced 101 0.38777950000000005 seeded-history 103 1">
+    <td><TS></td>
+    <td><span class="chip">artifact produced</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/103">task 103</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 101</span>
+        <span class="kv"><b>cost usd</b> 0.38777950000000005</span>
+        <span class="kv"><b>provider</b> seeded-history</span>
+        <span class="kv"><b>version</b> 1</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="task_created investigator-aws 15 103 AWS split rules for Purchase, Tax and Credit">
+    <td><TS></td>
+    <td><span class="chip">task created</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/103">task 103</a> 
+      <a class="qid" href="/sprint/15">sprint 15</a> 
+      
+      
+        <span class="kv"><b>assignee</b> investigator-aws</span>
+        <span class="kv"><b>title</b> AWS split rules for Purchase, Tax and Credit</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_approved 100 POSTED · 2026-08-16 · operator 102">
+    <td><TS></td>
+    <td><span class="chip">artifact approved</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/102">task 102</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 100</span>
+        <span class="kv"><b>stamp</b> POSTED · 2026-08-16 · operator</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_produced 100 0.0 seeded-history 102 1">
+    <td><TS></td>
+    <td><span class="chip">artifact produced</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/102">task 102</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 100</span>
+        <span class="kv"><b>cost usd</b> 0.0</span>
+        <span class="kv"><b>provider</b> seeded-history</span>
+        <span class="kv"><b>version</b> 1</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="task_created reporter-gcp 14 102 Cross-desk ml position note for the operator">
+    <td><TS></td>
+    <td><span class="chip">task created</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/102">task 102</a> 
+      <a class="qid" href="/sprint/14">sprint 14</a> 
+      
+      
+        <span class="kv"><b>assignee</b> reporter-gcp</span>
+        <span class="kv"><b>title</b> Cross-desk ml position note for the operator</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_approved 99 POSTED · 2026-08-16 · operator 101">
+    <td><TS></td>
+    <td><span class="chip">artifact approved</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/101">task 101</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 99</span>
+        <span class="kv"><b>stamp</b> POSTED · 2026-08-16 · operator</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_produced 99 0.0 seeded-history 101 1">
+    <td><TS></td>
+    <td><span class="chip">artifact produced</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/101">task 101</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 99</span>
+        <span class="kv"><b>cost usd</b> 0.0</span>
+        <span class="kv"><b>provider</b> seeded-history</span>
+        <span class="kv"><b>version</b> 1</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="task_created investigator-onprem 14 101 Finish the storage growth check after the array step (item #68)">
+    <td><TS></td>
+    <td><span class="chip">task created</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/101">task 101</a> 
+      <a class="qid" href="/sprint/14">sprint 14</a> 
+      
+      
+        <span class="kv"><b>assignee</b> investigator-onprem</span>
+        <span class="kv"><b>title</b> Finish the storage growth check after the array step (item #68)</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_approved 98 POSTED · 2026-08-16 · operator 100">
+    <td><TS></td>
+    <td><span class="chip">artifact approved</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/100">task 100</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 98</span>
+        <span class="kv"><b>stamp</b> POSTED · 2026-08-16 · operator</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_produced 98 0.0 seeded-history 100 1">
+    <td><TS></td>
+    <td><span class="chip">artifact produced</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/100">task 100</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 98</span>
+        <span class="kv"><b>cost usd</b> 0.0</span>
+        <span class="kv"><b>provider</b> seeded-history</span>
+        <span class="kv"><b>version</b> 1</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="task_created reporter-onprem 14 100 Redo the returned weekly spend pulse 2026-W33 (onprem)">
+    <td><TS></td>
+    <td><span class="chip">task created</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/100">task 100</a> 
+      <a class="qid" href="/sprint/14">sprint 14</a> 
+      
+      
+        <span class="kv"><b>assignee</b> reporter-onprem</span>
+        <span class="kv"><b>title</b> Redo the returned weekly spend pulse 2026-W33 (onprem)</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_approved 97 POSTED · 2026-08-16 · operator 99">
+    <td><TS></td>
+    <td><span class="chip">artifact approved</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/99">task 99</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 97</span>
+        <span class="kv"><b>stamp</b> POSTED · 2026-08-16 · operator</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_produced 97 0.0 seeded-history 99 1">
+    <td><TS></td>
+    <td><span class="chip">artifact produced</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/99">task 99</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 97</span>
+        <span class="kv"><b>cost usd</b> 0.0</span>
+        <span class="kv"><b>provider</b> seeded-history</span>
+        <span class="kv"><b>version</b> 1</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="task_created reporter-onprem 14 99 August 2026 month-close report (onprem)">
+    <td><TS></td>
+    <td><span class="chip">task created</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/99">task 99</a> 
+      <a class="qid" href="/sprint/14">sprint 14</a> 
+      
+      
+        <span class="kv"><b>assignee</b> reporter-onprem</span>
+        <span class="kv"><b>title</b> August 2026 month-close report (onprem)</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_approved 96 POSTED · 2026-08-16 · operator 98">
+    <td><TS></td>
+    <td><span class="chip">artifact approved</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/98">task 98</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 96</span>
+        <span class="kv"><b>stamp</b> POSTED · 2026-08-16 · operator</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_produced 96 0.0 seeded-history 98 1">
+    <td><TS></td>
+    <td><span class="chip">artifact produced</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/98">task 98</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 96</span>
+        <span class="kv"><b>cost usd</b> 0.0</span>
+        <span class="kv"><b>provider</b> seeded-history</span>
+        <span class="kv"><b>version</b> 1</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="task_created optimizer-gcp 14 98 Finish the weekend-dip idle schedule proposal (item #67)">
+    <td><TS></td>
+    <td><span class="chip">task created</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/98">task 98</a> 
+      <a class="qid" href="/sprint/14">sprint 14</a> 
+      
+      
+        <span class="kv"><b>assignee</b> optimizer-gcp</span>
+        <span class="kv"><b>title</b> Finish the weekend-dip idle schedule proposal (item #67)</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_approved 95 POSTED · 2026-08-16 · operator 97">
+    <td><TS></td>
+    <td><span class="chip">artifact approved</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/97">task 97</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 95</span>
+        <span class="kv"><b>stamp</b> POSTED · 2026-08-16 · operator</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_produced 95 0.42148450000000004 seeded-history 97 1">
+    <td><TS></td>
+    <td><span class="chip">artifact produced</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/97">task 97</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 95</span>
+        <span class="kv"><b>cost usd</b> 0.42148450000000004</span>
+        <span class="kv"><b>provider</b> seeded-history</span>
+        <span class="kv"><b>version</b> 1</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="task_created investigator-gcp 14 97 GKE burst pool for training: decision pack (request #3)">
+    <td><TS></td>
+    <td><span class="chip">task created</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/97">task 97</a> 
+      <a class="qid" href="/sprint/14">sprint 14</a> 
+      
+      
+        <span class="kv"><b>assignee</b> investigator-gcp</span>
+        <span class="kv"><b>title</b> GKE burst pool for training: decision pack (request #3)</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_approved 94 POSTED · 2026-08-16 · operator 96">
+    <td><TS></td>
+    <td><span class="chip">artifact approved</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/96">task 96</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 94</span>
+        <span class="kv"><b>stamp</b> POSTED · 2026-08-16 · operator</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="artifact_produced 94 0.0 seeded-history 96 1">
+    <td><TS></td>
+    <td><span class="chip">artifact produced</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/96">task 96</a> 
+      
+      
+      
+        <span class="kv"><b>artifact</b> 94</span>
+        <span class="kv"><b>cost usd</b> 0.0</span>
+        <span class="kv"><b>provider</b> seeded-history</span>
+        <span class="kv"><b>version</b> 1</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+  <tr data-search="task_created reporter-gcp 14 96 August 2026 month-close report (gcp)">
+    <td><TS></td>
+    <td><span class="chip">task created</span></td>
+    <td class="fine">
+      <a class="qid" href="/task/96">task 96</a> 
+      <a class="qid" href="/sprint/14">sprint 14</a> 
+      
+      
+        <span class="kv"><b>assignee</b> reporter-gcp</span>
+        <span class="kv"><b>title</b> August 2026 month-close report (gcp)</span>
+    </td>
+    <td class="qid"><HASH></td>
+  </tr>
+  
+</table>
+<p class="fine">The journal is an append-only file, <code>events.ndjson</code>,
+beside the app. Nothing in the console can rewrite it; the only way to change
+history is to delete the file, and then the chain says so.</p>
+</main>
+</div>
+<script>
+document.addEventListener('input', function (e) {
+  var box = e.target.closest('.filterbox'); if (!box) return;
+  var root = document.querySelector(box.dataset.target); if (!root) return;
+  var q = box.value.trim().toLowerCase();
+  root.querySelectorAll('[data-search]').forEach(function (el) {
+    var hit = !q || el.dataset.search.toLowerCase().indexOf(q) !== -1;
+    if (el.classList.contains('deskgroup')) {
+      var inner = Array.prototype.some.call(el.querySelectorAll('[data-search]'),
+        function (x) { return x.dataset.search.toLowerCase().indexOf(q) !== -1; });
+      el.style.display = (hit || inner || !q) ? '' : 'none';
+      el.querySelectorAll('[data-search]').forEach(function (x) {
+        x.style.display = (!q || hit || x.dataset.search.toLowerCase().indexOf(q) !== -1) ? '' : 'none';
+      });
+    } else if (!el.closest('.deskgroup')) {
+      el.style.display = hit ? '' : 'none';
+    }
+  });
+});
+document.addEventListener('click', function (e) {
+  if (e.target.classList && e.target.classList.contains('grip')) return;
+  var th = e.target.closest('th'); if (!th) return;
+  var table = th.closest('table'); if (!table) return;
+  var idx = Array.prototype.indexOf.call(th.parentNode.children, th);
+  var rows = Array.prototype.slice.call(table.querySelectorAll('tr')).filter(
+    function (r) { return r.querySelector('td'); });
+  var dir = th.dataset.dir === 'asc' ? -1 : 1;
+  table.querySelectorAll('th').forEach(function (h) { delete h.dataset.dir;
+    var a = h.querySelector('.arrow'); if (a) a.remove(); });
+  th.dataset.dir = dir === 1 ? 'asc' : 'desc';
+  var arrow = document.createElement('span');
+  arrow.className = 'arrow';
+  arrow.textContent = dir === 1 ? ' \u25B2' : ' \u25BC';
+  th.appendChild(arrow);
+  function key(r) {
+    var c = r.children[idx]; if (!c) return '';
+    var txt = c.textContent.trim().replace(/[$,%]/g, '').replace(/,/g, '');
+    if (/\d{4}-\d{2}-\d{2}/.test(txt)) return txt.replace(/[^\d-]/g, '');
+    var n = parseFloat(txt);
+    return isNaN(n) ? txt.toLowerCase() : n;
+  }
+  rows.sort(function (a, b) {
+    var ka = key(a), kb = key(b);
+    if (typeof ka === 'number' && typeof kb === 'number') return (ka - kb) * dir;
+    return String(ka).localeCompare(String(kb)) * dir;
+  });
+  rows.forEach(function (r) { r.parentNode.appendChild(r); });
+});
+
+/* ---- tables you can widen, and that fit any screen -----------------------
+   Every table is put in its own horizontally scrolling box, so a wide table
+   scrolls inside its panel instead of pushing the whole page sideways. Each
+   header cell gets a grip on its right edge: drag it to widen the column,
+   double-click it to give the column back to the browser. Widths are
+   remembered per page, because a column you widened once you almost always
+   want wide again.                                                          */
+(function () {
+  var KEY = 'costcrew.colw.' + location.pathname;
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (err) { saved = {}; }
+
+  function persist() {
+    try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (err) { /* private mode */ }
+  }
+
+  function setup() {
+    document.querySelectorAll('table').forEach(function (table, ti) {
+      if (!table.parentNode.classList.contains('tw')) {
+        var box = document.createElement('div');
+        box.className = 'tw';
+        table.parentNode.insertBefore(box, table);
+        box.appendChild(table);
+      }
+      /* An atom never breaks: a date, a sum, a status, a short name. Prose
+         does break, and must, or one sentence drags the whole table wider
+         than the screen and everything else scrolls to reach it. The rule is
+         length, applied once, because CSS cannot ask how long a text is. */
+      table.querySelectorAll('td, th').forEach(function (cell) {
+        if (cell.children.length) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length > 40 && txt.indexOf(' ') !== -1) cell.classList.add('wrap');
+      });
+
+      /* Really long prose gets two lines and a way to open the rest. Nothing
+         is removed: the full text is still in the cell, still searched by
+         the filter box, still there for anyone who presses. */
+      table.querySelectorAll('td').forEach(function (cell) {
+        if (cell.querySelector('.clamp')) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length <= 110) return;
+        var box = document.createElement('div');
+        box.className = 'clamp';
+        while (cell.firstChild) box.appendChild(cell.firstChild);
+        cell.appendChild(box);
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'more';
+        btn.textContent = 'more';
+        btn.setAttribute('aria-expanded', 'false');
+        btn.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          var open = box.classList.toggle('open');
+          btn.textContent = open ? 'less' : 'more';
+          btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+        cell.appendChild(btn);
+        cell.classList.add('wrap');
+      });
+      /* Align each header to the column beneath it. The figures are right
+         aligned and the headers were not, so every numeric column read as a
+         label on the left with unrelated numbers on the right. */
+      var head0 = table.querySelector('tr');
+      if (head0) {
+        var body = Array.prototype.slice.call(table.querySelectorAll('tr'))
+          .filter(function (r) { return r.querySelector('td'); });
+        head0.querySelectorAll('th').forEach(function (th, ci) {
+          var nums = 0, cells = 0;
+          body.forEach(function (r) {
+            var cell = r.children[ci];
+            if (!cell || cell.tagName !== 'TD') return;
+            cells++;
+            if (cell.classList.contains('num')) nums++;
+          });
+          if (cells && nums * 2 > cells) th.classList.add('num');
+        });
+      }
+      var head = table.querySelector('tr');
+      if (!head) return;
+      head.querySelectorAll('th').forEach(function (th, ci) {
+        var id = ti + ':' + ci;
+        if (saved[id]) { th.style.width = saved[id] + 'px'; th.classList.add('sized'); }
+        if (th.querySelector('.grip')) return;
+        var grip = document.createElement('span');
+        grip.className = 'grip';
+        grip.title = 'Drag to widen, double-click to reset';
+        grip.addEventListener('dblclick', function (ev) {
+          ev.stopPropagation();
+          th.style.width = ''; th.classList.remove('sized');
+          delete saved[id]; persist();
+        });
+        grip.addEventListener('pointerdown', function (ev) {
+          ev.preventDefault(); ev.stopPropagation();
+          var x0 = ev.clientX, w0 = th.getBoundingClientRect().width;
+          grip.classList.add('on');
+          grip.setPointerCapture(ev.pointerId);
+          function move(e2) {
+            var w = Math.max(48, Math.round(w0 + (e2.clientX - x0)));
+            th.style.width = w + 'px'; th.classList.add('sized');
+            saved[id] = w;
+          }
+          function up() {
+            grip.classList.remove('on');
+            grip.removeEventListener('pointermove', move);
+            grip.removeEventListener('pointerup', up);
+            persist();
+          }
+          grip.addEventListener('pointermove', move);
+          grip.addEventListener('pointerup', up);
+        });
+        th.appendChild(grip);
+      });
+    });
+    document.querySelectorAll('.tw').forEach(function (box) {
+      function mark() {
+        /* a few pixels is rounding, not a hidden column */
+        var over = box.scrollWidth > box.clientWidth + 8;
+        box.classList.toggle('scrolls', over);
+        box.classList.toggle('atend',
+          over && box.scrollLeft + box.clientWidth >= box.scrollWidth - 2);
+      }
+      box.addEventListener('scroll', mark);
+      window.addEventListener('resize', mark);
+      mark();
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setup);
+  } else { setup(); }
+})();
+</script>
+</body></html>

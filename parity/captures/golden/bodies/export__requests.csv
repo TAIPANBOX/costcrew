@@ -1,0 +1,8 @@
+id,source,team,title,kind,est_monthly_usd,status,target_month,note
+2,aws,data,Decommission RDS read replicas,decommission,-140.00,approved,2026-09,Follows the June RDS step-down
+3,gcp,ml,GKE burst pool for training,capacity,540.00,estimated,2026-09,Matches the April GKE step trend
+7,aws,sre-platform,Extend RI coverage,change,-120.00,estimated,2026-09,"Optimizer proposal, awaiting approval"
+1,aws,ml,Two extra GPU training nodes,capacity,820.00,estimated,2026-10,Q4 model refresh; investigator estimate attached
+6,onprem,data,Archive tier for cold backups,change,-90.00,estimated,2026-10,Backup & DR reduction
+4,gcp,product-web,Black Friday scale test,change,300.00,new,2026-11,Needs optimizer sizing before estimate
+5,onprem,sre-platform,"Storage array expansion, tranche 2",capacity,610.00,new,2026-11,After the May tranche filled

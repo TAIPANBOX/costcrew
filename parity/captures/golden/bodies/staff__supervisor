@@ -1,0 +1,1716 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CostCrew</title>
+<link rel="stylesheet" href="/static/style.css"></head><body>
+<div class="shell">
+<nav class="rail">
+  <div class="brand">CostCrew</div>
+  <a href="/" class="">Today</a>
+  <a href="/board" class="">Board</a>
+  <a href="/board?view=month" class="sub">Calendar</a>
+  <a href="/teams" class="">Teams</a>
+  <a href="/sprints" class="">Sprints</a>
+  <a href="/feed" class="">Chats</a>
+  <a href="/feed?ch=aws" class="sub">#aws</a>
+  <a href="/feed?ch=gcp" class="sub">#gcp</a>
+  <a href="/feed?ch=onprem" class="sub">#onprem</a>
+  <a href="/kpis" class="">KPIs</a>
+  <a href="/library" class="sub ">Library</a>
+  <a href="/assessment" class="sub ">Assessment</a>
+  <a href="/allocation" class="">Allocation</a>
+  <a href="/chargeback" class="">Chargeback</a>
+  <a href="/exec" class="">Executive</a>
+  <a href="/results" class="">Results</a>
+  <a href="/ai" class="">AI spend</a>
+  <a href="/saas" class="">SaaS</a>
+  <a href="/utilisation" class="">Utilisation</a>
+  <a href="/explainers" class="">Explainers</a>
+  <a href="/staff" class="on">Staff</a>
+  <a href="/workbench" class="">Workbench</a>
+  <a href="/data" class="">Data</a>
+  <a href="/connectors" class="sub ">Connectors</a>
+  <a href="/audit" class="">Audit</a>
+  <a href="/settings" class="">Engines</a>
+  
+  <a href="/accounts" class="">Accounts</a>
+  <div class="railfoot">
+    
+    <div>parity · admin</div>
+    <form method="post" action="/logout" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+      <button class="btn back">Sign out</button></form>
+    
+    <div>MVP · local</div>
+  </div>
+</nav>
+<main class="content">
+
+<p class="fine"><a href="/staff">Staff</a> / supervisor</p>
+
+<div class="agenthead">
+  <div class="who">
+    <h1 style="margin-bottom:4px">supervisor</h1>
+    <p class="fine" style="margin:0">Lead FinOps Analyst (supervisor, all desks)</p>
+    <p style="margin:8px 0 0">
+      <span class="chip">management</span>
+      <span class="chip">reports: On request</span>
+      <span class="chip">engine: claude-cli:strongest-available</span>
+    </p>
+  </div>
+  <div class="acts">
+    <a class="btn" href="/staff/supervisor/edit">Edit this analyst</a>
+    <button class="btn back"
+            onclick="document.getElementById('statedlg').showModal()">
+      Suspend</button>
+  </div>
+</div>
+
+
+
+<dialog id="statedlg" class="dlg">
+  <form method="post" action="/staff/supervisor/state"><input type="hidden" name="csrf" value="<CSRF>">
+    <h2 style="margin-top:0">Suspend supervisor</h2>
+    <p class="fine">Their record, history and
+    stamps stay exactly as they are. Only the ability to run work under their
+    name goes away, and you can undo it here at any time.
+    The reason is written into the journal, so this decision can be explained
+    six months from now.</p>
+    <input type="hidden" name="state" value="suspended">
+    <div class="reasons">
+      
+      <label class="reason"><input type="radio" name="reason" value="cost" required> Costing too much for what it returns</label>
+      
+      <label class="reason"><input type="radio" name="reason" value="budget" required> Monthly guard reached or exceeded</label>
+      
+      <label class="reason"><input type="radio" name="reason" value="quality" required> Deliverables keep coming back on review</label>
+      
+      <label class="reason"><input type="radio" name="reason" value="not-needed" required> Desk is quiet, no work for it now</label>
+      
+      <label class="reason"><input type="radio" name="reason" value="data" required> Its data source is broken or unavailable</label>
+      
+      <label class="reason"><input type="radio" name="reason" value="reconfiguring" required> Being reconfigured: skills, permissions or engine</label>
+      
+      <label class="reason"><input type="radio" name="reason" value="duplicate" required> Another analyst covers the same ground</label>
+      
+      <label class="reason"><input type="radio" name="reason" value="other"> Something else, written below</label>
+    </div>
+    <textarea name="reason_other" rows="2" placeholder="If none of the above fits, write the reason here"></textarea>
+    <div class="dlgacts">
+      <button type="button" class="btn back" onclick="document.getElementById('statedlg').close()">Cancel</button>
+      <button class="btn">Suspend</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="tiles">
+  <div class="tile"><div class="tv">23</div><div class="tl">tasks handled</div></div>
+  <div class="tile"><div class="tv">22</div><div class="tl">deliverables</div></div>
+  <div class="tile"><div class="tv">100%</div><div class="tl">accepted first time</div></div>
+  <div class="tile"><div class="tv">$42.03</div><div class="tl">spent of $150.00 monthly</div></div>
+  <div class="tile"><div class="tv">$12.42</div><div class="tl">per deliverable</div></div>
+</div>
+
+<section class="panel">
+  <h2>On the desk right now</h2>
+  <p>
+    <b>1</b> open item:
+    
+      <span class="chip st-in-progress">1 in-progress</span>
+    <span class="fine">&nbsp; last active 2026-08-14</span>
+  </p>
+  
+  
+
+  <h3>What its work has cost</h3>
+  <p class="fine">
+    
+      <b>28%</b> of the monthly guard used
+      ($42.03 of $150.00).
+      
+    
+    
+      Priced runs: <b>100%</b>
+      (1 priced, 0 unknown).
+      An unknown cost is recorded as unknown, never as zero.
+    
+  </p>
+  
+</section>
+
+<section class="panel">
+  <h2>Mandate</h2>
+  <p>One supervisor over the three platform desks: plans sprints per desk, assigns the crews, pre-reviews deliverables before the operator.</p>
+  
+  <h3>House rules, followed on every deliverable</h3>
+  <ul class="rules"><li>Plan first, spend later; the plan itself is a deliverable.</li></ul>
+  
+  <p class="fine">Reporting: <b>On request</b>.
+  </p>
+</section>
+
+<section class="panel">
+  <h2>What this analyst can do</h2>
+  <p class="fine">Skills are competences the agent is told to stay inside. Every
+  analyst carries the base set; the specialized ones are picked at hire and
+  decide which work the supervisor routes here.</p>
+
+  <h3>Specialized (6)</h3>
+  
+  <div class="deflist">
+    
+    <div class="def"><b>Cross-desk synthesis</b>
+      <div class="fine">Patterns spanning platforms</div></div>
+    
+    <div class="def"><b>Executive reporting</b>
+      <div class="fine">Leadership packet tying spend to priorities, tradeoffs and guardrails</div></div>
+    
+    <div class="def"><b>FinOps assessment</b>
+      <div class="fine">Periodic maturity self-assessment of the practice against the capability matrix</div></div>
+    
+    <div class="def"><b>KPIs &amp; benchmarking</b>
+      <div class="fine">Curate the practice KPI set against FinOps KPI-library targets, trend the movement</div></div>
+    
+    <div class="def"><b>Pre-review</b>
+      <div class="fine">Review peers&#39; drafts before the operator</div></div>
+    
+    <div class="def"><b>Sprint planning</b>
+      <div class="fine">Decompose estate state into a week of work</div></div>
+    
+  </div>
+  
+
+  <details class="fold">
+    <summary>Base skills every analyst has (8)</summary>
+    <div class="deflist">
+      
+      <div class="def"><b>Anomaly triage</b><div class="fine">Classify spikes vs known drivers, rank by money</div></div>
+      
+      <div class="def"><b>Billing store queries</b><div class="fine">SELECT-only questions against the cost store</div></div>
+      
+      <div class="def"><b>Computed figures</b><div class="fine">Read the engine&#39;s deterministic figures and cite qids</div></div>
+      
+      <div class="def"><b>Desk chat participation</b><div class="fine">Post status and findings to the desk channel</div></div>
+      
+      <div class="def"><b>Executive summaries</b><div class="fine">3-5 line summary leading every deliverable</div></div>
+      
+      <div class="def"><b>Report writing</b><div class="fine">Analyst-grade narrative around figures</div></div>
+      
+      <div class="def"><b>Team intake reading</b><div class="fine">Use budgets and requests submitted by human teams</div></div>
+      
+      <div class="def"><b>Variance commentary</b><div class="fine">Explain month-over-month and budget-vs-actual moves</div></div>
+      
+    </div>
+  </details>
+</section>
+
+<section class="panel">
+  <h2>What this analyst may touch</h2>
+  <p class="fine">Permissions are hard rights, not suggestions: the server checks
+  them, and a deliverable that reaches past them is rejected rather than posted.</p>
+
+  <h3>Data it can read (8)</h3>
+  <div class="deflist">
+    
+    <div class="def"><b>AWS estate</b>
+      
+      <div class="fine">Read the aws platform data</div></div>
+    
+    <div class="def"><b>Crew costs</b>
+      
+      <div class="fine">Read what the crew itself costs</div></div>
+    
+    <div class="def"><b>GCP estate</b>
+      
+      <div class="fine">Read the gcp platform data</div></div>
+    
+    <div class="def"><b>Live AWS account</b>
+      <span class="chip st-blocked">elevated risk</span>
+      <div class="fine">Read the connected live billing account</div></div>
+    
+    <div class="def"><b>On-prem estate</b>
+      
+      <div class="fine">Read the onprem platform data</div></div>
+    
+    <div class="def"><b>Practice KPI registry</b>
+      
+      <div class="fine">Read the computed practice KPIs (AAI, accuracy ladder, ESR, bands)</div></div>
+    
+    <div class="def"><b>Team budgets</b>
+      
+      <div class="fine">Read the intake budgets plane</div></div>
+    
+    <div class="def"><b>Team requests</b>
+      
+      <div class="fine">Read the intake requests pipeline</div></div>
+    
+  </div>
+
+  <h3>Actions it may take (8)</h3>
+  <div class="deflist">
+    
+    <div class="def"><b>Cross-desk subtasks</b>
+      <span class="chip st-blocked">elevated risk</span>
+      <div class="fine">Request work from another desk (its supervisor accepts)</div></div>
+    
+    <div class="def"><b>Executive packet</b>
+      <span class="chip st-blocked">elevated risk</span>
+      <div class="fine">Assemble the monthly executive strategy packet</div></div>
+    
+    <div class="def"><b>Open subtasks</b>
+      
+      <div class="fine">Delegate to peers on the same desk</div></div>
+    
+    <div class="def"><b>Plan sprints</b>
+      <span class="chip st-blocked">elevated risk</span>
+      <div class="fine">Produce sprint plans for operator approval</div></div>
+    
+    <div class="def"><b>Post to desk chat</b>
+      
+      <div class="fine">Write to the desk channel</div></div>
+    
+    <div class="def"><b>Pre-review deliverables</b>
+      <span class="chip st-blocked">elevated risk</span>
+      <div class="fine">Gate peers&#39; drafts before the operator</div></div>
+    
+    <div class="def"><b>Read and propose</b>
+      
+      <div class="fine">Never acts outward; deliverables only</div></div>
+    
+    <div class="def"><b>Run practice assessment</b>
+      <span class="chip st-blocked">elevated risk</span>
+      <div class="fine">Run the periodic maturity self-assessment</div></div>
+    
+  </div>
+  
+</section>
+
+<section class="panel">
+  <h2>Guardrails and how it is judged</h2>
+  <table>
+    <tr><th>guard</th><th class="num">limit</th><th class="num">used</th></tr>
+    <tr><td>Per task</td><td class="num">$5.00</td><td class="num">&mdash;</td></tr>
+    <tr><td>Per month</td><td class="num">$150.00</td>
+        <td class="num">$42.03</td></tr>
+  </table>
+  
+  <h3>Evaluation</h3>
+  <table>
+    <tr><th>target</th><th>measured now</th><th>state</th></tr>
+    
+    <tr><td>sprint goal completion</td><td>not measurable yet</td>
+      <td><span class="chip">no signal</span>
+          </td></tr>
+    
+    <tr><td>plan quality after review</td><td>not measurable yet</td>
+      <td><span class="chip">no signal</span>
+          </td></tr>
+    
+    <tr><td>envelope adherence</td><td>not measurable yet</td>
+      <td><span class="chip">no signal</span>
+          </td></tr>
+    
+  </table>
+  
+</section>
+
+<section class="panel">
+  <h2>Work (23)</h2>
+  <input class="filterbox" placeholder="Find a task..." data-target="#agenttasks">
+  <table id="agenttasks">
+    <tr><th>task</th><th>state</th><th>sprint</th><th>updated</th><th class="num">cost $</th><th>act</th></tr>
+    
+    <tr data-search="Sprint review 2026-W33 in-progress">
+      <td><a href="/task/68">Sprint review 2026-W33</a></td>
+      <td><span class="chip st-in-progress">in-progress</span></td>
+      <td><a href="/sprint/11">sprint 11</a></td>
+      <td>2026-08-14</td>
+      <td class="num">4.10</td>
+      <td>
+        
+        <form method="post" action="/task/68/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand68').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Sprint review 2026-W35 (closing) done">
+      <td><a href="/task/88">Sprint review 2026-W35 (closing)</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td>&mdash;</td>
+      <td>2026-08-13</td>
+      <td class="num">0.36</td>
+      <td>
+        
+        <form method="post" action="/task/88/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand88').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Plan sprint 2026-W33 done">
+      <td><a href="/task/61">Plan sprint 2026-W33</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/11">sprint 11</a></td>
+      <td>2026-08-10</td>
+      <td class="num">11.88</td>
+      <td>
+        
+        <form method="post" action="/task/61/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand61').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Sprint review 2026-W32 done">
+      <td><a href="/task/60">Sprint review 2026-W32</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/10">sprint 10</a></td>
+      <td>2026-08-07</td>
+      <td class="num">15.25</td>
+      <td>
+        
+        <form method="post" action="/task/60/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand60').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Plan sprint 2026-W32 done">
+      <td><a href="/task/53">Plan sprint 2026-W32</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/10">sprint 10</a></td>
+      <td>2026-08-03</td>
+      <td class="num">14.54</td>
+      <td>
+        
+        <form method="post" action="/task/53/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand53').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Sprint review 2026-W31 done">
+      <td><a href="/task/52">Sprint review 2026-W31</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/9">sprint 9</a></td>
+      <td>2026-07-31</td>
+      <td class="num">12.51</td>
+      <td>
+        
+        <form method="post" action="/task/52/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand52').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Plan sprint 2026-W31 done">
+      <td><a href="/task/47">Plan sprint 2026-W31</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/9">sprint 9</a></td>
+      <td>2026-07-27</td>
+      <td class="num">15.25</td>
+      <td>
+        
+        <form method="post" action="/task/47/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand47').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Sprint review 2026-W30 done">
+      <td><a href="/task/46">Sprint review 2026-W30</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/8">sprint 8</a></td>
+      <td>2026-07-24</td>
+      <td class="num">13.15</td>
+      <td>
+        
+        <form method="post" action="/task/46/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand46').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Plan sprint 2026-W30 done">
+      <td><a href="/task/42">Plan sprint 2026-W30</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/8">sprint 8</a></td>
+      <td>2026-07-20</td>
+      <td class="num">14.77</td>
+      <td>
+        
+        <form method="post" action="/task/42/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand42').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Sprint review 2026-W29 done">
+      <td><a href="/task/41">Sprint review 2026-W29</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/7">sprint 7</a></td>
+      <td>2026-07-17</td>
+      <td class="num">11.80</td>
+      <td>
+        
+        <form method="post" action="/task/41/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand41').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Plan sprint 2026-W29 done">
+      <td><a href="/task/37">Plan sprint 2026-W29</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/7">sprint 7</a></td>
+      <td>2026-07-13</td>
+      <td class="num">12.57</td>
+      <td>
+        
+        <form method="post" action="/task/37/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand37').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Sprint review 2026-W28 done">
+      <td><a href="/task/36">Sprint review 2026-W28</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/6">sprint 6</a></td>
+      <td>2026-07-10</td>
+      <td class="num">14.08</td>
+      <td>
+        
+        <form method="post" action="/task/36/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand36').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Plan sprint 2026-W28 done">
+      <td><a href="/task/31">Plan sprint 2026-W28</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/6">sprint 6</a></td>
+      <td>2026-07-06</td>
+      <td class="num">12.23</td>
+      <td>
+        
+        <form method="post" action="/task/31/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand31').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Sprint review 2026-W27 done">
+      <td><a href="/task/30">Sprint review 2026-W27</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/5">sprint 5</a></td>
+      <td>2026-07-03</td>
+      <td class="num">13.83</td>
+      <td>
+        
+        <form method="post" action="/task/30/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand30').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Plan sprint 2026-W27 done">
+      <td><a href="/task/24">Plan sprint 2026-W27</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/5">sprint 5</a></td>
+      <td>2026-06-29</td>
+      <td class="num">10.87</td>
+      <td>
+        
+        <form method="post" action="/task/24/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand24').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Sprint review 2026-W26 done">
+      <td><a href="/task/23">Sprint review 2026-W26</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/4">sprint 4</a></td>
+      <td>2026-06-26</td>
+      <td class="num">11.74</td>
+      <td>
+        
+        <form method="post" action="/task/23/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand23').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Plan sprint 2026-W26 done">
+      <td><a href="/task/19">Plan sprint 2026-W26</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/4">sprint 4</a></td>
+      <td>2026-06-22</td>
+      <td class="num">12.38</td>
+      <td>
+        
+        <form method="post" action="/task/19/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand19').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Sprint review 2026-W25 done">
+      <td><a href="/task/18">Sprint review 2026-W25</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/3">sprint 3</a></td>
+      <td>2026-06-19</td>
+      <td class="num">13.46</td>
+      <td>
+        
+        <form method="post" action="/task/18/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand18').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Plan sprint 2026-W25 done">
+      <td><a href="/task/13">Plan sprint 2026-W25</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/3">sprint 3</a></td>
+      <td>2026-06-15</td>
+      <td class="num">12.55</td>
+      <td>
+        
+        <form method="post" action="/task/13/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand13').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Sprint review 2026-W24 done">
+      <td><a href="/task/12">Sprint review 2026-W24</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/2">sprint 2</a></td>
+      <td>2026-06-12</td>
+      <td class="num">10.54</td>
+      <td>
+        
+        <form method="post" action="/task/12/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand12').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Plan sprint 2026-W24 done">
+      <td><a href="/task/8">Plan sprint 2026-W24</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/2">sprint 2</a></td>
+      <td>2026-06-08</td>
+      <td class="num">13.04</td>
+      <td>
+        
+        <form method="post" action="/task/8/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand8').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Sprint review 2026-W23 done">
+      <td><a href="/task/7">Sprint review 2026-W23</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/1">sprint 1</a></td>
+      <td>2026-06-05</td>
+      <td class="num">10.35</td>
+      <td>
+        
+        <form method="post" action="/task/7/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand7').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Plan sprint 2026-W23 done">
+      <td><a href="/task/1">Plan sprint 2026-W23</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/1">sprint 1</a></td>
+      <td>2026-06-01</td>
+      <td class="num">11.94</td>
+      <td>
+        
+        <form method="post" action="/task/1/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand1').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+  </table>
+  <p class="fine">Click a column heading to sort, drag a heading's right edge to
+  widen it. <b>Run</b> puts the task through this analyst again, brief unchanged.
+  <b>Hand over</b> moves it to somebody else, and lets you change what it asks
+  for on the way.</p>
+
+  
+  <dialog id="hand68" class="dlg">
+    <form method="post" action="/task/68/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Sprint review 2026-W33</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="reporter-aws">reporter-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Close the sprint: delivery, spend vs envelope, escalations."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand68').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand88" class="dlg">
+    <form method="post" action="/task/88/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Sprint review 2026-W35 (closing)</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="reporter-aws">reporter-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Write the closing review of sprint 2026-W35. Ground it in the estate context: all twelve planned tasks were delivered and approved (including the new hire&#39;s three first-week tasks and your own cross-desk ml synthesis); one task self-declared BLOCKED-as-specified (cross-platform unit economics got single-source figures - a product gap logged for the roadmap). Cover: delivery vs plan, crew spend vs the USD 120 envelope, the ml-over-budget thread status, carried-over items, and one improvement for W36. 400-600 words, honest, no ceremony."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand88').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand61" class="dlg">
+    <form method="post" action="/task/61/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Plan sprint 2026-W33</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="reporter-aws">reporter-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Decompose the weekly cycle per desk, set the envelope."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand61').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand60" class="dlg">
+    <form method="post" action="/task/60/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Sprint review 2026-W32</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="reporter-aws">reporter-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Close the sprint: delivery, spend vs envelope, escalations."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand60').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand53" class="dlg">
+    <form method="post" action="/task/53/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Plan sprint 2026-W32</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="reporter-aws">reporter-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Decompose the weekly cycle per desk, set the envelope."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand53').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand52" class="dlg">
+    <form method="post" action="/task/52/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Sprint review 2026-W31</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="reporter-aws">reporter-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Close the sprint: delivery, spend vs envelope, escalations."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand52').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand47" class="dlg">
+    <form method="post" action="/task/47/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Plan sprint 2026-W31</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="reporter-aws">reporter-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Decompose the weekly cycle per desk, set the envelope."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand47').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand46" class="dlg">
+    <form method="post" action="/task/46/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Sprint review 2026-W30</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="reporter-aws">reporter-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Close the sprint: delivery, spend vs envelope, escalations."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand46').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand42" class="dlg">
+    <form method="post" action="/task/42/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Plan sprint 2026-W30</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="reporter-aws">reporter-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Decompose the weekly cycle per desk, set the envelope."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand42').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand41" class="dlg">
+    <form method="post" action="/task/41/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Sprint review 2026-W29</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="reporter-aws">reporter-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Close the sprint: delivery, spend vs envelope, escalations."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand41').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand37" class="dlg">
+    <form method="post" action="/task/37/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Plan sprint 2026-W29</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="reporter-aws">reporter-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Decompose the weekly cycle per desk, set the envelope."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand37').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand36" class="dlg">
+    <form method="post" action="/task/36/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Sprint review 2026-W28</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="reporter-aws">reporter-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Close the sprint: delivery, spend vs envelope, escalations."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand36').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand31" class="dlg">
+    <form method="post" action="/task/31/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Plan sprint 2026-W28</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="reporter-aws">reporter-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Decompose the weekly cycle per desk, set the envelope."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand31').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand30" class="dlg">
+    <form method="post" action="/task/30/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Sprint review 2026-W27</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="reporter-aws">reporter-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Close the sprint: delivery, spend vs envelope, escalations."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand30').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand24" class="dlg">
+    <form method="post" action="/task/24/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Plan sprint 2026-W27</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="reporter-aws">reporter-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Decompose the weekly cycle per desk, set the envelope."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand24').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand23" class="dlg">
+    <form method="post" action="/task/23/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Sprint review 2026-W26</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="reporter-aws">reporter-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Close the sprint: delivery, spend vs envelope, escalations."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand23').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand19" class="dlg">
+    <form method="post" action="/task/19/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Plan sprint 2026-W26</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="reporter-aws">reporter-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Decompose the weekly cycle per desk, set the envelope."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand19').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand18" class="dlg">
+    <form method="post" action="/task/18/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Sprint review 2026-W25</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="reporter-aws">reporter-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Close the sprint: delivery, spend vs envelope, escalations."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand18').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand13" class="dlg">
+    <form method="post" action="/task/13/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Plan sprint 2026-W25</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="reporter-aws">reporter-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Decompose the weekly cycle per desk, set the envelope."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand13').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand12" class="dlg">
+    <form method="post" action="/task/12/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Sprint review 2026-W24</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="reporter-aws">reporter-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Close the sprint: delivery, spend vs envelope, escalations."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand12').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand8" class="dlg">
+    <form method="post" action="/task/8/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Plan sprint 2026-W24</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="reporter-aws">reporter-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Decompose the weekly cycle per desk, set the envelope."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand8').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand7" class="dlg">
+    <form method="post" action="/task/7/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Sprint review 2026-W23</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="reporter-aws">reporter-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Close the sprint: delivery, spend vs envelope, escalations."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand7').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand1" class="dlg">
+    <form method="post" action="/task/1/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Plan sprint 2026-W23</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="reporter-aws">reporter-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Decompose the weekly cycle per desk, set the envelope."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand1').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+</section>
+
+<section class="panel">
+  <h2>Activity</h2>
+  <p class="fine">Straight from the hash-chained journal, newest first: what this
+  analyst did, not what a status field claims.</p>
+  <table>
+    <tr><th>when</th><th>event</th><th>detail</th></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/88">task 88</a> 
+        Sprint review 2026-W35 (closing)</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">sprint planned</span></td>
+      <td>
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">sprint planned</span></td>
+      <td>
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">sprint planned</span></td>
+      <td>
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">sprint planned</span></td>
+      <td>
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">sprint planned</span></td>
+      <td>
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task started</span></td>
+      <td><a href="/task/68">task 68</a> 
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/68">task 68</a> 
+        Sprint review 2026-W33</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">sprint planned</span></td>
+      <td>
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task started</span></td>
+      <td><a href="/task/61">task 61</a> 
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/61">task 61</a> 
+        Plan sprint 2026-W33</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">sprint closed</span></td>
+      <td>
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task started</span></td>
+      <td><a href="/task/60">task 60</a> 
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/60">task 60</a> 
+        Sprint review 2026-W32</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">channel message</span></td>
+      <td>
+        Sprint 2026-W32 planned: month-close week. 2026-07 reports due Tuesday, optimizer reviews Wednesday.</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">channel message</span></td>
+      <td>
+        Sprint 2026-W32 planned: month-close week. 2026-07 reports due Tuesday, optimizer reviews Wednesday.</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">channel message</span></td>
+      <td>
+        Sprint 2026-W32 planned: month-close week. 2026-07 reports due Tuesday, optimizer reviews Wednesday.</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">sprint planned</span></td>
+      <td>
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task started</span></td>
+      <td><a href="/task/53">task 53</a> 
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/53">task 53</a> 
+        Plan sprint 2026-W32</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">sprint closed</span></td>
+      <td>
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task started</span></td>
+      <td><a href="/task/52">task 52</a> 
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/52">task 52</a> 
+        Sprint review 2026-W31</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">sprint planned</span></td>
+      <td>
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task started</span></td>
+      <td><a href="/task/47">task 47</a> 
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/47">task 47</a> 
+        Plan sprint 2026-W31</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">sprint closed</span></td>
+      <td>
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task started</span></td>
+      <td><a href="/task/46">task 46</a> 
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/46">task 46</a> 
+        Sprint review 2026-W30</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">sprint planned</span></td>
+      <td>
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task started</span></td>
+      <td><a href="/task/42">task 42</a> 
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/42">task 42</a> 
+        Plan sprint 2026-W30</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">sprint closed</span></td>
+      <td>
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task started</span></td>
+      <td><a href="/task/41">task 41</a> 
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/41">task 41</a> 
+        Sprint review 2026-W29</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">sprint planned</span></td>
+      <td>
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task started</span></td>
+      <td><a href="/task/37">task 37</a> 
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/37">task 37</a> 
+        Plan sprint 2026-W29</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">sprint closed</span></td>
+      <td>
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task started</span></td>
+      <td><a href="/task/36">task 36</a> 
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/36">task 36</a> 
+        Sprint review 2026-W28</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">sprint planned</span></td>
+      <td>
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task started</span></td>
+      <td><a href="/task/31">task 31</a> 
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/31">task 31</a> 
+        Plan sprint 2026-W28</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">sprint closed</span></td>
+      <td>
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task started</span></td>
+      <td><a href="/task/30">task 30</a> 
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/30">task 30</a> 
+        Sprint review 2026-W27</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">channel message</span></td>
+      <td>
+        Sprint 2026-W27 planned: month-close week. 2026-06 reports due Tuesday, optimizer reviews Wednesday.</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">channel message</span></td>
+      <td>
+        Sprint 2026-W27 planned: month-close week. 2026-06 reports due Tuesday, optimizer reviews Wednesday.</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">channel message</span></td>
+      <td>
+        Sprint 2026-W27 planned: month-close week. 2026-06 reports due Tuesday, optimizer reviews Wednesday.</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">sprint planned</span></td>
+      <td>
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task started</span></td>
+      <td><a href="/task/24">task 24</a> 
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/24">task 24</a> 
+        Plan sprint 2026-W27</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">sprint closed</span></td>
+      <td>
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task started</span></td>
+      <td><a href="/task/23">task 23</a> 
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/23">task 23</a> 
+        Sprint review 2026-W26</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">sprint planned</span></td>
+      <td>
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task started</span></td>
+      <td><a href="/task/19">task 19</a> 
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/19">task 19</a> 
+        Plan sprint 2026-W26</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">sprint closed</span></td>
+      <td>
+        </td></tr>
+    
+  </table>
+</section>
+
+<section class="panel">
+  <h2>The job description as stored</h2>
+  <p class="fine">Everything above comes from this one file, <code>jd/supervisor.yaml</code>.
+  Hiring an analyst is writing it; changing one is editing it.</p>
+  <details class="fold"><summary>Show the raw file</summary>
+    <pre class="jd">name: supervisor
+role: Lead FinOps Analyst (supervisor, all desks)
+mission: &#39;One supervisor over the three platform desks: plans sprints per desk, assigns
+  the crews, pre-reviews deliverables before the operator.
+
+  &#39;
+model:
+  provider: claude-cli
+  model: strongest-available
+desk: management
+manages_desks:
+- aws
+- gcp
+- onprem
+authorities:
+- plan-sprint
+- create-subtask
+- assign
+- pre-review
+limits:
+  max_subtasks_per_sprint: 15
+  max_delegation_depth: 1
+budget:
+  per_task_usd: 5.0
+  sprint_envelope_usd: 120.0
+  monthly_usd: 150.0
+house_rules:
+- Plan first, spend later; the plan itself is a deliverable.
+evaluation:
+  kpis:
+  - sprint goal completion
+  - plan quality after review
+  - envelope adherence
+skills:
+  specialized:
+  - cross-desk-synthesis
+  - exec-reporting
+  - finops-assessment
+  - kpi-benchmarking
+  - pre-review
+  - sprint-planning
+permissions:
+- budgets-read
+- channel-post
+- create-subtask
+- crew-costs-read
+- cross-desk-subtask
+- exec-packet
+- kpi-registry
+- plan-sprint
+- platform-aws
+- platform-gcp
+- platform-onprem
+- pre-review
+- propose-only
+- requests-read
+- run-assessment
+- source-aws-live
+</pre>
+  </details>
+</section>
+</main>
+</div>
+<script>
+document.addEventListener('input', function (e) {
+  var box = e.target.closest('.filterbox'); if (!box) return;
+  var root = document.querySelector(box.dataset.target); if (!root) return;
+  var q = box.value.trim().toLowerCase();
+  root.querySelectorAll('[data-search]').forEach(function (el) {
+    var hit = !q || el.dataset.search.toLowerCase().indexOf(q) !== -1;
+    if (el.classList.contains('deskgroup')) {
+      var inner = Array.prototype.some.call(el.querySelectorAll('[data-search]'),
+        function (x) { return x.dataset.search.toLowerCase().indexOf(q) !== -1; });
+      el.style.display = (hit || inner || !q) ? '' : 'none';
+      el.querySelectorAll('[data-search]').forEach(function (x) {
+        x.style.display = (!q || hit || x.dataset.search.toLowerCase().indexOf(q) !== -1) ? '' : 'none';
+      });
+    } else if (!el.closest('.deskgroup')) {
+      el.style.display = hit ? '' : 'none';
+    }
+  });
+});
+document.addEventListener('click', function (e) {
+  if (e.target.classList && e.target.classList.contains('grip')) return;
+  var th = e.target.closest('th'); if (!th) return;
+  var table = th.closest('table'); if (!table) return;
+  var idx = Array.prototype.indexOf.call(th.parentNode.children, th);
+  var rows = Array.prototype.slice.call(table.querySelectorAll('tr')).filter(
+    function (r) { return r.querySelector('td'); });
+  var dir = th.dataset.dir === 'asc' ? -1 : 1;
+  table.querySelectorAll('th').forEach(function (h) { delete h.dataset.dir;
+    var a = h.querySelector('.arrow'); if (a) a.remove(); });
+  th.dataset.dir = dir === 1 ? 'asc' : 'desc';
+  var arrow = document.createElement('span');
+  arrow.className = 'arrow';
+  arrow.textContent = dir === 1 ? ' \u25B2' : ' \u25BC';
+  th.appendChild(arrow);
+  function key(r) {
+    var c = r.children[idx]; if (!c) return '';
+    var txt = c.textContent.trim().replace(/[$,%]/g, '').replace(/,/g, '');
+    if (/\d{4}-\d{2}-\d{2}/.test(txt)) return txt.replace(/[^\d-]/g, '');
+    var n = parseFloat(txt);
+    return isNaN(n) ? txt.toLowerCase() : n;
+  }
+  rows.sort(function (a, b) {
+    var ka = key(a), kb = key(b);
+    if (typeof ka === 'number' && typeof kb === 'number') return (ka - kb) * dir;
+    return String(ka).localeCompare(String(kb)) * dir;
+  });
+  rows.forEach(function (r) { r.parentNode.appendChild(r); });
+});
+
+/* ---- tables you can widen, and that fit any screen -----------------------
+   Every table is put in its own horizontally scrolling box, so a wide table
+   scrolls inside its panel instead of pushing the whole page sideways. Each
+   header cell gets a grip on its right edge: drag it to widen the column,
+   double-click it to give the column back to the browser. Widths are
+   remembered per page, because a column you widened once you almost always
+   want wide again.                                                          */
+(function () {
+  var KEY = 'costcrew.colw.' + location.pathname;
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (err) { saved = {}; }
+
+  function persist() {
+    try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (err) { /* private mode */ }
+  }
+
+  function setup() {
+    document.querySelectorAll('table').forEach(function (table, ti) {
+      if (!table.parentNode.classList.contains('tw')) {
+        var box = document.createElement('div');
+        box.className = 'tw';
+        table.parentNode.insertBefore(box, table);
+        box.appendChild(table);
+      }
+      /* An atom never breaks: a date, a sum, a status, a short name. Prose
+         does break, and must, or one sentence drags the whole table wider
+         than the screen and everything else scrolls to reach it. The rule is
+         length, applied once, because CSS cannot ask how long a text is. */
+      table.querySelectorAll('td, th').forEach(function (cell) {
+        if (cell.children.length) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length > 40 && txt.indexOf(' ') !== -1) cell.classList.add('wrap');
+      });
+
+      /* Really long prose gets two lines and a way to open the rest. Nothing
+         is removed: the full text is still in the cell, still searched by
+         the filter box, still there for anyone who presses. */
+      table.querySelectorAll('td').forEach(function (cell) {
+        if (cell.querySelector('.clamp')) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length <= 110) return;
+        var box = document.createElement('div');
+        box.className = 'clamp';
+        while (cell.firstChild) box.appendChild(cell.firstChild);
+        cell.appendChild(box);
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'more';
+        btn.textContent = 'more';
+        btn.setAttribute('aria-expanded', 'false');
+        btn.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          var open = box.classList.toggle('open');
+          btn.textContent = open ? 'less' : 'more';
+          btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+        cell.appendChild(btn);
+        cell.classList.add('wrap');
+      });
+      /* Align each header to the column beneath it. The figures are right
+         aligned and the headers were not, so every numeric column read as a
+         label on the left with unrelated numbers on the right. */
+      var head0 = table.querySelector('tr');
+      if (head0) {
+        var body = Array.prototype.slice.call(table.querySelectorAll('tr'))
+          .filter(function (r) { return r.querySelector('td'); });
+        head0.querySelectorAll('th').forEach(function (th, ci) {
+          var nums = 0, cells = 0;
+          body.forEach(function (r) {
+            var cell = r.children[ci];
+            if (!cell || cell.tagName !== 'TD') return;
+            cells++;
+            if (cell.classList.contains('num')) nums++;
+          });
+          if (cells && nums * 2 > cells) th.classList.add('num');
+        });
+      }
+      var head = table.querySelector('tr');
+      if (!head) return;
+      head.querySelectorAll('th').forEach(function (th, ci) {
+        var id = ti + ':' + ci;
+        if (saved[id]) { th.style.width = saved[id] + 'px'; th.classList.add('sized'); }
+        if (th.querySelector('.grip')) return;
+        var grip = document.createElement('span');
+        grip.className = 'grip';
+        grip.title = 'Drag to widen, double-click to reset';
+        grip.addEventListener('dblclick', function (ev) {
+          ev.stopPropagation();
+          th.style.width = ''; th.classList.remove('sized');
+          delete saved[id]; persist();
+        });
+        grip.addEventListener('pointerdown', function (ev) {
+          ev.preventDefault(); ev.stopPropagation();
+          var x0 = ev.clientX, w0 = th.getBoundingClientRect().width;
+          grip.classList.add('on');
+          grip.setPointerCapture(ev.pointerId);
+          function move(e2) {
+            var w = Math.max(48, Math.round(w0 + (e2.clientX - x0)));
+            th.style.width = w + 'px'; th.classList.add('sized');
+            saved[id] = w;
+          }
+          function up() {
+            grip.classList.remove('on');
+            grip.removeEventListener('pointermove', move);
+            grip.removeEventListener('pointerup', up);
+            persist();
+          }
+          grip.addEventListener('pointermove', move);
+          grip.addEventListener('pointerup', up);
+        });
+        th.appendChild(grip);
+      });
+    });
+    document.querySelectorAll('.tw').forEach(function (box) {
+      function mark() {
+        /* a few pixels is rounding, not a hidden column */
+        var over = box.scrollWidth > box.clientWidth + 8;
+        box.classList.toggle('scrolls', over);
+        box.classList.toggle('atend',
+          over && box.scrollLeft + box.clientWidth >= box.scrollWidth - 2);
+      }
+      box.addEventListener('scroll', mark);
+      window.addEventListener('resize', mark);
+      mark();
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setup);
+  } else { setup(); }
+})();
+</script>
+</body></html>

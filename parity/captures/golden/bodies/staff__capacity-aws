@@ -1,0 +1,830 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CostCrew</title>
+<link rel="stylesheet" href="/static/style.css"></head><body>
+<div class="shell">
+<nav class="rail">
+  <div class="brand">CostCrew</div>
+  <a href="/" class="">Today</a>
+  <a href="/board" class="">Board</a>
+  <a href="/board?view=month" class="sub">Calendar</a>
+  <a href="/teams" class="">Teams</a>
+  <a href="/sprints" class="">Sprints</a>
+  <a href="/feed" class="">Chats</a>
+  <a href="/feed?ch=aws" class="sub">#aws</a>
+  <a href="/feed?ch=gcp" class="sub">#gcp</a>
+  <a href="/feed?ch=onprem" class="sub">#onprem</a>
+  <a href="/kpis" class="">KPIs</a>
+  <a href="/library" class="sub ">Library</a>
+  <a href="/assessment" class="sub ">Assessment</a>
+  <a href="/allocation" class="">Allocation</a>
+  <a href="/chargeback" class="">Chargeback</a>
+  <a href="/exec" class="">Executive</a>
+  <a href="/results" class="">Results</a>
+  <a href="/ai" class="">AI spend</a>
+  <a href="/saas" class="">SaaS</a>
+  <a href="/utilisation" class="">Utilisation</a>
+  <a href="/explainers" class="">Explainers</a>
+  <a href="/staff" class="on">Staff</a>
+  <a href="/workbench" class="">Workbench</a>
+  <a href="/data" class="">Data</a>
+  <a href="/connectors" class="sub ">Connectors</a>
+  <a href="/audit" class="">Audit</a>
+  <a href="/settings" class="">Engines</a>
+  
+  <a href="/accounts" class="">Accounts</a>
+  <div class="railfoot">
+    
+    <div>parity · admin</div>
+    <form method="post" action="/logout" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+      <button class="btn back">Sign out</button></form>
+    
+    <div>MVP · local</div>
+  </div>
+</nav>
+<main class="content">
+
+<p class="fine"><a href="/staff">Staff</a> / capacity-aws</p>
+
+<div class="agenthead">
+  <div class="who">
+    <h1 style="margin-bottom:4px">capacity-aws</h1>
+    <p class="fine" style="margin:0">FinOps Analyst - Investigator (aws desk)</p>
+    <p style="margin:8px 0 0">
+      
+        <a class="chip src aws" href="/feed?ch=aws">#aws desk</a>
+      
+      <span class="chip">reports: On request</span>
+      <span class="chip">engine: openrouter:moonshotai/kimi-k2</span>
+    </p>
+  </div>
+  <div class="acts">
+    <a class="btn" href="/staff/capacity-aws/edit">Edit this analyst</a>
+    <button class="btn back"
+            onclick="document.getElementById('statedlg').showModal()">
+      Suspend</button>
+  </div>
+</div>
+
+
+
+<dialog id="statedlg" class="dlg">
+  <form method="post" action="/staff/capacity-aws/state"><input type="hidden" name="csrf" value="<CSRF>">
+    <h2 style="margin-top:0">Suspend capacity-aws</h2>
+    <p class="fine">Their record, history and
+    stamps stay exactly as they are. Only the ability to run work under their
+    name goes away, and you can undo it here at any time.
+    The reason is written into the journal, so this decision can be explained
+    six months from now.</p>
+    <input type="hidden" name="state" value="suspended">
+    <div class="reasons">
+      
+      <label class="reason"><input type="radio" name="reason" value="cost" required> Costing too much for what it returns</label>
+      
+      <label class="reason"><input type="radio" name="reason" value="budget" required> Monthly guard reached or exceeded</label>
+      
+      <label class="reason"><input type="radio" name="reason" value="quality" required> Deliverables keep coming back on review</label>
+      
+      <label class="reason"><input type="radio" name="reason" value="not-needed" required> Desk is quiet, no work for it now</label>
+      
+      <label class="reason"><input type="radio" name="reason" value="data" required> Its data source is broken or unavailable</label>
+      
+      <label class="reason"><input type="radio" name="reason" value="reconfiguring" required> Being reconfigured: skills, permissions or engine</label>
+      
+      <label class="reason"><input type="radio" name="reason" value="duplicate" required> Another analyst covers the same ground</label>
+      
+      <label class="reason"><input type="radio" name="reason" value="other"> Something else, written below</label>
+    </div>
+    <textarea name="reason_other" rows="2" placeholder="If none of the above fits, write the reason here"></textarea>
+    <div class="dlgacts">
+      <button type="button" class="btn back" onclick="document.getElementById('statedlg').close()">Cancel</button>
+      <button class="btn">Suspend</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="tiles">
+  <div class="tile"><div class="tv">7</div><div class="tl">tasks handled</div></div>
+  <div class="tile"><div class="tv">7</div><div class="tl">deliverables</div></div>
+  <div class="tile"><div class="tv">100%</div><div class="tl">accepted first time</div></div>
+  <div class="tile"><div class="tv">$1.32</div><div class="tl">spent of $75.00 monthly</div></div>
+  <div class="tile"><div class="tv">$0.19</div><div class="tl">per deliverable</div></div>
+</div>
+
+<section class="panel">
+  <h2>On the desk right now</h2>
+  <p>
+    Nothing open.
+    
+    <span class="fine">&nbsp; last active 2026-08-16</span>
+  </p>
+  
+  
+
+  <h3>What its work has cost</h3>
+  <p class="fine">
+    
+      <b>2%</b> of the monthly guard used
+      ($1.32 of $75.00).
+      
+    
+    
+      Priced runs: <b>57%</b>
+      (4 priced, 3 unknown).
+      An unknown cost is recorded as unknown, never as zero.
+    
+  </p>
+  
+</section>
+
+<section class="panel">
+  <h2>Mandate</h2>
+  <p>Capacity and growth questions for the aws desk: turn team requests into cost estimates.</p>
+  
+  <h3>House rules, followed on every deliverable</h3>
+  <ul class="rules"><li>Rank findings by money, not by z-score.</li></ul>
+  
+  <p class="fine">Reporting: <b>On request</b>.
+  </p>
+</section>
+
+<section class="panel">
+  <h2>What this analyst can do</h2>
+  <p class="fine">Skills are competences the agent is told to stay inside. Every
+  analyst carries the base set; the specialized ones are picked at hire and
+  decide which work the supervisor routes here.</p>
+
+  <h3>Specialized (6)</h3>
+  
+  <div class="deflist">
+    
+    <div class="def"><b>AI spend analysis</b>
+      <div class="fine">Token/GPU unit costs, cost per agent action, FOCUS-style consumption columns</div></div>
+    
+    <div class="def"><b>Capacity estimation</b>
+      <div class="fine">Turn team requests into cost estimates</div></div>
+    
+    <div class="def"><b>Driver classification</b>
+      <div class="fine">Explained vs needs-a-look, registry upkeep</div></div>
+    
+    <div class="def"><b>Forecast accuracy tracking</b>
+      <div class="fine">Frozen forecast vs actual, variance vs the 20/15/12% maturity ladder, drift watch</div></div>
+    
+    <div class="def"><b>Rightsizing</b>
+      <div class="fine">Candidates with estimated savings and risk notes</div></div>
+    
+    <div class="def"><b>Unit economics</b>
+      <div class="fine">Cost per team/service/request storytelling</div></div>
+    
+  </div>
+  
+
+  <details class="fold">
+    <summary>Base skills every analyst has (8)</summary>
+    <div class="deflist">
+      
+      <div class="def"><b>Anomaly triage</b><div class="fine">Classify spikes vs known drivers, rank by money</div></div>
+      
+      <div class="def"><b>Billing store queries</b><div class="fine">SELECT-only questions against the cost store</div></div>
+      
+      <div class="def"><b>Computed figures</b><div class="fine">Read the engine&#39;s deterministic figures and cite qids</div></div>
+      
+      <div class="def"><b>Desk chat participation</b><div class="fine">Post status and findings to the desk channel</div></div>
+      
+      <div class="def"><b>Executive summaries</b><div class="fine">3-5 line summary leading every deliverable</div></div>
+      
+      <div class="def"><b>Report writing</b><div class="fine">Analyst-grade narrative around figures</div></div>
+      
+      <div class="def"><b>Team intake reading</b><div class="fine">Use budgets and requests submitted by human teams</div></div>
+      
+      <div class="def"><b>Variance commentary</b><div class="fine">Explain month-over-month and budget-vs-actual moves</div></div>
+      
+    </div>
+  </details>
+</section>
+
+<section class="panel">
+  <h2>What this analyst may touch</h2>
+  <p class="fine">Permissions are hard rights, not suggestions: the server checks
+  them, and a deliverable that reaches past them is rejected rather than posted.</p>
+
+  <h3>Data it can read (5)</h3>
+  <div class="deflist">
+    
+    <div class="def"><b>AWS estate</b>
+      
+      <div class="fine">Read the aws platform data</div></div>
+    
+    <div class="def"><b>GCP estate</b>
+      
+      <div class="fine">Read the gcp platform data</div></div>
+    
+    <div class="def"><b>Practice KPI registry</b>
+      
+      <div class="fine">Read the computed practice KPIs (AAI, accuracy ladder, ESR, bands)</div></div>
+    
+    <div class="def"><b>Team budgets</b>
+      
+      <div class="fine">Read the intake budgets plane</div></div>
+    
+    <div class="def"><b>Team requests</b>
+      
+      <div class="fine">Read the intake requests pipeline</div></div>
+    
+  </div>
+
+  <h3>Actions it may take (3)</h3>
+  <div class="deflist">
+    
+    <div class="def"><b>Declare covered tasks</b>
+      <span class="chip st-blocked">elevated risk</span>
+      <div class="fine">Declare that a deliverable already covers another open task on the same desk; the task closes when the operator posts the deliverable</div></div>
+    
+    <div class="def"><b>Post to desk chat</b>
+      
+      <div class="fine">Write to the desk channel</div></div>
+    
+    <div class="def"><b>Read and propose</b>
+      
+      <div class="fine">Never acts outward; deliverables only</div></div>
+    
+  </div>
+  
+</section>
+
+<section class="panel">
+  <h2>Guardrails and how it is judged</h2>
+  <table>
+    <tr><th>guard</th><th class="num">limit</th><th class="num">used</th></tr>
+    <tr><td>Per task</td><td class="num">$15.00</td><td class="num">&mdash;</td></tr>
+    <tr><td>Per month</td><td class="num">$75.00</td>
+        <td class="num">$1.32</td></tr>
+  </table>
+  
+  <h3>Evaluation</h3>
+  <table>
+    <tr><th>target</th><th>measured now</th><th>state</th></tr>
+    
+    <tr><td>first-pass acceptance &gt;= 80%</td><td>100%</td>
+      <td><span class="chip st-done">met</span>
+          </td></tr>
+    
+    <tr><td>on-time rate &gt;= 95%</td><td>not measurable yet</td>
+      <td><span class="chip">no signal</span>
+          </td></tr>
+    
+  </table>
+  
+</section>
+
+<section class="panel">
+  <h2>Work (7)</h2>
+  <input class="filterbox" placeholder="Find a task..." data-target="#agenttasks">
+  <table id="agenttasks">
+    <tr><th>task</th><th>state</th><th>sprint</th><th>updated</th><th class="num">cost $</th><th>act</th></tr>
+    
+    <tr data-search="Classify the ml GPU driver and firm up the request #1 estimate done">
+      <td><a href="/task/115">Classify the ml GPU driver and firm up the request #1 estimate</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/16">sprint 16</a></td>
+      <td>2026-08-16</td>
+      <td class="num">0.00</td>
+      <td>
+        
+        <form method="post" action="/task/115/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand115').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Size request #1 (GPU nodes) and profile ml AI spend done">
+      <td><a href="/task/112">Size request #1 (GPU nodes) and profile ml AI spend</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/15">sprint 15</a></td>
+      <td>2026-08-14</td>
+      <td class="num">0.00</td>
+      <td>
+        
+        <form method="post" action="/task/112/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand112').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="First-pass sizing: two extra GPU training nodes (request #1) done">
+      <td><a href="/task/95">First-pass sizing: two extra GPU training nodes (request #1)</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/14">sprint 14</a></td>
+      <td>2026-08-14</td>
+      <td class="num">0.00</td>
+      <td>
+        
+        <form method="post" action="/task/95/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand95').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Cross-platform unit economics for ml training (aws + gcp) done">
+      <td><a href="/task/80">Cross-platform unit economics for ml training (aws + gcp)</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/13">sprint 13</a></td>
+      <td>2026-08-13</td>
+      <td class="num">0.36</td>
+      <td>
+        
+        <form method="post" action="/task/80/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand80').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Rightsizing sweep of the ml AWS compute fleet done">
+      <td><a href="/task/79">Rightsizing sweep of the ml AWS compute fleet</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/13">sprint 13</a></td>
+      <td>2026-08-13</td>
+      <td class="num">0.33</td>
+      <td>
+        
+        <form method="post" action="/task/79/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand79').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Capacity estimate for request #1: two extra GPU training nodes done">
+      <td><a href="/task/78">Capacity estimate for request #1: two extra GPU training nodes</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/13">sprint 13</a></td>
+      <td>2026-08-13</td>
+      <td class="num">0.32</td>
+      <td>
+        
+        <form method="post" action="/task/78/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand78').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Permission-boundary test: GCP question to a newcomer done">
+      <td><a href="/task/76">Permission-boundary test: GCP question to a newcomer</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td>&mdash;</td>
+      <td>2026-08-13</td>
+      <td class="num">0.31</td>
+      <td>
+        
+        <form method="post" action="/task/76/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand76').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+  </table>
+  <p class="fine">Click a column heading to sort, drag a heading's right edge to
+  widen it. <b>Run</b> puts the task through this analyst again, brief unchanged.
+  <b>Hand over</b> moves it to somebody else, and lets you change what it asks
+  for on the way.</p>
+
+  
+  <dialog id="hand115" class="dlg">
+    <form method="post" action="/task/115/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Classify the ml GPU driver and firm up the request #1 estimate</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="reporter-aws">reporter-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="supervisor">supervisor &mdash; management</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="The largest AWS anomaly (2026-07-30, Amazon EC2, ml, excess 41.90 USD, no qid) still carries driver null while ml is projected at 113.1% of budget (no qid). Populate the driver, quantify the recurring share of that step, and convert request #1 (two extra GPU nodes, 820 USD, target 2026-10, no qid) from an attached estimate into an evidence-backed one. Supports the forecast-error work [qid:2f445196]. Routing: driver-classification, capacity-estimation, unit-economics, ai-spend-analysis."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand115').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand112" class="dlg">
+    <form method="post" action="/task/112/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Size request #1 (GPU nodes) and profile ml AI spend</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="reporter-aws">reporter-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="supervisor">supervisor &mdash; management</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Request #1 (two extra GPU training nodes, ml, target 2026-10) is estimated but unreviewed. Size it against observed ml usage, and in the same pass profile the ml AI and training spend on AWS by driver, including the 2026-07-30 EC2 spike that currently has no driver classified."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand112').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand95" class="dlg">
+    <form method="post" action="/task/95/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: First-pass sizing: two extra GPU training nodes (request #1)</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="reporter-aws">reporter-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="supervisor">supervisor &mdash; management</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Size request #1 for the October target: what the two nodes actually consume, what utilisation would justify them, and what the ml team&#39;s current position implies for the affordability question. Sizing only; the affordability call depends on the ml driver classification landing this sprint."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand95').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand80" class="dlg">
+    <form method="post" action="/task/80/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Cross-platform unit economics for ml training (aws + gcp)</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="reporter-aws">reporter-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="supervisor">supervisor &mdash; management</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Establish cost-per-training-unit for ml on AWS and on GCP using the dual platform access, so requests #1 and #3 can be compared on the same basis. Cross-desk: coordinate the GCP read with investigator-gcp; supervisor pre-reviews before it reaches the operator. (Plan context refs: requests_open#1,#3)"></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand80').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand79" class="dlg">
+    <form method="post" action="/task/79/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Rightsizing sweep of the ml AWS compute fleet</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="reporter-aws">reporter-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="supervisor">supervisor &mdash; management</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Review the ml team&#39;s AWS compute for rightsizing headroom, scoped to ml only. Cross-check the findings against the request #1 estimate and flag any contradiction between observed utilisation and the requested capacity. (Plan context refs: teams_projection.aws[ml])"></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand79').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand78" class="dlg">
+    <form method="post" action="/task/78/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Capacity estimate for request #1: two extra GPU training nodes</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="reporter-aws">reporter-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="supervisor">supervisor &mdash; management</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Produce a defensible capacity estimate for request #1 (ml, target 2026-10), building on the 2026-07-30 EC2 driver classification rather than on the attached prior estimate; state assumptions and the utilisation evidence behind them. Propose-only. (Plan context refs: requests_open#1)"></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand78').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand76" class="dlg">
+    <form method="post" action="/task/76/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Permission-boundary test: GCP question to a newcomer</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="reporter-aws">reporter-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="optimizer-gcp">optimizer-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="supervisor">supervisor &mdash; management</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Perm guard negative test"></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand76').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+</section>
+
+<section class="panel">
+  <h2>Activity</h2>
+  <p class="fine">Straight from the hash-chained journal, newest first: what this
+  analyst did, not what a status field claims.</p>
+  <table>
+    <tr><th>when</th><th>event</th><th>detail</th></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/115">task 115</a> 
+        Classify the ml GPU driver and firm up the request #1 estimate</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/112">task 112</a> 
+        Size request #1 (GPU nodes) and profile ml AI spend</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/95">task 95</a> 
+        First-pass sizing: two extra GPU training nodes (request #1)</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/80">task 80</a> 
+        Cross-platform unit economics for ml training (aws + gcp)</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/79">task 79</a> 
+        Rightsizing sweep of the ml AWS compute fleet</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/78">task 78</a> 
+        Capacity estimate for request #1: two extra GPU training nodes</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/76">task 76</a> 
+        Permission-boundary test: GCP question to a newcomer</td></tr>
+    
+  </table>
+</section>
+
+<section class="panel">
+  <h2>The job description as stored</h2>
+  <p class="fine">Everything above comes from this one file, <code>jd/capacity-aws.yaml</code>.
+  Hiring an analyst is writing it; changing one is editing it.</p>
+  <details class="fold"><summary>Show the raw file</summary>
+    <pre class="jd">name: capacity-aws
+role: FinOps Analyst - Investigator (aws desk)
+mission: &#39;Capacity and growth questions for the aws desk: turn team requests into
+  cost estimates.&#39;
+model:
+  provider: openrouter
+  model: moonshotai/kimi-k2
+desk: aws
+default_source: aws
+skills:
+  base:
+  - figures-read
+  - sql-readonly
+  - report-writing
+  - exec-summaries
+  - variance-commentary
+  - anomaly-triage
+  - intake-reading
+  - chat-participation
+  specialized:
+  - ai-spend-analysis
+  - capacity-estimation
+  - driver-classification
+  - forecast-accuracy
+  - rightsizing-analysis
+  - unit-economics
+permissions:
+- budgets-read
+- channel-post
+- close-covered
+- kpi-registry
+- platform-aws
+- platform-gcp
+- propose-only
+- requests-read
+boundaries:
+  tools:
+  - figures
+  actions: read-and-propose
+budget:
+  per_task_usd: 15.0
+  monthly_usd: 75.0
+house_rules:
+- Rank findings by money, not by z-score.
+evaluation:
+  kpis:
+  - first-pass acceptance &gt;= 80%
+  - on-time rate &gt;= 95%
+</pre>
+  </details>
+</section>
+</main>
+</div>
+<script>
+document.addEventListener('input', function (e) {
+  var box = e.target.closest('.filterbox'); if (!box) return;
+  var root = document.querySelector(box.dataset.target); if (!root) return;
+  var q = box.value.trim().toLowerCase();
+  root.querySelectorAll('[data-search]').forEach(function (el) {
+    var hit = !q || el.dataset.search.toLowerCase().indexOf(q) !== -1;
+    if (el.classList.contains('deskgroup')) {
+      var inner = Array.prototype.some.call(el.querySelectorAll('[data-search]'),
+        function (x) { return x.dataset.search.toLowerCase().indexOf(q) !== -1; });
+      el.style.display = (hit || inner || !q) ? '' : 'none';
+      el.querySelectorAll('[data-search]').forEach(function (x) {
+        x.style.display = (!q || hit || x.dataset.search.toLowerCase().indexOf(q) !== -1) ? '' : 'none';
+      });
+    } else if (!el.closest('.deskgroup')) {
+      el.style.display = hit ? '' : 'none';
+    }
+  });
+});
+document.addEventListener('click', function (e) {
+  if (e.target.classList && e.target.classList.contains('grip')) return;
+  var th = e.target.closest('th'); if (!th) return;
+  var table = th.closest('table'); if (!table) return;
+  var idx = Array.prototype.indexOf.call(th.parentNode.children, th);
+  var rows = Array.prototype.slice.call(table.querySelectorAll('tr')).filter(
+    function (r) { return r.querySelector('td'); });
+  var dir = th.dataset.dir === 'asc' ? -1 : 1;
+  table.querySelectorAll('th').forEach(function (h) { delete h.dataset.dir;
+    var a = h.querySelector('.arrow'); if (a) a.remove(); });
+  th.dataset.dir = dir === 1 ? 'asc' : 'desc';
+  var arrow = document.createElement('span');
+  arrow.className = 'arrow';
+  arrow.textContent = dir === 1 ? ' \u25B2' : ' \u25BC';
+  th.appendChild(arrow);
+  function key(r) {
+    var c = r.children[idx]; if (!c) return '';
+    var txt = c.textContent.trim().replace(/[$,%]/g, '').replace(/,/g, '');
+    if (/\d{4}-\d{2}-\d{2}/.test(txt)) return txt.replace(/[^\d-]/g, '');
+    var n = parseFloat(txt);
+    return isNaN(n) ? txt.toLowerCase() : n;
+  }
+  rows.sort(function (a, b) {
+    var ka = key(a), kb = key(b);
+    if (typeof ka === 'number' && typeof kb === 'number') return (ka - kb) * dir;
+    return String(ka).localeCompare(String(kb)) * dir;
+  });
+  rows.forEach(function (r) { r.parentNode.appendChild(r); });
+});
+
+/* ---- tables you can widen, and that fit any screen -----------------------
+   Every table is put in its own horizontally scrolling box, so a wide table
+   scrolls inside its panel instead of pushing the whole page sideways. Each
+   header cell gets a grip on its right edge: drag it to widen the column,
+   double-click it to give the column back to the browser. Widths are
+   remembered per page, because a column you widened once you almost always
+   want wide again.                                                          */
+(function () {
+  var KEY = 'costcrew.colw.' + location.pathname;
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (err) { saved = {}; }
+
+  function persist() {
+    try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (err) { /* private mode */ }
+  }
+
+  function setup() {
+    document.querySelectorAll('table').forEach(function (table, ti) {
+      if (!table.parentNode.classList.contains('tw')) {
+        var box = document.createElement('div');
+        box.className = 'tw';
+        table.parentNode.insertBefore(box, table);
+        box.appendChild(table);
+      }
+      /* An atom never breaks: a date, a sum, a status, a short name. Prose
+         does break, and must, or one sentence drags the whole table wider
+         than the screen and everything else scrolls to reach it. The rule is
+         length, applied once, because CSS cannot ask how long a text is. */
+      table.querySelectorAll('td, th').forEach(function (cell) {
+        if (cell.children.length) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length > 40 && txt.indexOf(' ') !== -1) cell.classList.add('wrap');
+      });
+
+      /* Really long prose gets two lines and a way to open the rest. Nothing
+         is removed: the full text is still in the cell, still searched by
+         the filter box, still there for anyone who presses. */
+      table.querySelectorAll('td').forEach(function (cell) {
+        if (cell.querySelector('.clamp')) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length <= 110) return;
+        var box = document.createElement('div');
+        box.className = 'clamp';
+        while (cell.firstChild) box.appendChild(cell.firstChild);
+        cell.appendChild(box);
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'more';
+        btn.textContent = 'more';
+        btn.setAttribute('aria-expanded', 'false');
+        btn.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          var open = box.classList.toggle('open');
+          btn.textContent = open ? 'less' : 'more';
+          btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+        cell.appendChild(btn);
+        cell.classList.add('wrap');
+      });
+      /* Align each header to the column beneath it. The figures are right
+         aligned and the headers were not, so every numeric column read as a
+         label on the left with unrelated numbers on the right. */
+      var head0 = table.querySelector('tr');
+      if (head0) {
+        var body = Array.prototype.slice.call(table.querySelectorAll('tr'))
+          .filter(function (r) { return r.querySelector('td'); });
+        head0.querySelectorAll('th').forEach(function (th, ci) {
+          var nums = 0, cells = 0;
+          body.forEach(function (r) {
+            var cell = r.children[ci];
+            if (!cell || cell.tagName !== 'TD') return;
+            cells++;
+            if (cell.classList.contains('num')) nums++;
+          });
+          if (cells && nums * 2 > cells) th.classList.add('num');
+        });
+      }
+      var head = table.querySelector('tr');
+      if (!head) return;
+      head.querySelectorAll('th').forEach(function (th, ci) {
+        var id = ti + ':' + ci;
+        if (saved[id]) { th.style.width = saved[id] + 'px'; th.classList.add('sized'); }
+        if (th.querySelector('.grip')) return;
+        var grip = document.createElement('span');
+        grip.className = 'grip';
+        grip.title = 'Drag to widen, double-click to reset';
+        grip.addEventListener('dblclick', function (ev) {
+          ev.stopPropagation();
+          th.style.width = ''; th.classList.remove('sized');
+          delete saved[id]; persist();
+        });
+        grip.addEventListener('pointerdown', function (ev) {
+          ev.preventDefault(); ev.stopPropagation();
+          var x0 = ev.clientX, w0 = th.getBoundingClientRect().width;
+          grip.classList.add('on');
+          grip.setPointerCapture(ev.pointerId);
+          function move(e2) {
+            var w = Math.max(48, Math.round(w0 + (e2.clientX - x0)));
+            th.style.width = w + 'px'; th.classList.add('sized');
+            saved[id] = w;
+          }
+          function up() {
+            grip.classList.remove('on');
+            grip.removeEventListener('pointermove', move);
+            grip.removeEventListener('pointerup', up);
+            persist();
+          }
+          grip.addEventListener('pointermove', move);
+          grip.addEventListener('pointerup', up);
+        });
+        th.appendChild(grip);
+      });
+    });
+    document.querySelectorAll('.tw').forEach(function (box) {
+      function mark() {
+        /* a few pixels is rounding, not a hidden column */
+        var over = box.scrollWidth > box.clientWidth + 8;
+        box.classList.toggle('scrolls', over);
+        box.classList.toggle('atend',
+          over && box.scrollLeft + box.clientWidth >= box.scrollWidth - 2);
+      }
+      box.addEventListener('scroll', mark);
+      window.addEventListener('resize', mark);
+      mark();
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setup);
+  } else { setup(); }
+})();
+</script>
+</body></html>

@@ -1,0 +1,9 @@
+area,source,finding,monthly_usd,annual_usd,status,basis,next_step,qid
+Licensing,saas,unused seats across 6 subscriptions,7344.0,88128.0,identified,"seats provisioned and not active, at the unit price","reclaim seats before the renewal, not after",541feceb
+Usage optimisation,gcp,10 oversized resources on gcp,445.0,5340.0,identified,proven against measured p95 utilisation; the resize keeps the resource under the headroom line,"an owner confirms, then the change is made",29591d0d
+Usage optimisation,aws,7 oversized resources on aws,374.65,4495.8,identified,proven against measured p95 utilisation; the resize keeps the resource under the headroom line,"an owner confirms, then the change is made",c2933bb7
+Planning,intake,3 reduction requests in the pipeline,350.0,4200.0,identified,"team-submitted reductions, estimated by the desks",approve and schedule them,intake-requests
+Usage optimisation,gcp,3 idle resources on gcp,294.53,3534.36,identified,p95 utilisation at or under the idle threshold,"an owner confirms they are not standby capacity, then they stop",29591d0d
+Usage optimisation,aws,3 idle resources on aws,294.49,3533.88,identified,p95 utilisation at or under the idle threshold,"an owner confirms they are not standby capacity, then they stop",c2933bb7
+Rate optimisation,gcp,unused commitment on Compute Engine CUD,10.5,126.0,identified,commitment paid for beyond what the scope consumed,resize the commitment at renewal,e20a0bab
+TOTAL,,identified per month,9113.17,109358.04,identified,sum of the lines above,,

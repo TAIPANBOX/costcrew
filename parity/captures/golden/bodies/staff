@@ -1,0 +1,440 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CostCrew</title>
+<link rel="stylesheet" href="/static/style.css"></head><body>
+<div class="shell">
+<nav class="rail">
+  <div class="brand">CostCrew</div>
+  <a href="/" class="">Today</a>
+  <a href="/board" class="">Board</a>
+  <a href="/board?view=month" class="sub">Calendar</a>
+  <a href="/teams" class="">Teams</a>
+  <a href="/sprints" class="">Sprints</a>
+  <a href="/feed" class="">Chats</a>
+  <a href="/feed?ch=aws" class="sub">#aws</a>
+  <a href="/feed?ch=gcp" class="sub">#gcp</a>
+  <a href="/feed?ch=onprem" class="sub">#onprem</a>
+  <a href="/kpis" class="">KPIs</a>
+  <a href="/library" class="sub ">Library</a>
+  <a href="/assessment" class="sub ">Assessment</a>
+  <a href="/allocation" class="">Allocation</a>
+  <a href="/chargeback" class="">Chargeback</a>
+  <a href="/exec" class="">Executive</a>
+  <a href="/results" class="">Results</a>
+  <a href="/ai" class="">AI spend</a>
+  <a href="/saas" class="">SaaS</a>
+  <a href="/utilisation" class="">Utilisation</a>
+  <a href="/explainers" class="">Explainers</a>
+  <a href="/staff" class="on">Staff</a>
+  <a href="/workbench" class="">Workbench</a>
+  <a href="/data" class="">Data</a>
+  <a href="/connectors" class="sub ">Connectors</a>
+  <a href="/audit" class="">Audit</a>
+  <a href="/settings" class="">Engines</a>
+  
+  <a href="/accounts" class="">Accounts</a>
+  <div class="railfoot">
+    
+    <div>parity · admin</div>
+    <form method="post" action="/logout" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+      <button class="btn back">Sign out</button></form>
+    
+    <div>MVP · local</div>
+  </div>
+</nav>
+<main class="content">
+<h1>Staff <a class="btn" href="/staff/new" style="float:right">Hire agent</a></h1>
+<p>The analysts on the payroll. Each one is hired under a job description that
+sets what it may read, what it may do, what it costs and how often it reports;
+open a name for the full card, or hire another.</p>
+<input class="filterbox" placeholder="Find an agent or a unit..." data-target="#staffbody">
+<table id="staffbody"><tr><th>agent</th><th>desk</th><th>role</th><th>provider</th><th>spent (month)</th><th>budget</th></tr>
+
+<tr data-search="capacity-aws aws FinOps Analyst - Investigator (aws desk)"><td><a href="/staff/capacity-aws">capacity-aws</a></td><td><a href="/feed?ch=aws">#aws</a></td>
+    <td>FinOps Analyst - Investigator (aws desk)</td><td>openrouter</td>
+    <td>$1.32</td><td>$75.00</td></tr>
+
+<tr data-search="investigator-aws aws FinOps Analyst - Investigator (aws desk)"><td><a href="/staff/investigator-aws">investigator-aws</a></td><td><a href="/feed?ch=aws">#aws</a></td>
+    <td>FinOps Analyst - Investigator (aws desk)</td><td>openrouter</td>
+    <td>$0.69</td><td>$100.00</td></tr>
+
+<tr data-search="optimizer-aws aws FinOps Analyst - Optimizer (aws desk)"><td><a href="/staff/optimizer-aws">optimizer-aws</a></td><td><a href="/feed?ch=aws">#aws</a></td>
+    <td>FinOps Analyst - Optimizer (aws desk)</td><td>openrouter</td>
+    <td>$21.24</td><td>$75.00</td></tr>
+
+<tr data-search="reporter-aws aws FinOps Analyst - Reporter (aws desk)"><td><a href="/staff/reporter-aws">reporter-aws</a></td><td><a href="/feed?ch=aws">#aws</a></td>
+    <td>FinOps Analyst - Reporter (aws desk)</td><td>openrouter</td>
+    <td>$31.31</td><td>$100.00</td></tr>
+
+<tr data-search="investigator-gcp gcp FinOps Analyst - Investigator (gcp desk)"><td><a href="/staff/investigator-gcp">investigator-gcp</a></td><td><a href="/feed?ch=gcp">#gcp</a></td>
+    <td>FinOps Analyst - Investigator (gcp desk)</td><td>openrouter</td>
+    <td>$18.69</td><td>$100.00</td></tr>
+
+<tr data-search="optimizer-gcp gcp FinOps Analyst - Optimizer (gcp desk)"><td><a href="/staff/optimizer-gcp">optimizer-gcp</a></td><td><a href="/feed?ch=gcp">#gcp</a></td>
+    <td>FinOps Analyst - Optimizer (gcp desk)</td><td>openrouter</td>
+    <td>$24.51</td><td>$75.00</td></tr>
+
+<tr data-search="reporter-gcp gcp FinOps Analyst - Reporter (gcp desk)"><td><a href="/staff/reporter-gcp">reporter-gcp</a></td><td><a href="/feed?ch=gcp">#gcp</a></td>
+    <td>FinOps Analyst - Reporter (gcp desk)</td><td>openrouter</td>
+    <td>$29.79</td><td>$100.00</td></tr>
+
+<tr data-search="supervisor management Lead FinOps Analyst (supervisor, all desks)"><td><a href="/staff/supervisor">supervisor</a></td><td>management</td>
+    <td>Lead FinOps Analyst (supervisor, all desks)</td><td>claude-cli</td>
+    <td>$42.03</td><td>$150.00</td></tr>
+
+<tr data-search="investigator-onprem onprem FinOps Analyst - Investigator (onprem desk)"><td><a href="/staff/investigator-onprem">investigator-onprem</a></td><td><a href="/feed?ch=onprem">#onprem</a></td>
+    <td>FinOps Analyst - Investigator (onprem desk)</td><td>openrouter</td>
+    <td>$1.72</td><td>$50.00</td></tr>
+
+<tr data-search="reporter-onprem onprem FinOps Analyst - Reporter (onprem desk)"><td><a href="/staff/reporter-onprem">reporter-onprem</a></td><td><a href="/feed?ch=onprem">#onprem</a></td>
+    <td>FinOps Analyst - Reporter (onprem desk)</td><td>openrouter</td>
+    <td>$36.34</td><td>$100.00</td></tr>
+</table>
+<p class="fine">Hiring = dropping a job description YAML into <code>jd/</code>. The JD is the whole configuration.</p>
+
+<h2 style="margin-top:22px">How the crew is performing</h2>
+<p class="fine">This is the manager's view of the crew itself, not a view of the
+estate: who produced what, how much was accepted first time, and what each
+deliverable cost. What the crew FOUND, and what it cost against the spend it
+watches, belongs on <a href="/results">Results</a> and is not repeated here.</p>
+<section class="panel"><h2>Per agent</h2>
+<input class="filterbox" placeholder="Find an agent or a unit..." data-target="#statagents">
+<table id="statagents"><tr><th>agent</th><th>desk</th><th>tasks</th><th>deliverables</th><th>approved</th>
+<th>first-pass %</th><th>returned</th><th>blocked</th><th>in progress</th>
+<th>spend $</th><th>$/deliverable</th></tr>
+
+<tr data-search="supervisor management"><td><a href="/staff/supervisor">supervisor</a></td>
+<td>management</td>
+<td class="num">23</td><td class="num">22</td>
+<td class="num">22</td>
+<td class="num">100%</td>
+<td class="num">0</td><td class="num">0</td>
+<td class="num">1</td>
+<td class="num">273.19</td>
+<td class="num">12.42</td></tr>
+
+<tr data-search="reporter-onprem onprem"><td><a href="/staff/reporter-onprem">reporter-onprem</a></td>
+<td><a href="/feed?ch=onprem">#onprem</a></td>
+<td class="num">18</td><td class="num">19</td>
+<td class="num">17</td>
+<td class="num">94%</td>
+<td class="num">1</td><td class="num">0</td>
+<td class="num">0</td>
+<td class="num">144.85</td>
+<td class="num">8.52</td></tr>
+
+<tr data-search="reporter-gcp gcp"><td><a href="/staff/reporter-gcp">reporter-gcp</a></td>
+<td><a href="/feed?ch=gcp">#gcp</a></td>
+<td class="num">18</td><td class="num">19</td>
+<td class="num">17</td>
+<td class="num">94%</td>
+<td class="num">1</td><td class="num">0</td>
+<td class="num">0</td>
+<td class="num">137.82</td>
+<td class="num">8.11</td></tr>
+
+<tr data-search="reporter-aws aws"><td><a href="/staff/reporter-aws">reporter-aws</a></td>
+<td><a href="/feed?ch=aws">#aws</a></td>
+<td class="num">18</td><td class="num">18</td>
+<td class="num">16</td>
+<td class="num">100%</td>
+<td class="num">0</td><td class="num">0</td>
+<td class="num">0</td>
+<td class="num">135.77</td>
+<td class="num">8.49</td></tr>
+
+<tr data-search="optimizer-gcp gcp"><td><a href="/staff/optimizer-gcp">optimizer-gcp</a></td>
+<td><a href="/feed?ch=gcp">#gcp</a></td>
+<td class="num">11</td><td class="num">10</td>
+<td class="num">10</td>
+<td class="num">100%</td>
+<td class="num">0</td><td class="num">0</td>
+<td class="num">1</td>
+<td class="num">77.88</td>
+<td class="num">7.79</td></tr>
+
+<tr data-search="optimizer-aws aws"><td><a href="/staff/optimizer-aws">optimizer-aws</a></td>
+<td><a href="/feed?ch=aws">#aws</a></td>
+<td class="num">7</td><td class="num">7</td>
+<td class="num">7</td>
+<td class="num">100%</td>
+<td class="num">0</td><td class="num">0</td>
+<td class="num">0</td>
+<td class="num">62.83</td>
+<td class="num">8.98</td></tr>
+
+<tr data-search="investigator-gcp gcp"><td><a href="/staff/investigator-gcp">investigator-gcp</a></td>
+<td><a href="/feed?ch=gcp">#gcp</a></td>
+<td class="num">8</td><td class="num">7</td>
+<td class="num">7</td>
+<td class="num">100%</td>
+<td class="num">0</td><td class="num">1</td>
+<td class="num">0</td>
+<td class="num">50.57</td>
+<td class="num">7.22</td></tr>
+
+<tr data-search="investigator-onprem onprem"><td><a href="/staff/investigator-onprem">investigator-onprem</a></td>
+<td><a href="/feed?ch=onprem">#onprem</a></td>
+<td class="num">8</td><td class="num">7</td>
+<td class="num">7</td>
+<td class="num">100%</td>
+<td class="num">0</td><td class="num">0</td>
+<td class="num">1</td>
+<td class="num">23.97</td>
+<td class="num">3.42</td></tr>
+
+<tr data-search="investigator-aws aws"><td><a href="/staff/investigator-aws">investigator-aws</a></td>
+<td><a href="/feed?ch=aws">#aws</a></td>
+<td class="num">3</td><td class="num">3</td>
+<td class="num">3</td>
+<td class="num">100%</td>
+<td class="num">0</td><td class="num">0</td>
+<td class="num">0</td>
+<td class="num">14.63</td>
+<td class="num">4.88</td></tr>
+
+<tr data-search="capacity-aws aws"><td><a href="/staff/capacity-aws">capacity-aws</a></td>
+<td><a href="/feed?ch=aws">#aws</a></td>
+<td class="num">7</td><td class="num">7</td>
+<td class="num">7</td>
+<td class="num">100%</td>
+<td class="num">0</td><td class="num">0</td>
+<td class="num">0</td>
+<td class="num">1.32</td>
+<td class="num">0.19</td></tr>
+</table></section>
+<section class="panel"><h2>Per desk (business unit)</h2>
+<table><tr><th>desk</th><th>agents</th><th>tasks</th><th>approved</th><th>returned</th>
+<th>blocked</th><th>crew spend, 3mo $</th><th>crew spend, July $</th><th>managed usage, July $</th><th>crew vs managed (July)</th></tr>
+
+<tr><td><a href="/feed?ch=aws">#aws</a></td>
+<td class="num">4</td><td class="num">35</td>
+<td class="num">33</td><td class="num">0</td>
+<td class="num">0</td><td class="num">214.55</td>
+<td class="num">49.11</td>
+<td class="num">3,372.76</td>
+<td class="num">1.46%</td></tr>
+
+<tr><td><a href="/feed?ch=gcp">#gcp</a></td>
+<td class="num">3</td><td class="num">37</td>
+<td class="num">34</td><td class="num">1</td>
+<td class="num">1</td><td class="num">266.27</td>
+<td class="num">30.72</td>
+<td class="num">2,552.92</td>
+<td class="num">1.20%</td></tr>
+
+<tr><td>management</td>
+<td class="num">1</td><td class="num">23</td>
+<td class="num">22</td><td class="num">0</td>
+<td class="num">0</td><td class="num">273.19</td>
+<td class="num">120.19</td>
+<td class="num">—</td>
+<td class="num">—</td></tr>
+
+<tr><td><a href="/feed?ch=onprem">#onprem</a></td>
+<td class="num">2</td><td class="num">26</td>
+<td class="num">24</td><td class="num">1</td>
+<td class="num">0</td><td class="num">168.82</td>
+<td class="num">48.92</td>
+<td class="num">2,477.13</td>
+<td class="num">1.97%</td></tr>
+</table>
+<p class="fine">Managed usage: the July Usage total of the desk's source. The ratio is the FinOps question: what does the crew cost against the spend it watches.</p></section>
+<section class="panel"><h2>Exceptions (blocked and returned)</h2>
+<table><tr><th>when</th><th>what</th><th>task</th><th>detail</th></tr>
+
+<tr><td><WHEN></td><td>returned</td>
+<td><a href="/task/64">task:64</a></td>
+<td class="fine">emphasis: Split power draw from licensing before I take this upstairs.</td></tr>
+
+<tr><td><WHEN></td><td>blocked</td>
+<td><a href="/task/67">task:67</a></td>
+<td class="fine">waiting on ml capacity plan from intake</td></tr>
+
+<tr><td><WHEN></td><td>returned</td>
+<td><a href="/task/15">task:15</a></td>
+<td class="fine">emphasis: Lead with the BigQuery growth trend, not the weekly total.</td></tr>
+</table></section>
+</main>
+</div>
+<script>
+document.addEventListener('input', function (e) {
+  var box = e.target.closest('.filterbox'); if (!box) return;
+  var root = document.querySelector(box.dataset.target); if (!root) return;
+  var q = box.value.trim().toLowerCase();
+  root.querySelectorAll('[data-search]').forEach(function (el) {
+    var hit = !q || el.dataset.search.toLowerCase().indexOf(q) !== -1;
+    if (el.classList.contains('deskgroup')) {
+      var inner = Array.prototype.some.call(el.querySelectorAll('[data-search]'),
+        function (x) { return x.dataset.search.toLowerCase().indexOf(q) !== -1; });
+      el.style.display = (hit || inner || !q) ? '' : 'none';
+      el.querySelectorAll('[data-search]').forEach(function (x) {
+        x.style.display = (!q || hit || x.dataset.search.toLowerCase().indexOf(q) !== -1) ? '' : 'none';
+      });
+    } else if (!el.closest('.deskgroup')) {
+      el.style.display = hit ? '' : 'none';
+    }
+  });
+});
+document.addEventListener('click', function (e) {
+  if (e.target.classList && e.target.classList.contains('grip')) return;
+  var th = e.target.closest('th'); if (!th) return;
+  var table = th.closest('table'); if (!table) return;
+  var idx = Array.prototype.indexOf.call(th.parentNode.children, th);
+  var rows = Array.prototype.slice.call(table.querySelectorAll('tr')).filter(
+    function (r) { return r.querySelector('td'); });
+  var dir = th.dataset.dir === 'asc' ? -1 : 1;
+  table.querySelectorAll('th').forEach(function (h) { delete h.dataset.dir;
+    var a = h.querySelector('.arrow'); if (a) a.remove(); });
+  th.dataset.dir = dir === 1 ? 'asc' : 'desc';
+  var arrow = document.createElement('span');
+  arrow.className = 'arrow';
+  arrow.textContent = dir === 1 ? ' \u25B2' : ' \u25BC';
+  th.appendChild(arrow);
+  function key(r) {
+    var c = r.children[idx]; if (!c) return '';
+    var txt = c.textContent.trim().replace(/[$,%]/g, '').replace(/,/g, '');
+    if (/\d{4}-\d{2}-\d{2}/.test(txt)) return txt.replace(/[^\d-]/g, '');
+    var n = parseFloat(txt);
+    return isNaN(n) ? txt.toLowerCase() : n;
+  }
+  rows.sort(function (a, b) {
+    var ka = key(a), kb = key(b);
+    if (typeof ka === 'number' && typeof kb === 'number') return (ka - kb) * dir;
+    return String(ka).localeCompare(String(kb)) * dir;
+  });
+  rows.forEach(function (r) { r.parentNode.appendChild(r); });
+});
+
+/* ---- tables you can widen, and that fit any screen -----------------------
+   Every table is put in its own horizontally scrolling box, so a wide table
+   scrolls inside its panel instead of pushing the whole page sideways. Each
+   header cell gets a grip on its right edge: drag it to widen the column,
+   double-click it to give the column back to the browser. Widths are
+   remembered per page, because a column you widened once you almost always
+   want wide again.                                                          */
+(function () {
+  var KEY = 'costcrew.colw.' + location.pathname;
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (err) { saved = {}; }
+
+  function persist() {
+    try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (err) { /* private mode */ }
+  }
+
+  function setup() {
+    document.querySelectorAll('table').forEach(function (table, ti) {
+      if (!table.parentNode.classList.contains('tw')) {
+        var box = document.createElement('div');
+        box.className = 'tw';
+        table.parentNode.insertBefore(box, table);
+        box.appendChild(table);
+      }
+      /* An atom never breaks: a date, a sum, a status, a short name. Prose
+         does break, and must, or one sentence drags the whole table wider
+         than the screen and everything else scrolls to reach it. The rule is
+         length, applied once, because CSS cannot ask how long a text is. */
+      table.querySelectorAll('td, th').forEach(function (cell) {
+        if (cell.children.length) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length > 40 && txt.indexOf(' ') !== -1) cell.classList.add('wrap');
+      });
+
+      /* Really long prose gets two lines and a way to open the rest. Nothing
+         is removed: the full text is still in the cell, still searched by
+         the filter box, still there for anyone who presses. */
+      table.querySelectorAll('td').forEach(function (cell) {
+        if (cell.querySelector('.clamp')) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length <= 110) return;
+        var box = document.createElement('div');
+        box.className = 'clamp';
+        while (cell.firstChild) box.appendChild(cell.firstChild);
+        cell.appendChild(box);
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'more';
+        btn.textContent = 'more';
+        btn.setAttribute('aria-expanded', 'false');
+        btn.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          var open = box.classList.toggle('open');
+          btn.textContent = open ? 'less' : 'more';
+          btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+        cell.appendChild(btn);
+        cell.classList.add('wrap');
+      });
+      /* Align each header to the column beneath it. The figures are right
+         aligned and the headers were not, so every numeric column read as a
+         label on the left with unrelated numbers on the right. */
+      var head0 = table.querySelector('tr');
+      if (head0) {
+        var body = Array.prototype.slice.call(table.querySelectorAll('tr'))
+          .filter(function (r) { return r.querySelector('td'); });
+        head0.querySelectorAll('th').forEach(function (th, ci) {
+          var nums = 0, cells = 0;
+          body.forEach(function (r) {
+            var cell = r.children[ci];
+            if (!cell || cell.tagName !== 'TD') return;
+            cells++;
+            if (cell.classList.contains('num')) nums++;
+          });
+          if (cells && nums * 2 > cells) th.classList.add('num');
+        });
+      }
+      var head = table.querySelector('tr');
+      if (!head) return;
+      head.querySelectorAll('th').forEach(function (th, ci) {
+        var id = ti + ':' + ci;
+        if (saved[id]) { th.style.width = saved[id] + 'px'; th.classList.add('sized'); }
+        if (th.querySelector('.grip')) return;
+        var grip = document.createElement('span');
+        grip.className = 'grip';
+        grip.title = 'Drag to widen, double-click to reset';
+        grip.addEventListener('dblclick', function (ev) {
+          ev.stopPropagation();
+          th.style.width = ''; th.classList.remove('sized');
+          delete saved[id]; persist();
+        });
+        grip.addEventListener('pointerdown', function (ev) {
+          ev.preventDefault(); ev.stopPropagation();
+          var x0 = ev.clientX, w0 = th.getBoundingClientRect().width;
+          grip.classList.add('on');
+          grip.setPointerCapture(ev.pointerId);
+          function move(e2) {
+            var w = Math.max(48, Math.round(w0 + (e2.clientX - x0)));
+            th.style.width = w + 'px'; th.classList.add('sized');
+            saved[id] = w;
+          }
+          function up() {
+            grip.classList.remove('on');
+            grip.removeEventListener('pointermove', move);
+            grip.removeEventListener('pointerup', up);
+            persist();
+          }
+          grip.addEventListener('pointermove', move);
+          grip.addEventListener('pointerup', up);
+        });
+        th.appendChild(grip);
+      });
+    });
+    document.querySelectorAll('.tw').forEach(function (box) {
+      function mark() {
+        /* a few pixels is rounding, not a hidden column */
+        var over = box.scrollWidth > box.clientWidth + 8;
+        box.classList.toggle('scrolls', over);
+        box.classList.toggle('atend',
+          over && box.scrollLeft + box.clientWidth >= box.scrollWidth - 2);
+      }
+      box.addEventListener('scroll', mark);
+      window.addEventListener('resize', mark);
+      mark();
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setup);
+  } else { setup(); }
+})();
+</script>
+</body></html>

@@ -1,4 +1,10 @@
-parity/captures/
+# golden is committed on purpose: since 2026-08-25 it is the only surviving
+# record of the deleted Python original's HTTP surface, nothing regenerates
+# it, and a clone of this repo needs it for parity/gate-has-teeth.sh to run
+# at all. The rest (go-1, py-*) are scratch captures from the porting process
+# and stay ignored.
+parity/captures/*
+!parity/captures/golden/
 *.db
 *.duckdb
 bin/

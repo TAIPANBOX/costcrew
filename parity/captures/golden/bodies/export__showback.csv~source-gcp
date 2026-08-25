@@ -1,0 +1,361 @@
+month,team,service,billed_usd,effective_usd
+2025-06,data,BigQuery,40.38,40.38
+2025-06,data,Cloud SQL,69.06,69.06
+2025-06,data,Cloud Storage,26.59,26.59
+2025-06,data,Compute Engine,129.97,129.97
+2025-06,data,GKE,61.21,61.21
+2025-06,data,Networking,17.97,17.97
+2025-06,ml,BigQuery,26.56,26.56
+2025-06,ml,Cloud SQL,45.86,45.86
+2025-06,ml,Cloud Storage,17.78,17.78
+2025-06,ml,Compute Engine,83.92,83.92
+2025-06,ml,GKE,40.17,40.17
+2025-06,ml,Networking,11.71,11.71
+2025-06,product-web,BigQuery,51.91,51.91
+2025-06,product-web,Cloud SQL,91.01,91.01
+2025-06,product-web,Cloud Storage,35.28,35.28
+2025-06,product-web,Compute Engine,171.61,171.61
+2025-06,product-web,GKE,77.46,77.46
+2025-06,product-web,Networking,23.61,23.61
+2025-06,sre-platform,BigQuery,56.27,56.27
+2025-06,sre-platform,Cloud SQL,100.22,100.22
+2025-06,sre-platform,Cloud Storage,38.75,38.75
+2025-06,sre-platform,Compute Engine,185.11,185.11
+2025-06,sre-platform,GKE,87.3,87.3
+2025-06,sre-platform,Networking,25.96,25.96
+2025-07,data,BigQuery,44.17,44.17
+2025-07,data,Cloud SQL,72.03,72.03
+2025-07,data,Cloud Storage,28.36,28.36
+2025-07,data,Compute Engine,141.97,141.97
+2025-07,data,GKE,64.88,64.88
+2025-07,data,Networking,18.67,18.67
+2025-07,ml,BigQuery,30.46,30.46
+2025-07,ml,Cloud SQL,51.05,51.05
+2025-07,ml,Cloud Storage,19.86,19.86
+2025-07,ml,Compute Engine,94.98,94.98
+2025-07,ml,GKE,45.12,45.12
+2025-07,ml,Networking,13.69,13.69
+2025-07,product-web,BigQuery,57.4,57.4
+2025-07,product-web,Cloud SQL,93.99,93.99
+2025-07,product-web,Cloud Storage,36.28,36.28
+2025-07,product-web,Compute Engine,182.62,182.62
+2025-07,product-web,GKE,86.26,86.26
+2025-07,product-web,Networking,24.77,24.77
+2025-07,sre-platform,BigQuery,63.47,63.47
+2025-07,sre-platform,Cloud SQL,105.33,105.33
+2025-07,sre-platform,Cloud Storage,40.61,40.61
+2025-07,sre-platform,Compute Engine,200.17,200.17
+2025-07,sre-platform,GKE,93.76,93.76
+2025-07,sre-platform,Networking,26.83,26.83
+2025-08,data,BigQuery,45.57,45.57
+2025-08,data,Cloud SQL,72.71,72.71
+2025-08,data,Cloud Storage,29.19,29.19
+2025-08,data,Compute Engine,139.89,139.89
+2025-08,data,GKE,66.72,66.72
+2025-08,data,Networking,19.06,19.06
+2025-08,ml,BigQuery,33.04,33.04
+2025-08,ml,Cloud SQL,54.04,54.04
+2025-08,ml,Cloud Storage,21.38,21.38
+2025-08,ml,Compute Engine,102.05,102.05
+2025-08,ml,GKE,48.89,48.89
+2025-08,ml,Networking,14.08,14.08
+2025-08,product-web,BigQuery,57.21,57.21
+2025-08,product-web,Cloud SQL,95.16,95.16
+2025-08,product-web,Cloud Storage,37.82,37.82
+2025-08,product-web,Compute Engine,184.1,184.1
+2025-08,product-web,GKE,87.3,87.3
+2025-08,product-web,Networking,24.35,24.35
+2025-08,sre-platform,BigQuery,63.45,63.45
+2025-08,sre-platform,Cloud SQL,104.26,104.26
+2025-08,sre-platform,Cloud Storage,41.73,41.73
+2025-08,sre-platform,Compute Engine,196.11,196.11
+2025-08,sre-platform,GKE,96.23,96.23
+2025-08,sre-platform,Networking,27.85,27.85
+2025-09,data,BigQuery,45.18,45.18
+2025-09,data,Cloud SQL,72.46,72.46
+2025-09,data,Cloud Storage,29.03,29.03
+2025-09,data,Compute Engine,140.86,105.64
+2025-09,data,GKE,68.11,68.11
+2025-09,data,Networking,19.58,19.58
+2025-09,ml,BigQuery,35.02,35.02
+2025-09,ml,Cloud SQL,56.31,56.31
+2025-09,ml,Cloud Storage,21.95,21.95
+2025-09,ml,Compute Engine,109.23,81.92
+2025-09,ml,GKE,51.43,51.43
+2025-09,ml,Networking,14.78,14.78
+2025-09,product-web,BigQuery,60.33,60.33
+2025-09,product-web,Cloud SQL,93.15,93.15
+2025-09,product-web,Cloud Storage,36.67,36.67
+2025-09,product-web,Compute Engine,177.11,132.83
+2025-09,product-web,GKE,88.39,88.39
+2025-09,product-web,Networking,24.9,24.9
+2025-09,sre-platform,BigQuery,65.98,65.98
+2025-09,sre-platform,Cloud SQL,101.16,101.16
+2025-09,sre-platform,Cloud Storage,40.61,40.61
+2025-09,sre-platform,Compute Engine,200.23,150.17
+2025-09,sre-platform,GKE,96.52,96.52
+2025-09,sre-platform,Networking,27.0,27.0
+2025-10,data,BigQuery,52.0,52.0
+2025-10,data,Cloud SQL,74.57,74.57
+2025-10,data,Cloud Storage,29.64,29.64
+2025-10,data,Compute Engine,153.67,115.25
+2025-10,data,GKE,71.6,71.6
+2025-10,data,Networking,19.8,19.8
+2025-10,ml,BigQuery,40.08,40.08
+2025-10,ml,Cloud SQL,60.48,60.48
+2025-10,ml,Cloud Storage,24.27,24.27
+2025-10,ml,Compute Engine,121.51,91.13
+2025-10,ml,GKE,58.64,58.64
+2025-10,ml,Networking,15.64,15.64
+2025-10,product-web,BigQuery,66.59,66.59
+2025-10,product-web,Cloud SQL,97.43,97.43
+2025-10,product-web,Cloud Storage,38.33,38.33
+2025-10,product-web,Compute Engine,194.93,146.2
+2025-10,product-web,GKE,95.56,95.56
+2025-10,product-web,Networking,25.39,25.39
+2025-10,sre-platform,BigQuery,72.6,72.6
+2025-10,sre-platform,Cloud SQL,106.88,106.88
+2025-10,sre-platform,Cloud Storage,42.74,42.74
+2025-10,sre-platform,Compute Engine,210.87,158.15
+2025-10,sre-platform,GKE,102.85,102.85
+2025-10,sre-platform,Networking,28.21,28.21
+2025-11,data,BigQuery,50.73,50.73
+2025-11,data,Cloud SQL,73.46,73.46
+2025-11,data,Cloud Storage,29.79,29.79
+2025-11,data,Compute Engine,143.74,107.8
+2025-11,data,GKE,71.35,71.35
+2025-11,data,Networking,19.26,19.26
+2025-11,ml,BigQuery,42.09,42.09
+2025-11,ml,Cloud SQL,62.12,62.12
+2025-11,ml,Cloud Storage,25.34,25.34
+2025-11,ml,Compute Engine,123.77,92.83
+2025-11,ml,GKE,59.74,59.74
+2025-11,ml,Networking,16.63,16.63
+2025-11,product-web,BigQuery,65.49,65.49
+2025-11,product-web,Cloud SQL,96.57,96.57
+2025-11,product-web,Cloud Storage,37.42,37.42
+2025-11,product-web,Compute Engine,186.83,140.12
+2025-11,product-web,GKE,93.02,93.02
+2025-11,product-web,Networking,25.52,25.52
+2025-11,sre-platform,BigQuery,71.45,71.45
+2025-11,sre-platform,Cloud SQL,105.41,105.41
+2025-11,sre-platform,Cloud Storage,42.25,42.25
+2025-11,sre-platform,Compute Engine,205.06,153.79
+2025-11,sre-platform,GKE,101.28,101.28
+2025-11,sre-platform,Networking,27.92,27.92
+2025-12,data,BigQuery,55.01,55.01
+2025-12,data,Cloud SQL,75.72,75.72
+2025-12,data,Cloud Storage,31.54,31.54
+2025-12,data,Compute Engine,159.21,119.41
+2025-12,data,GKE,77.06,77.06
+2025-12,data,Networking,20.8,20.8
+2025-12,ml,BigQuery,48.49,48.49
+2025-12,ml,Cloud SQL,68.7,68.7
+2025-12,ml,Cloud Storage,27.85,27.85
+2025-12,ml,Compute Engine,142.13,106.6
+2025-12,ml,GKE,67.66,67.66
+2025-12,ml,Networking,18.18,18.18
+2025-12,product-web,BigQuery,73.31,73.31
+2025-12,product-web,Cloud SQL,100.43,100.43
+2025-12,product-web,Cloud Storage,40.69,40.69
+2025-12,product-web,Compute Engine,203.22,152.42
+2025-12,product-web,GKE,102.41,102.41
+2025-12,product-web,Networking,26.76,26.76
+2025-12,sre-platform,BigQuery,77.38,77.38
+2025-12,sre-platform,Cloud SQL,108.76,108.76
+2025-12,sre-platform,Cloud Storage,43.6,43.6
+2025-12,sre-platform,Compute Engine,217.05,162.79
+2025-12,sre-platform,GKE,107.59,107.59
+2025-12,sre-platform,Networking,28.81,28.81
+2026-01,data,BigQuery,56.8,56.8
+2026-01,data,Cloud SQL,76.74,76.74
+2026-01,data,Cloud Storage,31.31,31.31
+2026-01,data,Compute Engine,160.81,120.61
+2026-01,data,GKE,78.67,78.67
+2026-01,data,Networking,20.55,20.55
+2026-01,ml,BigQuery,54.44,54.44
+2026-01,ml,Cloud SQL,73.88,73.88
+2026-01,ml,Cloud Storage,30.4,30.4
+2026-01,ml,Compute Engine,147.65,110.74
+2026-01,ml,GKE,72.16,72.16
+2026-01,ml,Networking,19.76,19.76
+2026-01,product-web,BigQuery,73.59,73.59
+2026-01,product-web,Cloud SQL,102.65,102.65
+2026-01,product-web,Cloud Storage,41.42,41.42
+2026-01,product-web,Compute Engine,205.65,154.24
+2026-01,product-web,GKE,100.66,100.66
+2026-01,product-web,Networking,27.11,27.11
+2026-01,sre-platform,BigQuery,81.61,81.61
+2026-01,sre-platform,Cloud SQL,109.48,109.48
+2026-01,sre-platform,Cloud Storage,45.97,45.97
+2026-01,sre-platform,Compute Engine,224.49,168.37
+2026-01,sre-platform,GKE,112.36,112.36
+2026-01,sre-platform,Networking,29.07,29.07
+2026-02,data,BigQuery,72.41,72.41
+2026-02,data,Cloud SQL,72.39,72.39
+2026-02,data,Cloud Storage,30.15,30.15
+2026-02,data,Compute Engine,141.99,106.49
+2026-02,data,GKE,73.15,73.15
+2026-02,data,Networking,18.79,18.79
+2026-02,ml,BigQuery,53.27,53.27
+2026-02,ml,Cloud SQL,72.14,72.14
+2026-02,ml,Cloud Storage,29.25,29.25
+2026-02,ml,Compute Engine,144.18,108.13
+2026-02,ml,GKE,71.36,71.36
+2026-02,ml,Networking,18.5,18.5
+2026-02,product-web,BigQuery,71.24,71.24
+2026-02,product-web,Cloud SQL,91.17,91.17
+2026-02,product-web,Cloud Storage,37.72,37.72
+2026-02,product-web,Compute Engine,188.41,141.3
+2026-02,product-web,GKE,95.75,95.75
+2026-02,product-web,Networking,24.58,24.58
+2026-02,sre-platform,BigQuery,76.18,76.18
+2026-02,sre-platform,Cloud SQL,98.17,98.17
+2026-02,sre-platform,Cloud Storage,41.14,41.14
+2026-02,sre-platform,Compute Engine,202.94,152.21
+2026-02,sre-platform,GKE,101.45,101.45
+2026-02,sre-platform,Networking,26.38,26.38
+2026-03,data,BigQuery,63.86,63.86
+2026-03,data,Cloud SQL,80.04,80.04
+2026-03,data,Cloud Storage,32.51,32.51
+2026-03,data,Compute Engine,164.16,123.12
+2026-03,data,GKE,83.8,83.8
+2026-03,data,Networking,21.2,21.2
+2026-03,ml,BigQuery,64.22,64.22
+2026-03,ml,Cloud SQL,85.29,85.29
+2026-03,ml,Cloud Storage,33.76,33.76
+2026-03,ml,Compute Engine,171.16,128.37
+2026-03,ml,GKE,87.38,87.38
+2026-03,ml,Networking,22.79,22.79
+2026-03,product-web,BigQuery,83.08,83.08
+2026-03,product-web,Cloud SQL,104.97,104.97
+2026-03,product-web,Cloud Storage,42.4,42.4
+2026-03,product-web,Compute Engine,218.16,163.62
+2026-03,product-web,GKE,108.05,108.05
+2026-03,product-web,Networking,28.35,28.35
+2026-03,sre-platform,BigQuery,88.29,88.29
+2026-03,sre-platform,Cloud SQL,112.77,112.77
+2026-03,sre-platform,Cloud Storage,45.69,45.69
+2026-03,sre-platform,Compute Engine,230.8,173.1
+2026-03,sre-platform,GKE,116.6,116.6
+2026-03,sre-platform,Networking,29.92,29.92
+2026-04,data,BigQuery,64.18,64.18
+2026-04,data,Cloud SQL,76.66,76.66
+2026-04,data,Cloud Storage,32.29,32.29
+2026-04,data,Compute Engine,166.68,125.01
+2026-04,data,GKE,83.31,83.31
+2026-04,data,Networking,20.91,20.91
+2026-04,ml,BigQuery,70.27,70.27
+2026-04,ml,Cloud SQL,84.76,84.76
+2026-04,ml,Cloud Storage,35.07,35.07
+2026-04,ml,Compute Engine,179.36,134.52
+2026-04,ml,GKE,134.46,134.46
+2026-04,ml,Networking,22.6,22.6
+2026-04,product-web,BigQuery,84.65,84.65
+2026-04,product-web,Cloud SQL,103.29,103.29
+2026-04,product-web,Cloud Storage,42.13,42.13
+2026-04,product-web,Compute Engine,220.98,165.74
+2026-04,product-web,GKE,110.53,110.53
+2026-04,product-web,Networking,27.48,27.48
+2026-04,sre-platform,BigQuery,90.52,90.52
+2026-04,sre-platform,Cloud SQL,107.59,107.59
+2026-04,sre-platform,Cloud Storage,45.76,45.76
+2026-04,sre-platform,Compute Engine,235.01,176.26
+2026-04,sre-platform,GKE,116.56,116.56
+2026-04,sre-platform,Networking,28.84,28.84
+2026-05,data,BigQuery,67.41,67.41
+2026-05,data,Cloud SQL,80.43,80.43
+2026-05,data,Cloud Storage,33.85,33.85
+2026-05,data,Compute Engine,174.14,130.61
+2026-05,data,GKE,86.81,86.81
+2026-05,data,Networking,21.59,21.59
+2026-05,ml,BigQuery,77.36,77.36
+2026-05,ml,Cloud SQL,96.38,96.38
+2026-05,ml,Cloud Storage,40.39,40.39
+2026-05,ml,Compute Engine,201.38,151.03
+2026-05,ml,GKE,159.42,159.42
+2026-05,ml,Networking,25.45,25.45
+2026-05,product-web,BigQuery,89.84,89.84
+2026-05,product-web,Cloud SQL,106.87,106.87
+2026-05,product-web,Cloud Storage,44.46,44.46
+2026-05,product-web,Compute Engine,230.05,172.54
+2026-05,product-web,GKE,113.5,113.5
+2026-05,product-web,Networking,28.61,28.61
+2026-05,sre-platform,BigQuery,94.13,94.13
+2026-05,sre-platform,Cloud SQL,113.71,113.71
+2026-05,sre-platform,Cloud Storage,47.96,47.96
+2026-05,sre-platform,Compute Engine,240.16,180.12
+2026-05,sre-platform,GKE,121.65,121.65
+2026-05,sre-platform,Networking,30.25,30.25
+2026-06,data,BigQuery,70.02,70.02
+2026-06,data,Cloud SQL,81.53,81.53
+2026-06,data,Cloud Storage,33.26,33.26
+2026-06,data,Compute Engine,175.37,131.53
+2026-06,data,GKE,89.29,89.29
+2026-06,data,Networking,22.16,22.16
+2026-06,ml,BigQuery,84.33,84.33
+2026-06,ml,Cloud SQL,97.88,97.88
+2026-06,ml,Cloud Storage,40.46,40.46
+2026-06,ml,Compute Engine,206.71,155.03
+2026-06,ml,GKE,170.64,170.64
+2026-06,ml,Networking,25.69,25.69
+2026-06,product-web,BigQuery,90.11,90.11
+2026-06,product-web,Cloud SQL,107.56,107.56
+2026-06,product-web,Cloud Storage,43.91,43.91
+2026-06,product-web,Compute Engine,229.72,172.29
+2026-06,product-web,GKE,116.89,116.89
+2026-06,product-web,Networking,37.37,37.37
+2026-06,sre-platform,BigQuery,96.62,96.62
+2026-06,sre-platform,Cloud SQL,110.82,110.82
+2026-06,sre-platform,Cloud Storage,47.87,47.87
+2026-06,sre-platform,Compute Engine,249.26,186.94
+2026-06,sre-platform,GKE,120.93,120.93
+2026-06,sre-platform,Networking,30.08,30.08
+2026-07,data,BigQuery,76.22,76.22
+2026-07,data,Cloud SQL,85.29,85.29
+2026-07,data,Cloud Storage,34.96,34.96
+2026-07,data,Compute Engine,186.55,139.91
+2026-07,data,GKE,92.71,92.71
+2026-07,data,Networking,22.64,22.64
+2026-07,ml,BigQuery,96.33,96.33
+2026-07,ml,Cloud SQL,108.72,108.72
+2026-07,ml,Cloud Storage,44.79,44.79
+2026-07,ml,Compute Engine,235.17,176.38
+2026-07,ml,GKE,196.04,196.04
+2026-07,ml,Networking,28.52,28.52
+2026-07,product-web,BigQuery,100.72,100.72
+2026-07,product-web,Cloud SQL,111.86,111.86
+2026-07,product-web,Cloud Storage,46.55,46.55
+2026-07,product-web,Compute Engine,243.51,182.63
+2026-07,product-web,GKE,122.47,122.47
+2026-07,product-web,Networking,29.99,29.99
+2026-07,sre-platform,BigQuery,108.87,108.87
+2026-07,sre-platform,Cloud SQL,116.06,116.06
+2026-07,sre-platform,Cloud Storage,49.14,49.14
+2026-07,sre-platform,Compute Engine,254.35,190.77
+2026-07,sre-platform,GKE,129.82,129.82
+2026-07,sre-platform,Networking,31.64,31.64
+2026-08,data,BigQuery,37.01,37.01
+2026-08,data,Cloud SQL,39.23,39.23
+2026-08,data,Cloud Storage,17.38,17.38
+2026-08,data,Compute Engine,88.86,66.64
+2026-08,data,GKE,45.46,45.46
+2026-08,data,Networking,10.96,10.96
+2026-08,ml,BigQuery,48.79,48.79
+2026-08,ml,Cloud SQL,52.38,52.38
+2026-08,ml,Cloud Storage,22.96,22.96
+2026-08,ml,Compute Engine,144.29,108.22
+2026-08,ml,GKE,96.76,96.76
+2026-08,ml,Networking,14.2,14.2
+2026-08,product-web,BigQuery,48.84,48.84
+2026-08,product-web,Cloud SQL,53.42,53.42
+2026-08,product-web,Cloud Storage,22.93,22.93
+2026-08,product-web,Compute Engine,116.48,87.36
+2026-08,product-web,GKE,60.14,60.14
+2026-08,product-web,Networking,14.6,14.6
+2026-08,sre-platform,BigQuery,52.37,52.37
+2026-08,sre-platform,Cloud SQL,56.08,56.08
+2026-08,sre-platform,Cloud Storage,24.13,24.13
+2026-08,sre-platform,Compute Engine,123.48,92.61
+2026-08,sre-platform,GKE,64.56,64.56
+2026-08,sre-platform,Networking,15.03,15.03

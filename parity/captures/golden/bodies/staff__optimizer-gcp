@@ -1,0 +1,1019 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CostCrew</title>
+<link rel="stylesheet" href="/static/style.css"></head><body>
+<div class="shell">
+<nav class="rail">
+  <div class="brand">CostCrew</div>
+  <a href="/" class="">Today</a>
+  <a href="/board" class="">Board</a>
+  <a href="/board?view=month" class="sub">Calendar</a>
+  <a href="/teams" class="">Teams</a>
+  <a href="/sprints" class="">Sprints</a>
+  <a href="/feed" class="">Chats</a>
+  <a href="/feed?ch=aws" class="sub">#aws</a>
+  <a href="/feed?ch=gcp" class="sub">#gcp</a>
+  <a href="/feed?ch=onprem" class="sub">#onprem</a>
+  <a href="/kpis" class="">KPIs</a>
+  <a href="/library" class="sub ">Library</a>
+  <a href="/assessment" class="sub ">Assessment</a>
+  <a href="/allocation" class="">Allocation</a>
+  <a href="/chargeback" class="">Chargeback</a>
+  <a href="/exec" class="">Executive</a>
+  <a href="/results" class="">Results</a>
+  <a href="/ai" class="">AI spend</a>
+  <a href="/saas" class="">SaaS</a>
+  <a href="/utilisation" class="">Utilisation</a>
+  <a href="/explainers" class="">Explainers</a>
+  <a href="/staff" class="on">Staff</a>
+  <a href="/workbench" class="">Workbench</a>
+  <a href="/data" class="">Data</a>
+  <a href="/connectors" class="sub ">Connectors</a>
+  <a href="/audit" class="">Audit</a>
+  <a href="/settings" class="">Engines</a>
+  
+  <a href="/accounts" class="">Accounts</a>
+  <div class="railfoot">
+    
+    <div>parity · admin</div>
+    <form method="post" action="/logout" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+      <button class="btn back">Sign out</button></form>
+    
+    <div>MVP · local</div>
+  </div>
+</nav>
+<main class="content">
+
+<p class="fine"><a href="/staff">Staff</a> / optimizer-gcp</p>
+
+<div class="agenthead">
+  <div class="who">
+    <h1 style="margin-bottom:4px">optimizer-gcp</h1>
+    <p class="fine" style="margin:0">FinOps Analyst - Optimizer (gcp desk)</p>
+    <p style="margin:8px 0 0">
+      
+        <a class="chip src gcp" href="/feed?ch=gcp">#gcp desk</a>
+      
+      <span class="chip">reports: On request</span>
+      <span class="chip">engine: openrouter:moonshotai/kimi-k2</span>
+    </p>
+  </div>
+  <div class="acts">
+    <a class="btn" href="/staff/optimizer-gcp/edit">Edit this analyst</a>
+    <button class="btn back"
+            onclick="document.getElementById('statedlg').showModal()">
+      Suspend</button>
+  </div>
+</div>
+
+
+
+<dialog id="statedlg" class="dlg">
+  <form method="post" action="/staff/optimizer-gcp/state"><input type="hidden" name="csrf" value="<CSRF>">
+    <h2 style="margin-top:0">Suspend optimizer-gcp</h2>
+    <p class="fine">Their record, history and
+    stamps stay exactly as they are. Only the ability to run work under their
+    name goes away, and you can undo it here at any time.
+    The reason is written into the journal, so this decision can be explained
+    six months from now.</p>
+    <input type="hidden" name="state" value="suspended">
+    <div class="reasons">
+      
+      <label class="reason"><input type="radio" name="reason" value="cost" required> Costing too much for what it returns</label>
+      
+      <label class="reason"><input type="radio" name="reason" value="budget" required> Monthly guard reached or exceeded</label>
+      
+      <label class="reason"><input type="radio" name="reason" value="quality" required> Deliverables keep coming back on review</label>
+      
+      <label class="reason"><input type="radio" name="reason" value="not-needed" required> Desk is quiet, no work for it now</label>
+      
+      <label class="reason"><input type="radio" name="reason" value="data" required> Its data source is broken or unavailable</label>
+      
+      <label class="reason"><input type="radio" name="reason" value="reconfiguring" required> Being reconfigured: skills, permissions or engine</label>
+      
+      <label class="reason"><input type="radio" name="reason" value="duplicate" required> Another analyst covers the same ground</label>
+      
+      <label class="reason"><input type="radio" name="reason" value="other"> Something else, written below</label>
+    </div>
+    <textarea name="reason_other" rows="2" placeholder="If none of the above fits, write the reason here"></textarea>
+    <div class="dlgacts">
+      <button type="button" class="btn back" onclick="document.getElementById('statedlg').close()">Cancel</button>
+      <button class="btn">Suspend</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="tiles">
+  <div class="tile"><div class="tv">11</div><div class="tl">tasks handled</div></div>
+  <div class="tile"><div class="tv">10</div><div class="tl">deliverables</div></div>
+  <div class="tile"><div class="tv">100%</div><div class="tl">accepted first time</div></div>
+  <div class="tile"><div class="tv">$24.51</div><div class="tl">spent of $75.00 monthly</div></div>
+  <div class="tile"><div class="tv">$7.79</div><div class="tl">per deliverable</div></div>
+</div>
+
+<section class="panel">
+  <h2>On the desk right now</h2>
+  <p>
+    <b>1</b> open item:
+    
+      <span class="chip st-in-progress">1 in-progress</span>
+    <span class="fine">&nbsp; last active 2026-08-16</span>
+  </p>
+  
+  
+
+  <h3>What its work has cost</h3>
+  <p class="fine">
+    
+      <b>33%</b> of the monthly guard used
+      ($24.51 of $75.00).
+      
+    
+    
+      Priced runs: <b>71%</b>
+      (5 priced, 2 unknown).
+      An unknown cost is recorded as unknown, never as zero.
+    
+  </p>
+  
+</section>
+
+<section class="panel">
+  <h2>Mandate</h2>
+  <p>Optimizer duties for the gcp platform desk, every number tied to its computed source.</p>
+  
+  <h3>House rules, followed on every deliverable</h3>
+  <ul class="rules"><li>Every candidate carries an estimated monthly saving and a risk note.</li><li>Never recommend committing money; propose, the operator decides.</li></ul>
+  
+  <p class="fine">Reporting: <b>On request</b>.
+  </p>
+</section>
+
+<section class="panel">
+  <h2>What this analyst can do</h2>
+  <p class="fine">Skills are competences the agent is told to stay inside. Every
+  analyst carries the base set; the specialized ones are picked at hire and
+  decide which work the supervisor routes here.</p>
+
+  <h3>Specialized (6)</h3>
+  
+  <div class="deflist">
+    
+    <div class="def"><b>Commitment coverage</b>
+      <div class="fine">Coverage and utilization rates, 80% waterline, expiry pipeline, effective savings rate</div></div>
+    
+    <div class="def"><b>Commitments (RI/SP/CUD)</b>
+      <div class="fine">Coverage, effective rates, decision packages</div></div>
+    
+    <div class="def"><b>Forecast accuracy tracking</b>
+      <div class="fine">Frozen forecast vs actual, variance vs the 20/15/12% maturity ladder, drift watch</div></div>
+    
+    <div class="def"><b>Idle scheduling</b>
+      <div class="fine">Weekend/off-hours stop-start candidates</div></div>
+    
+    <div class="def"><b>Price analysis</b>
+      <div class="fine">List vs effective, cross-provider comparisons</div></div>
+    
+    <div class="def"><b>Rightsizing</b>
+      <div class="fine">Candidates with estimated savings and risk notes</div></div>
+    
+  </div>
+  
+
+  <details class="fold">
+    <summary>Base skills every analyst has (8)</summary>
+    <div class="deflist">
+      
+      <div class="def"><b>Anomaly triage</b><div class="fine">Classify spikes vs known drivers, rank by money</div></div>
+      
+      <div class="def"><b>Billing store queries</b><div class="fine">SELECT-only questions against the cost store</div></div>
+      
+      <div class="def"><b>Computed figures</b><div class="fine">Read the engine&#39;s deterministic figures and cite qids</div></div>
+      
+      <div class="def"><b>Desk chat participation</b><div class="fine">Post status and findings to the desk channel</div></div>
+      
+      <div class="def"><b>Executive summaries</b><div class="fine">3-5 line summary leading every deliverable</div></div>
+      
+      <div class="def"><b>Report writing</b><div class="fine">Analyst-grade narrative around figures</div></div>
+      
+      <div class="def"><b>Team intake reading</b><div class="fine">Use budgets and requests submitted by human teams</div></div>
+      
+      <div class="def"><b>Variance commentary</b><div class="fine">Explain month-over-month and budget-vs-actual moves</div></div>
+      
+    </div>
+  </details>
+</section>
+
+<section class="panel">
+  <h2>What this analyst may touch</h2>
+  <p class="fine">Permissions are hard rights, not suggestions: the server checks
+  them, and a deliverable that reaches past them is rejected rather than posted.</p>
+
+  <h3>Data it can read (4)</h3>
+  <div class="deflist">
+    
+    <div class="def"><b>GCP estate</b>
+      
+      <div class="fine">Read the gcp platform data</div></div>
+    
+    <div class="def"><b>Practice KPI registry</b>
+      
+      <div class="fine">Read the computed practice KPIs (AAI, accuracy ladder, ESR, bands)</div></div>
+    
+    <div class="def"><b>Team budgets</b>
+      
+      <div class="fine">Read the intake budgets plane</div></div>
+    
+    <div class="def"><b>Team requests</b>
+      
+      <div class="fine">Read the intake requests pipeline</div></div>
+    
+  </div>
+
+  <h3>Actions it may take (3)</h3>
+  <div class="deflist">
+    
+    <div class="def"><b>Declare covered tasks</b>
+      <span class="chip st-blocked">elevated risk</span>
+      <div class="fine">Declare that a deliverable already covers another open task on the same desk; the task closes when the operator posts the deliverable</div></div>
+    
+    <div class="def"><b>Post to desk chat</b>
+      
+      <div class="fine">Write to the desk channel</div></div>
+    
+    <div class="def"><b>Read and propose</b>
+      
+      <div class="fine">Never acts outward; deliverables only</div></div>
+    
+  </div>
+  
+</section>
+
+<section class="panel">
+  <h2>Guardrails and how it is judged</h2>
+  <table>
+    <tr><th>guard</th><th class="num">limit</th><th class="num">used</th></tr>
+    <tr><td>Per task</td><td class="num">$18.00</td><td class="num">&mdash;</td></tr>
+    <tr><td>Per month</td><td class="num">$75.00</td>
+        <td class="num">$24.51</td></tr>
+  </table>
+  
+  <h3>Evaluation</h3>
+  <table>
+    <tr><th>target</th><th>measured now</th><th>state</th></tr>
+    
+    <tr><td>first-pass acceptance &gt;= 80%</td><td>100%</td>
+      <td><span class="chip st-done">met</span>
+          </td></tr>
+    
+    <tr><td>on-time rate &gt;= 95%</td><td>not measurable yet</td>
+      <td><span class="chip">no signal</span>
+          </td></tr>
+    
+  </table>
+  
+</section>
+
+<section class="panel">
+  <h2>Work (11)</h2>
+  <input class="filterbox" placeholder="Find a task..." data-target="#agenttasks">
+  <table id="agenttasks">
+    <tr><th>task</th><th>state</th><th>sprint</th><th>updated</th><th class="num">cost $</th><th>act</th></tr>
+    
+    <tr data-search="Apply the GCP ESR lift package and re-measure ESR (covers open task #67) done">
+      <td><a href="/task/116">Apply the GCP ESR lift package and re-measure ESR (covers open task #67)</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/16">sprint 16</a></td>
+      <td>2026-08-16</td>
+      <td class="num">0.38</td>
+      <td>
+        
+        <form method="post" action="/task/116/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand116').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Finish the weekend-dip idle schedule proposal (item #67) done">
+      <td><a href="/task/98">Finish the weekend-dip idle schedule proposal (item #67)</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/14">sprint 14</a></td>
+      <td>2026-08-14</td>
+      <td class="num">0.00</td>
+      <td>
+        
+        <form method="post" action="/task/98/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand98').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Finish idle-schedule proposal #67 (weekend dips) done">
+      <td><a href="/task/107">Finish idle-schedule proposal #67 (weekend dips)</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/15">sprint 15</a></td>
+      <td>2026-08-14</td>
+      <td class="num">0.00</td>
+      <td>
+        
+        <form method="post" action="/task/107/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand107').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="GCP commitment coverage to lift effective savings rate done">
+      <td><a href="/task/106">GCP commitment coverage to lift effective savings rate</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/15">sprint 15</a></td>
+      <td>2026-08-14</td>
+      <td class="num">0.42</td>
+      <td>
+        
+        <form method="post" action="/task/106/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand106').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Close #67 and size request #4 (Black Friday scale test) done">
+      <td><a href="/task/84">Close #67 and size request #4 (Black Friday scale test)</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/13">sprint 13</a></td>
+      <td>2026-08-13</td>
+      <td class="num">0.37</td>
+      <td>
+        
+        <form method="post" action="/task/84/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand84').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Idle schedule proposal: weekend dips (gcp) in-progress">
+      <td><a href="/task/65">Idle schedule proposal: weekend dips (gcp)</a></td>
+      <td><span class="chip st-in-progress">in-progress</span></td>
+      <td><a href="/sprint/11">sprint 11</a></td>
+      <td>2026-08-13</td>
+      <td class="num">14.20</td>
+      <td>
+        
+        <form method="post" action="/task/65/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand65').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Size request #4: Black Friday scale test done">
+      <td><a href="/task/72">Size request #4: Black Friday scale test</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/12">sprint 12</a></td>
+      <td>2026-08-12</td>
+      <td class="num">0.34</td>
+      <td>
+        
+        <form method="post" action="/task/72/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand72').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Close out item #67: idle schedule proposal, weekend dips done">
+      <td><a href="/task/71">Close out item #67: idle schedule proposal, weekend dips</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/12">sprint 12</a></td>
+      <td>2026-08-12</td>
+      <td class="num">0.33</td>
+      <td>
+        
+        <form method="post" action="/task/71/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand71').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Commitment &amp; idle review 2026-07 (gcp) done">
+      <td><a href="/task/57">Commitment &amp; idle review 2026-07 (gcp)</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/10">sprint 10</a></td>
+      <td>2026-08-05</td>
+      <td class="num">22.68</td>
+      <td>
+        
+        <form method="post" action="/task/57/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand57').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Commitment &amp; idle review 2026-06 (gcp) done">
+      <td><a href="/task/28">Commitment &amp; idle review 2026-06 (gcp)</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/5">sprint 5</a></td>
+      <td>2026-07-01</td>
+      <td class="num">17.81</td>
+      <td>
+        
+        <form method="post" action="/task/28/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand28').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+    <tr data-search="Commitment &amp; idle review 2026-05 (gcp) done">
+      <td><a href="/task/5">Commitment &amp; idle review 2026-05 (gcp)</a></td>
+      <td><span class="chip st-done">done</span></td>
+      <td><a href="/sprint/1">sprint 1</a></td>
+      <td>2026-06-03</td>
+      <td class="num">21.36</td>
+      <td>
+        
+        <form method="post" action="/task/5/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+          <button class="btn back" title="Run this task again on this analyst">Run</button>
+        </form>
+        
+        <button class="more" type="button"
+          onclick="document.getElementById('hand5').showModal()">hand over</button>
+      </td>
+    </tr>
+    
+  </table>
+  <p class="fine">Click a column heading to sort, drag a heading's right edge to
+  widen it. <b>Run</b> puts the task through this analyst again, brief unchanged.
+  <b>Hand over</b> moves it to somebody else, and lets you change what it asks
+  for on the way.</p>
+
+  
+  <dialog id="hand116" class="dlg">
+    <form method="post" action="/task/116/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Apply the GCP ESR lift package and re-measure ESR (covers open task #67)</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="reporter-aws">reporter-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="supervisor">supervisor &mdash; management</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Apply the W37-approved ESR lift and recompute ESR 9.0% [qid:6681bdbe], with AWS 13.3% [qid:1a8d6537] as the benchmark. Declare close-covered on open task #67 (weekend idle dips): finish the remaining services from its 7-of-12 review inside this package as its idle-scheduling component rather than shipping a separate proposal. Report the measured post-application ESR and the split between realized and modelled saving. Routing: idle-scheduling, commitment-coverage, commitment-optimization, price-c"></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand116').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand98" class="dlg">
+    <form method="post" action="/task/98/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Finish the weekend-dip idle schedule proposal (item #67)</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="reporter-aws">reporter-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="supervisor">supervisor &mdash; management</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Complete the remaining 5 of 12 services using the method already established across the first 7, and deliver the finished candidate list. Continuation of in-progress work, same pattern applied."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand98').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand107" class="dlg">
+    <form method="post" action="/task/107/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Finish idle-schedule proposal #67 (weekend dips)</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="reporter-aws">reporter-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="supervisor">supervisor &mdash; management</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Open item #67 is in progress with 7 of 12 services reviewed. Complete the remaining services, consolidate the candidate list into one proposal with the expected saving per candidate, and mark it ready for pre-review."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand107').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand106" class="dlg">
+    <form method="post" action="/task/106/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: GCP commitment coverage to lift effective savings rate</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="reporter-aws">reporter-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="supervisor">supervisor &mdash; management</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="GCP effective savings rate is 9.0% [qid:6681bdbe] against 13.3% on AWS [qid:1a8d6537]. Analyse current commitment coverage against the steady-state baseline, size the additional coverage that would close the gap, and state the flexibility cost given the rising ml load. Propose only."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand106').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand84" class="dlg">
+    <form method="post" action="/task/84/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Close #67 and size request #4 (Black Friday scale test)</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="reporter-aws">reporter-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="supervisor">supervisor &mdash; management</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Finish the weekend-dip idle schedule proposal for the remaining services, then produce the optimizer sizing that request #4 explicitly requires before it can be estimated. (Plan context refs: open_items#67, requests_open#4)"></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand84').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand65" class="dlg">
+    <form method="post" action="/task/65/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Idle schedule proposal: weekend dips (gcp)</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="reporter-aws">reporter-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="supervisor">supervisor &mdash; management</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Turn the weekend/weekday gap into a concrete stop-start schedule proposal per service."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand65').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand72" class="dlg">
+    <form method="post" action="/task/72/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Size request #4: Black Friday scale test</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="reporter-aws">reporter-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="supervisor">supervisor &mdash; management</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Produce the optimizer sizing that request #4 is waiting on so it can move from new to estimated: resource shape, duration, and teardown plan for the product-web scale test."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand72').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand71" class="dlg">
+    <form method="post" action="/task/71/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Close out item #67: idle schedule proposal, weekend dips</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="reporter-aws">reporter-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="supervisor">supervisor &mdash; management</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Finish the remaining services in the candidate review and deliver the weekend idle-schedule proposal with per-candidate risk notes."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand71').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand57" class="dlg">
+    <form method="post" action="/task/57/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Commitment &amp; idle review 2026-07 (gcp)</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="reporter-aws">reporter-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="supervisor">supervisor &mdash; management</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Monthly optimizer pass: commitment effect, idle candidates, concentration."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand57').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand28" class="dlg">
+    <form method="post" action="/task/28/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Commitment &amp; idle review 2026-06 (gcp)</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="reporter-aws">reporter-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="supervisor">supervisor &mdash; management</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Monthly optimizer pass: commitment effect, idle candidates, concentration."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand28').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="hand5" class="dlg">
+    <form method="post" action="/task/5/assign"><input type="hidden" name="csrf" value="<CSRF>">
+      <h2 style="margin-top:0">Hand over: Commitment &amp; idle review 2026-05 (gcp)</h2>
+      <p class="fine">Anything already posted stays with whoever wrote it. This
+      changes who owns the task from here on, and the new owner's desk decides
+      what data it may read.</p>
+      <label class="fine">Hand to</label>
+      <select name="assignee" class="sel">
+        <option value="capacity-aws">capacity-aws &mdash; aws</option><option value="investigator-aws">investigator-aws &mdash; aws</option><option value="optimizer-aws">optimizer-aws &mdash; aws</option><option value="reporter-aws">reporter-aws &mdash; aws</option><option value="investigator-gcp">investigator-gcp &mdash; gcp</option><option value="reporter-gcp">reporter-gcp &mdash; gcp</option><option value="supervisor">supervisor &mdash; management</option><option value="investigator-onprem">investigator-onprem &mdash; onprem</option><option value="reporter-onprem">reporter-onprem &mdash; onprem</option>
+      </select>
+      <label class="fine" style="margin-top:8px;display:block">Change the brief (leave empty to keep it)</label>
+      <textarea name="goal" rows="3" placeholder="Monthly optimizer pass: commitment effect, idle candidates, concentration."></textarea>
+      <div class="dlgacts">
+        <button type="button" class="btn back" onclick="document.getElementById('hand5').close()">Cancel</button>
+        <button class="btn">Hand over</button>
+      </div>
+    </form>
+  </dialog>
+  
+</section>
+
+<section class="panel">
+  <h2>Activity</h2>
+  <p class="fine">Straight from the hash-chained journal, newest first: what this
+  analyst did, not what a status field claims.</p>
+  <table>
+    <tr><th>when</th><th>event</th><th>detail</th></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/116">task 116</a> 
+        Apply the GCP ESR lift package and re-measure ESR (covers open task #67)</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/107">task 107</a> 
+        Finish idle-schedule proposal #67 (weekend dips)</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/106">task 106</a> 
+        GCP commitment coverage to lift effective savings rate</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/98">task 98</a> 
+        Finish the weekend-dip idle schedule proposal (item #67)</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/84">task 84</a> 
+        Close #67 and size request #4 (Black Friday scale test)</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/72">task 72</a> 
+        Size request #4: Black Friday scale test</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/71">task 71</a> 
+        Close out item #67: idle schedule proposal, weekend dips</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task started</span></td>
+      <td><a href="/task/65">task 65</a> 
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/65">task 65</a> 
+        Idle schedule proposal: weekend dips (gcp)</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">channel message</span></td>
+      <td>
+        Commitment effect holding this month; idle-schedule candidates will be in the review.</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task started</span></td>
+      <td><a href="/task/57">task 57</a> 
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/57">task 57</a> 
+        Commitment &amp; idle review 2026-07 (gcp)</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">channel message</span></td>
+      <td>
+        Commitment effect holding this month; idle-schedule candidates will be in the review.</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task started</span></td>
+      <td><a href="/task/28">task 28</a> 
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/28">task 28</a> 
+        Commitment &amp; idle review 2026-06 (gcp)</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">channel message</span></td>
+      <td>
+        Commitment effect holding this month; idle-schedule candidates will be in the review.</td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task started</span></td>
+      <td><a href="/task/5">task 5</a> 
+        </td></tr>
+    
+    <tr><td><TS></td>
+      <td><span class="chip">task created</span></td>
+      <td><a href="/task/5">task 5</a> 
+        Commitment &amp; idle review 2026-05 (gcp)</td></tr>
+    
+  </table>
+</section>
+
+<section class="panel">
+  <h2>The job description as stored</h2>
+  <p class="fine">Everything above comes from this one file, <code>jd/optimizer-gcp.yaml</code>.
+  Hiring an analyst is writing it; changing one is editing it.</p>
+  <details class="fold"><summary>Show the raw file</summary>
+    <pre class="jd">name: optimizer-gcp
+role: FinOps Analyst - Optimizer (gcp desk)
+mission: &#39;Optimizer duties for the gcp platform desk, every number tied to its computed
+  source.
+
+  &#39;
+model:
+  provider: openrouter
+  model: moonshotai/kimi-k2
+desk: gcp
+default_source: gcp
+boundaries:
+  tools:
+  - figures
+  actions: read-and-propose
+budget:
+  per_task_usd: 18.0
+  monthly_usd: 75.0
+house_rules:
+- Every candidate carries an estimated monthly saving and a risk note.
+- Never recommend committing money; propose, the operator decides.
+evaluation:
+  kpis:
+  - first-pass acceptance &gt;= 80%
+  - on-time rate &gt;= 95%
+skills:
+  specialized:
+  - commitment-coverage
+  - commitment-optimization
+  - forecast-accuracy
+  - idle-scheduling
+  - price-catalog-analysis
+  - rightsizing-analysis
+permissions:
+- budgets-read
+- channel-post
+- close-covered
+- kpi-registry
+- platform-gcp
+- propose-only
+- requests-read
+</pre>
+  </details>
+</section>
+</main>
+</div>
+<script>
+document.addEventListener('input', function (e) {
+  var box = e.target.closest('.filterbox'); if (!box) return;
+  var root = document.querySelector(box.dataset.target); if (!root) return;
+  var q = box.value.trim().toLowerCase();
+  root.querySelectorAll('[data-search]').forEach(function (el) {
+    var hit = !q || el.dataset.search.toLowerCase().indexOf(q) !== -1;
+    if (el.classList.contains('deskgroup')) {
+      var inner = Array.prototype.some.call(el.querySelectorAll('[data-search]'),
+        function (x) { return x.dataset.search.toLowerCase().indexOf(q) !== -1; });
+      el.style.display = (hit || inner || !q) ? '' : 'none';
+      el.querySelectorAll('[data-search]').forEach(function (x) {
+        x.style.display = (!q || hit || x.dataset.search.toLowerCase().indexOf(q) !== -1) ? '' : 'none';
+      });
+    } else if (!el.closest('.deskgroup')) {
+      el.style.display = hit ? '' : 'none';
+    }
+  });
+});
+document.addEventListener('click', function (e) {
+  if (e.target.classList && e.target.classList.contains('grip')) return;
+  var th = e.target.closest('th'); if (!th) return;
+  var table = th.closest('table'); if (!table) return;
+  var idx = Array.prototype.indexOf.call(th.parentNode.children, th);
+  var rows = Array.prototype.slice.call(table.querySelectorAll('tr')).filter(
+    function (r) { return r.querySelector('td'); });
+  var dir = th.dataset.dir === 'asc' ? -1 : 1;
+  table.querySelectorAll('th').forEach(function (h) { delete h.dataset.dir;
+    var a = h.querySelector('.arrow'); if (a) a.remove(); });
+  th.dataset.dir = dir === 1 ? 'asc' : 'desc';
+  var arrow = document.createElement('span');
+  arrow.className = 'arrow';
+  arrow.textContent = dir === 1 ? ' \u25B2' : ' \u25BC';
+  th.appendChild(arrow);
+  function key(r) {
+    var c = r.children[idx]; if (!c) return '';
+    var txt = c.textContent.trim().replace(/[$,%]/g, '').replace(/,/g, '');
+    if (/\d{4}-\d{2}-\d{2}/.test(txt)) return txt.replace(/[^\d-]/g, '');
+    var n = parseFloat(txt);
+    return isNaN(n) ? txt.toLowerCase() : n;
+  }
+  rows.sort(function (a, b) {
+    var ka = key(a), kb = key(b);
+    if (typeof ka === 'number' && typeof kb === 'number') return (ka - kb) * dir;
+    return String(ka).localeCompare(String(kb)) * dir;
+  });
+  rows.forEach(function (r) { r.parentNode.appendChild(r); });
+});
+
+/* ---- tables you can widen, and that fit any screen -----------------------
+   Every table is put in its own horizontally scrolling box, so a wide table
+   scrolls inside its panel instead of pushing the whole page sideways. Each
+   header cell gets a grip on its right edge: drag it to widen the column,
+   double-click it to give the column back to the browser. Widths are
+   remembered per page, because a column you widened once you almost always
+   want wide again.                                                          */
+(function () {
+  var KEY = 'costcrew.colw.' + location.pathname;
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (err) { saved = {}; }
+
+  function persist() {
+    try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (err) { /* private mode */ }
+  }
+
+  function setup() {
+    document.querySelectorAll('table').forEach(function (table, ti) {
+      if (!table.parentNode.classList.contains('tw')) {
+        var box = document.createElement('div');
+        box.className = 'tw';
+        table.parentNode.insertBefore(box, table);
+        box.appendChild(table);
+      }
+      /* An atom never breaks: a date, a sum, a status, a short name. Prose
+         does break, and must, or one sentence drags the whole table wider
+         than the screen and everything else scrolls to reach it. The rule is
+         length, applied once, because CSS cannot ask how long a text is. */
+      table.querySelectorAll('td, th').forEach(function (cell) {
+        if (cell.children.length) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length > 40 && txt.indexOf(' ') !== -1) cell.classList.add('wrap');
+      });
+
+      /* Really long prose gets two lines and a way to open the rest. Nothing
+         is removed: the full text is still in the cell, still searched by
+         the filter box, still there for anyone who presses. */
+      table.querySelectorAll('td').forEach(function (cell) {
+        if (cell.querySelector('.clamp')) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length <= 110) return;
+        var box = document.createElement('div');
+        box.className = 'clamp';
+        while (cell.firstChild) box.appendChild(cell.firstChild);
+        cell.appendChild(box);
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'more';
+        btn.textContent = 'more';
+        btn.setAttribute('aria-expanded', 'false');
+        btn.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          var open = box.classList.toggle('open');
+          btn.textContent = open ? 'less' : 'more';
+          btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+        cell.appendChild(btn);
+        cell.classList.add('wrap');
+      });
+      /* Align each header to the column beneath it. The figures are right
+         aligned and the headers were not, so every numeric column read as a
+         label on the left with unrelated numbers on the right. */
+      var head0 = table.querySelector('tr');
+      if (head0) {
+        var body = Array.prototype.slice.call(table.querySelectorAll('tr'))
+          .filter(function (r) { return r.querySelector('td'); });
+        head0.querySelectorAll('th').forEach(function (th, ci) {
+          var nums = 0, cells = 0;
+          body.forEach(function (r) {
+            var cell = r.children[ci];
+            if (!cell || cell.tagName !== 'TD') return;
+            cells++;
+            if (cell.classList.contains('num')) nums++;
+          });
+          if (cells && nums * 2 > cells) th.classList.add('num');
+        });
+      }
+      var head = table.querySelector('tr');
+      if (!head) return;
+      head.querySelectorAll('th').forEach(function (th, ci) {
+        var id = ti + ':' + ci;
+        if (saved[id]) { th.style.width = saved[id] + 'px'; th.classList.add('sized'); }
+        if (th.querySelector('.grip')) return;
+        var grip = document.createElement('span');
+        grip.className = 'grip';
+        grip.title = 'Drag to widen, double-click to reset';
+        grip.addEventListener('dblclick', function (ev) {
+          ev.stopPropagation();
+          th.style.width = ''; th.classList.remove('sized');
+          delete saved[id]; persist();
+        });
+        grip.addEventListener('pointerdown', function (ev) {
+          ev.preventDefault(); ev.stopPropagation();
+          var x0 = ev.clientX, w0 = th.getBoundingClientRect().width;
+          grip.classList.add('on');
+          grip.setPointerCapture(ev.pointerId);
+          function move(e2) {
+            var w = Math.max(48, Math.round(w0 + (e2.clientX - x0)));
+            th.style.width = w + 'px'; th.classList.add('sized');
+            saved[id] = w;
+          }
+          function up() {
+            grip.classList.remove('on');
+            grip.removeEventListener('pointermove', move);
+            grip.removeEventListener('pointerup', up);
+            persist();
+          }
+          grip.addEventListener('pointermove', move);
+          grip.addEventListener('pointerup', up);
+        });
+        th.appendChild(grip);
+      });
+    });
+    document.querySelectorAll('.tw').forEach(function (box) {
+      function mark() {
+        /* a few pixels is rounding, not a hidden column */
+        var over = box.scrollWidth > box.clientWidth + 8;
+        box.classList.toggle('scrolls', over);
+        box.classList.toggle('atend',
+          over && box.scrollLeft + box.clientWidth >= box.scrollWidth - 2);
+      }
+      box.addEventListener('scroll', mark);
+      window.addEventListener('resize', mark);
+      mark();
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setup);
+  } else { setup(); }
+})();
+</script>
+</body></html>

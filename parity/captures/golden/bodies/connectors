@@ -1,0 +1,614 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CostCrew</title>
+<link rel="stylesheet" href="/static/style.css"></head><body>
+<div class="shell">
+<nav class="rail">
+  <div class="brand">CostCrew</div>
+  <a href="/" class="">Today</a>
+  <a href="/board" class="">Board</a>
+  <a href="/board?view=month" class="sub">Calendar</a>
+  <a href="/teams" class="">Teams</a>
+  <a href="/sprints" class="">Sprints</a>
+  <a href="/feed" class="">Chats</a>
+  <a href="/feed?ch=aws" class="sub">#aws</a>
+  <a href="/feed?ch=gcp" class="sub">#gcp</a>
+  <a href="/feed?ch=onprem" class="sub">#onprem</a>
+  <a href="/kpis" class="">KPIs</a>
+  <a href="/library" class="sub ">Library</a>
+  <a href="/assessment" class="sub ">Assessment</a>
+  <a href="/allocation" class="">Allocation</a>
+  <a href="/chargeback" class="">Chargeback</a>
+  <a href="/exec" class="">Executive</a>
+  <a href="/results" class="">Results</a>
+  <a href="/ai" class="">AI spend</a>
+  <a href="/saas" class="">SaaS</a>
+  <a href="/utilisation" class="">Utilisation</a>
+  <a href="/explainers" class="">Explainers</a>
+  <a href="/staff" class="">Staff</a>
+  <a href="/workbench" class="">Workbench</a>
+  <a href="/data" class="">Data</a>
+  <a href="/connectors" class="sub on">Connectors</a>
+  <a href="/audit" class="">Audit</a>
+  <a href="/settings" class="">Engines</a>
+  
+  <a href="/accounts" class="">Accounts</a>
+  <div class="railfoot">
+    
+    <div>parity · admin</div>
+    <form method="post" action="/logout" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+      <button class="btn back">Sign out</button></form>
+    
+    <div>MVP · local</div>
+  </div>
+</nav>
+<main class="content">
+<h1>Connectors</h1>
+<p class="fine">Where the estate's numbers can come from besides a file somebody
+sends. A connector fetches what the provider already publishes and normalises it
+into the same columns the engine reads; it never computes a figure and never
+dates a row it cannot date. Facts here were checked against each provider's own
+documentation on 2026-08-17.</p>
+
+<section class="panel">
+  <h2>The rule that decides which one to use</h2>
+  <p class="fine">An export delivered to your own storage is paid for once, as
+  storage. The same data pulled through a cost API is charged per call:
+  <b>Cost Explorer is USD 0.01 per request</b>, <b>CloudWatch GetMetricData is
+  billed per thousand metrics requested</b> and is outside the free tier, and
+  <b>BigQuery is USD 6.25 per TiB scanned</b>. So the drop is the default here,
+  and anything metered states its price and will not run without a confirmation.
+  Nothing on this page contacts a provider by itself.</p>
+</section>
+
+
+<section class="panel">
+  <h2>Cost and usage</h2>
+  <table>
+    <tr><th>connector</th><th>how</th><th>status</th><th>what it costs to run</th></tr>
+    
+    <tr>
+      <td><b><a href="/connectors/aws-data-exports">AWS Data Exports (FOCUS 1.2)</a></b>
+        
+        
+        
+        <div class="fine">aws &middot; AWS ships FOCUS 1.0 and FOCUS 1.2 tables only. There is no 1.3 or 1.4 table, so a claim that this feeds FOCUS 1.4 would be false. Delivery is at least daily; the previous period can still be revised for about two weeks after month end. Historical backfill up to 36 months is not self-service: it needs a support case.</div>
+        <div class="fine">auth: none for the reader - it reads files already delivered to a folder</div>
+      </td>
+      <td><span class="chip">export-drop</span></td>
+      <td><span class="chip st-in-progress">built</span>
+          </td>
+      <td><span class="chip st-done">no per-run charge</span>
+        <div class="fine">No charge for the export itself: you pay S3 storage and requests for the delivered objects, pennies a month at this size. Creating the export is a one-off, and the CreateExport API rejects SELECT *, so the query must name every column.</div>
+        <div class="fine"><a href="https://docs.aws.amazon.com/cur/latest/userguide/what-is-data-exports.html" rel="noreferrer noopener" target="_blank">provider documentation</a></div>
+      </td>
+    </tr>
+    
+    <tr>
+      <td><b><a href="/connectors/azure-focus-export">Azure Cost Management export (FocusCost)</a></b>
+        
+        
+        
+        <div class="fine">azure &middot; definition.type FocusCost combines actual and amortized cost in one schema. Not available at management-group scope or on MOSP billing accounts. Data lands within about 4 hours of a run, but a new export can take 24 hours for its first delivery, and the month-close reconciliation run can trail 72 hours after the month ends. The Execute API can pull up to 7 years of history where the portal stops at 13 months.</div>
+        <div class="fine">auth: none for the reader - it reads files already delivered to a folder</div>
+      </td>
+      <td><span class="chip">export-drop</span></td>
+      <td><span class="chip st-in-progress">built</span>
+          </td>
+      <td><span class="chip st-done">no per-run charge</span>
+        <div class="fine">Cost Management and its APIs are free to Azure customers; you pay only Blob storage for the delivered files.</div>
+        <div class="fine"><a href="https://learn.microsoft.com/en-us/azure/cost-management-billing/costs/tutorial-improved-exports" rel="noreferrer noopener" target="_blank">provider documentation</a></div>
+      </td>
+    </tr>
+    
+    <tr>
+      <td><b><a href="/connectors/gcp-focus-bigquery">GCP billing export, FOCUS table in BigQuery</a></b>
+        
+        
+        
+        <div class="fine">gcp &middot; The FOCUS export is Preview, hosted by Google in an immutable dataset with a 2-year TTL and no storage charge to you. Enabling it is Console-only: there is no gcloud command, REST endpoint or Terraform resource for the toggle. Backfill reaches the start of the previous month for multi-region datasets and nothing at all for single-region. Google omits several standard FOCUS columns and substitutes x_ ones.</div>
+        <div class="fine">auth: service account with bigquery.dataViewer AND bigquery.jobUser</div>
+      </td>
+      <td><span class="chip">metered-api</span></td>
+      <td><span class="chip st-in-progress">built</span>
+          </td>
+      <td><span class="chip st-blocked">metered</span>
+        <div class="fine">BigQuery on-demand querying is USD 6.25 per TiB scanned, first 1 TiB per month free, minimum 10 MB billed per table referenced. One monthly pull of a FOCUS table at this size is well inside the free tier; a dashboard that re-queries per page view is not. The reader takes a JSON dump from `bq query --format=json`, so the query is run once, deliberately, and never on a page render.</div>
+        <div class="fine"><a href="https://docs.cloud.google.com/billing/docs/how-to/export-data-bigquery-tables/focus-export" rel="noreferrer noopener" target="_blank">provider documentation</a></div>
+      </td>
+    </tr>
+    
+    <tr>
+      <td><b><a href="/connectors/aws-cost-explorer">AWS Cost Explorer (GetCostAndUsage)</a></b>
+        
+        
+        
+        <div class="fine">aws &middot; Capped at two GroupBy dimensions per call against a full FOCUS row, so it is a bootstrap for history, not a replacement for the export. Data refreshes at least every 24 hours.</div>
+        <div class="fine">auth: IAM principal with ce:GetCostAndUsage</div>
+      </td>
+      <td><span class="chip">metered-api</span></td>
+      <td><span class="chip st-in-progress">built</span>
+          </td>
+      <td><span class="chip st-blocked">metered</span>
+        <div class="fine">USD 0.01 per paginated request, and 0.01 x N for a consolidated view built from N source accounts. A daily job is cents a month; a loop over dimensions is not. Hourly resource-level data costs extra per usage record and is kept only 14 days.</div>
+        <div class="fine"><a href="https://docs.aws.amazon.com/aws-cost-management/latest/APIReference/API_GetCostAndUsage.html" rel="noreferrer noopener" target="_blank">provider documentation</a></div>
+      </td>
+    </tr>
+    
+    <tr>
+      <td><b><a href="/connectors/azure-cost-query">Azure Cost Management Query API</a></b>
+        
+        
+        
+        <div class="fine">azure</div>
+        <div class="fine">auth: Entra ID principal with Cost Management Reader on the scope</div>
+      </td>
+      <td><span class="chip">free-api</span></td>
+      <td><span class="chip st-in-progress">built</span>
+          </td>
+      <td><span class="chip st-done">no per-run charge</span>
+        <div class="fine">No charge, but throttled in Query Processing Units: 12 QPU per 10s, 60 per minute, 600 per hour per tenant, and roughly one QPU per month of data queried. Microsoft&#39;s own advice is to call no more than once a day, because the data refreshes every four hours anyway.</div>
+        <div class="fine"><a href="https://learn.microsoft.com/en-us/azure/cost-management-billing/costs/manage-automation" rel="noreferrer noopener" target="_blank">provider documentation</a></div>
+      </td>
+    </tr>
+    
+  </table>
+</section>
+
+<section class="panel">
+  <h2>Kubernetes</h2>
+  <table>
+    <tr><th>connector</th><th>how</th><th>status</th><th>what it costs to run</th></tr>
+    
+    <tr>
+      <td><b><a href="/connectors/kubecost-allocation">Kubecost Allocation API</a></b>
+        
+        
+        
+        <div class="fine">kubernetes &middot; GET /model/allocation on port 9090, window is required, aggregate takes namespace, controller, label:&lt;name&gt; and more. The response carries cpuEfficiency and ramEfficiency, which is the point: efficiency is utilisation, and no billing export contains it. __idle__ and __unallocated__ come back as line items and are kept as such.</div>
+        <div class="fine">auth: none on self-hosted: the REST API has no built-in authentication. Reach it inside the cluster, through kubectl port-forward, or behind an authenticating ingress - never exposed openly.</div>
+      </td>
+      <td><span class="chip">free-api</span></td>
+      <td><span class="chip st-in-progress">built</span>
+          </td>
+      <td><span class="chip st-done">no per-run charge</span>
+        <div class="fine">Free. The Foundations tier is free for up to 250 cores but keeps only 15 days of metrics, which is the real constraint: a monthly close needs the pull to happen before the window rolls off.</div>
+        <div class="fine"><a href="https://www.ibm.com/docs/en/kubecost/self-hosted/3.x?topic=apis-allocation-api" rel="noreferrer noopener" target="_blank">provider documentation</a></div>
+      </td>
+    </tr>
+    
+    <tr>
+      <td><b><a href="/connectors/opencost-allocation">OpenCost Allocation API</a></b>
+        
+        
+        
+        <div class="fine">kubernetes &middot; GET /allocation on port 9003, not /model/allocation on 9090, and it always computes live from Prometheus rather than serving a precomputed set. Narrower parameter surface: no filters, no format, no sharing options. OpenCost is in the FinOps Foundation&#39;s FOCUS adopter list; Kubecost is not.</div>
+        <div class="fine">auth: none - reach it in-cluster or via port-forward</div>
+      </td>
+      <td><span class="chip">free-api</span></td>
+      <td><span class="chip st-in-progress">built</span>
+          </td>
+      <td><span class="chip st-done">no per-run charge</span>
+        <div class="fine">Free and open source; the CNCF engine Kubecost is built on.</div>
+        <div class="fine"><a href="https://opencost.io/docs/integrations/api/" rel="noreferrer noopener" target="_blank">provider documentation</a></div>
+      </td>
+    </tr>
+    
+  </table>
+</section>
+
+<section class="panel">
+  <h2>Model providers</h2>
+  <table>
+    <tr><th>connector</th><th>how</th><th>status</th><th>what it costs to run</th></tr>
+    
+    <tr>
+      <td><b><a href="/connectors/anthropic-usage">Anthropic usage and cost report</a></b>
+        
+        
+        
+        <div class="fine">anthropic &middot; Two endpoints: /v1/organizations/usage_report/messages for tokens, grouped by model, workspace, API key or service tier, and /v1/organizations/cost_report for money, daily granularity only. Priority Tier cost is excluded from the cost report and has to be tracked through usage instead. Figures appear within about five minutes.</div>
+        <div class="fine">auth: Admin API key (sk-ant-admin01-...), not an ordinary API key</div>
+      </td>
+      <td><span class="chip">provider-api</span></td>
+      <td><span class="chip st-in-progress">built</span>
+          </td>
+      <td><span class="chip st-done">no per-run charge</span>
+        <div class="fine">No charge for the reports themselves. Organisation accounts only; not available for individual accounts.</div>
+        <div class="fine"><a href="https://platform.claude.com/docs/en/manage-claude/usage-cost-api" rel="noreferrer noopener" target="_blank">provider documentation</a></div>
+      </td>
+    </tr>
+    
+    <tr>
+      <td><b><a href="/connectors/openai-usage">OpenAI usage and costs</a></b>
+        
+        
+        
+        <div class="fine">openai &middot; /v1/organization/usage/completions returns input, output and cached tokens plus request counts, groupable by project, user, API key and model; /v1/organization/costs returns money, daily buckets only. The ordinary chat response carries token counts but NO cost field, so cost there has to be computed from published prices.</div>
+        <div class="fine">auth: Admin API key</div>
+      </td>
+      <td><span class="chip">provider-api</span></td>
+      <td><span class="chip st-in-progress">built</span>
+          </td>
+      <td><span class="chip st-done">no per-run charge</span>
+        <div class="fine">No charge for the endpoints.</div>
+        <div class="fine"><a href="https://platform.openai.com/docs/api-reference/usage/completions" rel="noreferrer noopener" target="_blank">provider documentation</a></div>
+      </td>
+    </tr>
+    
+    <tr>
+      <td><b><a href="/connectors/openrouter-generations">OpenRouter generation cost</a></b>
+        
+        
+        
+        <div class="fine">openrouter &middot; The one provider that reports money per call: every completion response carries usage.cost, and GET /generation?id= returns total_cost and cache_discount for a single generation. That is why a run through OpenRouter is booked as &#34;reported&#34; rather than priced from a table.</div>
+        <div class="fine">auth: an ordinary API key for per-generation; a management key for analytics</div>
+      </td>
+      <td><span class="chip">provider-api</span></td>
+      <td><span class="chip st-in-progress">built</span>
+          </td>
+      <td><span class="chip st-done">no per-run charge</span>
+        <div class="fine">No charge for reading back what a call cost.</div>
+        <div class="fine"><a href="https://openrouter.ai/docs/cookbook/administration/usage-accounting" rel="noreferrer noopener" target="_blank">provider documentation</a></div>
+      </td>
+    </tr>
+    
+    <tr>
+      <td><b><a href="/connectors/bedrock-invocation-logs">Amazon Bedrock model invocation logs</a></b>
+        
+        
+        
+        <div class="fine">aws &middot; Off by default. Each record carries inputTokenCount, outputTokenCount, modelId, requestId and the calling identity.arn, which is the only way to get per-request attribution: neither CUR nor FOCUS has a per-request line, they aggregate by usage type over an hour or a day. Covers the bedrock-runtime endpoint only, not bedrock-mantle.</div>
+        <div class="fine">auth: one-off PutModelInvocationLoggingConfiguration, plus a bucket policy for bedrock.amazonaws.com or a role for CloudWatch Logs</div>
+      </td>
+      <td><span class="chip">export-drop</span></td>
+      <td><span class="chip st-in-progress">built</span>
+          </td>
+      <td><span class="chip st-done">no per-run charge</span>
+        <div class="fine">No Bedrock charge for logging; you pay S3 storage or CloudWatch Logs ingestion for wherever the records land.</div>
+        <div class="fine"><a href="https://docs.aws.amazon.com/bedrock/latest/userguide/model-invocation-logging.html" rel="noreferrer noopener" target="_blank">provider documentation</a></div>
+      </td>
+    </tr>
+    
+  </table>
+</section>
+
+<section class="panel">
+  <h2>Utilisation and rightsizing</h2>
+  <table>
+    <tr><th>connector</th><th>how</th><th>status</th><th>what it costs to run</th></tr>
+    
+    <tr>
+      <td><b><a href="/connectors/aws-cloudwatch-utilisation">CloudWatch GetMetricData (EC2 utilisation)</a></b>
+        
+        
+        
+        <div class="fine">aws &middot; CPU, network and disk come free at 5-minute granularity with no agent. There is NO memory or disk-space metric by default: that is the whole reason a utilisation feed has coverage below 100% and says so.</div>
+        <div class="fine">auth: IAM principal with cloudwatch:GetMetricData</div>
+      </td>
+      <td><span class="chip">metered-api</span></td>
+      <td><span class="chip st-in-progress">built</span>
+          </td>
+      <td><span class="chip st-blocked">metered</span>
+        <div class="fine">Billed per 1,000 metrics REQUESTED, not per call, and explicitly excluded from the free tier&#39;s million requests. Memory needs the CloudWatch Agent, whose custom metrics cost from USD 0.30 per metric per month. This is the one connector where a careless loop is genuinely expensive.</div>
+        <div class="fine"><a href="https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_GetMetricData.html" rel="noreferrer noopener" target="_blank">provider documentation</a></div>
+      </td>
+    </tr>
+    
+    <tr>
+      <td><b><a href="/connectors/aws-compute-optimizer">AWS Compute Optimizer recommendations</a></b>
+        
+        
+        
+        <div class="fine">aws &middot; Returns finding, reason codes, utilisation metrics and per-option savings including after discounts. Memory findings still need a memory source: the CloudWatch Agent or an ingested third-party observability feed.</div>
+        <div class="fine">auth: IAM principal with compute-optimizer:GetEC2InstanceRecommendations</div>
+      </td>
+      <td><span class="chip">free-api</span></td>
+      <td><span class="chip st-in-progress">built</span>
+          </td>
+      <td><span class="chip st-done">no per-run charge</span>
+        <div class="fine">Free, including the 14-day lookback. The optional enhanced-metrics feature extends the window to about three months at roughly USD 0.25 per resource per month.</div>
+        <div class="fine"><a href="https://docs.aws.amazon.com/compute-optimizer/latest/APIReference/API_GetEC2InstanceRecommendations.html" rel="noreferrer noopener" target="_blank">provider documentation</a></div>
+      </td>
+    </tr>
+    
+    <tr>
+      <td><b><a href="/connectors/gcp-recommender">GCP Recommender (machine type rightsizing)</a></b>
+        
+        
+        
+        <div class="fine">gcp &middot; google.compute.instance.MachineTypeRecommender, computed from the previous 8 days of monitoring data. CPU is agentless; memory needs the Ops Agent, same shape of gap as AWS.</div>
+        <div class="fine">auth: service account with recommender viewer on the project</div>
+      </td>
+      <td><span class="chip">free-api</span></td>
+      <td><span class="chip st-in-progress">built</span>
+          </td>
+      <td><span class="chip st-done">no per-run charge</span>
+        <div class="fine">Machine type recommendations are free. Firewall Insights is the paid exception, and exporting recommendations to BigQuery needs a support package.</div>
+        <div class="fine"><a href="https://docs.cloud.google.com/recommender/docs/recommenders" rel="noreferrer noopener" target="_blank">provider documentation</a></div>
+      </td>
+    </tr>
+    
+    <tr>
+      <td><b><a href="/connectors/azure-advisor">Azure Advisor cost recommendations</a></b>
+        
+        
+        
+        <div class="fine">azure &middot; GET /subscriptions/{id}/providers/Microsoft.Advisor/recommendations. &#34;Right-size or shutdown underutilized virtual machines&#34; is the relevant one. VM memory again needs the Azure Monitor Agent in the guest; only CPU is agentless.</div>
+        <div class="fine">auth: Entra ID principal with Reader on the subscription</div>
+      </td>
+      <td><span class="chip">free-api</span></td>
+      <td><span class="chip st-in-progress">built</span>
+          </td>
+      <td><span class="chip st-done">no per-run charge</span>
+        <div class="fine">Free.</div>
+        <div class="fine"><a href="https://learn.microsoft.com/en-us/azure/advisor/advisor-reference-cost-recommendations" rel="noreferrer noopener" target="_blank">provider documentation</a></div>
+      </td>
+    </tr>
+    
+  </table>
+</section>
+
+<section class="panel">
+  <h2>Commitments</h2>
+  <table>
+    <tr><th>connector</th><th>how</th><th>status</th><th>what it costs to run</th></tr>
+    
+    <tr>
+      <td><b><a href="/connectors/aws-commitments">AWS Savings Plans and Reserved Instances inventory</a></b>
+        
+        
+        
+        <div class="fine">aws &middot; DescribeSavingsPlans gives commitment, term, payment option and end date; DescribeReservedInstances gives duration in seconds, scope, offering class and state. Between them they are the commitment inventory this product asks for as a CSV today.</div>
+        <div class="fine">auth: savingsplans:DescribeSavingsPlans and ec2:DescribeReservedInstances - both ordinary service APIs, NOT the metered Cost Explorer ones</div>
+      </td>
+      <td><span class="chip">free-api</span></td>
+      <td><span class="chip st-in-progress">built</span>
+          </td>
+      <td><span class="chip st-done">no per-run charge</span>
+        <div class="fine">The inventory calls are free. Utilisation and coverage reports are different endpoints, live in Cost Explorer, and cost USD 0.01 per request there.</div>
+        <div class="fine"><a href="https://docs.aws.amazon.com/savingsplans/latest/APIReference/API_DescribeSavingsPlans.html" rel="noreferrer noopener" target="_blank">provider documentation</a></div>
+      </td>
+    </tr>
+    
+    <tr>
+      <td><b><a href="/connectors/gcp-commitments">GCP committed use discounts</a></b>
+        
+        
+        
+        <div class="fine">gcp &middot; Two halves that do not overlap: regionCommitments.list covers resource-based CUDs, and the cud_subscriptions_export BigQuery table covers spend-based ones. Since 2026-01-21 CUD discounts moved out of the credits array into a consumption_model field, which changes any query written before that date.</div>
+        <div class="fine">auth: service account with compute.commitments.list</div>
+      </td>
+      <td><span class="chip">free-api</span></td>
+      <td><span class="chip st-in-progress">built</span>
+          </td>
+      <td><span class="chip st-done">no per-run charge</span>
+        <div class="fine">Free for the resource-based listing.</div>
+        <div class="fine"><a href="https://docs.cloud.google.com/compute/docs/reference/rest/v1/regionCommitments/list" rel="noreferrer noopener" target="_blank">provider documentation</a></div>
+      </td>
+    </tr>
+    
+    <tr>
+      <td><b><a href="/connectors/azure-commitments">Azure reservations and savings plans</a></b>
+        
+        
+        
+        <div class="fine">azure &middot; Microsoft.Capacity/reservationOrders for reservation inventory and Microsoft.BillingBenefits/savingsPlanOrders for savings plans, with utilisation from reservationSummaries and benefitUtilizationSummaries. ARM caps a response at 12 MB, so a large estate has to page.</div>
+        <div class="fine">auth: Entra ID principal with reservation reader</div>
+      </td>
+      <td><span class="chip">free-api</span></td>
+      <td><span class="chip st-in-progress">built</span>
+          </td>
+      <td><span class="chip st-done">no per-run charge</span>
+        <div class="fine">Free; Cost Management carries no charge.</div>
+        <div class="fine"><a href="https://learn.microsoft.com/en-us/rest/api/consumption/reservations-summaries/list-by-reservation-order" rel="noreferrer noopener" target="_blank">provider documentation</a></div>
+      </td>
+    </tr>
+    
+  </table>
+</section>
+
+
+<section class="panel">
+  <h2>What no connector can give you</h2>
+  <p class="fine"><b>Seats.</b> SaaS utilisation needs active seats, and an
+  invoice does not contain them: they come from your identity provider. That
+  stays a file on purpose.</p>
+  <p class="fine"><b>Memory.</b> No cloud reports guest memory without an agent
+  in the guest: not AWS, not GCP, not Azure. CPU is free and agentless
+  everywhere; memory needs the CloudWatch Agent, the Ops Agent or the Azure
+  Monitor Agent. That is why the utilisation page states its coverage instead of
+  claiming the whole estate.</p>
+  <p class="fine"><b>Per-request AI cost.</b> Neither CUR nor FOCUS carries a
+  per-request line: they aggregate by usage type over an hour or a day. Bedrock
+  invocation logs are the only place a single call's tokens and its caller
+  appear, and they are off by default.</p>
+  <p class="fine"><b>FOCUS does not cover tokens yet.</b> FOCUS 1.4, ratified
+  2026-06-04, has no AI token columns; surfacing model identity and token
+  consumption is scoped for 1.5. AWS ships FOCUS 1.2 tables, and no model
+  provider publishes FOCUS at all, so AI spend is normalised here by hand from
+  each provider's own usage report.</p>
+</section>
+</main>
+</div>
+<script>
+document.addEventListener('input', function (e) {
+  var box = e.target.closest('.filterbox'); if (!box) return;
+  var root = document.querySelector(box.dataset.target); if (!root) return;
+  var q = box.value.trim().toLowerCase();
+  root.querySelectorAll('[data-search]').forEach(function (el) {
+    var hit = !q || el.dataset.search.toLowerCase().indexOf(q) !== -1;
+    if (el.classList.contains('deskgroup')) {
+      var inner = Array.prototype.some.call(el.querySelectorAll('[data-search]'),
+        function (x) { return x.dataset.search.toLowerCase().indexOf(q) !== -1; });
+      el.style.display = (hit || inner || !q) ? '' : 'none';
+      el.querySelectorAll('[data-search]').forEach(function (x) {
+        x.style.display = (!q || hit || x.dataset.search.toLowerCase().indexOf(q) !== -1) ? '' : 'none';
+      });
+    } else if (!el.closest('.deskgroup')) {
+      el.style.display = hit ? '' : 'none';
+    }
+  });
+});
+document.addEventListener('click', function (e) {
+  if (e.target.classList && e.target.classList.contains('grip')) return;
+  var th = e.target.closest('th'); if (!th) return;
+  var table = th.closest('table'); if (!table) return;
+  var idx = Array.prototype.indexOf.call(th.parentNode.children, th);
+  var rows = Array.prototype.slice.call(table.querySelectorAll('tr')).filter(
+    function (r) { return r.querySelector('td'); });
+  var dir = th.dataset.dir === 'asc' ? -1 : 1;
+  table.querySelectorAll('th').forEach(function (h) { delete h.dataset.dir;
+    var a = h.querySelector('.arrow'); if (a) a.remove(); });
+  th.dataset.dir = dir === 1 ? 'asc' : 'desc';
+  var arrow = document.createElement('span');
+  arrow.className = 'arrow';
+  arrow.textContent = dir === 1 ? ' \u25B2' : ' \u25BC';
+  th.appendChild(arrow);
+  function key(r) {
+    var c = r.children[idx]; if (!c) return '';
+    var txt = c.textContent.trim().replace(/[$,%]/g, '').replace(/,/g, '');
+    if (/\d{4}-\d{2}-\d{2}/.test(txt)) return txt.replace(/[^\d-]/g, '');
+    var n = parseFloat(txt);
+    return isNaN(n) ? txt.toLowerCase() : n;
+  }
+  rows.sort(function (a, b) {
+    var ka = key(a), kb = key(b);
+    if (typeof ka === 'number' && typeof kb === 'number') return (ka - kb) * dir;
+    return String(ka).localeCompare(String(kb)) * dir;
+  });
+  rows.forEach(function (r) { r.parentNode.appendChild(r); });
+});
+
+/* ---- tables you can widen, and that fit any screen -----------------------
+   Every table is put in its own horizontally scrolling box, so a wide table
+   scrolls inside its panel instead of pushing the whole page sideways. Each
+   header cell gets a grip on its right edge: drag it to widen the column,
+   double-click it to give the column back to the browser. Widths are
+   remembered per page, because a column you widened once you almost always
+   want wide again.                                                          */
+(function () {
+  var KEY = 'costcrew.colw.' + location.pathname;
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (err) { saved = {}; }
+
+  function persist() {
+    try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (err) { /* private mode */ }
+  }
+
+  function setup() {
+    document.querySelectorAll('table').forEach(function (table, ti) {
+      if (!table.parentNode.classList.contains('tw')) {
+        var box = document.createElement('div');
+        box.className = 'tw';
+        table.parentNode.insertBefore(box, table);
+        box.appendChild(table);
+      }
+      /* An atom never breaks: a date, a sum, a status, a short name. Prose
+         does break, and must, or one sentence drags the whole table wider
+         than the screen and everything else scrolls to reach it. The rule is
+         length, applied once, because CSS cannot ask how long a text is. */
+      table.querySelectorAll('td, th').forEach(function (cell) {
+        if (cell.children.length) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length > 40 && txt.indexOf(' ') !== -1) cell.classList.add('wrap');
+      });
+
+      /* Really long prose gets two lines and a way to open the rest. Nothing
+         is removed: the full text is still in the cell, still searched by
+         the filter box, still there for anyone who presses. */
+      table.querySelectorAll('td').forEach(function (cell) {
+        if (cell.querySelector('.clamp')) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length <= 110) return;
+        var box = document.createElement('div');
+        box.className = 'clamp';
+        while (cell.firstChild) box.appendChild(cell.firstChild);
+        cell.appendChild(box);
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'more';
+        btn.textContent = 'more';
+        btn.setAttribute('aria-expanded', 'false');
+        btn.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          var open = box.classList.toggle('open');
+          btn.textContent = open ? 'less' : 'more';
+          btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+        cell.appendChild(btn);
+        cell.classList.add('wrap');
+      });
+      /* Align each header to the column beneath it. The figures are right
+         aligned and the headers were not, so every numeric column read as a
+         label on the left with unrelated numbers on the right. */
+      var head0 = table.querySelector('tr');
+      if (head0) {
+        var body = Array.prototype.slice.call(table.querySelectorAll('tr'))
+          .filter(function (r) { return r.querySelector('td'); });
+        head0.querySelectorAll('th').forEach(function (th, ci) {
+          var nums = 0, cells = 0;
+          body.forEach(function (r) {
+            var cell = r.children[ci];
+            if (!cell || cell.tagName !== 'TD') return;
+            cells++;
+            if (cell.classList.contains('num')) nums++;
+          });
+          if (cells && nums * 2 > cells) th.classList.add('num');
+        });
+      }
+      var head = table.querySelector('tr');
+      if (!head) return;
+      head.querySelectorAll('th').forEach(function (th, ci) {
+        var id = ti + ':' + ci;
+        if (saved[id]) { th.style.width = saved[id] + 'px'; th.classList.add('sized'); }
+        if (th.querySelector('.grip')) return;
+        var grip = document.createElement('span');
+        grip.className = 'grip';
+        grip.title = 'Drag to widen, double-click to reset';
+        grip.addEventListener('dblclick', function (ev) {
+          ev.stopPropagation();
+          th.style.width = ''; th.classList.remove('sized');
+          delete saved[id]; persist();
+        });
+        grip.addEventListener('pointerdown', function (ev) {
+          ev.preventDefault(); ev.stopPropagation();
+          var x0 = ev.clientX, w0 = th.getBoundingClientRect().width;
+          grip.classList.add('on');
+          grip.setPointerCapture(ev.pointerId);
+          function move(e2) {
+            var w = Math.max(48, Math.round(w0 + (e2.clientX - x0)));
+            th.style.width = w + 'px'; th.classList.add('sized');
+            saved[id] = w;
+          }
+          function up() {
+            grip.classList.remove('on');
+            grip.removeEventListener('pointermove', move);
+            grip.removeEventListener('pointerup', up);
+            persist();
+          }
+          grip.addEventListener('pointermove', move);
+          grip.addEventListener('pointerup', up);
+        });
+        th.appendChild(grip);
+      });
+    });
+    document.querySelectorAll('.tw').forEach(function (box) {
+      function mark() {
+        /* a few pixels is rounding, not a hidden column */
+        var over = box.scrollWidth > box.clientWidth + 8;
+        box.classList.toggle('scrolls', over);
+        box.classList.toggle('atend',
+          over && box.scrollLeft + box.clientWidth >= box.scrollWidth - 2);
+      }
+      box.addEventListener('scroll', mark);
+      window.addEventListener('resize', mark);
+      mark();
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setup);
+  } else { setup(); }
+})();
+</script>
+</body></html>

@@ -1,0 +1,491 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<title>FinOps results, 2026-07</title><style>/* CostCrew: ledger calm (DESIGN.md tokens). One signature device: the stamp. */
+:root {
+  --paper: #F3F6F2; --ink: #17251E; --rule: #D6DED4;
+  --green: #2E6B4F; --red: #B3372E; --amber: #B07C2A; --blue: #33549C;
+  --card: #FBFCFA;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink);
+  font: 15px/1.55 &#34;Public Sans&#34;, -apple-system, &#34;Segoe UI&#34;, sans-serif; }
+.shell { display: flex; min-height: 100vh; }
+.rail { width: 168px; padding: 18px 14px; border-right: 1px solid var(--rule);
+  display: flex; flex-direction: column; gap: 6px; }
+.brand { font-family: &#34;Libre Caslon Text&#34;, Georgia, serif; font-size: 20px;
+  margin-bottom: 14px; color: var(--green); }
+.rail a { color: var(--ink); text-decoration: none; padding: 6px 10px; border-radius: 6px; }
+.rail a.on, .rail a:hover { background: #E7EDE6; }
+.railfoot { margin-top: auto; font-size: 11px; color: #6B7A70; }
+.content { flex: 1; padding: 26px 34px; max-width: 1060px; }
+h1 { font-family: &#34;Libre Caslon Text&#34;, Georgia, serif; font-weight: 600;
+  font-size: 26px; margin: 0 0 14px; }
+h2 { font-size: 16px; margin: 0 0 10px; }
+h3 { font-size: 14px; margin: 16px 0 6px; }
+.panel { background: var(--card); border: 1px solid var(--rule); border-radius: 8px;
+  padding: 16px 18px; margin: 0 0 16px; }
+table { border-collapse: collapse; width: 100%; }
+th { cursor: pointer; user-select: none; text-align: left; font-size: 12px; color: #5A685F; font-weight: 600;
+  border-bottom: 1px solid var(--rule); padding: 4px 8px; }
+td { padding: 5px 8px; border-bottom: 1px solid #E8EEE7;
+  font-variant-numeric: tabular-nums; }
+td.num { text-align: right; }
+/* a header belongs to its column, so it takes the column&#39;s alignment. Left
+   headers over right-aligned figures read as two unrelated columns. */
+th.num { text-align: right; }
+th.num .grip { right: -3px; }
+tr.win td { background: #EAF2EC; }
+.mono td { font-family: &#34;IBM Plex Mono&#34;, ui-monospace, monospace; font-size: 12px; }
+.qid { font-family: &#34;IBM Plex Mono&#34;, ui-monospace, monospace; font-size: 11px;
+  color: var(--blue); background: #EDF1F8; border-radius: 4px; padding: 1px 5px; }
+.chip { display: inline-block; border: 1px solid var(--rule); border-radius: 12px;
+  padding: 1px 10px; font-size: 12px; margin-right: 4px; background: var(--card);
+  color: var(--ink); text-decoration: none; }
+.chip.on { background: var(--green); color: #fff; border-color: var(--green); }
+.count { background: var(--green); color: #fff; border-radius: 10px;
+  padding: 0 8px; font-size: 12px; }
+.src { font-size: 11px; border-radius: 4px; padding: 1px 6px;
+  font-family: ui-monospace, monospace; }
+.src { background: #E2EBE5; color: var(--green); }
+.banner { background: #F4E9D7; color: #7A5A18; border-radius: 6px;
+  padding: 8px 12px; font-size: 13px; }
+.empty { color: #6B7A70; font-style: italic; }
+.fine { color: #6B7A70; font-size: 12px; }
+.btn { background: var(--green); border: none; color: #fff; border-radius: 6px;
+  padding: 7px 14px; font-size: 14px; cursor: pointer; }
+.btn.back { background: var(--amber); }
+.btn.run { background: var(--blue); }
+.newtask { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.newtask input, .newtask select, .inline input, .inline select {
+  border: 1px solid var(--rule); border-radius: 6px; padding: 6px 9px;
+  background: #fff; font: inherit; }
+.columns { display: flex; gap: 12px; overflow-x: auto; align-items: flex-start; }
+.col { min-width: 210px; flex: 1; }
+.col h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em;
+  color: #5A685F; }
+.card { display: block; background: var(--card); border: 1px solid var(--rule);
+  border-left: 3px solid var(--rule); border-radius: 8px; padding: 10px 12px;
+  margin-bottom: 8px; color: var(--ink); text-decoration: none; }
+.card.st-your-review { border-left-color: var(--blue); }
+.card.st-in-progress { border-left-color: var(--green); }
+.card.st-blocked, .card.st-returned { border-left-color: var(--red); }
+.cardtitle { font-weight: 600; font-size: 14px; }
+.cardmeta { font-size: 12px; color: #5A685F; margin-top: 2px; }
+.step { font-family: ui-monospace, monospace; font-size: 11px; color: var(--blue); }
+.budget { height: 4px; background: #E4EAE3; border-radius: 2px; margin-top: 6px; }
+.budget i { display: block; height: 4px; background: var(--green);
+  border-radius: 2px; max-width: 100%; }
+.nowstrip { display: flex; gap: 10px; flex-wrap: wrap; }
+.nowcard { border: 1px solid var(--rule); border-radius: 8px; padding: 8px 12px;
+  min-width: 150px; background: var(--card); }
+.nowcard .desk { float: right; font-size: 11px; color: #6B7A70; }
+.nowstate { font-size: 12px; }
+.nowcard.st-busy { border-color: var(--green); }
+.nowspend { font-size: 11px; color: #6B7A70; }
+.goal { font-size: 15px; }
+.comment { margin: 4px 0; font-size: 14px; }
+.crumb { font-size: 12px; }
+.crumb a { color: var(--blue); }
+.inline { display: inline-flex; gap: 8px; align-items: center; margin: 6px 0; }
+.artifact .md { border-top: 1px dashed var(--rule); padding-top: 8px; }
+.md table { margin: 8px 0; }
+.md code { background: #EDF1F8; color: var(--blue); border-radius: 4px;
+  padding: 0 4px; font-size: 12px; }
+.md blockquote { border-left: 3px solid var(--amber); margin: 0 0 10px;
+  padding: 4px 12px; background: #F8F3E9; color: #7A5A18; }
+.arthead { display: flex; justify-content: space-between; align-items: center; }
+.stamp { font-family: &#34;IBM Plex Mono&#34;, ui-monospace, monospace; font-size: 12px;
+  border: 2px solid var(--green); color: var(--green); border-radius: 999px;
+  padding: 4px 14px; transform: rotate(-4deg); letter-spacing: .05em;
+  box-shadow: inset 0 0 8px rgba(46,107,79,.15); }
+.stamp.returned { border-color: var(--red); color: var(--red);
+  box-shadow: inset 0 0 8px rgba(179,55,46,.15); }
+.actions { margin-top: 10px; display: flex; gap: 14px; flex-wrap: wrap; }
+.jd { background: #fff; border: 1px solid var(--rule); border-radius: 6px;
+  padding: 12px; font-family: &#34;IBM Plex Mono&#34;, ui-monospace, monospace;
+  font-size: 12px; overflow-x: auto; }
+@media (prefers-reduced-motion: no-preference) {
+  .stamp { animation: press .2s ease-out; }
+  @keyframes press { from { transform: rotate(-4deg) scale(1.25); opacity: 0; }
+    to { transform: rotate(-4deg) scale(1); opacity: 1; } }
+}
+
+.feed { list-style: none; padding: 0; margin: 0; }
+.feed li { padding: 7px 10px; border-bottom: 1px solid #E8EEE7; font-size: 14px;
+  background: var(--card); }
+.feed li:nth-child(odd) { background: #F7FAF6; }
+.feed .when { font-family: ui-monospace, monospace; font-size: 11px;
+  color: #6B7A70; margin-right: 8px; }
+.feed .actor { font-weight: 600; margin-right: 6px; }
+.feed .actor.op { color: var(--green); }
+.feed .actor.sup { color: var(--blue); }
+.feed a { color: var(--ink); text-decoration: none; }
+.feed a:hover { text-decoration: underline; }
+
+a.nowcard { color: var(--ink); text-decoration: none; }
+a.nowcard:hover { border-color: var(--green); }
+a.actor { text-decoration: none; }
+a.actor:hover { text-decoration: underline; }
+
+.tiles { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.tile { background: var(--card); border: 1px solid var(--rule); border-radius: 8px;
+  padding: 14px 18px; min-width: 170px; }
+.tile .tv { font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.tile .tl { font-size: 12px; color: #5A685F; }
+
+.filterbox { border: 1px solid var(--rule); border-radius: 6px; padding: 7px 10px;
+  background: #fff; font: inherit; width: 280px; margin-bottom: 12px; }
+.deskgroup { margin-bottom: 14px; }
+.deskhead { display: flex; gap: 10px; align-items: baseline; margin-bottom: 6px; }
+.deskhead a { color: var(--green); font-weight: 600; text-decoration: none; }
+
+.rail a.sub { padding: 2px 10px 2px 22px; font-size: 13px; color: #47564C; }
+
+:root { --hue-aws: #C4762C; --hue-gcp: #33549C; --hue-onprem: #6B4FA0;
+  --hue-management: #2E6B4F; }
+h1 { font-size: 30px; }
+.subtitle { color: #5A685F; margin-top: -6px; }
+.tile { border-top: 4px solid var(--rule); min-width: 190px; }
+.tile .tv { font-size: 30px; }
+.tile.accent-green { border-top-color: var(--green); }
+.tile.accent-blue { border-top-color: var(--blue); }
+.tile.accent-red { border-top-color: var(--red); }
+.tile.accent-amber { border-top-color: var(--amber); }
+.chip.hue-aws, .deskhead a[href*=&#39;aws&#39;] { color: var(--hue-aws); border-color: var(--hue-aws); }
+.chip.hue-gcp, .deskhead a[href*=&#39;gcp&#39;] { color: var(--hue-gcp); border-color: var(--hue-gcp); }
+.chip.hue-onprem, .deskhead a[href*=&#39;onprem&#39;] { color: var(--hue-onprem); border-color: var(--hue-onprem); }
+.chip.hue-aws.on { background: var(--hue-aws); color: #fff; }
+.chip.hue-gcp.on { background: var(--hue-gcp); color: #fff; }
+.chip.hue-onprem.on { background: var(--hue-onprem); color: #fff; }
+.rail a.sub[href*=&#39;aws&#39;] { color: var(--hue-aws); }
+.rail a.sub[href*=&#39;gcp&#39;] { color: var(--hue-gcp); }
+.rail a.sub[href*=&#39;onprem&#39;] { color: var(--hue-onprem); }
+.eyebrow { font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+  margin-right: 8px; font-weight: 700; }
+.eyebrow.hue-aws { color: var(--hue-aws); }
+.eyebrow.hue-gcp { color: var(--hue-gcp); }
+.eyebrow.hue-onprem { color: var(--hue-onprem); }
+.legend { font-size: 12px; color: #5A685F; }
+.legend .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px;
+  margin: 0 4px 0 12px; vertical-align: -2px; }
+td.neg { color: var(--red); font-weight: 600; }
+.chip.req-new { border-color: var(--amber); color: var(--amber); }
+.chip.req-estimated { border-color: var(--blue); color: var(--blue); }
+.chip.req-approved { border-color: var(--green); color: var(--green); }
+.spark { display: block; }
+.btn { text-decoration: none; display: inline-block; }
+
+.flash { background: #E7F0E9; border: 1px solid var(--green); color: var(--green);
+  border-radius: 6px; padding: 8px 12px; font-weight: 600; }
+.intakegrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px; }
+.intakecard { border: 1px dashed var(--rule); border-radius: 8px; padding: 12px;
+  display: flex; flex-direction: column; gap: 8px; background: #FBFCFA; }
+.intakecard input, .intakecard select { border: 1px solid var(--rule);
+  border-radius: 6px; padding: 6px 8px; font: inherit; background: #fff; }
+
+.pickgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
+.pick { border: 1px solid var(--rule); border-radius: 8px; padding: 8px 10px;
+  display: flex; gap: 8px; align-items: baseline; background: #fff; cursor: pointer; }
+.pick input { margin-top: 2px; }
+.pick b { font-size: 13px; display: block; }
+.pick .fine { display: block; }
+.pick.risk-elevated { border-color: var(--amber); }
+.pick.risk-high { border-color: var(--red); }
+.hirerow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+.hireform textarea { width: 100%; border: 1px solid var(--rule); border-radius: 6px;
+  padding: 8px; font: inherit; }
+.btn.big { font-size: 16px; padding: 10px 22px; }
+
+.cbadge { display: inline-block; font-family: ui-monospace, monospace; font-size: 11px;
+  font-weight: 700; border-radius: 4px; padding: 0 6px; vertical-align: 1px; }
+.cbadge.c1 { background: #E4EAE3; color: #47564C; }
+.cbadge.c2 { background: #F4E9D7; color: #7A5A18; }
+.cbadge.c3 { background: #F3DEDC; color: var(--red); }
+
+/* Board toolbar */
+.btoolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+  margin: 0 0 14px; }
+.btoolbar input, .btoolbar select { border: 1px solid var(--rule);
+  border-radius: 6px; padding: 5px 9px; font: inherit; font-size: 13px;
+  background: #fff; }
+.btoolbar input[type=search] { min-width: 210px; }
+.btoolbar .chip { cursor: pointer; }
+.carddate { font-size: 11px; color: #6B7A70;
+  font-variant-numeric: tabular-nums; }
+.morebtn { display: block; width: 100%; margin-top: 6px; border: 1px dashed var(--rule);
+  border-radius: 8px; background: transparent; color: var(--green);
+  font: inherit; font-size: 12px; padding: 6px; cursor: pointer; }
+.morebtn:hover { background: #E7EDE6; }
+
+/* Calendar */
+.calnav { display: flex; align-items: baseline; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; }
+.calarrows { display: flex; gap: 6px; }
+.calgrid { display: grid; grid-template-columns: 56px repeat(5, 1fr) 0.55fr 0.55fr;
+  gap: 6px; margin: 12px 0 18px; }
+.calhead { font-size: 11px; color: #5A685F; text-transform: uppercase;
+  letter-spacing: .04em; padding: 0 2px 2px; }
+.calsprint { display: flex; align-items: stretch; }
+.spband { flex: 1; display: flex; align-items: center; justify-content: center;
+  border-radius: 8px; font-family: ui-monospace, monospace; font-size: 12px;
+  text-decoration: none; color: var(--green); background: #E7EDE6;
+  border: 1px solid var(--rule); }
+a.spband:hover { background: var(--green); color: #fff; }
+.spband.st-open { border-color: var(--green); font-weight: 700; }
+.spband.none { background: transparent; border: 1px dashed var(--rule);
+  color: #9AA79E; }
+.calday { background: var(--card); border: 1px solid var(--rule);
+  border-radius: 8px; min-height: 92px; padding: 5px 6px 7px; min-width: 0; }
+.calday.dim { opacity: .5; background: transparent; }
+.calday.today { border-color: var(--green); box-shadow: 0 0 0 1px var(--green); }
+.caldate { display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 11px; color: #6B7A70; text-decoration: none; }
+.caldate: <HTTPDATE>
+.daycount { background: var(--green); color: #fff; border-radius: 8px;
+  padding: 0 6px; font-size: 10px; }
+.calchip { display: block; font-size: 11px; line-height: 1.3; margin-top: 4px;
+  padding: 2px 5px; border-left: 3px solid var(--rule); background: #F0F4EF;
+  border-radius: 0 4px 4px 0; color: var(--ink); text-decoration: none;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.calchip:hover { background: #E2EBE5; }
+.calchip .cbadge { font-size: 9px; padding: 0 3px; }
+.calchip.hue-aws { border-left-color: var(--hue-aws); }
+.calchip.hue-gcp { border-left-color: var(--hue-gcp); }
+.calchip.hue-onprem { border-left-color: var(--hue-onprem); }
+.calchip.hue-management { border-left-color: var(--hue-management); }
+.calmore { display: block; font-size: 10px; margin-top: 3px; color: var(--green);
+  text-decoration: none; }
+.chip.hue-management { color: var(--hue-management);
+  border-color: var(--hue-management); }
+
+/* Board view switcher + calendar week/day views */
+.viewsw { display: flex; gap: 6px; margin: 0 0 12px; }
+.calhead.wk { color: #9AA79E; }
+.calday.wknd { padding: 4px 5px; }
+.calday.wknd .calchip { font-size: 10px; padding: 1px 4px; }
+.spstrip { border-radius: 8px; border: 1px solid var(--rule);
+  padding: 8px 12px; font-size: 13px; margin: 0 0 14px; }
+.spstrip a { color: var(--ink); }
+.weekgrid { display: grid; grid-template-columns: repeat(5, 1fr) 0.6fr 0.6fr;
+  gap: 8px; margin: 0 0 16px; align-items: start; }
+.wkcol { background: var(--card); border: 1px solid var(--rule);
+  border-radius: 8px; padding: 8px; min-height: 180px; min-width: 0; }
+.wkcol.today { border-color: var(--green); box-shadow: 0 0 0 1px var(--green); }
+.wkcol.wknd .calchip { font-size: 10px; }
+.wkhead { display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 12px; font-weight: 600; color: #47564C; text-decoration: none;
+  border-bottom: 1px solid var(--rule); padding-bottom: 4px; margin-bottom: 2px; }
+.wkhead:hover { color: var(--green); }
+.morebtn[hidden] { display: none; }
+.coverbox { border: 1px dashed var(--green); border-radius: 8px; background: #EAF2EC;
+  padding: 8px 12px; margin: 10px 0; font-size: 13px; }
+.coverbox p { margin: 6px 0 0; }
+.arrowto { color: #6B7A70; font-weight: 400; }
+.ruleform select, .ruleform input { border: 1px solid var(--rule); border-radius: 6px;
+  padding: 3px 7px; font: inherit; font-size: 12px; background: #fff; }
+.dir { font-size: 11px; }
+.dir.up { color: var(--red); }
+.dir.down { color: var(--blue); }
+.kpi .arthead { align-items: baseline; }
+.kpi.blocked { opacity: .72; }
+.kpival { font-family: &#34;Libre Caslon Text&#34;, Georgia, serif; font-size: 22px; }
+.kpival.ok { color: var(--green); }
+.kpival.off { color: var(--red); }
+.kpival.na { font-size: 13px; color: #6B7A70; font-family: inherit; }
+.kpival .fine { display: block; text-align: right; }
+.chip.lv-run { background: var(--green); color: #fff; border-color: var(--green); }
+.chip.lv-walk { color: var(--blue); border-color: var(--blue); }
+.chip.lv-crawl { color: var(--amber); border-color: var(--amber); }
+.decision { border-left: 3px solid var(--green); padding: 4px 0 4px 12px; margin: 12px 0; }
+.decision p { margin: 4px 0 0; }
+.loginwrap { max-width: 340px; margin: 12vh auto; padding: 0 20px; }
+.loginwrap .brand { font-size: 26px; margin-bottom: 4px; }
+.loginform { display: flex; flex-direction: column; gap: 8px; margin: 16px 0; }
+.loginform input { border: 1px solid var(--rule); border-radius: 6px;
+  padding: 9px 11px; font: inherit; background: #fff; }
+
+/* ---- tables that behave like an application, not a printed page ----------
+   Three separate problems, three fixes, because they had one cause between
+   them: the content column was capped at 1060px whatever the screen, so on a
+   wide monitor the app refused the space it had and squeezed every column.
+   A date window then wrapped onto five lines inside a 66px cell.
+
+   1. the content is fluid and only stops widening where a line of prose
+      stops being readable;
+   2. anything that is one value never breaks: dates, money, windows, chips;
+   3. a table that still does not fit scrolls sideways INSIDE its own panel,
+      so the page itself never scrolls horizontally and the header stays put.  */
+
+.content { max-width: min(1600px, 100%); min-width: 0; }
+/* a flex child defaults to min-width:auto, which means &#34;as wide as my
+   content&#34;. Without this the content column grows to fit the widest table,
+   shoves the rail off screen and makes the whole PAGE scroll sideways -
+   exactly what the scroll box inside the panel is there to prevent. */
+.shell &gt; .content, .panel, .tw { min-width: 0; }
+.content &gt; p, .content &gt; .fine, .panel &gt; p.fine { max-width: 78ch; }
+
+.tw { overflow-x: auto; overflow-y: visible; max-width: 100%;
+      -webkit-overflow-scrolling: touch; }
+/* a table that still does not fit says so: the right edge fades, so nobody
+   has to discover the rest of the columns by accident */
+.tw.scrolls { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+              mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); }
+.tw.scrolls.atend { -webkit-mask-image: none; mask-image: none; }
+/* NOT min-width: max-content. That tells the table never to wrap anything,
+   which defeats the prose rule below and leaves every table scrolling even
+   when it would have fitted. The table takes the width it has; the cells
+   that must not break say so themselves. */
+.tw table { width: 100%; }
+.tw { scrollbar-width: thin; }
+
+td, th { white-space: nowrap; }
+/* only prose is allowed to wrap, and it is told to */
+td.wrap, th.wrap, td.md, td .md, td p { white-space: normal; }
+td.wrap { min-width: 18ch; max-width: 46ch; }
+
+/* ---- long prose in a cell: two lines, then open it if you want it --------
+   A cost note or an audit detail can run to five hundred characters. Left
+   alone it either drags the table wider than the screen or turns one row
+   into a paragraph, and both make a table impossible to scan. So a long cell
+   shows its first two lines and offers to open the rest in place: the row
+   stays a row, and nothing is hidden from anyone who wants it.             */
+.clamp { display: -webkit-box; -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
+  /* the cell says nowrap and this box INHERITS it, so without this the text
+     is one unbreakable line and there is nothing for line-clamp to clamp */
+  white-space: normal; max-width: 62ch; }
+.clamp.open { -webkit-line-clamp: unset; line-clamp: unset; overflow: visible; }
+.more { display: inline-block; margin-top: 2px; padding: 0; border: 0;
+  background: none; color: var(--green); font: inherit; font-size: 12px;
+  cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.more:hover { color: var(--ink); }
+td:has(&gt; .clamp) { white-space: normal; vertical-align: top; max-width: 62ch; }
+
+thead th, table tr:first-child th { position: sticky; top: 0; z-index: 2;
+  background: var(--card); box-shadow: 0 1px 0 var(--rule); }
+
+/* a column can be dragged wider by its right edge; the width is remembered */
+th { position: relative; }
+th .grip { position: absolute; top: 0; right: -3px; width: 7px; height: 100%;
+  cursor: col-resize; user-select: none; touch-action: none; }
+/* the last column&#39;s grip would hang 3px past the table, which is enough to
+   make every table report itself as overflowing and fade its own last
+   column. There is nothing to its right to resize against anyway. */
+th:last-child .grip { display: none; }
+th .grip:hover, th .grip.on { background: var(--green); opacity: .35; }
+th.sized { overflow: hidden; text-overflow: ellipsis; }
+td.clip { overflow: hidden; text-overflow: ellipsis; }
+
+/* ---- narrow screens: the rail becomes a bar, the app stays an app ------- */
+@media (max-width: 860px) {
+  .shell { display: block; }
+  .rail { width: auto; flex-direction: row; flex-wrap: nowrap; gap: 4px;
+    overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--rule);
+    padding: 8px 10px; position: sticky; top: 0; z-index: 5;
+    background: var(--paper); -webkit-overflow-scrolling: touch; }
+  .rail a { white-space: nowrap; padding: 6px 9px; font-size: 14px; }
+  .rail .brand { margin: 0 8px 0 0; font-size: 17px; align-self: center; }
+  .rail .railfoot { display: none; }
+  .content { padding: 16px 12px; max-width: 100%; }
+  .panel { padding: 12px 12px; }
+  h1 { font-size: 22px; }
+  .tiles, .cards { gap: 8px; }
+  .tile, .card { min-width: 44vw; }
+  .filterbox, .btoolbar input[type=search] { width: 100%; min-width: 0; }
+}
+@media (max-width: 520px) {
+  .tile, .card { min-width: 100%; }
+  table { font-size: 13px; }
+}
+
+/* ---- the analyst&#39;s card ------------------------------------------------- */
+.agenthead { display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
+.agenthead .acts { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.deflist { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 10px; margin: 8px 0 4px; }
+.def { border: 1px solid var(--rule); border-radius: 7px; padding: 8px 10px;
+  background: #fff; }
+.def b { font-size: 13px; }
+.rules { margin: 6px 0 0; padding-left: 18px; }
+.rules li { margin: 2px 0; }
+details.fold { margin-top: 10px; }
+details.fold &gt; summary { cursor: pointer; color: var(--green); font-size: 13px;
+  user-select: none; }
+details.fold &gt; summary:hover { color: var(--ink); }
+pre.jd { background: #F5F7F4; border: 1px solid var(--rule); border-radius: 7px;
+  padding: 10px 12px; overflow-x: auto; font-size: 12px; line-height: 1.5; }
+.flash { background: #EAF2EC; border: 1px solid var(--rule); border-radius: 7px;
+  padding: 8px 12px; }
+.dlg { border: 1px solid var(--rule); border-radius: 10px; padding: 18px 20px;
+  max-width: 520px; width: calc(100% - 32px); background: var(--card);
+  color: var(--ink); box-shadow: 0 12px 40px rgba(23,37,30,.18); }
+.dlg::backdrop { background: rgba(23,37,30,.35); }
+.reasons { display: flex; flex-direction: column; gap: 4px; margin: 10px 0; }
+.reason { display: flex; gap: 8px; align-items: flex-start; font-size: 14px;
+  padding: 5px 7px; border-radius: 6px; cursor: pointer; }
+.reason:hover { background: #EEF3ED; }
+.dlg textarea { width: 100%; border: 1px solid var(--rule); border-radius: 6px;
+  padding: 7px 9px; font: inherit; font-size: 14px; background: #fff; }
+.dlgacts { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+.sel { width: 100%; border: 1px solid var(--rule); border-radius: 6px;
+  padding: 7px 9px; font: inherit; font-size: 14px; background: #fff; }
+
+/* ---- engines: one card per way of paying, not a table of six things ----- */
+.engine { border: 1px solid var(--rule); border-radius: 8px; padding: 12px 14px;
+  margin: 0 0 10px; background: #fff; }
+.engine:last-child { margin-bottom: 0; }
+.ehead { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-bottom: 4px; }
+.ewhen { margin: 4px 0 8px; }
+.erow { display: flex; gap: 8px; align-items: center; margin: 8px 0 4px;
+  flex-wrap: wrap; }
+.erow .sel { flex: 1; min-width: 240px; }
+
+body { background: #fff; } .content { max-width: 820px; margin: 0 auto; padding: 28px; }
+</style></head><body><main class="content">
+<h1>What the FinOps crew produced, 2026-07</h1>
+<p class="subtitle">Identified <b>$9,113.17 per month</b>
+($109,358.04 annualised) against a fully loaded technology
+spend of $41,584.63 for the closed month.</p>
+<p class="banner">Every figure here is identified, not realised: the crew proposes and never acts on the estate, so a finding becomes a saving only when a person makes the change.</p>
+<table><tr><th>area</th><th>source</th><th>finding</th><th>$/month</th><th>basis</th></tr>
+<tr><td>Licensing</td><td>saas</td>
+<td>unused seats across 6 subscriptions</td><td class="num">7,344.00</td>
+<td class="fine">seats provisioned and not active, at the unit price <span class="qid">&#8999;541feceb</span></td></tr><tr><td>Usage optimisation</td><td>gcp</td>
+<td>10 oversized resources on gcp</td><td class="num">445.00</td>
+<td class="fine">proven against measured p95 utilisation; the resize keeps the resource under the headroom line <span class="qid">&#8999;29591d0d</span></td></tr><tr><td>Usage optimisation</td><td>aws</td>
+<td>7 oversized resources on aws</td><td class="num">374.65</td>
+<td class="fine">proven against measured p95 utilisation; the resize keeps the resource under the headroom line <span class="qid">&#8999;c2933bb7</span></td></tr><tr><td>Planning</td><td>intake</td>
+<td>3 reduction requests in the pipeline</td><td class="num">350.00</td>
+<td class="fine">team-submitted reductions, estimated by the desks <span class="qid">&#8999;intake-requests</span></td></tr><tr><td>Usage optimisation</td><td>gcp</td>
+<td>3 idle resources on gcp</td><td class="num">294.53</td>
+<td class="fine">p95 utilisation at or under the idle threshold <span class="qid">&#8999;29591d0d</span></td></tr><tr><td>Usage optimisation</td><td>aws</td>
+<td>3 idle resources on aws</td><td class="num">294.49</td>
+<td class="fine">p95 utilisation at or under the idle threshold <span class="qid">&#8999;c2933bb7</span></td></tr><tr><td>Rate optimisation</td><td>gcp</td>
+<td>unused commitment on Compute Engine CUD</td><td class="num">10.50</td>
+<td class="fine">commitment paid for beyond what the scope consumed <span class="qid">&#8999;e20a0bab</span></td></tr>
+<tr class="win"><td colspan="3"><b>total identified</b></td>
+<td class="num"><b>9,113.17</b></td><td></td></tr></table>
+<h2>What the crew did</h2>
+<p>113 deliverables posted ·
+10 decisions raised · 0 periods
+closed · 0 explainers published.</p>
+<h2>What the crew cost</h2>
+<p>$9.23 in model spend over 27 priced
+runs; cost known for 51.9% of runs. identified 9,113.17 per month against a crew cost of 9.23; the ratio is only meaningful once someone acts on the findings.</p>
+<h2>Decisions this pack asks for</h2>
+<p><b>Renew or let lapse: $1,650.00 of monthly commitment ends within 90 days</b><br>
+<span class="fine">a lapsed commitment reverts its scope to list price without anyone doing anything · owner: Finance with Engineering</span></p><p><b>Approve or defer 6 team request(s) worth $2,060/month, largest: Two extra GPU training nodes</b><br>
+<span class="fine">these are commitments to future run-rate, not this month&#39;s bill · owner: Leadership with the requesting teams</span></p><p><b>Off target: Forecast interval hit rate at 62.5 against 80</b><br>
+<span class="fine">Share of elapsed windows whose actual landed inside the published interval. Not a canon KPI; the practice&#39;s own honesty check on the intervals it publishes. · owner: FinOps practice</span></p><p><b>Off target: Anomaly Detection Rate at 24.69 against 2</b><br>
+<span class="fine">Share of spend sitting in movements the practice cannot explain. Canon bands: green under 2%, yellow 2-7%, red above 7%. · owner: FinOps practice</span></p><p><b>Off target: Budget variance at 25.1 against 12</b><br>
+<span class="fine">Projected month-end spend against budget, worst team. · owner: FinOps practice</span></p><p><b>Off target: Resource Utilization Efficiency at 49.4 against 60</b><br>
+<span class="fine">Share of provisioned accelerator capacity actually used, averaged across the training fleet. · owner: FinOps practice</span></p><p><b>Off target: Telemetry coverage at 73.7 against 90</b><br>
+<span class="fine">Share of compute spend with utilisation telemetry behind it. Findings only speak for the covered part, so the number belongs next to them. · owner: FinOps practice</span></p><p><b>Off target: License utilisation at 50.8 against 85</b><br>
+<span class="fine">Share of purchased licences actually in use. The canon&#39;s active-to-provisioned ratio; the worst subscription is what is reported, because an average hides the one nobody opens. · owner: FinOps practice</span></p><p><b>Fund or accept: 4 capability at crawl (Anomaly Management, Budgeting, Licensing &amp; SaaS, FinOps Assessment)</b><br>
+<span class="fine">maturity moves with tooling and discipline, not with intent · owner: Leadership</span></p><p><b>AI run-rate: token spend up 82.1% across the series while the unit price is flat</b><br>
+<span class="fine">volume, not price, is driving the AI bill; capping it is a product decision, not a procurement one · owner: Product with Engineering</span></p>
+<h2>What this is not</h2><p class="fine">not a forecast of savings, not a commitment, and not a claim that anything has already been cut.</p>
+<p class="fine">Every figure is deterministic and carries a qid that resolves in the
+CostCrew console.</p></main></body></html>

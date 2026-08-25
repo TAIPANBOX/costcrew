@@ -1,0 +1,754 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CostCrew</title>
+<link rel="stylesheet" href="/static/style.css"></head><body>
+<div class="shell">
+<nav class="rail">
+  <div class="brand">CostCrew</div>
+  <a href="/" class="">Today</a>
+  <a href="/board" class="">Board</a>
+  <a href="/board?view=month" class="sub">Calendar</a>
+  <a href="/teams" class="">Teams</a>
+  <a href="/sprints" class="">Sprints</a>
+  <a href="/feed" class="">Chats</a>
+  <a href="/feed?ch=aws" class="sub">#aws</a>
+  <a href="/feed?ch=gcp" class="sub">#gcp</a>
+  <a href="/feed?ch=onprem" class="sub">#onprem</a>
+  <a href="/kpis" class="">KPIs</a>
+  <a href="/library" class="sub on">Library</a>
+  <a href="/assessment" class="sub ">Assessment</a>
+  <a href="/allocation" class="">Allocation</a>
+  <a href="/chargeback" class="">Chargeback</a>
+  <a href="/exec" class="">Executive</a>
+  <a href="/results" class="">Results</a>
+  <a href="/ai" class="">AI spend</a>
+  <a href="/saas" class="">SaaS</a>
+  <a href="/utilisation" class="">Utilisation</a>
+  <a href="/explainers" class="">Explainers</a>
+  <a href="/staff" class="">Staff</a>
+  <a href="/workbench" class="">Workbench</a>
+  <a href="/data" class="">Data</a>
+  <a href="/connectors" class="sub ">Connectors</a>
+  <a href="/audit" class="">Audit</a>
+  <a href="/settings" class="">Engines</a>
+  
+  <a href="/accounts" class="">Accounts</a>
+  <div class="railfoot">
+    
+    <div>parity · admin</div>
+    <form method="post" action="/logout" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+      <button class="btn back">Sign out</button></form>
+    
+    <div>MVP · local</div>
+  </div>
+</nav>
+<main class="content">
+<h1>KPI library</h1>
+<p class="fine">Where to go next:
+  <a href="/kpis">KPIs</a> shows these measured against the canon's targets,
+  <a href="/assessment">Assessment</a> grades the practice on them, and
+  <a href="/exec">Executive</a> is the packet built from them.</p>
+<p class="subtitle">The practice's curated KPI set, drawn from the FinOps Framework's
+capability pages and its community library. Every entry states a formula and, where the
+canon publishes one, a target. A KPI this installation cannot compute stays in the list
+with the reason attached, because that absence is a fact about the practice.</p>
+
+<div class="tiles">
+  <div class="tile accent-green"><div class="tv">23</div>
+    <div class="tl">computed from live figures</div></div>
+  <div class="tile accent-green"><div class="tv">6</div>
+    <div class="tl">on target</div></div>
+  <div class="tile accent-red">
+    <div class="tv">6</div>
+    <div class="tl">off target</div></div>
+  <div class="tile accent-amber"><div class="tv">4</div>
+    <div class="tl">named, not computable here</div></div>
+</div>
+
+<form method="get" action="/library" class="btoolbar">
+  <select name="capability" onchange="this.form.submit()">
+    <option value="">all capabilities</option>
+    <option >Allocation</option><option >Anomaly Management</option><option >Automation, Tools &amp; Services</option><option >Budgeting</option><option >FinOps Practice Operations</option><option >Forecasting</option><option >Invoicing &amp; Chargeback</option><option >Licensing &amp; SaaS</option><option >Quantify Business Value</option><option >Rate Optimization</option><option >Reporting &amp; Analytics</option><option >Sustainability</option><option >Unit Economics</option><option >Usage Optimization</option>
+  </select>
+  <select name="category" onchange="this.form.submit()">
+    <option value="">all categories</option>
+    <option >ai</option><option >cloud</option><option >saas</option>
+  </select>
+  
+</form>
+
+
+<section class="panel kpi ">
+  <div class="arthead">
+    <h2>Allocation Accuracy Index
+      <span class="fine">Allocation · cloud</span></h2>
+    
+    <div class="kpival ok">
+      100.0
+      
+      <span class="fine">target at least 90</span>
+    </div>
+    
+  </div>
+  <p>Share of technology cost attributed to a team, after the redistribution rules have been applied.</p>
+  <p class="fine"><b>Formula:</b> (directly attributed + redistributed) / total cost x 100
+     · scope: worst platform
+     <span class="qid">⌗e20ec458</span></p>
+  
+</section>
+
+<section class="panel kpi ">
+  <div class="arthead">
+    <h2>Tagging compliance
+      <span class="fine">Reporting &amp; Analytics · cloud</span></h2>
+    
+    <div class="kpival ok">
+      100.0
+      
+      <span class="fine">target at least 90</span>
+    </div>
+    
+  </div>
+  <p>Share of charge rows carrying the team metadata allocation depends on.</p>
+  <p class="fine"><b>Formula:</b> rows with a team tag / all rows x 100
+     · scope: worst platform
+     <span class="qid">⌗792c3d83</span></p>
+  
+</section>
+
+<section class="panel kpi ">
+  <div class="arthead">
+    <h2>Unallocated cost share
+      <span class="fine">Allocation · cloud</span></h2>
+    
+    <div class="kpival ok">
+      0.0
+      
+      <span class="fine">target at most 0</span>
+    </div>
+    
+  </div>
+  <p>Cost still unattributed once every rule has run.</p>
+  <p class="fine"><b>Formula:</b> unallocated / total cost x 100
+     · scope: all platforms
+     <span class="qid">⌗e20ec458</span></p>
+  
+</section>
+
+<section class="panel kpi ">
+  <div class="arthead">
+    <h2>Forecast Accuracy Rate
+      <span class="fine">Forecasting · cloud</span></h2>
+    
+    <div class="kpival ok">
+      4.2
+      
+      <span class="fine">target at most 12</span>
+    </div>
+    
+  </div>
+  <p>Variance between a forecast the practice published and what the window actually cost. Graded on the maturity ladder the Budgeting capability publishes.</p>
+  <p class="fine"><b>Formula:</b> (forecast - actual) / forecast x 100, worst absolute value
+     · scope: 8 frozen windows scored
+     <span class="qid">⌗a72056c9</span></p>
+  
+</section>
+
+<section class="panel kpi ">
+  <div class="arthead">
+    <h2>Forecast interval hit rate
+      <span class="fine">Forecasting · cloud</span></h2>
+    
+    <div class="kpival off">
+      62.5
+      
+      <span class="fine">target at least 80</span>
+    </div>
+    
+  </div>
+  <p>Share of elapsed windows whose actual landed inside the published interval. Not a canon KPI; the practice&#39;s own honesty check on the intervals it publishes.</p>
+  <p class="fine"><b>Formula:</b> windows inside the interval / scored windows x 100
+     · scope: 8 frozen windows scored
+     <span class="qid">⌗a72056c9</span></p>
+  
+</section>
+
+<section class="panel kpi ">
+  <div class="arthead">
+    <h2>Effective Savings Rate
+      <span class="fine">Rate Optimization · cloud</span></h2>
+    
+    <div class="kpival ">
+      5.6
+      
+      
+    </div>
+    
+  </div>
+  <p>Discount actually realised against list-rate spend.</p>
+  <p class="fine"><b>Formula:</b> (billed - effective) / billed x 100
+     · scope: mean across platforms
+     <span class="qid">⌗011ebe83</span></p>
+  
+</section>
+
+<section class="panel kpi ">
+  <div class="arthead">
+    <h2>Commitment Utilization Score
+      <span class="fine">Rate Optimization · cloud</span></h2>
+    
+    <div class="kpival ok">
+      98.5
+      
+      <span class="fine">target at least 80</span>
+    </div>
+    
+  </div>
+  <p>How much of the commitment bought is being consumed. The canon names an 80% upper waterline.</p>
+  <p class="fine"><b>Formula:</b> effective spend on the committed scope / commitment x 100
+     · scope: worst commitment
+     <span class="qid">⌗011ebe83</span></p>
+  
+</section>
+
+<section class="panel kpi ">
+  <div class="arthead">
+    <h2>Commitment value expiring
+      <span class="fine">Rate Optimization · cloud</span></h2>
+    
+    <div class="kpival ">
+      1,650.0
+      
+      
+    </div>
+    
+  </div>
+  <p>Monthly commitment value falling due inside the horizon; a lapsed commitment silently reverts its scope to list price.</p>
+  <p class="fine"><b>Formula:</b> sum of monthly commitment ending within 90 days
+     · scope: within 90 days
+     <span class="qid">⌗be74d5d3</span></p>
+  
+</section>
+
+<section class="panel kpi ">
+  <div class="arthead">
+    <h2>Anomaly Detection Rate
+      <span class="fine">Anomaly Management · cloud</span></h2>
+    
+    <div class="kpival off">
+      24.69
+      
+      <span class="fine">target at most 2</span>
+    </div>
+    
+  </div>
+  <p>Share of spend sitting in movements the practice cannot explain. Canon bands: green under 2%, yellow 2-7%, red above 7%.</p>
+  <p class="fine"><b>Formula:</b> unexplained anomaly excess / spend x 100
+     · scope: worst platform
+     <span class="qid">⌗32672c1b</span></p>
+  
+</section>
+
+<section class="panel kpi ">
+  <div class="arthead">
+    <h2>Anomaly explained share
+      <span class="fine">Anomaly Management · cloud</span></h2>
+    
+    <div class="kpival ">
+      20.0
+      
+      
+    </div>
+    
+  </div>
+  <p>Share of detected excess already accounted for by a registered driver.</p>
+  <p class="fine"><b>Formula:</b> explained excess / total excess x 100
+     · scope: mean across sources
+     <span class="qid">⌗32672c1b</span></p>
+  
+</section>
+
+<section class="panel kpi ">
+  <div class="arthead">
+    <h2>Budget variance
+      <span class="fine">Budgeting · cloud</span></h2>
+    
+    <div class="kpival off">
+      25.1
+      
+      <span class="fine">target at most 12</span>
+    </div>
+    
+  </div>
+  <p>Projected month-end spend against budget, worst team.</p>
+  <p class="fine"><b>Formula:</b> (projection - budget) / budget x 100
+     · scope: worst team projection
+     <span class="qid">⌗8f756ef4</span></p>
+  
+</section>
+
+<section class="panel kpi ">
+  <div class="arthead">
+    <h2>Cost per million tokens
+      <span class="fine">Unit Economics · ai</span></h2>
+    
+    <div class="kpival ">
+      6.17
+      
+      
+    </div>
+    
+  </div>
+  <p>Blended unit price of inference. An efficiency metric: it can fall while the bill grows.</p>
+  <p class="fine"><b>Formula:</b> token spend / tokens consumed x 1,000,000
+     · scope: 2026-07
+     <span class="qid">⌗1591d5b5</span></p>
+  
+</section>
+
+<section class="panel kpi ">
+  <div class="arthead">
+    <h2>Token consumption
+      <span class="fine">Unit Economics · ai</span></h2>
+    
+    <div class="kpival ">
+      298,926,090
+      
+      
+    </div>
+    
+  </div>
+  <p>Tokens consumed in the month, the volume half of the AI bill.</p>
+  <p class="fine"><b>Formula:</b> sum of consumed quantity where the unit is tokens
+     · scope: 2026-07
+     <span class="qid">⌗1591d5b5</span></p>
+  
+</section>
+
+<section class="panel kpi ">
+  <div class="arthead">
+    <h2>Cost per agent action
+      <span class="fine">Unit Economics · ai</span></h2>
+    
+    <div class="kpival ">
+      0.0321
+      
+      
+    </div>
+    
+  </div>
+  <p>AI cost divided by the actions delivered - the canon&#39;s step past cost per token toward a business denominator.</p>
+  <p class="fine"><b>Formula:</b> team AI cost / agent actions
+     · scope: 3 team(s) with a denominator
+     <span class="qid">⌗1591d5b5</span></p>
+  
+</section>
+
+<section class="panel kpi ">
+  <div class="arthead">
+    <h2>Inference share of AI spend
+      <span class="fine">Unit Economics · ai</span></h2>
+    
+    <div class="kpival ">
+      77.5
+      
+      
+    </div>
+    
+  </div>
+  <p>Share of AI spend serving requests rather than training. Inference is the half that scales with usage.</p>
+  <p class="fine"><b>Formula:</b> inference spend / AI spend x 100
+     · scope: 2026-07
+     <span class="qid">⌗b10a5ff7</span></p>
+  
+</section>
+
+<section class="panel kpi ">
+  <div class="arthead">
+    <h2>Crew cost per agent action
+      <span class="fine">Automation, Tools &amp; Services · ai</span></h2>
+    
+    <div class="kpival ">
+      0.3417
+      
+      
+    </div>
+    
+  </div>
+  <p>What one delivered piece of crew work costs in model spend. FinOps applied to the FinOps tool itself.</p>
+  <p class="fine"><b>Formula:</b> crew engine spend / deliverables closed
+     · scope: 2026-08, 27 runs with a known cost of 61 closed
+     <span class="qid">⌗crew-ledger</span></p>
+  
+</section>
+
+<section class="panel kpi ">
+  <div class="arthead">
+    <h2>First-pass acceptance
+      <span class="fine">FinOps Practice Operations · ai</span></h2>
+    
+    <div class="kpival ok">
+      98.3
+      
+      <span class="fine">target at least 80</span>
+    </div>
+    
+  </div>
+  <p>Share of deliverables posted without being returned for rework.</p>
+  <p class="fine"><b>Formula:</b> posted without a return / all reviewed x 100
+     · scope: 115 reviewed
+     <span class="qid">⌗crew-ledger</span></p>
+  
+</section>
+
+<section class="panel kpi blocked">
+  <div class="arthead">
+    <h2>Cost per inference
+      <span class="fine">Unit Economics · ai</span></h2>
+    <div class="kpival na">not computable</div>
+  </div>
+  <p>Cost of serving one request.</p>
+  <p class="fine"><b>Formula:</b> inference cost / requests served
+    
+    </p>
+  <p class="fine"><b>Blocked by:</b> the AI dataset counts tokens, not requests; a request counter has to come from the gateway or the provider export</p>
+</section>
+
+<section class="panel kpi ">
+  <div class="arthead">
+    <h2>Resource Utilization Efficiency
+      <span class="fine">Usage Optimization · ai</span></h2>
+    
+    <div class="kpival off">
+      49.4
+      
+      <span class="fine">target at least 60</span>
+    </div>
+    
+  </div>
+  <p>Share of provisioned accelerator capacity actually used, averaged across the training fleet.</p>
+  <p class="fine"><b>Formula:</b> mean accelerator utilisation across measured nodes
+     · scope: training fleet mean
+     <span class="qid">⌗e16087f0</span></p>
+  
+</section>
+
+<section class="panel kpi ">
+  <div class="arthead">
+    <h2>Telemetry coverage
+      <span class="fine">Usage Optimization · cloud</span></h2>
+    
+    <div class="kpival off">
+      73.7
+      
+      <span class="fine">target at least 90</span>
+    </div>
+    
+  </div>
+  <p>Share of compute spend with utilisation telemetry behind it. Findings only speak for the covered part, so the number belongs next to them.</p>
+  <p class="fine"><b>Formula:</b> spend on measured services / spend x 100
+     · scope: worst platform
+     <span class="qid">⌗29591d0d</span></p>
+  
+</section>
+
+<section class="panel kpi ">
+  <div class="arthead">
+    <h2>Utilisation-proven savings
+      <span class="fine">Usage Optimization · cloud</span></h2>
+    
+    <div class="kpival ">
+      819.65
+      
+      
+    </div>
+    
+  </div>
+  <p>Monthly saving from rightsizing candidates that telemetry supports and that survive the resize they propose.</p>
+  <p class="fine"><b>Formula:</b> sum of estimated saving over proven candidates
+     · scope: all measured platforms
+     <span class="qid">⌗29591d0d</span></p>
+  
+</section>
+
+<section class="panel kpi blocked">
+  <div class="arthead">
+    <h2>Value for AI initiatives
+      <span class="fine">Quantify Business Value · ai</span></h2>
+    <div class="kpival na">not computable</div>
+  </div>
+  <p>Return on an AI investment.</p>
+  <p class="fine"><b>Formula:</b> (financial benefits - costs) / costs x 100
+    
+    </p>
+  <p class="fine"><b>Blocked by:</b> benefit figures are a finance input the product does not receive; cases deflected is the closest denominator available</p>
+</section>
+
+<section class="panel kpi blocked">
+  <div class="arthead">
+    <h2>Chargeback accuracy
+      <span class="fine">Invoicing &amp; Chargeback · cloud</span></h2>
+    <div class="kpival na">not computable</div>
+  </div>
+  <p>Share of charged-back amounts that survive the true-up.</p>
+  <p class="fine"><b>Formula:</b> reconciled chargebacks / all chargebacks x 100
+    
+    </p>
+  <p class="fine"><b>Blocked by:</b> showback is built, the chargeback close cycle is not, so there is nothing to reconcile</p>
+</section>
+
+<section class="panel kpi ">
+  <div class="arthead">
+    <h2>License utilisation
+      <span class="fine">Licensing &amp; SaaS · saas</span></h2>
+    
+    <div class="kpival off">
+      50.8
+      
+      <span class="fine">target at least 85</span>
+    </div>
+    
+  </div>
+  <p>Share of purchased licences actually in use. The canon&#39;s active-to-provisioned ratio; the worst subscription is what is reported, because an average hides the one nobody opens.</p>
+  <p class="fine"><b>Formula:</b> active seats / provisioned seats x 100
+     · scope: worst subscription
+     <span class="qid">⌗541feceb</span></p>
+  
+</section>
+
+<section class="panel kpi ">
+  <div class="arthead">
+    <h2>Idle seat spend
+      <span class="fine">Licensing &amp; SaaS · saas</span></h2>
+    
+    <div class="kpival ">
+      7,344.0
+      
+      
+    </div>
+    
+  </div>
+  <p>Monthly subscription cost of seats that are provisioned and unused.</p>
+  <p class="fine"><b>Formula:</b> (provisioned - active) seats x unit price
+     · scope: 2026-07
+     <span class="qid">⌗541feceb</span></p>
+  
+</section>
+
+<section class="panel kpi ">
+  <div class="arthead">
+    <h2>Renewal exposure
+      <span class="fine">Licensing &amp; SaaS · saas</span></h2>
+    
+    <div class="kpival ">
+      290,040.0
+      
+      
+    </div>
+    
+  </div>
+  <p>Annual value of subscriptions renewing inside the horizon. Renewal is the one moment the seat count is negotiable.</p>
+  <p class="fine"><b>Formula:</b> sum of provisioned seats x unit price x 12 for renewals in 180 days
+     · scope: within 180 days
+     <span class="qid">⌗e8d0d9b4</span></p>
+  
+</section>
+
+<section class="panel kpi blocked">
+  <div class="arthead">
+    <h2>Carbon per unit of spend
+      <span class="fine">Sustainability · cloud</span></h2>
+    <div class="kpival na">not computable</div>
+  </div>
+  <p>Emissions attributable to a unit of technology spend.</p>
+  <p class="fine"><b>Formula:</b> kgCO2e / spend
+    
+    </p>
+  <p class="fine"><b>Blocked by:</b> no emissions data is ingested</p>
+</section>
+
+<p class="fine">Source: FinOps Framework capability pages and the community KPI library. Values recompute on every load; nothing here
+is cached or hand-entered.</p>
+</main>
+</div>
+<script>
+document.addEventListener('input', function (e) {
+  var box = e.target.closest('.filterbox'); if (!box) return;
+  var root = document.querySelector(box.dataset.target); if (!root) return;
+  var q = box.value.trim().toLowerCase();
+  root.querySelectorAll('[data-search]').forEach(function (el) {
+    var hit = !q || el.dataset.search.toLowerCase().indexOf(q) !== -1;
+    if (el.classList.contains('deskgroup')) {
+      var inner = Array.prototype.some.call(el.querySelectorAll('[data-search]'),
+        function (x) { return x.dataset.search.toLowerCase().indexOf(q) !== -1; });
+      el.style.display = (hit || inner || !q) ? '' : 'none';
+      el.querySelectorAll('[data-search]').forEach(function (x) {
+        x.style.display = (!q || hit || x.dataset.search.toLowerCase().indexOf(q) !== -1) ? '' : 'none';
+      });
+    } else if (!el.closest('.deskgroup')) {
+      el.style.display = hit ? '' : 'none';
+    }
+  });
+});
+document.addEventListener('click', function (e) {
+  if (e.target.classList && e.target.classList.contains('grip')) return;
+  var th = e.target.closest('th'); if (!th) return;
+  var table = th.closest('table'); if (!table) return;
+  var idx = Array.prototype.indexOf.call(th.parentNode.children, th);
+  var rows = Array.prototype.slice.call(table.querySelectorAll('tr')).filter(
+    function (r) { return r.querySelector('td'); });
+  var dir = th.dataset.dir === 'asc' ? -1 : 1;
+  table.querySelectorAll('th').forEach(function (h) { delete h.dataset.dir;
+    var a = h.querySelector('.arrow'); if (a) a.remove(); });
+  th.dataset.dir = dir === 1 ? 'asc' : 'desc';
+  var arrow = document.createElement('span');
+  arrow.className = 'arrow';
+  arrow.textContent = dir === 1 ? ' \u25B2' : ' \u25BC';
+  th.appendChild(arrow);
+  function key(r) {
+    var c = r.children[idx]; if (!c) return '';
+    var txt = c.textContent.trim().replace(/[$,%]/g, '').replace(/,/g, '');
+    if (/\d{4}-\d{2}-\d{2}/.test(txt)) return txt.replace(/[^\d-]/g, '');
+    var n = parseFloat(txt);
+    return isNaN(n) ? txt.toLowerCase() : n;
+  }
+  rows.sort(function (a, b) {
+    var ka = key(a), kb = key(b);
+    if (typeof ka === 'number' && typeof kb === 'number') return (ka - kb) * dir;
+    return String(ka).localeCompare(String(kb)) * dir;
+  });
+  rows.forEach(function (r) { r.parentNode.appendChild(r); });
+});
+
+/* ---- tables you can widen, and that fit any screen -----------------------
+   Every table is put in its own horizontally scrolling box, so a wide table
+   scrolls inside its panel instead of pushing the whole page sideways. Each
+   header cell gets a grip on its right edge: drag it to widen the column,
+   double-click it to give the column back to the browser. Widths are
+   remembered per page, because a column you widened once you almost always
+   want wide again.                                                          */
+(function () {
+  var KEY = 'costcrew.colw.' + location.pathname;
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (err) { saved = {}; }
+
+  function persist() {
+    try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (err) { /* private mode */ }
+  }
+
+  function setup() {
+    document.querySelectorAll('table').forEach(function (table, ti) {
+      if (!table.parentNode.classList.contains('tw')) {
+        var box = document.createElement('div');
+        box.className = 'tw';
+        table.parentNode.insertBefore(box, table);
+        box.appendChild(table);
+      }
+      /* An atom never breaks: a date, a sum, a status, a short name. Prose
+         does break, and must, or one sentence drags the whole table wider
+         than the screen and everything else scrolls to reach it. The rule is
+         length, applied once, because CSS cannot ask how long a text is. */
+      table.querySelectorAll('td, th').forEach(function (cell) {
+        if (cell.children.length) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length > 40 && txt.indexOf(' ') !== -1) cell.classList.add('wrap');
+      });
+
+      /* Really long prose gets two lines and a way to open the rest. Nothing
+         is removed: the full text is still in the cell, still searched by
+         the filter box, still there for anyone who presses. */
+      table.querySelectorAll('td').forEach(function (cell) {
+        if (cell.querySelector('.clamp')) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length <= 110) return;
+        var box = document.createElement('div');
+        box.className = 'clamp';
+        while (cell.firstChild) box.appendChild(cell.firstChild);
+        cell.appendChild(box);
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'more';
+        btn.textContent = 'more';
+        btn.setAttribute('aria-expanded', 'false');
+        btn.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          var open = box.classList.toggle('open');
+          btn.textContent = open ? 'less' : 'more';
+          btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+        cell.appendChild(btn);
+        cell.classList.add('wrap');
+      });
+      /* Align each header to the column beneath it. The figures are right
+         aligned and the headers were not, so every numeric column read as a
+         label on the left with unrelated numbers on the right. */
+      var head0 = table.querySelector('tr');
+      if (head0) {
+        var body = Array.prototype.slice.call(table.querySelectorAll('tr'))
+          .filter(function (r) { return r.querySelector('td'); });
+        head0.querySelectorAll('th').forEach(function (th, ci) {
+          var nums = 0, cells = 0;
+          body.forEach(function (r) {
+            var cell = r.children[ci];
+            if (!cell || cell.tagName !== 'TD') return;
+            cells++;
+            if (cell.classList.contains('num')) nums++;
+          });
+          if (cells && nums * 2 > cells) th.classList.add('num');
+        });
+      }
+      var head = table.querySelector('tr');
+      if (!head) return;
+      head.querySelectorAll('th').forEach(function (th, ci) {
+        var id = ti + ':' + ci;
+        if (saved[id]) { th.style.width = saved[id] + 'px'; th.classList.add('sized'); }
+        if (th.querySelector('.grip')) return;
+        var grip = document.createElement('span');
+        grip.className = 'grip';
+        grip.title = 'Drag to widen, double-click to reset';
+        grip.addEventListener('dblclick', function (ev) {
+          ev.stopPropagation();
+          th.style.width = ''; th.classList.remove('sized');
+          delete saved[id]; persist();
+        });
+        grip.addEventListener('pointerdown', function (ev) {
+          ev.preventDefault(); ev.stopPropagation();
+          var x0 = ev.clientX, w0 = th.getBoundingClientRect().width;
+          grip.classList.add('on');
+          grip.setPointerCapture(ev.pointerId);
+          function move(e2) {
+            var w = Math.max(48, Math.round(w0 + (e2.clientX - x0)));
+            th.style.width = w + 'px'; th.classList.add('sized');
+            saved[id] = w;
+          }
+          function up() {
+            grip.classList.remove('on');
+            grip.removeEventListener('pointermove', move);
+            grip.removeEventListener('pointerup', up);
+            persist();
+          }
+          grip.addEventListener('pointermove', move);
+          grip.addEventListener('pointerup', up);
+        });
+        th.appendChild(grip);
+      });
+    });
+    document.querySelectorAll('.tw').forEach(function (box) {
+      function mark() {
+        /* a few pixels is rounding, not a hidden column */
+        var over = box.scrollWidth > box.clientWidth + 8;
+        box.classList.toggle('scrolls', over);
+        box.classList.toggle('atend',
+          over && box.scrollLeft + box.clientWidth >= box.scrollWidth - 2);
+      }
+      box.addEventListener('scroll', mark);
+      window.addEventListener('resize', mark);
+      mark();
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setup);
+  } else { setup(); }
+})();
+</script>
+</body></html>

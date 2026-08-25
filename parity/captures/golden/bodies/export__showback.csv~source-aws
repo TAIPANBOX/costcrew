@@ -1,0 +1,361 @@
+month,team,service,billed_usd,effective_usd
+2025-06,data,AWS Data Transfer,28.06,28.06
+2025-06,data,AWS Lambda,20.21,20.21
+2025-06,data,Amazon EC2,202.51,202.51
+2025-06,data,Amazon EKS,73.74,73.74
+2025-06,data,Amazon RDS,107.84,107.84
+2025-06,data,Amazon S3,43.62,43.62
+2025-06,ml,AWS Data Transfer,18.26,18.26
+2025-06,ml,AWS Lambda,12.95,12.95
+2025-06,ml,Amazon EC2,129.93,129.93
+2025-06,ml,Amazon EKS,49.2,49.2
+2025-06,ml,Amazon RDS,69.95,69.95
+2025-06,ml,Amazon S3,29.26,29.26
+2025-06,product-web,AWS Data Transfer,35.94,35.94
+2025-06,product-web,AWS Lambda,26.55,26.55
+2025-06,product-web,Amazon EC2,259.34,259.34
+2025-06,product-web,Amazon EKS,97.5,97.5
+2025-06,product-web,Amazon RDS,136.65,136.65
+2025-06,product-web,Amazon S3,56.75,56.75
+2025-06,sre-platform,AWS Data Transfer,39.39,39.39
+2025-06,sre-platform,AWS Lambda,29.08,29.08
+2025-06,sre-platform,Amazon EC2,285.61,285.61
+2025-06,sre-platform,Amazon EKS,106.77,106.77
+2025-06,sre-platform,Amazon RDS,151.05,151.05
+2025-06,sre-platform,Amazon S3,63.0,63.0
+2025-07,data,AWS Data Transfer,29.87,29.87
+2025-07,data,AWS Lambda,21.7,21.7
+2025-07,data,Amazon EC2,214.87,214.87
+2025-07,data,Amazon EKS,78.78,78.78
+2025-07,data,Amazon RDS,110.95,110.95
+2025-07,data,Amazon S3,45.62,45.62
+2025-07,ml,AWS Data Transfer,20.76,20.76
+2025-07,ml,AWS Lambda,15.07,15.07
+2025-07,ml,Amazon EC2,145.42,145.42
+2025-07,ml,Amazon EKS,54.68,54.68
+2025-07,ml,Amazon RDS,77.7,77.7
+2025-07,ml,Amazon S3,32.35,32.35
+2025-07,product-web,AWS Data Transfer,37.57,37.57
+2025-07,product-web,AWS Lambda,28.61,28.61
+2025-07,product-web,Amazon EC2,274.42,274.42
+2025-07,product-web,Amazon EKS,103.3,103.3
+2025-07,product-web,Amazon RDS,145.94,145.94
+2025-07,product-web,Amazon S3,59.02,59.02
+2025-07,sre-platform,AWS Data Transfer,41.55,41.55
+2025-07,sre-platform,AWS Lambda,31.36,31.36
+2025-07,sre-platform,Amazon EC2,302.45,302.45
+2025-07,sre-platform,Amazon EKS,114.64,114.64
+2025-07,sre-platform,Amazon RDS,159.83,159.83
+2025-07,sre-platform,Amazon S3,66.61,66.61
+2025-08,data,AWS Data Transfer,29.22,29.22
+2025-08,data,AWS Lambda,22.43,22.43
+2025-08,data,Amazon EC2,211.59,211.59
+2025-08,data,Amazon EKS,83.02,83.02
+2025-08,data,Amazon RDS,114.57,114.57
+2025-08,data,Amazon S3,46.91,46.91
+2025-08,ml,AWS Data Transfer,21.1,21.1
+2025-08,ml,AWS Lambda,16.4,16.4
+2025-08,ml,Amazon EC2,155.45,155.45
+2025-08,ml,Amazon EKS,59.97,59.97
+2025-08,ml,Amazon RDS,82.37,82.37
+2025-08,ml,Amazon S3,34.8,34.8
+2025-08,product-web,AWS Data Transfer,38.03,38.03
+2025-08,product-web,AWS Lambda,28.82,28.82
+2025-08,product-web,Amazon EC2,273.67,273.67
+2025-08,product-web,Amazon EKS,103.96,103.96
+2025-08,product-web,Amazon RDS,146.78,146.78
+2025-08,product-web,Amazon S3,59.79,59.79
+2025-08,sre-platform,AWS Data Transfer,43.27,43.27
+2025-08,sre-platform,AWS Lambda,31.83,31.83
+2025-08,sre-platform,Amazon EC2,298.04,298.04
+2025-08,sre-platform,Amazon EKS,117.42,117.42
+2025-08,sre-platform,Amazon RDS,161.47,161.47
+2025-08,sre-platform,Amazon S3,66.2,66.2
+2025-09,data,AWS Data Transfer,29.55,29.55
+2025-09,data,AWS Lambda,22.98,22.98
+2025-09,data,Amazon EC2,213.33,153.6
+2025-09,data,Amazon EKS,81.45,81.45
+2025-09,data,Amazon RDS,110.82,110.82
+2025-09,data,Amazon S3,46.77,46.77
+2025-09,ml,AWS Data Transfer,22.4,22.4
+2025-09,ml,AWS Lambda,17.66,17.66
+2025-09,ml,Amazon EC2,163.29,117.57
+2025-09,ml,Amazon EKS,63.53,63.53
+2025-09,ml,Amazon RDS,86.37,86.37
+2025-09,ml,Amazon S3,35.92,35.92
+2025-09,product-web,AWS Data Transfer,38.12,38.12
+2025-09,product-web,AWS Lambda,28.93,28.93
+2025-09,product-web,Amazon EC2,272.79,196.41
+2025-09,product-web,Amazon EKS,106.47,106.47
+2025-09,product-web,Amazon RDS,141.35,141.35
+2025-09,product-web,Amazon S3,59.48,59.48
+2025-09,sre-platform,AWS Data Transfer,41.0,41.0
+2025-09,sre-platform,AWS Lambda,32.09,32.09
+2025-09,sre-platform,Amazon EC2,305.63,220.05
+2025-09,sre-platform,Amazon EKS,117.82,117.82
+2025-09,sre-platform,Amazon RDS,157.3,157.3
+2025-09,sre-platform,Amazon S3,67.02,67.02
+2025-10,data,AWS Data Transfer,30.36,30.36
+2025-10,data,AWS Lambda,24.59,24.59
+2025-10,data,Amazon EC2,228.4,164.45
+2025-10,data,Amazon EKS,87.29,87.29
+2025-10,data,Amazon RDS,117.86,117.86
+2025-10,data,Amazon S3,48.3,48.3
+2025-10,ml,AWS Data Transfer,25.66,25.66
+2025-10,ml,AWS Lambda,19.26,19.26
+2025-10,ml,Amazon EC2,183.7,132.26
+2025-10,ml,Amazon EKS,69.37,69.37
+2025-10,ml,Amazon RDS,94.7,94.7
+2025-10,ml,Amazon S3,39.09,39.09
+2025-10,product-web,AWS Data Transfer,39.83,39.83
+2025-10,product-web,AWS Lambda,31.74,31.74
+2025-10,product-web,Amazon EC2,294.86,212.3
+2025-10,product-web,Amazon EKS,113.75,113.75
+2025-10,product-web,Amazon RDS,152.02,152.02
+2025-10,product-web,Amazon S3,61.65,61.65
+2025-10,sre-platform,AWS Data Transfer,44.1,44.1
+2025-10,sre-platform,AWS Lambda,35.14,35.14
+2025-10,sre-platform,Amazon EC2,322.41,232.14
+2025-10,sre-platform,Amazon EKS,122.58,122.58
+2025-10,sre-platform,Amazon RDS,162.75,162.75
+2025-10,sre-platform,Amazon S3,69.49,69.49
+2025-11,data,AWS Data Transfer,29.57,29.57
+2025-11,data,AWS Lambda,23.5,23.5
+2025-11,data,Amazon EC2,218.37,157.23
+2025-11,data,Amazon EKS,85.52,85.52
+2025-11,data,Amazon RDS,116.52,116.52
+2025-11,data,Amazon S3,47.68,47.68
+2025-11,ml,AWS Data Transfer,25.71,25.71
+2025-11,ml,AWS Lambda,19.97,19.97
+2025-11,ml,Amazon EC2,187.66,135.11
+2025-11,ml,Amazon EKS,71.82,71.82
+2025-11,ml,Amazon RDS,96.7,96.7
+2025-11,ml,Amazon S3,40.8,40.8
+2025-11,product-web,AWS Data Transfer,38.1,38.1
+2025-11,product-web,AWS Lambda,30.67,30.67
+2025-11,product-web,Amazon EC2,281.15,202.42
+2025-11,product-web,Amazon EKS,108.04,108.04
+2025-11,product-web,Amazon RDS,149.87,149.87
+2025-11,product-web,Amazon S3,62.72,62.72
+2025-11,sre-platform,AWS Data Transfer,42.95,42.95
+2025-11,sre-platform,AWS Lambda,33.64,33.64
+2025-11,sre-platform,Amazon EC2,317.82,228.83
+2025-11,sre-platform,Amazon EKS,119.05,119.05
+2025-11,sre-platform,Amazon RDS,154.79,154.79
+2025-11,sre-platform,Amazon S3,67.33,67.33
+2025-12,data,AWS Data Transfer,31.24,31.24
+2025-12,data,AWS Lambda,26.05,26.05
+2025-12,data,Amazon EC2,236.88,170.55
+2025-12,data,Amazon EKS,92.15,92.15
+2025-12,data,Amazon RDS,119.81,119.81
+2025-12,data,Amazon S3,50.28,50.28
+2025-12,ml,AWS Data Transfer,28.2,28.2
+2025-12,ml,AWS Lambda,22.77,22.77
+2025-12,ml,Amazon EC2,212.86,153.26
+2025-12,ml,Amazon EKS,81.95,81.95
+2025-12,ml,Amazon RDS,108.13,108.13
+2025-12,ml,Amazon S3,45.86,45.86
+2025-12,product-web,AWS Data Transfer,41.89,41.89
+2025-12,product-web,AWS Lambda,33.01,33.01
+2025-12,product-web,Amazon EC2,304.59,219.3
+2025-12,product-web,Amazon EKS,119.42,119.42
+2025-12,product-web,Amazon RDS,158.81,158.81
+2025-12,product-web,Amazon S3,66.79,66.79
+2025-12,sre-platform,AWS Data Transfer,44.2,44.2
+2025-12,sre-platform,AWS Lambda,36.36,36.36
+2025-12,sre-platform,Amazon EC2,333.95,240.44
+2025-12,sre-platform,Amazon EKS,129.74,129.74
+2025-12,sre-platform,Amazon RDS,175.66,175.66
+2025-12,sre-platform,Amazon S3,70.85,70.85
+2026-01,data,AWS Data Transfer,32.43,32.43
+2026-01,data,AWS Lambda,26.66,26.66
+2026-01,data,Amazon EC2,238.18,171.49
+2026-01,data,Amazon EKS,95.57,95.57
+2026-01,data,Amazon RDS,121.7,121.7
+2026-01,data,Amazon S3,51.17,51.17
+2026-01,ml,AWS Data Transfer,29.86,29.86
+2026-01,ml,AWS Lambda,25.31,25.31
+2026-01,ml,Amazon EC2,223.54,160.95
+2026-01,ml,Amazon EKS,87.72,87.72
+2026-01,ml,Amazon RDS,114.42,114.42
+2026-01,ml,Amazon S3,49.0,49.0
+2026-01,product-web,AWS Data Transfer,42.18,42.18
+2026-01,product-web,AWS Lambda,34.42,34.42
+2026-01,product-web,Amazon EC2,313.81,225.94
+2026-01,product-web,Amazon EKS,123.85,123.85
+2026-01,product-web,Amazon RDS,161.76,161.76
+2026-01,product-web,Amazon S3,67.34,67.34
+2026-01,sre-platform,AWS Data Transfer,56.73,56.73
+2026-01,sre-platform,AWS Lambda,37.15,37.15
+2026-01,sre-platform,Amazon EC2,346.41,249.42
+2026-01,sre-platform,Amazon EKS,131.5,131.5
+2026-01,sre-platform,Amazon RDS,173.04,173.04
+2026-01,sre-platform,Amazon S3,70.47,70.47
+2026-02,data,AWS Data Transfer,30.05,30.05
+2026-02,data,AWS Lambda,24.7,24.7
+2026-02,data,Amazon EC2,218.08,157.02
+2026-02,data,Amazon EKS,86.42,86.42
+2026-02,data,Amazon RDS,110.11,110.11
+2026-02,data,Amazon S3,46.62,46.62
+2026-02,ml,AWS Data Transfer,28.67,28.67
+2026-02,ml,AWS Lambda,23.99,23.99
+2026-02,ml,Amazon EC2,223.91,161.21
+2026-02,ml,Amazon EKS,84.27,84.27
+2026-02,ml,Amazon RDS,111.74,111.74
+2026-02,ml,Amazon S3,47.27,47.27
+2026-02,product-web,AWS Data Transfer,38.62,38.62
+2026-02,product-web,AWS Lambda,31.59,31.59
+2026-02,product-web,Amazon EC2,289.11,208.16
+2026-02,product-web,Amazon EKS,113.78,113.78
+2026-02,product-web,Amazon RDS,143.78,143.78
+2026-02,product-web,Amazon S3,62.57,62.57
+2026-02,sre-platform,AWS Data Transfer,40.27,40.27
+2026-02,sre-platform,AWS Lambda,34.56,34.56
+2026-02,sre-platform,Amazon EC2,310.68,223.69
+2026-02,sre-platform,Amazon EKS,121.1,121.1
+2026-02,sre-platform,Amazon RDS,159.06,159.06
+2026-02,sre-platform,Amazon S3,68.78,68.78
+2026-03,data,AWS Data Transfer,32.41,32.41
+2026-03,data,AWS Lambda,28.66,28.66
+2026-03,data,Amazon EC2,259.56,186.88
+2026-03,data,Amazon EKS,98.09,98.09
+2026-03,data,Amazon RDS,121.84,121.84
+2026-03,data,Amazon S3,54.03,54.03
+2026-03,ml,AWS Data Transfer,34.78,34.78
+2026-03,ml,AWS Lambda,28.99,28.99
+2026-03,ml,Amazon EC2,266.37,191.79
+2026-03,ml,Amazon EKS,104.02,104.02
+2026-03,ml,Amazon RDS,128.87,128.87
+2026-03,ml,Amazon S3,56.0,56.0
+2026-03,product-web,AWS Data Transfer,43.8,43.8
+2026-03,product-web,AWS Lambda,36.94,36.94
+2026-03,product-web,Amazon EC2,422.45,304.17
+2026-03,product-web,Amazon EKS,130.72,130.72
+2026-03,product-web,Amazon RDS,163.14,163.14
+2026-03,product-web,Amazon S3,70.41,70.41
+2026-03,sre-platform,AWS Data Transfer,47.01,47.01
+2026-03,sre-platform,AWS Lambda,40.45,40.45
+2026-03,sre-platform,Amazon EC2,358.07,257.81
+2026-03,sre-platform,Amazon EKS,141.3,141.3
+2026-03,sre-platform,Amazon RDS,179.46,179.46
+2026-03,sre-platform,Amazon S3,74.44,74.44
+2026-04,data,AWS Data Transfer,32.42,32.42
+2026-04,data,AWS Lambda,28.08,28.08
+2026-04,data,Amazon EC2,247.91,178.49
+2026-04,data,Amazon EKS,99.9,99.9
+2026-04,data,Amazon RDS,120.81,120.81
+2026-04,data,Amazon S3,52.84,52.84
+2026-04,ml,AWS Data Transfer,36.13,36.13
+2026-04,ml,AWS Lambda,30.54,30.54
+2026-04,ml,Amazon EC2,272.22,196.0
+2026-04,ml,Amazon EKS,109.17,109.17
+2026-04,ml,Amazon RDS,134.39,134.39
+2026-04,ml,Amazon S3,57.33,57.33
+2026-04,product-web,AWS Data Transfer,42.75,42.75
+2026-04,product-web,AWS Lambda,37.48,37.48
+2026-04,product-web,Amazon EC2,452.87,326.06
+2026-04,product-web,Amazon EKS,132.58,132.58
+2026-04,product-web,Amazon RDS,159.48,159.48
+2026-04,product-web,Amazon S3,69.61,69.61
+2026-04,sre-platform,AWS Data Transfer,45.91,45.91
+2026-04,sre-platform,AWS Lambda,38.57,38.57
+2026-04,sre-platform,Amazon EC2,348.03,250.58
+2026-04,sre-platform,Amazon EKS,138.49,138.49
+2026-04,sre-platform,Amazon RDS,172.23,172.23
+2026-04,sre-platform,Amazon S3,75.24,75.24
+2026-05,data,AWS Data Transfer,34.3,34.3
+2026-05,data,AWS Lambda,29.76,29.76
+2026-05,data,Amazon EC2,256.92,184.98
+2026-05,data,Amazon EKS,103.95,103.95
+2026-05,data,Amazon RDS,128.26,128.26
+2026-05,data,Amazon S3,74.74,74.74
+2026-05,ml,AWS Data Transfer,39.17,39.17
+2026-05,ml,AWS Lambda,33.06,33.06
+2026-05,ml,Amazon EC2,296.99,213.83
+2026-05,ml,Amazon EKS,116.1,116.1
+2026-05,ml,Amazon RDS,147.28,147.28
+2026-05,ml,Amazon S3,62.99,62.99
+2026-05,product-web,AWS Data Transfer,44.58,44.58
+2026-05,product-web,AWS Lambda,39.01,39.01
+2026-05,product-web,Amazon EC2,475.33,342.23
+2026-05,product-web,Amazon EKS,137.21,137.21
+2026-05,product-web,Amazon RDS,168.33,168.33
+2026-05,product-web,Amazon S3,74.63,74.63
+2026-05,sre-platform,AWS Data Transfer,47.43,47.43
+2026-05,sre-platform,AWS Lambda,42.01,42.01
+2026-05,sre-platform,Amazon EC2,362.43,260.95
+2026-05,sre-platform,Amazon EKS,144.71,144.71
+2026-05,sre-platform,Amazon RDS,174.18,174.18
+2026-05,sre-platform,Amazon S3,77.95,77.95
+2026-06,data,AWS Data Transfer,34.1,34.1
+2026-06,data,AWS Lambda,29.64,29.64
+2026-06,data,Amazon EC2,259.78,187.05
+2026-06,data,Amazon EKS,103.63,103.63
+2026-06,data,Amazon RDS,70.51,70.51
+2026-06,data,Amazon S3,55.33,55.33
+2026-06,ml,AWS Data Transfer,39.81,39.81
+2026-06,ml,AWS Lambda,35.42,35.42
+2026-06,ml,Amazon EC2,321.7,231.62
+2026-06,ml,Amazon EKS,129.5,129.5
+2026-06,ml,Amazon RDS,155.32,155.32
+2026-06,ml,Amazon S3,67.68,67.68
+2026-06,product-web,AWS Data Transfer,44.87,44.87
+2026-06,product-web,AWS Lambda,39.88,39.88
+2026-06,product-web,Amazon EC2,483.42,348.06
+2026-06,product-web,Amazon EKS,138.62,138.62
+2026-06,product-web,Amazon RDS,165.01,165.01
+2026-06,product-web,Amazon S3,72.62,72.62
+2026-06,sre-platform,AWS Data Transfer,47.14,47.14
+2026-06,sre-platform,AWS Lambda,42.18,42.18
+2026-06,sre-platform,Amazon EC2,362.31,260.86
+2026-06,sre-platform,Amazon EKS,144.83,144.83
+2026-06,sre-platform,Amazon RDS,177.46,177.46
+2026-06,sre-platform,Amazon S3,78.25,78.25
+2026-07,data,AWS Data Transfer,35.55,35.55
+2026-07,data,AWS Lambda,31.82,31.82
+2026-07,data,Amazon EC2,277.28,199.64
+2026-07,data,Amazon EKS,110.63,110.63
+2026-07,data,Amazon RDS,66.16,66.16
+2026-07,data,Amazon S3,58.43,58.43
+2026-07,ml,AWS Data Transfer,45.69,45.69
+2026-07,ml,AWS Lambda,40.55,40.55
+2026-07,ml,Amazon EC2,427.1,307.51
+2026-07,ml,Amazon EKS,138.52,138.52
+2026-07,ml,Amazon RDS,167.33,167.33
+2026-07,ml,Amazon S3,73.77,73.77
+2026-07,product-web,AWS Data Transfer,47.08,47.08
+2026-07,product-web,AWS Lambda,42.41,42.41
+2026-07,product-web,Amazon EC2,506.14,364.42
+2026-07,product-web,Amazon EKS,146.39,146.39
+2026-07,product-web,Amazon RDS,170.04,170.04
+2026-07,product-web,Amazon S3,78.97,78.97
+2026-07,sre-platform,AWS Data Transfer,50.39,50.39
+2026-07,sre-platform,AWS Lambda,45.31,45.31
+2026-07,sre-platform,Amazon EC2,393.36,283.22
+2026-07,sre-platform,Amazon EKS,157.53,157.53
+2026-07,sre-platform,Amazon RDS,181.16,181.16
+2026-07,sre-platform,Amazon S3,81.16,81.16
+2026-08,data,AWS Data Transfer,17.54,17.54
+2026-08,data,AWS Lambda,15.29,15.29
+2026-08,data,Amazon EC2,134.61,96.92
+2026-08,data,Amazon EKS,55.38,55.38
+2026-08,data,Amazon RDS,32.04,32.04
+2026-08,data,Amazon S3,28.35,28.35
+2026-08,ml,AWS Data Transfer,22.62,22.62
+2026-08,ml,AWS Lambda,20.42,20.42
+2026-08,ml,Amazon EC2,177.35,127.7
+2026-08,ml,Amazon EKS,71.39,71.39
+2026-08,ml,Amazon RDS,84.55,84.55
+2026-08,ml,Amazon S3,37.98,37.98
+2026-08,product-web,AWS Data Transfer,22.46,22.46
+2026-08,product-web,AWS Lambda,19.95,19.95
+2026-08,product-web,Amazon EC2,246.1,177.19
+2026-08,product-web,Amazon EKS,70.59,70.59
+2026-08,product-web,Amazon RDS,84.1,84.1
+2026-08,product-web,Amazon S3,39.33,39.33
+2026-08,sre-platform,AWS Data Transfer,24.03,24.03
+2026-08,sre-platform,AWS Lambda,21.57,21.57
+2026-08,sre-platform,Amazon EC2,186.22,134.08
+2026-08,sre-platform,Amazon EKS,75.33,75.33
+2026-08,sre-platform,Amazon RDS,84.41,84.41
+2026-08,sre-platform,Amazon S3,38.96,38.96

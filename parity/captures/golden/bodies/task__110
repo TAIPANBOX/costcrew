@@ -1,0 +1,348 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CostCrew</title>
+<link rel="stylesheet" href="/static/style.css"></head><body>
+<div class="shell">
+<nav class="rail">
+  <div class="brand">CostCrew</div>
+  <a href="/" class="">Today</a>
+  <a href="/board" class="on">Board</a>
+  <a href="/board?view=month" class="sub">Calendar</a>
+  <a href="/teams" class="">Teams</a>
+  <a href="/sprints" class="">Sprints</a>
+  <a href="/feed" class="">Chats</a>
+  <a href="/feed?ch=aws" class="sub">#aws</a>
+  <a href="/feed?ch=gcp" class="sub">#gcp</a>
+  <a href="/feed?ch=onprem" class="sub">#onprem</a>
+  <a href="/kpis" class="">KPIs</a>
+  <a href="/library" class="sub ">Library</a>
+  <a href="/assessment" class="sub ">Assessment</a>
+  <a href="/allocation" class="">Allocation</a>
+  <a href="/chargeback" class="">Chargeback</a>
+  <a href="/exec" class="">Executive</a>
+  <a href="/results" class="">Results</a>
+  <a href="/ai" class="">AI spend</a>
+  <a href="/saas" class="">SaaS</a>
+  <a href="/utilisation" class="">Utilisation</a>
+  <a href="/explainers" class="">Explainers</a>
+  <a href="/staff" class="">Staff</a>
+  <a href="/workbench" class="">Workbench</a>
+  <a href="/data" class="">Data</a>
+  <a href="/connectors" class="sub ">Connectors</a>
+  <a href="/audit" class="">Audit</a>
+  <a href="/settings" class="">Engines</a>
+  
+  <a href="/accounts" class="">Accounts</a>
+  <div class="railfoot">
+    
+    <div>parity · admin</div>
+    <form method="post" action="/logout" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+      <button class="btn back">Sign out</button></form>
+    
+    <div>MVP · local</div>
+  </div>
+</nav>
+<main class="content">
+<p class="crumb"><a href="/board">Board</a> / task:110</p>
+<h1>AWS W34 pulse and KPI benchmark card</h1>
+<p><span class="chip st-done">done</span>
+   <a class="chip" href="/staff/reporter-aws">reporter-aws</a> <a class="chip" href="/sprint/15">sprint:2026-W37</a>
+   <span class="src aws">aws</span>
+   <span class="chip">$0.00 / $20.00</span> <span class="cbadge c2">C2</span></p>
+
+<p class="goal">Clear queued pulse #115 and add the AWS KPI card benchmarked against the Framework-2026 targets: AAI 76.5% [qid:8feebd77] versus the 90% tag target, forecast walk rung at worst error 12.4% [qid:2f445196], effective savings rate 13.3% [qid:1a8d6537], anomaly band green at 0.87% share [qid:8860e2df]. Name the direction of travel per KPI, no cross-platform claims.</p>
+
+<form method="post" action="/task/110/run" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+  <button class="btn run">Run agent</button>
+  <span class="fine">figures are computed first; the agent writes around them</span>
+</form>
+<section class="panel"><h2>Comments (operator = top-priority instruction)</h2>
+  
+  <form method="post" action="/task/110/comment" class="inline"><input type="hidden" name="csrf" value="<CSRF>">
+    <input name="text" placeholder="Say it like you would to an employee" size="50" required>
+    <button class="btn">Comment</button></form>
+</section>
+
+<section class="panel artifact">
+  <div class="arthead"><h2>artifact:AR-0108@v1</h2>
+  <div class="stamp posted">POSTED · 2026-08-16 · operator</div></div>
+  <div class="md"><h1>AWS W34 pulse and KPI benchmark card</h1>
+<p><strong>Executive Summary</strong>
+AWS usage through 2026-08-15 registers $1,610.59 [qid:e0429d85], with the Holt-Winters model projecting $3,313.16 [qid:587b7af2] for the next 30 days. The practice shows an effective savings rate of 13.3% [qid:1a8d6537] and an anomaly share of 0.87% [qid:8860e2df] (green band), though AAI at 76.5% [qid:8feebd77] trails the Framework-2026 tag target. Forecast accuracy sits at the "walk" rung with a worst absolute error of 12.4% [qid:2f445196]. The single biggest mover is the heraldyx launch run on August 2, which produced the largest anomaly in the register (EC2 excess $41.90 on 2026-07-30) [qid:9cb3d9f2].</p>
+<p><strong>W34 Pulse &amp; Drivers</strong>
+The current partial month (through 2026-08-15) records total usage of $1,610.59 [qid:e0429d85]. Per the data notice, this is not directly comparable to July’s full-month $3,372.76 [qid:659a87ae]. The forecasted daily run rate of $109.16 [qid:dc66e2c4] implies August is tracking roughly flat to July on a normalized basis.</p>
+<p>Two one-time drivers impacted the period:
+*   <strong>Heraldyx Launch Run</strong> (2026-08-02): A compute-intensive event for the <em>ml</em> team under Amazon EC2, cited as the cause of the August 2 spike. This explains the largest registered anomaly on 2026-07-30 (EC2 value $53.30, baseline $11.40, excess $41.90) [qid:9cb3d9f2].
+*   <strong>Cloud Range Exercise</strong> (2026-08-04): A cross-service drill that was torn down same-day, limiting residual cost impact.</p>
+<p><strong>KPI Benchmark vs. Framework-2026</strong></p>
+<table>
+<thead>
+<tr>
+<th>KPI</th>
+<th>Current</th>
+<th>Rung / Band</th>
+<th>Direction of Travel</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Allocation Accuracy Index (AAI)</strong></td>
+<td>76.5% [qid:8feebd77]</td>
+<td>Below target</td>
+<td><strong>Adverse</strong>: Gap to tag coverage target remains; requires remediation</td>
+</tr>
+<tr>
+<td><strong>Forecast Accuracy</strong></td>
+<td>Worst error 12.4% [qid:2f445196]</td>
+<td>Walk (canon ladder 20/15/12%)</td>
+<td><strong>Stable</strong>: Within walk threshold (≤15%), above run precision (≤12%)</td>
+</tr>
+<tr>
+<td><strong>Effective Savings Rate (ESR)</strong></td>
+<td>13.3% [qid:1a8d6537]</td>
+<td>—</td>
+<td><strong>Neutral</strong>: Baseline established; no prior period for trend</td>
+</tr>
+<tr>
+<td><strong>Anomaly Band</strong></td>
+<td>0.87% share [qid:8860e2df]</td>
+<td>Green</td>
+<td><strong>Favorable</strong>: Low variance environment maintained</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Forecast Commentary</strong>
+The selected Holt-Winters (additive, 7-day) model achieves a 6.01% MAPE, outperforming seasonal-naive (6.40%) and moving-average (10.92%) alternatives [qid:dc66e2c4]. The point forecast of $3,313.16 [qid:587b7af2] with a confidence interval of [$3,014.42, $3,611.89] [qid:dc66e2c4] suggests stable consumption ahead, absent further one-time events.</p>
+<hr />
+<h2>Figures (deterministic engine; every value carries its qid)</h2>
+<table>
+<thead>
+<tr>
+<th>category</th>
+<th style="text-align: right;">2026-07</th>
+<th style="text-align: right;">2026-08</th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Credit</td>
+<td style="text-align: right;">-59.21</td>
+<td style="text-align: right;">0.00</td>
+<td><code>⌗08c6f243</code></td>
+</tr>
+<tr>
+<td>Purchase</td>
+<td style="text-align: right;">950.00</td>
+<td style="text-align: right;">950.00</td>
+<td><code>⌗08c6f243</code></td>
+</tr>
+<tr>
+<td>Tax</td>
+<td style="text-align: right;">148.04</td>
+<td style="text-align: right;">0.00</td>
+<td><code>⌗08c6f243</code></td>
+</tr>
+<tr>
+<td>Usage</td>
+<td style="text-align: right;">3,372.76</td>
+<td style="text-align: right;">1,610.59</td>
+<td><code>⌗08c6f243</code></td>
+</tr>
+</tbody>
+</table>
+<p>Forecast next 30d: <strong>USD 3,313.16</strong> (3,014.42..3,611.89), method holt-winters(add,7), backtest MAPE 6.0% <code>⌗dc66e2c4</code></p>
+<p>Top anomalies <code>⌗9cb3d9f2</code>:
+- 2026-07-30 Amazon EC2 (ml): +41.90 USD vs baseline - needs a look
+- 2026-01-14 AWS Data Transfer (sre-platform): +10.79 USD vs baseline - needs a look
+- 2026-05-21 Amazon S3 (data): +9.93 USD vs baseline - needs a look
+- 2026-03-17 Amazon EC2 (product-web): +5.66 USD vs baseline - needs a look
+- 2026-03-11 Amazon EC2 (product-web): +5.07 USD vs baseline - needs a look</p>
+<hr />
+<p>Provenance: source <code>aws</code>, engine qids above, agent provider <code>openrouter:moonshotai/kimi-k2 (engine: kimi-standard, auto by complexity C2)</code>, run cost USD 0.0000.</p></div>
+  
+</section>
+
+</main>
+</div>
+<script>
+document.addEventListener('input', function (e) {
+  var box = e.target.closest('.filterbox'); if (!box) return;
+  var root = document.querySelector(box.dataset.target); if (!root) return;
+  var q = box.value.trim().toLowerCase();
+  root.querySelectorAll('[data-search]').forEach(function (el) {
+    var hit = !q || el.dataset.search.toLowerCase().indexOf(q) !== -1;
+    if (el.classList.contains('deskgroup')) {
+      var inner = Array.prototype.some.call(el.querySelectorAll('[data-search]'),
+        function (x) { return x.dataset.search.toLowerCase().indexOf(q) !== -1; });
+      el.style.display = (hit || inner || !q) ? '' : 'none';
+      el.querySelectorAll('[data-search]').forEach(function (x) {
+        x.style.display = (!q || hit || x.dataset.search.toLowerCase().indexOf(q) !== -1) ? '' : 'none';
+      });
+    } else if (!el.closest('.deskgroup')) {
+      el.style.display = hit ? '' : 'none';
+    }
+  });
+});
+document.addEventListener('click', function (e) {
+  if (e.target.classList && e.target.classList.contains('grip')) return;
+  var th = e.target.closest('th'); if (!th) return;
+  var table = th.closest('table'); if (!table) return;
+  var idx = Array.prototype.indexOf.call(th.parentNode.children, th);
+  var rows = Array.prototype.slice.call(table.querySelectorAll('tr')).filter(
+    function (r) { return r.querySelector('td'); });
+  var dir = th.dataset.dir === 'asc' ? -1 : 1;
+  table.querySelectorAll('th').forEach(function (h) { delete h.dataset.dir;
+    var a = h.querySelector('.arrow'); if (a) a.remove(); });
+  th.dataset.dir = dir === 1 ? 'asc' : 'desc';
+  var arrow = document.createElement('span');
+  arrow.className = 'arrow';
+  arrow.textContent = dir === 1 ? ' \u25B2' : ' \u25BC';
+  th.appendChild(arrow);
+  function key(r) {
+    var c = r.children[idx]; if (!c) return '';
+    var txt = c.textContent.trim().replace(/[$,%]/g, '').replace(/,/g, '');
+    if (/\d{4}-\d{2}-\d{2}/.test(txt)) return txt.replace(/[^\d-]/g, '');
+    var n = parseFloat(txt);
+    return isNaN(n) ? txt.toLowerCase() : n;
+  }
+  rows.sort(function (a, b) {
+    var ka = key(a), kb = key(b);
+    if (typeof ka === 'number' && typeof kb === 'number') return (ka - kb) * dir;
+    return String(ka).localeCompare(String(kb)) * dir;
+  });
+  rows.forEach(function (r) { r.parentNode.appendChild(r); });
+});
+
+/* ---- tables you can widen, and that fit any screen -----------------------
+   Every table is put in its own horizontally scrolling box, so a wide table
+   scrolls inside its panel instead of pushing the whole page sideways. Each
+   header cell gets a grip on its right edge: drag it to widen the column,
+   double-click it to give the column back to the browser. Widths are
+   remembered per page, because a column you widened once you almost always
+   want wide again.                                                          */
+(function () {
+  var KEY = 'costcrew.colw.' + location.pathname;
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (err) { saved = {}; }
+
+  function persist() {
+    try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (err) { /* private mode */ }
+  }
+
+  function setup() {
+    document.querySelectorAll('table').forEach(function (table, ti) {
+      if (!table.parentNode.classList.contains('tw')) {
+        var box = document.createElement('div');
+        box.className = 'tw';
+        table.parentNode.insertBefore(box, table);
+        box.appendChild(table);
+      }
+      /* An atom never breaks: a date, a sum, a status, a short name. Prose
+         does break, and must, or one sentence drags the whole table wider
+         than the screen and everything else scrolls to reach it. The rule is
+         length, applied once, because CSS cannot ask how long a text is. */
+      table.querySelectorAll('td, th').forEach(function (cell) {
+        if (cell.children.length) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length > 40 && txt.indexOf(' ') !== -1) cell.classList.add('wrap');
+      });
+
+      /* Really long prose gets two lines and a way to open the rest. Nothing
+         is removed: the full text is still in the cell, still searched by
+         the filter box, still there for anyone who presses. */
+      table.querySelectorAll('td').forEach(function (cell) {
+        if (cell.querySelector('.clamp')) return;
+        var txt = (cell.textContent || '').trim();
+        if (txt.length <= 110) return;
+        var box = document.createElement('div');
+        box.className = 'clamp';
+        while (cell.firstChild) box.appendChild(cell.firstChild);
+        cell.appendChild(box);
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'more';
+        btn.textContent = 'more';
+        btn.setAttribute('aria-expanded', 'false');
+        btn.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          var open = box.classList.toggle('open');
+          btn.textContent = open ? 'less' : 'more';
+          btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+        cell.appendChild(btn);
+        cell.classList.add('wrap');
+      });
+      /* Align each header to the column beneath it. The figures are right
+         aligned and the headers were not, so every numeric column read as a
+         label on the left with unrelated numbers on the right. */
+      var head0 = table.querySelector('tr');
+      if (head0) {
+        var body = Array.prototype.slice.call(table.querySelectorAll('tr'))
+          .filter(function (r) { return r.querySelector('td'); });
+        head0.querySelectorAll('th').forEach(function (th, ci) {
+          var nums = 0, cells = 0;
+          body.forEach(function (r) {
+            var cell = r.children[ci];
+            if (!cell || cell.tagName !== 'TD') return;
+            cells++;
+            if (cell.classList.contains('num')) nums++;
+          });
+          if (cells && nums * 2 > cells) th.classList.add('num');
+        });
+      }
+      var head = table.querySelector('tr');
+      if (!head) return;
+      head.querySelectorAll('th').forEach(function (th, ci) {
+        var id = ti + ':' + ci;
+        if (saved[id]) { th.style.width = saved[id] + 'px'; th.classList.add('sized'); }
+        if (th.querySelector('.grip')) return;
+        var grip = document.createElement('span');
+        grip.className = 'grip';
+        grip.title = 'Drag to widen, double-click to reset';
+        grip.addEventListener('dblclick', function (ev) {
+          ev.stopPropagation();
+          th.style.width = ''; th.classList.remove('sized');
+          delete saved[id]; persist();
+        });
+        grip.addEventListener('pointerdown', function (ev) {
+          ev.preventDefault(); ev.stopPropagation();
+          var x0 = ev.clientX, w0 = th.getBoundingClientRect().width;
+          grip.classList.add('on');
+          grip.setPointerCapture(ev.pointerId);
+          function move(e2) {
+            var w = Math.max(48, Math.round(w0 + (e2.clientX - x0)));
+            th.style.width = w + 'px'; th.classList.add('sized');
+            saved[id] = w;
+          }
+          function up() {
+            grip.classList.remove('on');
+            grip.removeEventListener('pointermove', move);
+            grip.removeEventListener('pointerup', up);
+            persist();
+          }
+          grip.addEventListener('pointermove', move);
+          grip.addEventListener('pointerup', up);
+        });
+        th.appendChild(grip);
+      });
+    });
+    document.querySelectorAll('.tw').forEach(function (box) {
+      function mark() {
+        /* a few pixels is rounding, not a hidden column */
+        var over = box.scrollWidth > box.clientWidth + 8;
+        box.classList.toggle('scrolls', over);
+        box.classList.toggle('atend',
+          over && box.scrollLeft + box.clientWidth >= box.scrollWidth - 2);
+      }
+      box.addEventListener('scroll', mark);
+      window.addEventListener('resize', mark);
+      mark();
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setup);
+  } else { setup(); }
+})();
+</script>
+</body></html>
