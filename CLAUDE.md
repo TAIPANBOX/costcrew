@@ -1,4 +1,4 @@
-# CLAUDE.md, working instructions for costcrew-go
+# CLAUDE.md, working instructions for costcrew
 
 ## Read before you change anything
 
