@@ -47,6 +47,24 @@ jobs:
             echo "not gofmt'd: $unformatted" >&2
             exit 1
           fi
+      # PUT BACK, after being removed on a diagnosis that was wrong.
+      #
+      # It failed this repository's first CI run and the local copy of the same
+      # pinned version died with "export data version 4 is greater than maximum
+      # supported version 2", so the two were read as one problem and the step
+      # was deleted as unrunnable. They were not one problem. The export-data
+      # error is this machine's alone; in CI staticcheck ran fine and reported
+      # three real findings: a package imported twice under two names, and two
+      # dead test helpers. TAIPANBOX/vouchryx has been running the same pin
+      # green on Go 1.26 the whole time, which is what settled it.
+      #
+      # The lesson worth keeping is about the log rather than the tool: the run
+      # was cancelled before its logs existed, so the diagnosis was made from a
+      # local symptom that happened to be nearby.
+      - name: staticcheck
+        run: |
+          go install honnef.co/go/tools/cmd/staticcheck@2026.1
+          staticcheck ./...
       # The suite plain, and the race detector only where it is cheap.
       #
       # Measured 2026-08-28: `internal/web` takes 54s plain and 1527s under

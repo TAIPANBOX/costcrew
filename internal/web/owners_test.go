@@ -11,16 +11,6 @@ import (
 
 var bigVal = regexp.MustCompile(`class="v big[^"]*">([^<]+)<`)
 
-// bigTiles pulls the headline figure out of each summary tile, in order.
-func bigTiles(t *testing.T, body string) []string {
-	t.Helper()
-	var out []string
-	for _, m := range bigVal.FindAllStringSubmatch(body, -1) {
-		out = append(out, strings.TrimSpace(m[1]))
-	}
-	return out
-}
-
 // The owners page and the crew page must agree about how many agents are
 // bound to nothing.
 //

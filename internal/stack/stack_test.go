@@ -10,8 +10,6 @@ import (
 	asgevent "github.com/TAIPANBOX/agent-stack-go/event"
 	asgpassport "github.com/TAIPANBOX/agent-stack-go/passport"
 
-	"github.com/TAIPANBOX/agent-stack-go/passport"
-
 	"github.com/TAIPANBOX/costcrew/internal/crew"
 	"github.com/TAIPANBOX/costcrew/internal/money"
 	"github.com/TAIPANBOX/costcrew/internal/stack"
@@ -304,7 +302,7 @@ func TestThePassportCarriesWhatWasDecidedAtHireTime(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := passport.Parse(buf)
+	p, err := asgpassport.Parse(buf)
 	if err != nil {
 		t.Fatalf("the document is not a valid Passport: %v", err)
 	}
