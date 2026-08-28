@@ -18,7 +18,15 @@ import (
 	"github.com/TAIPANBOX/costcrew/internal/world"
 )
 
-// The agent's card.
+// The analyst's card.
+//
+// The file was called agent360.go until 2026-08-28. Genaryx has a screen named
+// Agent 360 and it is a different document: there an agent is the subject of
+// governance, and the card answers whether to let it keep running. Here the
+// same person's question is about an employee, so the page answers what it was
+// hired to do, what it has posted and what its work cost. Two products in one
+// stack sharing a screen name teaches a reader they are one screen, and this
+// one is named after the crew it belongs to.
 //
 // One page that answers everything somebody asks about an agent before they
 // let it near money: who it is, who vouches for it, what it may do, what it
