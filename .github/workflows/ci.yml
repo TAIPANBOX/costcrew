@@ -1,0 +1,71 @@
+# CI for costcrew.
+#
+# WHY IT DID NOT HAVE ONE, AND WHY IT DOES NOW
+#
+# This repository was PRIVATE until 2026-08-27, and a private repository's
+# Actions minutes are metered from the first one. Adding CI to it would have
+# been a spending decision, so it did not get one, and 261 test functions,
+# `features-are-bound.sh` and `gates-have-teeth.sh` ran only when somebody
+# remembered to run them by hand.
+#
+# It is public now, where Actions cost nothing.
+#
+# THE ONE THING TO KNOW BEFORE FLIPPING IT BACK: a public repository with a
+# workflow becomes a METERED repository the moment it is made private again.
+# The workflow does not have to change for the bill to start. If this ever goes
+# private, that is the decision being made, whether or not anybody says so.
+#
+# The shape is deliberately the same as TAIPANBOX/vouchryx's, minus one step:
+# there is no scripts/readme-numbers.sh here, and naming a gate that does not
+# exist would be a workflow that fails for a reason nobody can fix.
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-go@41dfa10bad2bb2ae585af6ee5bb4d7d973ad74ed # v5.1.0
+        with:
+          go-version: '1.26'
+          check-latest: false
+      - name: build and vet
+        run: |
+          go build ./...
+          go vet ./...
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "not gofmt'd: $unformatted" >&2
+            exit 1
+          fi
+      # The suite plain, and the race detector only where it is cheap.
+      #
+      # Measured 2026-08-28: `internal/web` takes 54s plain and 1527s under
+      # -race, from 103 tests each standing up an HTTP server. Instrumenting the
+      # whole suite would make every push a half-hour wait, which is not a trade
+      # worth making. So -race runs on the packages where it costs seconds, and
+      # internal/web is checked plain.
+      - name: tests
+        run: go test ./...
+      - name: tests, with the race detector where it is cheap
+        run: go test ./internal/crew/... ./internal/stack/... ./internal/anomaly/... ./internal/manifest/... -race
+      - name: every scenario is bound to a test
+        run: ./scripts/features-are-bound.sh
+      - name: the gates have teeth
+        run: ./scripts/gates-have-teeth.sh
+      # The manifest's `checked` bucket claims to be proved in this
+      # repository's own CI, the way every sibling's does. Until this file
+      # existed that sentence was aspirational here: the test was written and
+      # nothing ran it. It runs the service, so -race is worth its seconds here
+      # even though the full suite defers it.
+      - name: the manifest is what this repository builds
+        run: go test ./internal/manifest/ -race
