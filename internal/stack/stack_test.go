@@ -656,3 +656,48 @@ func TestSweepingLeavesSomebodyElsesDocumentsAlone(t *testing.T) {
 		}
 	}
 }
+
+// The shared envelope's severity is a closed enum, and this package hands it
+// through untouched, so the only thing standing between a caller's typo and a
+// line every schema-validating consumer refuses is this test and the guard it
+// pins.
+//
+// It exists because `crew.CheckGuards` defaulted to "warning", which is not one
+// of the five, and the band it defaulted in is the COMMON one: an analyst
+// between its guard and one and a half times it. Every `budget_threshold` this
+// console emitted for such an analyst was refused whole by any consumer reading
+// agent-passport's schema, and nothing here or there said so.
+func TestEverySeverityThisConsoleEmitsIsOneTheEnvelopeAllows(t *testing.T) {
+	allowed := map[string]bool{
+		"info": true, "low": true, "medium": true, "high": true, "critical": true,
+	}
+	dir := t.TempDir()
+	path := filepath.Join(dir, "costcrew.ndjson")
+	em, err := stack.Open(stack.Config{EventsPath: path})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := em.Emit("anomaly_detected", "detector", "warning", nil, nil); err == nil {
+		t.Fatal("a severity outside the envelope's enum was accepted; every consumer that validates would refuse the whole line")
+	}
+	for s := range allowed {
+		if err := em.Emit("anomaly_detected", "detector", s, nil, nil); err != nil {
+			t.Fatalf("severity %q is one of the five and was refused: %v", s, err)
+		}
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, line := range strings.Split(strings.TrimSpace(string(raw)), "\n") {
+		var ev struct {
+			Severity string `json:"severity"`
+		}
+		if err := json.Unmarshal([]byte(line), &ev); err != nil {
+			t.Fatalf("line %d is not JSON: %v", i+1, err)
+		}
+		if !allowed[ev.Severity] {
+			t.Fatalf("line %d went out with severity %q, which the envelope's enum does not carry", i+1, ev.Severity)
+		}
+	}
+}

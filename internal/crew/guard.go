@@ -55,7 +55,12 @@ func CheckGuards(db *sql.DB, month string, rec Recorder) (past int, by money.Cen
 		by += over
 		// Severity by how far past, not by the fact of being past. One cent
 		// over a guard and twice the guard are different mornings.
-		sev := "warning"
+		// `low`, not "warning": the shared envelope's severity is a closed enum
+		// (agent-passport SPEC 6.1) and "warning" is not in it, so every
+		// budget_threshold emitted in this band went out as a line any
+		// validating consumer refuses whole. This is the COMMON band, an
+		// analyst between its guard and one and a half times it.
+		sev := "low"
 		switch {
 		case spent >= a.Monthly*2:
 			sev = "high"

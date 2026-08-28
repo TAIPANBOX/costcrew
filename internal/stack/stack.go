@@ -124,12 +124,34 @@ func (e *Emitter) AgentURI(name string) string {
 // never becomes the reason a page did not render. The stack's own exporters
 // behave the same way, and a verifier surfaces the gap honestly rather than
 // the product going quiet.
+// Severities the shared envelope allows, agent-passport SPEC 6.1. A CLOSED
+// enum there, so a value outside it is not a stylistic choice: a consumer that
+// validates refuses the whole line, and the event this console wrote is simply
+// not in anybody's record.
+//
+// Written here rather than trusted from call sites because this package hands
+// the value through untouched. `crew.CheckGuards` defaulted to "warning" from
+// the day it was written, in the band an analyst between its guard and one and
+// a half times it falls into, which is the COMMON one.
+var severities = map[string]bool{
+	"info": true, "low": true, "medium": true, "high": true, "critical": true,
+}
+
 func (e *Emitter) Emit(kind, actor, severity string, data map[string]any, onBehalfOf []string) error {
 	if e.w == nil {
 		return nil
 	}
 	if actor == "" {
 		actor = Detector
+	}
+	// Refused rather than corrected. A severity this package chose on a
+	// caller's behalf would be this console asserting how bad something is,
+	// and the caller is the only thing that knows.
+	if !severities[severity] {
+		return fmt.Errorf(
+			"severity %q is not one of info, low, medium, high, critical; the shared "+
+				"envelope's enum is closed and a consumer that validates would refuse "+
+				"the whole event", severity)
 	}
 	// Say it in the estate's own words where the estate has one. See
 	// vocabulary.go for what is mapped, what is not, and the one mapping that

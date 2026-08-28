@@ -1,4 +1,4 @@
-# CLAUDE.md, working instructions for costcrew-go
+# CLAUDE.md, working instructions for costcrew
 
 ## Read before you change anything
 
@@ -20,9 +20,9 @@ runtime to install, no network. Money is integer cents everywhere.
 ## Gates
 
 ```sh
-go test ./...                        # 252 tests, 15 packages
+go test ./...                        # 255 tests, 15 packages
 ./scripts/gates-have-teeth.sh        # 45 cases; needs a clean tree; ~60s
-./scripts/features-are-bound.sh      # 44 scenarios, both directions
+./scripts/features-are-bound.sh      # 47 scenarios, both directions
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 ```
