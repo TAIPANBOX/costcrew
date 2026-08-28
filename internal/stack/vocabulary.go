@@ -45,6 +45,17 @@ var shared = map[string]string{
 	"guard_passed": "budget_threshold",
 }
 
+// WireTypeOf is the name a kind goes out under, which is the kind itself
+// unless `shared` renames it. Exported so the test that holds WireTypes to the
+// call sites applies the same rename the emitter does, rather than a second
+// copy of this table.
+func WireTypeOf(kind string) string {
+	if wire, ok := shared[kind]; ok {
+		return wire
+	}
+	return kind
+}
+
 // translate returns the wire type and the payload to send with it.
 //
 // The original type is kept under costcrew_type rather than dropped, because

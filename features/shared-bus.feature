@@ -24,3 +24,10 @@ Feature: What this console puts on the shared bus is something the estate can re
     When the guard check runs
     Then each event carries the severity its band means, and all three are
       values the shared envelope allows
+
+  # @test:TestWireTypesIsExactlyWhatTheCallSitesProduce
+  Scenario: The estate can be told what this console emits, and be told the truth
+    Given the list of wire types this console declares
+    When it is compared with every emit call site, translations applied
+    Then the two are exactly equal, and a kind built rather than written that
+      nothing can resolve is a failure rather than a silent omission
