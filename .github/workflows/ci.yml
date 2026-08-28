@@ -63,7 +63,7 @@ jobs:
       # local symptom that happened to be nearby.
       - name: staticcheck
         run: |
-          go install honnef.co/go/tools/cmd/staticcheck@2026.1
+          go install honnef.co/go/tools/cmd/staticcheck@2026.2.1
           staticcheck ./...
       # The suite plain, and the race detector only where it is cheap.
       #
