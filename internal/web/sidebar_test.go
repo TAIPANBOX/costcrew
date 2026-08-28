@@ -114,15 +114,6 @@ func TestThePageCannotMoveTheSidebar(t *testing.T) {
 	}
 }
 
-func atoi(t *testing.T, s string) int {
-	t.Helper()
-	n, err := strconv.Atoi(s)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return n
-}
-
 func read(t *testing.T, path string) string {
 	t.Helper()
 	b, err := os.ReadFile(path)
