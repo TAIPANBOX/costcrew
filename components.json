@@ -1,0 +1,191 @@
+{
+  "$comment": [
+    "What this repository contributes to a running stack, and what a check may",
+    "believe about it. Same two buckets as TAIPANBOX/vouchryx, which is where",
+    "this shape was worked out, and the same reason for being here rather than",
+    "in estate-gates: the only thing that knows which binaries a repository",
+    "builds is the repository.",
+    "",
+    "This one differs from vouchryx in a way worth stating, because it is what",
+    "a launcher trips over: it is configured by FLAGS and not by the",
+    "environment. Two variables are read and neither is how a deployment wires",
+    "it. So `checked.flags` carries what `checked.env` carries elsewhere, and",
+    "manifest_test.go proves it the same way, against the flag.String call",
+    "sites."
+  ],
+  "schema": "taipanbox.dev/components/v1",
+  "repo": "TAIPANBOX/costcrew",
+  "components": [
+    {
+      "name": "costcrew",
+      "class": "service",
+      "checked": {
+        "package": "github.com/TAIPANBOX/costcrew/cmd/costcrew",
+        "listen_default": "127.0.0.1:8321",
+        "health_path": "/healthz",
+        "env": {
+          "COSTCREW_DEMO": {
+            "required": false
+          },
+          "COSTCREW_SIGNUP_CODE": {
+            "required": false
+          }
+        },
+        "flags": {
+          "addr": {
+            "required": false
+          },
+          "data": {
+            "required": false
+          },
+          "stack-events": {
+            "required": false
+          },
+          "stack-passports": {
+            "required": false
+          },
+          "stack-host": {
+            "required": false
+          },
+          "stack-owner": {
+            "required": false
+          },
+          "stack-attestation": {
+            "required": false
+          },
+          "spiffe-socket": {
+            "required": false
+          },
+          "set-password": {
+            "required": false
+          },
+          "set-role": {
+            "required": false
+          },
+          "allow-weak-password": {
+            "required": false
+          },
+          "rebuild-fixture": {
+            "required": false
+          }
+        },
+        "missing_required_exit_code": 0
+      },
+      "declared": {
+        "role": {
+          "value": "the FinOps console: cloud and AI spend, an agent crew that triages it, and a person who reviews what they wrote",
+          "why": "a sentence about purpose is not a property of the source"
+        },
+        "enforces_nothing": {
+          "value": true,
+          "why": "it has no gateway, no interceptor and no refusal path, and `internal/enforce` is a separate binary this console never imports. Every budget_threshold it emits carries `enforced: false`, stamped by the translation rather than by the caller. Checkable only as an absence, and an absence today is not a promise about tomorrow, so it is declared and heraldyx's catalog rests on it."
+        },
+        "the_event_file_name_is_the_integration": {
+          "value": "costcrew.ndjson",
+          "why": "genaryx tails a directory and keys each source's read offset off the file stem, so a stream under any other name is a stream it never reads. Nothing in THIS repository can check a consumer's behaviour, and the flag accepts any path."
+        },
+        "off_unless_asked": {
+          "value": "-stack-events",
+          "why": "the whole stack integration is off when that flag is empty, which is the default. A deployment that forgets it gets a working console and an empty bus, and no error, because a console nobody wired to a stack is a legitimate way to run this."
+        },
+        "passports_and_owner_are_a_pair": {
+          "value": [
+            "-stack-passports",
+            "-stack-owner"
+          ],
+          "why": "the console refuses to start with the first and not the second: a passport with no owner is not a valid document, and idryx enriches an identity with the owner who answers for it, so one that names nobody enriches nothing. A dependency BETWEEN two flags is not something a reader of flag.String call sites can see, which is why it is declared. Found by TAIPANBOX/stack-up on 2026-08-28, by starting it."
+        }
+      }
+    },
+    {
+      "name": "costcrew-enforce",
+      "class": "tool",
+      "checked": {
+        "package": "github.com/TAIPANBOX/costcrew/tools/enforce"
+      },
+      "declared": {
+        "role": {
+          "value": "pushes decided unit budgets to TokenFuse, plan and apply, fingerprint-bound",
+          "why": "as above"
+        },
+        "the_only_thing_here_that_changes_another_system": {
+          "value": true,
+          "why": "it makes an HTTP call that changes the number a gateway uses to decide whether to refuse a call. The console never invokes it; that separation is the reason `enforces_nothing` above is true, and it is a fact about which package imports which rather than one a manifest can prove."
+        }
+      }
+    },
+    {
+      "name": "costcrew-idryxsource",
+      "class": "tool",
+      "checked": {
+        "package": "github.com/TAIPANBOX/costcrew/tools/idryxsource"
+      },
+      "declared": {
+        "role": {
+          "value": "writes the `agents` source idryx asks for, so this console's crew appears in the identity graph",
+          "why": "as above"
+        }
+      }
+    },
+    {
+      "name": "costcrew-parity",
+      "class": "tool",
+      "checked": {
+        "package": "github.com/TAIPANBOX/costcrew/tools/parity"
+      },
+      "declared": {
+        "role": {
+          "value": "the parity gate against the captured golden surface",
+          "why": "as above"
+        }
+      }
+    },
+    {
+      "name": "costcrew-recon",
+      "class": "tool",
+      "checked": {
+        "package": "github.com/TAIPANBOX/costcrew/tools/recon"
+      },
+      "declared": {
+        "role": {
+          "value": "reads a cloud account read-only and reports what it found",
+          "why": "as above"
+        }
+      }
+    },
+    {
+      "name": "costcrew-run",
+      "class": "tool",
+      "checked": {
+        "package": "github.com/TAIPANBOX/costcrew/tools/run"
+      },
+      "declared": {
+        "role": {
+          "value": "runs the crew against the open board, live, against a real model provider",
+          "why": "as above"
+        },
+        "spends_real_money": {
+          "value": true,
+          "why": "it calls a paid provider with a key the operator supplies. Nothing in the source distinguishes a paid endpoint from a free one, and a manifest that claimed to know would be guessing about somebody else's billing."
+        }
+      }
+    },
+    {
+      "name": "costcrew-stack",
+      "class": "tool",
+      "checked": {
+        "package": "github.com/TAIPANBOX/costcrew/tools/stack"
+      },
+      "declared": {
+        "role": {
+          "value": "writes agent-events onto the shared bus from outside the console",
+          "why": "as above"
+        },
+        "bypasses_the_translation": {
+          "value": true,
+          "why": "it builds the envelope itself rather than going through internal/stack, so the two-row vocabulary table does not apply to it and its emitted type set is whatever a caller passes. A deployment feeding the bus from here rather than from the console is emitting types nothing registered."
+        }
+      }
+    }
+  ]
+}

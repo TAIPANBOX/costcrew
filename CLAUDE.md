@@ -17,12 +17,42 @@ does not prove).
 Single static binary, pure-Go SQLite (`modernc.org/sqlite`), no build step, no
 runtime to install, no network. Money is integer cents everywhere.
 
+## What this repository contributes, declared and proved
+
+`components.json` at the root, and `internal/manifest` proves it. Same two
+buckets as TAIPANBOX/vouchryx, where the shape was worked out, and the same
+reason for being here rather than in estate-gates: the only thing that knows
+which binaries a repository builds is the repository, so a component that was
+FORGOTTEN is invisible from outside by construction.
+
+Seven binaries and six of them are tools no deployment installs, which is
+exactly why the estate's own registry could not be the place this is written.
+
+**This one is configured by FLAGS**, unlike its neighbours. The two environment
+variables it reads are not how a deployment wires it, so `checked.flags` is the
+field that carries the surface.
+
+**A `declared` entry with no `why` is refused.** Four of them here say things no
+check can: that this console enforces nothing, that the event file NAME is the
+integration because genaryx keys a read offset off the stem, that the whole
+integration is off unless `-stack-events` is given, and that `-stack-passports`
+and `-stack-owner` are a PAIR the console refuses to start without both of.
+That last one was found by TAIPANBOX/stack-up starting it, not by reading it: a
+dependency BETWEEN two flags is invisible to a reader of `flag.String` call
+sites.
+
+**The health check does not follow redirects, and that is the whole of whether
+it checks anything.** Every guarded route here answers 303 to `/login`, and
+`/login` is public and returns 200, so a following client turns "you may not be
+here" into agreement. Measured: with `http.Get`, declaring `/board` as the
+health path passed.
+
 ## Gates
 
 ```sh
-go test ./...                        # 255 tests, 15 packages
+go test ./...                        # 261 tests, 16 packages
 ./scripts/gates-have-teeth.sh        # 45 cases; needs a clean tree; ~60s
-./scripts/features-are-bound.sh      # 47 scenarios, both directions
+./scripts/features-are-bound.sh      # 49 scenarios, both directions
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 ```
