@@ -31,3 +31,20 @@ Feature: What this console puts on the shared bus is something the estate can re
     When it is compared with every emit call site, translations applied
     Then the two are exactly equal, and a kind built rather than written that
       nothing can resolve is a failure rather than a silent omission
+
+  # @test:TestEveryBinaryThisRepositoryBuildsIsDeclaredAndTheReverse
+  Scenario: What this repository contributes is declared here and cannot go stale
+    Given components.json at the root
+    When it is compared with every binary the module builds and every flag the
+      console defines
+    Then the sets are equal in both directions, because the only thing that
+      knows what this repository builds is this repository
+
+  # @test:TestTheConsoleAnswersItsDeclaredHealthPathWithNoCredential
+  Scenario: The declared health path answers a caller holding nothing
+    Given the console started with only the flags the declaration names
+    When the declared health path is fetched with no session and redirects are
+      not followed
+    Then it answers 200, because a launcher polls it and a launcher holds no
+      session, and a probe that followed a redirect would read a login page as
+      health
