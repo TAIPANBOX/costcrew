@@ -235,7 +235,7 @@ run_case $'rights vocabulary: an explanation for a right nothing grants' \
 	./internal/web \
 	$'TestNoExplanationOutlivesItsRight' \
 	$'can no longer' \
-	internal/web/agent360.go \
+	internal/web/analyst.go \
 	$'var rightMeans = map[string]string{' \
 	$'var rightMeans = map[string]string{\n\t"ghost-right": "a power no agent has",'
 run_case $'session guard: a download route loses its guard' \
@@ -583,7 +583,7 @@ run_case $'rights vocabulary: a right added with its explanation' \
 	internal/crew/roster.go \
 	$'"export-data", "kpi-registry",' \
 	$'"export-data", "kpi-registry", "ledger-read",' \
-	internal/web/agent360.go \
+	internal/web/analyst.go \
 	$'var rightMeans = map[string]string{' \
 	$'var rightMeans = map[string]string{\n\t"ledger-read": "read the charge ledger as it was billed",'
 run_case $'owners: a desk moved to a different person' \
