@@ -1,0 +1,159 @@
+<div align="center">
+
+# costcrew - FinOps, staffed by agents
+
+**A crew of agents takes your bill apart. A person stamps every line before it counts.**
+
+[![CI](https://github.com/TAIPANBOX/costcrew/actions/workflows/ci.yml/badge.svg)](https://github.com/TAIPANBOX/costcrew/actions/workflows/ci.yml)
+![Go](https://img.shields.io/badge/go-1.27-00ADD8.svg)
+![tests](https://img.shields.io/badge/tests-261-brightgreen.svg)
+![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)
+![Status](https://img.shields.io/badge/enforces-nothing%20by%20design-success.svg)
+
+<img src="docs/architecture.png" alt="costcrew architecture: cloud, SaaS and model bills arrive through connectors, a two-sided detector ranks findings by money, a named analyst works one under a spend guard, a person stamps the draft, and what is posted becomes allocation, a closed period and a general ledger export" width="960">
+
+</div>
+
+costcrew is a FinOps console in which a crew of agents does the analysis and a
+person reviews it. Analysts are hired into desks with a mission, an owner, rights
+that follow from their skills and a monthly guard. They triage anomalies, write
+variance commentary, propose rightsizing, draft explainers and freeze forecasts.
+Every deliverable arrives as a draft, and only a person's stamp publishes it.
+
+One static binary over pure-Go SQLite. No interpreter, no second database engine
+in the process, and **zero JavaScript** in the web UI.
+
+<div align="center">
+
+<img src="docs/refusals.png" alt="costcrew refuses three things: it enforces nothing, it calls money found rather than saved, and a KPI that cannot be computed refuses by name instead of reporting a figure" width="960">
+
+<sub>The same service as its room on <a href="https://it-rat.com/services/costcrew.html">it-rat.com</a> draws it, where twelve frames of the running console sit beside this.</sub>
+
+</div>
+
+---
+
+## Where this fits in the stack
+
+CostCrew is the finops plane: it reads the bills the other planes never see, and
+it is the one plane in the stack that deliberately cannot stop anything.
+
+```mermaid
+flowchart TB
+  Agent["AI agent (any framework)"] -->|"LLM call (base-URL swap)"| TF["TokenFuse proxy: spend + enforcement"]
+  TF -->|"POST /v1/decide (PEP)"| WX["Wardryx: policy PDP"]
+  WX -.->|"allow / deny / hold"| TF
+  TF -->|"cheapest model, budget OK"| LLM[("LLM provider")]
+  TF -->|"CallRecords"| CL["TokenFuse Cloud: control plane, incidents, replay, evidence, kill-switch"]
+  TF ==>|"agent-event NDJSON"| BUS{{"agent-event bus + Agent Passport"}}
+  WX ==> BUS
+  ENG["Engram: memory"] -->|"reflect via base_url"| TF
+  ENG ==> BUS
+  BUS ==> IDX["Idryx: identity graph, detectors, Agent-BOM"]
+  BUS ==> QX["Qryx: crypto / PQC, passport + hash-chain scan"]
+  BUS ==> VX["Verdryx: quality / drift"]
+  VX ==>|"quality events"| BUS
+  TF -->|"outcome-tagged traces"| VX
+  MX["Mockryx: pre-prod safety rehearsal"] -->|"hostile scenarios"| TF
+  MX ==>|"sim events"| BUS
+  CC["CostCrew: the bill, worked by a crew of agents"] ==> BUS
+  BUS ==> HX["heraldyx: reads the log, mails you"]
+  HX -->|"one mail, a view and never an action"| OPS["your mailbox"]
+  YOU(["you, in a browser over your own tunnel"]) --> GX[["Genaryx: the console over all of it"]]
+  GX -->|"signed commands: the kill, an approval, a policy"| CL
+  GX -->|"signed commands"| WX
+  GX -.->|"reads it"| IDX
+  GX -.->|"reads it"| QX
+  GX -.->|"reads it"| VX
+  GX -.->|"reads it"| MX
+  GX -.->|"reads it"| ENG
+  TFP["terraform-provider-taipan"] -->|"budgets + passports as code"| CL
+  ASG[["agent-stack-go: shared Go contract"]] -.->|imported by| IDX
+  ASG -.->|imported by| WX
+  ASG -.->|imported by| MX
+  ASG -.->|imported by| TFP
+  ASG -.->|imported by| HX
+  ASG -.->|imported by| QX
+  SPEC[["agent-passport: the spec"]] -.->|governs| BUS
+```
+
+- **Consumes**: billing exports and vendor usage APIs, never another service's
+  store. Ten connectors: AWS Data Exports (FOCUS 1.2), Cost Explorer, GCP
+  BigQuery billing export, Azure Cost Management, Kubecost, OpenCost, Anthropic
+  and OpenRouter usage, Compute Optimizer, SaaS seats. Seven built, three
+  documented, and every entry declares whether running it is metered per call.
+- **Produces**: fifteen event types on the shared agent-event bus, registered in
+  `agent-passport` SPEC 6.2 under the source `costcrew`, schema v0.2.
+- **Enforces**: nothing. `enforced: false` is stamped on every event, the console
+  makes no outbound call while serving a page, and `internal/enforce` is a
+  separate binary it never imports.
+
+## The three rules that make the numbers usable
+
+**It enforces nothing, by design.** An analyst that executes its own conclusions
+is no longer an analyst. Stopping a runaway is TokenFuse's job, ending an
+authority is Vouchryx's, and the console over both is Genaryx.
+
+**Money is found, never saved.** Nothing is saved until somebody acts and the
+invoice changes. The seeded estate is blunt about what that means: the crew has
+found 1,254.35 and cost 3,871.35 across 310 tasks, and the Results page prints
+the ratio without softening it.
+
+**A measure may refuse.** The KPI library reports nine numbers and refuses three,
+each refusal naming what is missing. A library where everything reports a number
+is one where several of them are invented. The refusal it will not talk around is
+per-agent AI spend: a charge carries a model and a workload, never an agent, and
+that becomes answerable only when the calls go through TokenFuse with an agent id.
+
+## The detector
+
+A median with a robust deviation rather than a mean, so last month's spike does
+not raise the bar for this month. Two-sided, because a feed that stopped
+delivering and a workload switched off unnoticed both look exactly like a drop.
+A Sunday is judged against Sundays. And findings are ranked by **money**, because
+a four sigma deviation worth three dollars is real, true, and not worth anybody's
+morning.
+
+## Run it
+
+```sh
+go install github.com/TAIPANBOX/costcrew/cmd/costcrew@latest
+costcrew -data ./local
+```
+
+It listens on `127.0.0.1:8321` and expects a proxy in front of it for TLS. The
+first account created at `/signup` becomes the admin of that installation, so
+make one before you hand anybody the address.
+
+Inside the stack, `./up.sh --with-finops` from
+[stack-up](https://github.com/TAIPANBOX/stack-up) brings it up wired to the
+shared bus. Two flags carry the whole integration: `-stack-events` names the
+NDJSON file, and the name IS the integration because genaryx keys a read offset
+off the stem; `-stack-host` sets the `agent://` authority.
+
+## Gates
+
+```sh
+go test ./...                        # 261 tests, 16 packages
+./scripts/features-are-bound.sh      # every scenario bound to a named test, both ways
+./scripts/gates-have-teeth.sh        # 45 cases: each gate is made to fail on purpose
+gofmt -l . && go vet ./...
+```
+
+The teeth harness is the one worth knowing about. It plants each gate's own fault
+and requires the failure, requires the gate NOT to fire on a non-fault, and
+requires it to say it measured nothing rather than reporting OK when its subject
+has been taken away.
+
+## Status
+
+- [x] Rewritten in Go, the Python original deleted 2026-08-25
+- [x] Registered producer on the shared bus, fifteen types in SPEC 6.2
+- [x] Installed by `stack-up --with-finops`
+- [x] Live agents: `tools/run -live` prices the worst case before every call
+- [ ] Per-agent attribution of AI spend, which needs TokenFuse in the path
+- [ ] A console route that starts a crew run; today that is a CLI
+
+## Licence
+
+Apache-2.0, like the rest of the stack. See [LICENSE](./LICENSE).
