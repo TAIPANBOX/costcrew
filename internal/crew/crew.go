@@ -10,12 +10,14 @@ package crew
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/TAIPANBOX/costcrew/internal/money"
+	"github.com/TAIPANBOX/costcrew/internal/world"
 )
 
 // TaskState is where a piece of work has got to.
@@ -378,9 +380,46 @@ func Assign(db *sql.DB, id int, analyst string) error {
 	if t.State == Posted {
 		return ErrSettled
 	}
+	if err := AssignableTo(db, analyst); err != nil {
+		return err
+	}
 	_, err = db.Exec(`UPDATE tasks SET assignee=?, state=?, reason=NULL, updated=? WHERE id=?`,
 		analyst, string(Active), stamp(), id)
 	return err
+}
+
+// ErrSuspended is returned when work is handed to an analyst whose mandate has
+// been withdrawn.
+var ErrSuspended = errors.New("this analyst is suspended")
+
+// AssignableTo refuses to hand new work to a suspended analyst.
+//
+// The task page builds its dropdown from ActiveNames, so nobody clicking
+// through the console can pick a suspended name. That is the UI, and the UI is
+// not the rule: this function is, and without it a form post carrying a name
+// the dropdown never offered put the task on the board anyway.
+//
+// It refuses suspension and nothing else, deliberately. Suspension is the one
+// state where RightsFor hands back nothing at all and the live runner refuses
+// to price the task, so those three agree on one meaning: the mandate is
+// withdrawn. Probation, restricted and onboarding are narrower authority, not
+// withdrawn authority, and an analyst on probation that could be given no work
+// could never come off it.
+func AssignableTo(db *sql.DB, analyst string) error {
+	if strings.TrimSpace(analyst) == "" {
+		return nil // unassigning is not an assignment
+	}
+	var state string
+	err := db.QueryRow(`SELECT state FROM analysts WHERE name=?`, analyst).Scan(&state)
+	switch {
+	case err == sql.ErrNoRows:
+		return fmt.Errorf("no such analyst: %q", analyst)
+	case err != nil:
+		return err
+	case state == string(world.Suspended):
+		return fmt.Errorf("%w: %s", ErrSuspended, analyst)
+	}
+	return nil
 }
 
 // Block stops a task, and insists on why. A blocked task with no reason is
