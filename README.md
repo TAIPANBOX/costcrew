@@ -31,6 +31,14 @@ in the process, and **zero JavaScript** in the web UI.
 
 </div>
 
+<div align="center">
+
+<img src="assets/diagram.svg" alt="CostCrew end to end: charges arrive from cloud, SaaS and model connectors, a two-sided detector opens a finding with its rule, an analyst with a named desk and a spend ceiling drafts a fix, a person stamps it or returns it to the card, and the period closes into allocation and a general ledger CSV" width="960">
+
+<sub>The same service as its room on <a href="https://it-rat.com/services/costcrew.html">it-rat.com</a> draws it, lifted from that page so the two cannot drift apart.</sub>
+
+</div>
+
 ---
 
 ## Where this fits in the stack
