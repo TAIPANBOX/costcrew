@@ -512,7 +512,15 @@ func (s *Server) anomalyAction(kind string) http.HandlerFunc {
 		var err error
 		switch kind {
 		case "assign":
-			err = anomaly.Assign(s.db, id, r.PostFormValue("analyst"), s.rec)
+			// The roster's rule, applied where the operator's post arrives.
+			// anomaly.Assign cannot ask it: the analysts table belongs to the
+			// crew package and a store without a roster is a legitimate state
+			// for the anomaly plane, so the check lives here, next to the only
+			// caller that is a person clicking a button.
+			who := r.PostFormValue("analyst")
+			if err = crew.AssignableTo(s.db, who); err == nil {
+				err = anomaly.Assign(s.db, id, who, s.rec)
+			}
 		case "explain":
 			err = anomaly.Explain(s.db, id, r.PostFormValue("reason"), s.rec)
 		case "dismiss":
