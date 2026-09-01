@@ -97,6 +97,19 @@ func translate(kind string, data map[string]any) (string, map[string]any) {
 // which rules out reusing an agent:// URI, and is why this is built rather
 // than borrowed.
 func runOf(kind string, data map[string]any) string {
+	// A caller that KNOWS its run says so, and that holds for every kind
+	// rather than only the renamed ones.
+	//
+	// The crew runner is the first caller with a run of its own: one
+	// invocation of `costcrew-run` is one execution of an agent, which is
+	// exactly what the contract means by a run, and every tool_call it makes
+	// belongs to that one. Before this, a kind the estate already had a word
+	// for fell through to "" and the record plane refused it as no_run_id,
+	// which is how the half of this console that spends money reached the
+	// record plane as silence.
+	if id, ok := data["run"].(string); ok && id != "" {
+		return clampRun(id)
+	}
 	if _, mapped := shared[kind]; !mapped {
 		return ""
 	}

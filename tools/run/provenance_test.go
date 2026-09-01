@@ -21,7 +21,7 @@ func TestARunnerDeliverableIsMarkedLive(t *testing.T) {
 	e := estimate{Task: task, Analyst: analyst}
 	res := callResult{Text: "the deliverable", InTokens: 100, OutTokens: 200,
 		ActualMicros: 12_345}
-	if err := saveDraft(db, e, res); err != nil {
+	if err := saveDraft(db, e, res, bus{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -52,7 +52,7 @@ func TestASubCentCallStillLandsOnTheTask(t *testing.T) {
 	before := spentOn(t, db, tasks[0].ID)
 
 	if err := saveDraft(db, estimate{Task: tasks[0], Analyst: analyst},
-		callResult{Text: "x", ActualMicros: 1_234}); err != nil {
+		callResult{Text: "x", ActualMicros: 1_234}, bus{}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := crew.SettleLiveSpend(db); err != nil {
@@ -83,7 +83,7 @@ func TestTheLedgerDoesNotOverstateManySmallCalls(t *testing.T) {
 
 	for _, task := range tasks {
 		if err := saveDraft(db, estimate{Task: task, Analyst: analyst},
-			callResult{Text: "x", ActualMicros: each}); err != nil {
+			callResult{Text: "x", ActualMicros: each}, bus{}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -110,7 +110,7 @@ func TestSettlingTheSameRunTwiceChangesNothing(t *testing.T) {
 	db, tasks, analyst := runnerTasks(t, 7)
 	for _, task := range tasks {
 		if err := saveDraft(db, estimate{Task: task, Analyst: analyst},
-			callResult{Text: "x", ActualMicros: 7_777}); err != nil {
+			callResult{Text: "x", ActualMicros: 7_777}, bus{}); err != nil {
 			t.Fatal(err)
 		}
 	}

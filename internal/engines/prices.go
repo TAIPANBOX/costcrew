@@ -71,6 +71,38 @@ var prices = map[string]Price{
 		InPerM: 3.00, OutPerM: 15.00,
 		Recorded: "2026-08-24", Source: "@measured, GET openrouter.ai/api/v1/models",
 	},
+	// Bedrock, eu-central-1, ON-DEMAND. Read from AWS's own price list, not
+	// from a page: `aws pricing get-products --service-code AmazonBedrock
+	// --filters model=<name> regionCode=eu-central-1`, taking the rows whose
+	// feature is "On-demand Inference".
+	//
+	// Two things that are easy to get wrong and were both nearly got wrong
+	// here. The unit is 1K TOKENS, not one token and not a million, so the
+	// figure needs multiplying by a thousand and multiplying it by a million
+	// produces a price a thousand times too high, which is safe but absurd.
+	// And every model returns TWO on-demand-looking rows exactly half apart:
+	// the cheaper is "Batch Inference", which this engine does not use. Taking
+	// the cheaper one would put the bound at half the real price, and low is
+	// the direction that costs money.
+	//
+	// The region is in the number. These are eu-central-1 and they are higher
+	// than us-east-1: a price table keyed only by model is a price table that
+	// is wrong for somebody.
+	"bedrock/eu.amazon.nova-micro-v1:0": {
+		InPerM: 0.046, OutPerM: 0.184,
+		Recorded: "2026-09-01",
+		Source:   "@measured, aws pricing get-products, AmazonBedrock, eu-central-1, on-demand",
+	},
+	"bedrock/eu.amazon.nova-lite-v1:0": {
+		InPerM: 0.078, OutPerM: 0.312,
+		Recorded: "2026-09-01",
+		Source:   "@measured, aws pricing get-products, AmazonBedrock, eu-central-1, on-demand",
+	},
+	"bedrock/eu.amazon.nova-pro-v1:0": {
+		InPerM: 1.05, OutPerM: 4.20,
+		Recorded: "2026-09-01",
+		Source:   "@measured, aws pricing get-products, AmazonBedrock, eu-central-1, on-demand",
+	},
 }
 
 // PriceFor returns what one model costs, and whether a price is known at all.
@@ -135,7 +167,14 @@ func DefaultModel(engine string) string {
 func Metered(engine string) (metered, known bool) {
 	for _, e := range Catalogue {
 		if e.ID == engine {
-			return e.EnvVar != "", true
+			// Stated on the engine, not inferred from whether it holds a key.
+			//
+			// `e.EnvVar != ""` was the test until 2026-09-01 and it was right
+			// by accident: every metered engine here happened to take its
+			// credential from one variable. Bedrock bills per token and takes
+			// none, so the inference read it as a subscription, which is the
+			// reading this function's second return value exists to prevent.
+			return e.Metered, true
 		}
 	}
 	return false, false

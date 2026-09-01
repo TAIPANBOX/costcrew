@@ -145,3 +145,53 @@ Feature: A deliverable says whether a person's money bought it
     Then it counts the whole string the model will receive, not the pieces it
       is built from, because the promise made is one token per byte and a
       promise that covers two thirds of the string is not that promise
+
+  @yurii 2026-09-01
+  """
+  в мене задача, щоб ми могли встановлювати наші сервіси як на CostCrew, так і
+  на довільні агенти, які вже працюють в клієнта, наприклад, на AWS Bedrock, на
+  GCP, і на інші.
+  """
+
+  @yurii 2026-09-01
+  """
+  продумай, як так зробити, щоб не збирати кожен раз під різні платформи, під
+  різні інфраструктури.
+  """
+
+  # @test:TestAnEngineWithNoEnvVarCanStillBeMetered
+  Scenario: An engine that holds no key can still spend money
+    Given an engine billed to a cloud account rather than to a model vendor
+    When the estimator asks whether a call on it costs new money
+    Then it says yes, because reading it as a subscription is reading it as
+      already paid for, and the estimator then bounds nothing at all
+
+  # @test:TestASubscriptionStillReadsAsOne
+  Scenario: And a subscription still reads as one
+    Given the two engines that come out of something already paid for
+    When the same question is asked of them
+    Then they say no, because a bound that refuses a subscription call for
+      costing nothing refuses the engine most people actually use
+
+  # @test:TestBedrockModelsCarryPrices
+  Scenario: Every model this engine offers has a price somebody measured
+    Given the models the Bedrock engine offers at hire time
+    When each is looked up in the price table
+    Then all of them are priced, because the estimator refuses a model it
+      cannot price and an engine whose models have no prices is one nobody can
+      be hired onto
+
+  # @test:TestBedrockHasACaller
+  Scenario: An analyst hired onto Bedrock can actually be run
+    Given an analyst whose engine is bedrock
+    When the runner routes its call
+    Then a caller exists, because otherwise the hire form offers a choice that
+      fails at the moment of the call rather than at the moment of hiring
+
+  # @test:TestBedrockAsksWithTheSharedConverseShape
+  Scenario: One request shape serves every vendor on that cloud
+    Given a call to a model on Bedrock
+    When the request is built
+    Then it is the shared Converse shape carrying the output cap the run
+      reserved, because on the per-vendor API each vendor needs its own body
+      builder and its own parser, and adding a vendor then costs a pair of them

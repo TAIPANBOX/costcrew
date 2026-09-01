@@ -48,3 +48,52 @@ Feature: What this console puts on the shared bus is something the estate can re
     Then it answers 200, because a launcher polls it and a launcher holds no
       session, and a probe that followed a redirect would read a login page as
       health
+
+  @measured 2026-09-01, a live GCP cluster, `kubectl -n agent-stack logs job/crew-1`
+  """
+  A crew run made 42 model calls costing USD 0.2485 and the bus carried 26
+  lines, every one of them written by the CONSOLE at startup and none by the
+  run. The half of this console that spends real money was the half the record
+  plane could not see. docs/live-agents.md had named this as step 5 of the
+  executor; it was the step that was not built.
+  """
+
+  # @test:TestALiveCallReachesTheSharedBus
+  Scenario: A call somebody paid for is on the record
+    Given a runner with a bus and a trust domain
+    When it records what came back from a live call
+    Then the bus carries a tool_call for that analyst, with the tokens, the
+      engine and what it cost, because what a call cost is the only reason a
+      finops plane emits one at all
+
+  # @test:TestEveryCallInOneInvocationSharesTheRunID
+  Scenario: One invocation is one run
+    Given three calls made by one invocation of the runner
+    When their events reach the bus
+    Then all three carry the same run id, because the record plane shards and
+      indexes by run and a query would otherwise answer with one row where the
+      answer is three
+
+  # @test:TestARunWithNoBusStillSavesItsDeliverable
+  Scenario: A runner with no bus configured still does its work
+    Given a runner nobody pointed at a bus
+    When it records a call
+    Then the deliverable and the money are written anyway, because the estate
+      integration is off by default and making it mandatory is the opposite of
+      what this contract is
+
+  # @test:TestTheRunnerOpensARealBusFromItsFlags
+  Scenario: The runner builds its own bus, not one a test handed it
+    Given the runner's own flags for the events file and the trust domain
+    When it opens the bus
+    Then it holds a live emitter minting under the domain it was given, because
+      every other scenario here proves what happens once a bus arrives and none
+      of them can see whether the binary ever makes one
+
+  # @test:TestABusWithNoTrustDomainIsRefusedRatherThanDefaulted
+  Scenario: A bus with no trust domain is refused before anything is spent
+    Given an events file and no trust domain
+    When the runner opens the bus
+    Then it refuses, because an event minted under a domain the record plane
+      was not given is refused as foreign and counted, and on a live cluster a
+      whole namespace of events read as a quiet night that way

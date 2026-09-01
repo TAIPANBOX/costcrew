@@ -35,6 +35,12 @@ func main() {
 	live := flag.Bool("live", false, "actually make the calls; needs -ceiling and spends real money")
 	only := flag.Int("only", 0, "with -live, run this one task id and stop")
 	engine := flag.String("engine", "", "only tasks whose analyst was hired with this engine")
+	// The estate integration, off unless pointed somewhere, exactly as the
+	// console's own is. The file NAME is the integration: genaryx keys each
+	// source's read offset off the stem, so this has to be costcrew.ndjson and
+	// nothing else, and it is the same file the console appends to.
+	events := flag.String("stack-events", "", "append agent-events to this NDJSON file; empty means off")
+	host := flag.String("stack-host", "", "the agent:// authority for this installation; must match the console's")
 	flag.Parse()
 
 	if *showPrices {
@@ -45,7 +51,7 @@ func main() {
 		return
 	}
 
-	if err := run(*dir, *ceiling, *maxTok, *sprint, *live, *only, *engine); err != nil {
+	if err := run(*dir, *ceiling, *maxTok, *sprint, *live, *only, *engine, *events, *host); err != nil {
 		fmt.Fprintln(os.Stderr, "run:", err)
 		os.Exit(1)
 	}
@@ -75,13 +81,22 @@ type estimate struct {
 	Refused bool
 }
 
-func run(dir, ceiling string, maxTok, sprint int, live bool, only int, engine string) error {
+func run(dir, ceiling string, maxTok, sprint int, live bool, only int, engine, events, host string) error {
 	st, err := store.Open(dir)
 	if err != nil {
 		return err
 	}
 	defer st.Close()
 	db := st.DB()
+
+	// The bus this run reports to. Opened here rather than inside the
+	// spending path so that a run which cannot open it fails BEFORE it
+	// spends anything, rather than after.
+	b, err := openBus(events, host)
+	if err != nil {
+		return err
+	}
+	defer b.close()
 
 	var cap money.Cents
 	hasCap := false
@@ -128,7 +143,7 @@ func run(dir, ceiling string, maxTok, sprint int, live bool, only int, engine st
 		return fmt.Errorf("-live needs -ceiling: a run that can spend has to be " +
 			"bounded by a figure somebody typed")
 	}
-	return spend(db, ests, maxTok, cap, only)
+	return spend(db, ests, maxTok, cap, only, b)
 }
 
 // price puts a worst case on one task.
