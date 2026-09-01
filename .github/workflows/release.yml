@@ -35,6 +35,25 @@ jobs:
       # with this repository's GITHUB_TOKEN.
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
+      # The owner, lowercased, and this is not cosmetic. A registry repository
+      # name MUST be lowercase, `github.repository_owner` is whatever the
+      # organisation is actually called, and this one is TAIPANBOX. The first
+      # tag this workflow ever saw failed on exactly that:
+      #
+      #     invalid tag "ghcr.io/TAIPANBOX/costcrew:v0.1.0":
+      #     repository name must be lowercase
+      #
+      # tokenfuse's release does not hit it because it goes through
+      # docker/metadata-action, which lowercases on the way past; this one talks
+      # to buildx directly, so it has to do it itself. Done here rather than by
+      # hardcoding the owner, so a fork publishes to its own namespace instead
+      # of failing on somebody else's permissions.
+      - name: lowercase the owner
+        id: owner
+        run: echo "name=${OWNER,,}" >> "$GITHUB_OUTPUT"
+        env:
+          OWNER: ${{ github.repository_owner }}
+
       - uses: docker/setup-buildx-action@c47758b77c9736f4b2ef4073d4d51994fabfe349 # v3.7.1
 
       - name: log in to ghcr
@@ -56,7 +75,7 @@ jobs:
           file: Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/costcrew:${{ github.ref_name }}
+          tags: ghcr.io/${{ steps.owner.outputs.name }}/costcrew:${{ github.ref_name }}
           labels: |
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.version=${{ github.ref_name }}
@@ -68,6 +87,6 @@ jobs:
       # only by pulling it.
       - name: say what was published
         run: |
-          echo "published ghcr.io/${{ github.repository_owner }}/costcrew:${{ github.ref_name }}"
+          echo "published ghcr.io/${{ steps.owner.outputs.name }}/costcrew:${{ github.ref_name }}"
           docker buildx imagetools inspect \
-            "ghcr.io/${{ github.repository_owner }}/costcrew:${{ github.ref_name }}"
+            "ghcr.io/${{ steps.owner.outputs.name }}/costcrew:${{ github.ref_name }}"
