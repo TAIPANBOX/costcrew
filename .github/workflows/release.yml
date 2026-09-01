@@ -1,0 +1,73 @@
+name: release
+
+# Publish the image to GitHub Container Registry, so that running this console
+# does not mean building it.
+#
+#   ghcr.io/<owner>/costcrew:<tag>
+#
+# WHY THIS EXISTS, measured rather than assumed. On 2026-09-01 stack-k8s built
+# this repository on a cluster node on every deploy that asked for the finops
+# plane, and the console beside it took ten to fifteen minutes of that install
+# for a four-language build whose source had not changed. Five of the estate's
+# Go planes are pulled from ghcr.io and built by nobody; this is the same move
+# for this one.
+#
+# Tags only, never a branch and never `latest`: an image tag that moves makes a
+# pod that comes back different after a restart nobody ran, and a rollback then
+# has nowhere to go. workflow_dispatch is here for a re-publish of an existing
+# tag, which is the one case a manual run is honest.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  image:
+    name: build + push
+    runs-on: ubuntu-24.04
+    steps:
+      # Pinned by SHA rather than by tag, matching ci.yml in this repository. A
+      # tag on somebody else's action is a mutable reference to code that runs
+      # with this repository's GITHUB_TOKEN.
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - uses: docker/setup-buildx-action@c47758b77c9736f4b2ef4073d4d51994fabfe349 # v3.7.1
+
+      - name: log in to ghcr
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Both architectures under one manifest, so the same pinned tag works on
+      # a Graviton node and an amd64 one and nobody has to know which they got.
+      # It is nearly free here: the Dockerfile cross-compiles from BUILDPLATFORM
+      # rather than running an amd64 toolchain under QEMU, which is what makes
+      # a Go multi-arch build cost seconds instead of minutes.
+      - name: build and push
+        uses: docker/build-push-action@48aba3b46d1b1fec4febb7c5d0c644b249a11355 # v6.10.0
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/costcrew:${{ github.ref_name }}
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ github.ref_name }}
+          cache-from: type=gha,scope=costcrew
+          cache-to: type=gha,mode=max,scope=costcrew
+
+      # What was published, said in the run's own log. A workflow that pushes an
+      # image and prints nothing leaves "which digest is this tag" answerable
+      # only by pulling it.
+      - name: say what was published
+        run: |
+          echo "published ghcr.io/${{ github.repository_owner }}/costcrew:${{ github.ref_name }}"
+          docker buildx imagetools inspect \
+            "ghcr.io/${{ github.repository_owner }}/costcrew:${{ github.ref_name }}"
