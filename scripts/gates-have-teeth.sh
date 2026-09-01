@@ -595,6 +595,21 @@ run_case $'owners: a desk moved to a different person' \
 	$'"azure":  "j.ashby",' \
 	$'"azure":  "j.calder",'
 
+# The flag with money behind it. `-live` refuses to run without `-ceiling`, and
+# stack-k8s hands that ceiling in by `$(COSTCREW_CEILING)` substitution, so the
+# only thing standing between a crew and a provider account is a figure this
+# manifest has to keep declaring. Until 2026-09-01 the flag test read the
+# console alone and this component declared no flags at all, which is how
+# estate-gates saw the variable arrive from outside with no reader anywhere.
+run_case $'the runner\'s ceiling stops being declared' \
+	fail \
+	./internal/manifest \
+	$'TestEveryFlagEveryBinaryDefinesIsDeclaredAndTheReverse' \
+	$'costcrew-run defines -ceiling' \
+	components.json \
+	$'"ceiling": {\n            "required": false\n          },\n          ' \
+	$''
+
 echo
 echo "=== subject taken away: a gate must not report success at doing nothing ==="
 
