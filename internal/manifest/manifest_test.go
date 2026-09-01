@@ -115,30 +115,70 @@ func TestEveryBinaryThisRepositoryBuildsIsDeclaredAndTheReverse(t *testing.T) {
 }
 
 // The console's flag surface, which is how a deployment configures it.
-func TestEveryFlagTheConsoleDefinesIsDeclaredAndTheReverse(t *testing.T) {
+// Every binary's flag surface, which is how a deployment configures each of
+// them, and NOT only the console's.
+//
+// It was only the console's until 2026-09-01, and the cost of that was found
+// from outside: stack-k8s passes `-ceiling "$(COSTCREW_CEILING)"` to
+// `costcrew-run`, the flag exists at tools/run/main.go, and this manifest
+// declared no flags for that component at all. estate-gates' C16 saw an
+// environment variable handed to a process with nothing in the estate
+// declaring a reader, because the reader is a FLAG and the value reaches it by
+// `$(VAR)` substitution, which no source-reading check can follow.
+//
+// The flag it could not see is the one with money behind it: `-live` refuses
+// to run without `-ceiling`, and the ceiling is the only figure standing
+// between a crew of agents and a provider account.
+//
+// The source directory comes from the DECLARED package path rather than from a
+// list here. A tool added to tools/ and forgotten in components.json is already
+// caught by the binary test above; this one must not need a second edit to
+// cover it.
+func TestEveryFlagEveryBinaryDefinesIsDeclaredAndTheReverse(t *testing.T) {
 	m, r := load(t)
-	b, err := os.ReadFile(filepath.Join(r, "cmd", "costcrew", "main.go"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defined := map[string]bool{}
-	for _, mm := range regexp.MustCompile(`flag\.(?:String|Int|Bool|Duration)\("([a-z-]+)"`).
-		FindAllStringSubmatch(string(b), -1) {
-		defined[mm[1]] = true
-	}
-	if len(defined) == 0 {
-		t.Fatal("no flag was found in cmd/costcrew/main.go, so this test measured nothing")
-	}
-	var svc = m.Components[0]
-	for f := range defined {
-		if _, ok := svc.Checked.Flags[f]; !ok {
-			t.Errorf("the console defines -%s and components.json does not declare it", f)
+	const mod = "github.com/TAIPANBOX/costcrew/"
+	re := regexp.MustCompile(`flag\.(?:String|Int|Bool|Duration|Float64)\("([a-z-]+)"`)
+
+	measured := 0
+	for _, c := range m.Components {
+		pkg := c.Checked.Package
+		if !strings.HasPrefix(pkg, mod) {
+			t.Errorf("%s declares package %q, which is outside this module, so its flags cannot be read", c.Name, pkg)
+			continue
+		}
+		dir := filepath.Join(r, filepath.FromSlash(strings.TrimPrefix(pkg, mod)))
+		entries, err := filepath.Glob(filepath.Join(dir, "*.go"))
+		if err != nil || len(entries) == 0 {
+			// Not "this binary has no flags". This is "nothing was read", and
+			// the two must never render the same, which is the whole reason
+			// the console's version of this test carried a Fatal.
+			t.Errorf("%s: no .go file under %s, so this measured NOTHING about its flags", c.Name, dir)
+			continue
+		}
+		defined := map[string]bool{}
+		for _, f := range entries {
+			b, err := os.ReadFile(f)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, mm := range re.FindAllStringSubmatch(string(b), -1) {
+				defined[mm[1]] = true
+			}
+		}
+		measured++
+		for f := range defined {
+			if _, ok := c.Checked.Flags[f]; !ok {
+				t.Errorf("%s defines -%s and components.json does not declare it", c.Name, f)
+			}
+		}
+		for f := range c.Checked.Flags {
+			if !defined[f] {
+				t.Errorf("components.json declares -%s on %s and it defines no such flag", f, c.Name)
+			}
 		}
 	}
-	for f := range svc.Checked.Flags {
-		if !defined[f] {
-			t.Errorf("components.json declares -%s and the console defines no such flag", f)
-		}
+	if measured == 0 {
+		t.Fatal("no component's source was read, so this test measured nothing")
 	}
 }
 

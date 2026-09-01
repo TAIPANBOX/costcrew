@@ -101,7 +101,21 @@
       "name": "costcrew-enforce",
       "class": "tool",
       "checked": {
-        "package": "github.com/TAIPANBOX/costcrew/tools/enforce"
+        "package": "github.com/TAIPANBOX/costcrew/tools/enforce",
+        "flags": {
+          "apply": {
+            "required": false
+          },
+          "cloud": {
+            "required": false
+          },
+          "data": {
+            "required": false
+          },
+          "period": {
+            "required": false
+          }
+        }
       },
       "declared": {
         "role": {
@@ -118,7 +132,18 @@
       "name": "costcrew-idryxsource",
       "class": "tool",
       "checked": {
-        "package": "github.com/TAIPANBOX/costcrew/tools/idryxsource"
+        "package": "github.com/TAIPANBOX/costcrew/tools/idryxsource",
+        "flags": {
+          "data": {
+            "required": false
+          },
+          "host": {
+            "required": false
+          },
+          "out": {
+            "required": false
+          }
+        }
       },
       "declared": {
         "role": {
@@ -131,7 +156,8 @@
       "name": "costcrew-parity",
       "class": "tool",
       "checked": {
-        "package": "github.com/TAIPANBOX/costcrew/tools/parity"
+        "package": "github.com/TAIPANBOX/costcrew/tools/parity",
+        "flags": {}
       },
       "declared": {
         "role": {
@@ -144,7 +170,8 @@
       "name": "costcrew-recon",
       "class": "tool",
       "checked": {
-        "package": "github.com/TAIPANBOX/costcrew/tools/recon"
+        "package": "github.com/TAIPANBOX/costcrew/tools/recon",
+        "flags": {}
       },
       "declared": {
         "role": {
@@ -157,7 +184,39 @@
       "name": "costcrew-run",
       "class": "tool",
       "checked": {
-        "package": "github.com/TAIPANBOX/costcrew/tools/run"
+        "package": "github.com/TAIPANBOX/costcrew/tools/run",
+        "flags": {
+          "ceiling": {
+            "required": false
+          },
+          "data": {
+            "required": false
+          },
+          "engine": {
+            "required": false
+          },
+          "live": {
+            "required": false
+          },
+          "max-tokens": {
+            "required": false
+          },
+          "only": {
+            "required": false
+          },
+          "prices": {
+            "required": false
+          },
+          "sprint": {
+            "required": false
+          },
+          "stack-events": {
+            "required": false
+          },
+          "stack-host": {
+            "required": false
+          }
+        }
       },
       "declared": {
         "role": {
@@ -174,7 +233,8 @@
       "name": "costcrew-stack",
       "class": "tool",
       "checked": {
-        "package": "github.com/TAIPANBOX/costcrew/tools/stack"
+        "package": "github.com/TAIPANBOX/costcrew/tools/stack",
+        "flags": {}
       },
       "declared": {
         "role": {
