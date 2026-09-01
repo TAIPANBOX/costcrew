@@ -60,6 +60,8 @@ func call(ctx context.Context, engine, model, prompt string, maxTok int) (callRe
 		return callOpenRouter(ctx, model, prompt, maxTok)
 	case "anthropic":
 		return callAnthropic(ctx, model, prompt, maxTok)
+	case "bedrock":
+		return callBedrock(ctx, model, prompt, maxTok)
 	}
 	return callResult{}, fmt.Errorf("no caller is written for engine %q", engine)
 }
