@@ -261,7 +261,7 @@ func prompt(t crew.Task, a crew.Analyst, today string) string {
 //
 // The artifact is a draft, never a post. Only a person's stamp publishes, and
 // that invariant is older than this file.
-func execute(ctx context.Context, db *sql.DB, e estimate, maxTok int, run *runBudget) error {
+func execute(ctx context.Context, db *sql.DB, e estimate, maxTok int, run *runBudget, b bus) error {
 	if e.Refused {
 		return fmt.Errorf("refused before the call: %s", e.Verdict)
 	}
@@ -283,7 +283,7 @@ func execute(ctx context.Context, db *sql.DB, e estimate, maxTok int, run *runBu
 	res.ActualMicros = int64((in + out) * 1e6)
 	run.settle(e.WorstMicros, res.ActualMicros)
 
-	if err := saveDraft(db, e, res); err != nil {
+	if err := saveDraft(db, e, res, b); err != nil {
 		return err
 	}
 
@@ -303,7 +303,7 @@ func execute(ctx context.Context, db *sql.DB, e estimate, maxTok int, run *runBu
 // table, with the same author and the same state, and for one run 63 real
 // deliverables sat indistinguishable among 342. Two kinds of thing under one
 // heading is the fault this console exists to catch in other people's data.
-func saveDraft(db *sql.DB, e estimate, res callResult) error {
+func saveDraft(db *sql.DB, e estimate, res callResult, b bus) error {
 	title := "Deliverable for " + e.Task.Title
 	if _, err := db.Exec(`INSERT INTO artifacts
 		(task, author, title, body, state, created, source)
@@ -332,6 +332,13 @@ func saveDraft(db *sql.DB, e estimate, res callResult) error {
 		SET live_micros = live_micros + ?, updated = datetime('now')
 		WHERE id = ?`, res.ActualMicros, e.Task.ID); err != nil {
 		return err
+	}
+	// And tell the estate. Last, and its failure is reported rather than
+	// returned as this function's: the deliverable and the money are already
+	// written, and a bus that cannot be appended to must not un-record work
+	// that actually happened.
+	if err := b.toolCall(e, res); err != nil {
+		fmt.Fprintf(os.Stderr, "  the bus refused this call's event: %v\n", err)
 	}
 	return nil
 }
@@ -403,7 +410,7 @@ func (r *runBudget) total() int64 {
 // under "Where it stopped".
 type refusal struct{ error }
 
-func spend(db *sql.DB, ests []estimate, maxTok int, cap money.Cents, only int) error {
+func spend(db *sql.DB, ests []estimate, maxTok int, cap money.Cents, only int, b bus) error {
 	run := &runBudget{ceilingMicros: int64(cap) * 10_000}
 
 	todo := make([]estimate, 0, len(ests))
@@ -469,7 +476,7 @@ func spend(db *sql.DB, ests []estimate, maxTok int, cap money.Cents, only int) e
 			defer func() { <-sem }()
 
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-			err := execute(ctx, db, e, maxTok, run)
+			err := execute(ctx, db, e, maxTok, run, b)
 			cancel()
 
 			mu.Lock()
