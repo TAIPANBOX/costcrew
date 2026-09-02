@@ -58,6 +58,11 @@ var wireTypes = []string{
 	// outside the writing role's own job description, so it was saved
 	// without its options and the task came back with the reason.
 	"option_refused",
+	// B3-SPEC.md section 3: a stamp -- the supervisor's own act, or an
+	// owner's -- applied an option, named with the actor and the option's
+	// id, independently of whatever the class's own side effect
+	// (anomaly_explained and the rest) already journals on its own.
+	"option_applied",
 	"agent_hired",
 	"agent_rebriefed",
 	"agent_state_changed",

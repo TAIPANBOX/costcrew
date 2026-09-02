@@ -71,8 +71,7 @@ func Seed(db *sql.DB) (int, error) {
 	}
 
 	for _, d := range world.Drivers() {
-		if _, err := tx.Exec(`INSERT INTO drivers VALUES (?,?,?,?,?,?)`,
-			d.Start, d.End, d.Scope, d.Label, d.Kind, d.Source); err != nil {
+		if err := InsertDriver(tx, d); err != nil {
 			return 0, err
 		}
 	}
