@@ -17,6 +17,7 @@ import (
 	"database/sql"
 	"encoding/csv"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -149,7 +150,7 @@ func tokenFuseFocusReader(db *sql.DB, cfg map[string]string, opt ImportOptions) 
 			return "", err
 		}
 		if mixed && !opt.ReplaceGenerated {
-			return "", fmt.Errorf(replaceGeneratedRefusal)
+			return "", errors.New(replaceGeneratedRefusal)
 		}
 		wipe = mixed
 	}

@@ -188,7 +188,7 @@ func TestSubCentCallsRoundHalfAwayFromZeroOnceSummed(t *testing.T) {
 		dir := t.TempDir()
 		lines := focusHeader + "\n" + strings.Join(row(), ",") + "\n" + strings.Join(row(), ",")
 		writeFocusFile(t, dir, "good.csv", lines)
-		msg, err, db := importFrom(t, dir)
+		msg, db, err := importFrom(t, dir)
 		if err != nil {
 			t.Fatalf("Import: %v (%s)", err, msg)
 		}
@@ -212,7 +212,7 @@ func TestSubCentCallsRoundHalfAwayFromZeroOnceSummed(t *testing.T) {
 			b.WriteString("\n")
 		}
 		writeFocusFile(t, dir, "good.csv", b.String())
-		msg, err, db := importFrom(t, dir)
+		msg, db, err := importFrom(t, dir)
 		if err != nil {
 			t.Fatalf("Import: %v (%s)", err, msg)
 		}
@@ -241,7 +241,7 @@ func TestCostIsNeverParsedThroughFloat64(t *testing.T) {
 	f[1] = "0.000249" // EffectiveCost
 	dir := t.TempDir()
 	writeFocusFile(t, dir, "good.csv", focusHeader+"\n"+strings.Join(f, ","))
-	msg, err, db := importFrom(t, dir)
+	msg, db, err := importFrom(t, dir)
 	if err != nil {
 		t.Fatalf("Import: %v (%s)", err, msg)
 	}
@@ -274,7 +274,7 @@ func TestBlockedCallsDoNotReachCharges(t *testing.T) {
 	dir := t.TempDir()
 	writeFocusFile(t, dir, "good.csv", focusHeader+"\n"+
 		strings.Join(settled, ",")+"\n"+strings.Join(blocked, ","))
-	msg, err, db := importFrom(t, dir)
+	msg, db, err := importFrom(t, dir)
 	if err != nil {
 		t.Fatalf("Import: %v (%s)", err, msg)
 	}
@@ -451,13 +451,13 @@ func writeFocusFile(t *testing.T, dir, name, content string) {
 // connector at dir and Import it against a fresh store, and hand back the
 // message and error rather than asserting anything itself, because "refused
 // by name" and "skipped, the rest imported" want different assertions.
-func importFrom(t *testing.T, dir string) (string, error, *sql.DB) {
+func importFrom(t *testing.T, dir string) (string, *sql.DB, error) {
 	t.Helper()
 	st := openFocusStore(t)
 	db := st.DB()
 	configureFocus(t, db, dir)
 	msg, err := Import(db, "tokenfuse-focus", false, ImportOptions{})
-	return msg, err, db
+	return msg, db, err
 }
 
 func TestHostileInput(t *testing.T) {
@@ -471,7 +471,7 @@ func TestHostileInput(t *testing.T) {
 		}
 		dir := t.TempDir()
 		writeFocusFile(t, dir, "bad.csv", strings.Join(kept, ",")+"\n"+strings.Join(focusRowFields(), ","))
-		msg, err, db := importFrom(t, dir)
+		msg, db, err := importFrom(t, dir)
 		if err != nil {
 			t.Fatalf("Import returned a hard error rather than naming the file: %v", err)
 		}
@@ -486,7 +486,7 @@ func TestHostileInput(t *testing.T) {
 		f[2] = "EUR" // BillingCurrency
 		dir := t.TempDir()
 		writeFocusFile(t, dir, "bad.csv", focusHeader+"\n"+strings.Join(f, ","))
-		msg, err, db := importFrom(t, dir)
+		msg, db, err := importFrom(t, dir)
 		if err != nil {
 			t.Fatalf("Import returned a hard error: %v", err)
 		}
@@ -501,7 +501,7 @@ func TestHostileInput(t *testing.T) {
 		f[0] = "-0.050000" // BilledCost
 		dir := t.TempDir()
 		writeFocusFile(t, dir, "bad.csv", focusHeader+"\n"+strings.Join(f, ","))
-		msg, err, db := importFrom(t, dir)
+		msg, db, err := importFrom(t, dir)
 		if err != nil {
 			t.Fatalf("Import returned a hard error: %v", err)
 		}
@@ -516,7 +516,7 @@ func TestHostileInput(t *testing.T) {
 		f[0] = "0.0035abc"
 		dir := t.TempDir()
 		writeFocusFile(t, dir, "bad.csv", focusHeader+"\n"+strings.Join(f, ","))
-		msg, err, db := importFrom(t, dir)
+		msg, db, err := importFrom(t, dir)
 		if err != nil {
 			t.Fatalf("Import returned a hard error: %v", err)
 		}
@@ -531,7 +531,7 @@ func TestHostileInput(t *testing.T) {
 		f[3] = "yesterday" // ChargePeriodStart
 		dir := t.TempDir()
 		writeFocusFile(t, dir, "bad.csv", focusHeader+"\n"+strings.Join(f, ","))
-		msg, err, db := importFrom(t, dir)
+		msg, db, err := importFrom(t, dir)
 		if err != nil {
 			t.Fatalf("Import returned a hard error: %v", err)
 		}
@@ -547,7 +547,7 @@ func TestHostileInput(t *testing.T) {
 		f[17] = "" // x_agent_id
 		dir := t.TempDir()
 		writeFocusFile(t, dir, "bad.csv", focusHeader+"\n"+strings.Join(f, ","))
-		msg, err, db := importFrom(t, dir)
+		msg, db, err := importFrom(t, dir)
 		if err != nil {
 			t.Fatalf("Import returned a hard error: %v", err)
 		}
@@ -563,7 +563,7 @@ func TestHostileInput(t *testing.T) {
 		f[22] = "blocked"
 		dir := t.TempDir()
 		writeFocusFile(t, dir, "bad.csv", focusHeader+"\n"+strings.Join(f, ",")) // BilledCost stays 0.05
-		msg, err, db := importFrom(t, dir)
+		msg, db, err := importFrom(t, dir)
 		if err != nil {
 			t.Fatalf("Import returned a hard error: %v", err)
 		}
@@ -584,7 +584,7 @@ func TestHostileInput(t *testing.T) {
 		if err := os.WriteFile(filepath.Join(dir, "bad.csv.gz"), truncated, 0o644); err != nil {
 			t.Fatal(err)
 		}
-		msg, err, db := importFrom(t, dir)
+		msg, db, err := importFrom(t, dir)
 		if err != nil {
 			t.Fatalf("Import returned a hard error rather than naming the file: %v", err)
 		}
@@ -601,7 +601,7 @@ func TestHostileInput(t *testing.T) {
 		}
 		dir := t.TempDir()
 		writeFocusFile(t, dir, "bad.csv", focusHeader+"\n"+strings.Join(f, ","))
-		msg, err, db := importFrom(t, dir)
+		msg, db, err := importFrom(t, dir)
 		if err != nil {
 			t.Fatalf("Import returned a hard error: %v", err)
 		}
@@ -614,7 +614,7 @@ func TestHostileInput(t *testing.T) {
 	t.Run("a row with 3 columns", func(t *testing.T) {
 		dir := t.TempDir()
 		writeFocusFile(t, dir, "bad.csv", focusHeader+"\na,b,c")
-		msg, err, db := importFrom(t, dir)
+		msg, db, err := importFrom(t, dir)
 		if err != nil {
 			t.Fatalf("Import returned a hard error: %v", err)
 		}
@@ -633,7 +633,7 @@ func TestHostileInput(t *testing.T) {
 		f[23] = `"a comma, and a` + "\n" + `newline"` // x_outcome, quoted
 		dir := t.TempDir()
 		writeFocusFile(t, dir, "good.csv", focusHeader+"\n"+strings.Join(f, ","))
-		msg, err, db := importFrom(t, dir)
+		msg, db, err := importFrom(t, dir)
 		if err != nil {
 			t.Fatalf("Import: %v (%s)", err, msg)
 		}
@@ -652,7 +652,7 @@ func TestHostileInput(t *testing.T) {
 		// parse even the header, which is a stronger proof than plain prose
 		// (technically valid, if useless, CSV).
 		writeFocusFile(t, dir, "bad.csv", "\"unterminated quote and no matching close at all")
-		msg, err, db := importFrom(t, dir)
+		msg, db, err := importFrom(t, dir)
 		if err != nil {
 			t.Fatalf("Import returned a hard error rather than naming the file: %v", err)
 		}
@@ -664,7 +664,7 @@ func TestHostileInput(t *testing.T) {
 
 	t.Run("an empty folder", func(t *testing.T) {
 		dir := t.TempDir()
-		_, err, _ := importFrom(t, dir)
+		_, _, err := importFrom(t, dir)
 		if err == nil {
 			t.Fatal("Import accepted a folder with no CSV files")
 		}
@@ -677,7 +677,7 @@ func TestHostileInput(t *testing.T) {
 		dir := t.TempDir()
 		writeFocusFile(t, dir, "a-good.csv", focusHeader+"\n"+strings.Join(focusRowFields(), ","))
 		writeFocusFile(t, dir, "b-bad.csv", "not,csv,shaped,at,all\nx,y,z,w,v")
-		msg, err, db := importFrom(t, dir)
+		msg, db, err := importFrom(t, dir)
 		if err != nil {
 			t.Fatalf("Import returned a hard error: %v", err)
 		}
