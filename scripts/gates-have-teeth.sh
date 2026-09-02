@@ -238,6 +238,52 @@ run_case $'skill taxonomy: a roster skill loses its rights entry' \
 	internal/crew/mandate.go \
 	$'"scenario-modelling":     {"figures-read", "budgets-read"},' \
 	$''
+
+# B1a: internal/crew/roles.yaml is bound to the code and to the roster, both
+# ways, via scripts/roles-are-bound.sh reachable as TestRolesAreBound (same
+# pattern as TestFeatureBindingsHold below, in reverse: that Go test is READ
+# BY features-are-bound.sh's own kind of case; this one calls OUT to a shell
+# script and this harness plants faults in what the script reads).
+#
+# The first two mutate internal/crew/roles.yaml itself, which
+# internal/crew's own mustLoadRoles panics on at package-init for the
+# SECOND case (a duplicate id): that is by design, not a toothless gate --
+# see roles.go's comment on mustLoadRoles -- and the shell script's own
+# property-1 check ("MULTI-OWNED CLASS") still reports the fault by name
+# before the panic text ever appears, which is the needle checked for.
+run_case $'roles: a class named in code is absent from the file' \
+	fail \
+	./internal/crew \
+	$'TestRolesAreBound' \
+	$'MISSING CLASS' \
+	internal/crew/roles.go \
+	$'// class:task.accept' \
+	$'// class:task.accept-renamed'
+run_case $'roles: a class owned by two links' \
+	fail \
+	./internal/crew \
+	$'TestRolesAreBound' \
+	$'owned by more than one link' \
+	internal/crew/roles.yaml \
+	$'  - id: "escalation.request"\n    changes: "a decision request written to the owner"\n    owner: "supervisor"\n\nroles:' \
+	$'  - id: "escalation.request"\n    changes: "a decision request written to the owner"\n    owner: "supervisor"\n  - id: "anomaly.explain"\n    changes: "planted by gates-have-teeth.sh: a second owner for a class that already has one"\n    owner: "owner"\n\nroles:'
+run_case $'roles: a role decides a class its rights do not back' \
+	fail \
+	./internal/crew \
+	$'TestRolesAreBound' \
+	$'RIGHTS GAP' \
+	internal/crew/roles.yaml \
+	$'decides_alone: ["anomaly.explain", "anomaly.dismiss", "driver.one-time", "task.block"]' \
+	$'decides_alone: ["anomaly.explain", "anomaly.dismiss", "driver.one-time", "task.block", "forecast.freeze"]'
+run_case $'roles: the file is taken away' \
+	fail \
+	./internal/crew \
+	$'TestRolesAreBound' \
+	$'measured nothing' \
+	internal/crew/roles_bound_test.go \
+	$'cmd := exec.Command("../../scripts/roles-are-bound.sh")' \
+	$'cmd := exec.Command("../../scripts/roles-are-bound.sh")\n\tcmd.Env = append(os.Environ(), "ROLES_YAML=/nonexistent-for-teeth-test.yaml")'
+
 run_case $'connector status: every entry claims Built regardless of its reader' \
 	fail \
 	./internal/connectors \
