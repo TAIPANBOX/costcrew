@@ -58,6 +58,11 @@ func TestTheAIPageReadsARealImport(t *testing.T) {
 		"agent://taipanbox.dev/costcrew/forecaster", // an agent name from the fixture
 		"outcomes tagged by the calling agents",     // hasOutcomes label
 		"read from a connector",                     // the This month tile's sub-label when Real
+		// triage-aws's two $0.0035 calls sum to 7000 micros, under a cent:
+		// this is the figure the whole billed_microusd change exists to
+		// keep visible, and it must reach the actual rendered page, not
+		// just the Go value behind it.
+		"0.0070",
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("GET /ai does not contain %q", want)

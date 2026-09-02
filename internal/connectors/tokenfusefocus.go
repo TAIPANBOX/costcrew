@@ -36,6 +36,16 @@ import (
 // charges.provenance belongs to internal/estate, which defines charges; this
 // table is specific to what a FOCUS-shaped reader needs to keep, and no
 // other package reads it today.
+//
+// billed_microusd, not billed_cents: an LLM call routinely costs a few
+// tenths of a cent (this fixture's own haiku calls are $0.0035 each), and a
+// PER-CALL column in cents rounds every one of them to zero before they ever
+// have a chance to add up -- ten of them are three and a half cents, not
+// nothing. Micro-dollars (1e-6, the unit TokenFuse's own trace already uses)
+// keep each call's own amount exact; charges.billed_cents, the daily total,
+// is still cents, rounded once from the SUM of a day's micros in
+// deriveCharges, never per call. See money.Micros for the type and why the
+// rounding lives there and nowhere else.
 const focusSchema = `
 CREATE TABLE IF NOT EXISTS ai_calls(
   file_sha256 TEXT NOT NULL, row_no INTEGER NOT NULL,
@@ -43,7 +53,7 @@ CREATE TABLE IF NOT EXISTS ai_calls(
   team TEXT, agent TEXT NOT NULL, run_id TEXT, parent_run_id TEXT,
   provider TEXT, model TEXT NOT NULL,
   tokens_in INTEGER NOT NULL, tokens_out INTEGER NOT NULL,
-  billed_cents INTEGER NOT NULL,
+  billed_microusd INTEGER NOT NULL,
   blocked INTEGER NOT NULL, basis TEXT NOT NULL,
   outcome TEXT, tool_calls INTEGER,
   PRIMARY KEY (file_sha256, row_no));
@@ -163,7 +173,7 @@ func tokenFuseFocusReader(db *sql.DB, cfg map[string]string, opt ImportOptions) 
 	if !opt.DryRun {
 		ins, err = tx.Prepare(`INSERT INTO ai_calls
 			(file_sha256, row_no, ts, day, team, agent, run_id, parent_run_id,
-			 provider, model, tokens_in, tokens_out, billed_cents, blocked, basis,
+			 provider, model, tokens_in, tokens_out, billed_microusd, blocked, basis,
 			 outcome, tool_calls)
 			VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 			ON CONFLICT(file_sha256, row_no) DO UPDATE SET
@@ -171,7 +181,7 @@ func tokenFuseFocusReader(db *sql.DB, cfg map[string]string, opt ImportOptions) 
 			  run_id=excluded.run_id, parent_run_id=excluded.parent_run_id,
 			  provider=excluded.provider, model=excluded.model,
 			  tokens_in=excluded.tokens_in, tokens_out=excluded.tokens_out,
-			  billed_cents=excluded.billed_cents, blocked=excluded.blocked, basis=excluded.basis,
+			  billed_microusd=excluded.billed_microusd, blocked=excluded.blocked, basis=excluded.basis,
 			  outcome=excluded.outcome, tool_calls=excluded.tool_calls`)
 		if err != nil {
 			return "", err
@@ -408,7 +418,7 @@ func processFocusFile(path string, ins *sql.Stmt) (*focusSummary, error) {
 		}
 		if _, err := ins.Exec(sha, rowNo, row.TS, row.Day, nullIfEmpty(row.Team), row.Agent,
 			nullIfEmpty(row.RunID), nullIfEmpty(row.ParentRunID), nullIfEmpty(row.Provider),
-			row.Model, row.TokensIn, row.TokensOut, int64(row.BilledCents), blockedInt,
+			row.Model, row.TokensIn, row.TokensOut, int64(row.BilledMicros), blockedInt,
 			row.Basis, nullIfEmpty(row.Outcome), toolCalls); err != nil {
 			return nil, fmt.Errorf("row %d: writing to ai_calls: %w", rowNo, err)
 		}
@@ -443,7 +453,7 @@ type focusRow struct {
 	Team, Agent, RunID           string
 	ParentRunID, Provider, Model string
 	TokensIn, TokensOut          int64
-	BilledCents                  money.Cents
+	BilledMicros                 money.Micros
 	Blocked                      bool
 	Basis, Outcome               string
 	ToolCalls                    *int64
@@ -452,15 +462,10 @@ type focusRow struct {
 // parseFocusRow validates and converts one already-aligned record (same
 // field count as the header) into a focusRow, or names what was wrong.
 //
-// BilledCost goes through money.Parse, never float64: mutant (b) in the
-// testing plan is exactly this line reverted. money.Parse rounds to the
-// nearest CENT per row, which this fixture's own haiku calls make visible —
-// $0.0035 rounds to zero on its own, and only a day's worth of the same
-// model, summed by deriveCharges, shows real money again. Accepted rather
-// than reworked here because section 3's schema asks for billed_cents as an
-// INTEGER on ai_calls: a higher-precision unit would be disagreeing with the
-// given schema, not implementing it. Documented, not hidden: see NOT proven
-// in the report this reader shipped with.
+// BilledCost goes through money.ParseMicros, never float64: mutant (b) in
+// the testing plan is exactly this line reverted, to a naive float64 parse
+// and multiply. A single row's own amount is kept exact in Micros; only
+// deriveCharges rounds, once, on a whole day's SUM.
 func parseFocusRow(rec []string, col map[string]int) (focusRow, error) {
 	field := func(name string) string {
 		i, ok := col[name]
@@ -476,11 +481,11 @@ func parseFocusRow(rec []string, col map[string]int) (focusRow, error) {
 	}
 
 	costStr := strings.TrimSpace(field("BilledCost"))
-	cents, err := money.Parse(costStr)
+	micros, err := money.ParseMicros(costStr)
 	if err != nil {
 		return focusRow{}, fmt.Errorf("BilledCost %q does not parse as a decimal amount", costStr)
 	}
-	if cents < 0 {
+	if micros < 0 {
 		return focusRow{}, fmt.Errorf("BilledCost %q is negative", costStr)
 	}
 
@@ -502,7 +507,7 @@ func parseFocusRow(rec []string, col map[string]int) (focusRow, error) {
 	}
 
 	blocked := strings.EqualFold(strings.TrimSpace(field("x_blocked")), "true")
-	if blocked && cents != 0 {
+	if blocked && micros != 0 {
 		return focusRow{}, fmt.Errorf("blocked but BilledCost %q is not zero", costStr)
 	}
 
@@ -533,7 +538,7 @@ func parseFocusRow(rec []string, col map[string]int) (focusRow, error) {
 		Provider:    strings.TrimSpace(field("ProviderName")),
 		Model:       strings.TrimSpace(field("x_model")),
 		TokensIn:    tokensIn, TokensOut: tokensOut,
-		BilledCents: cents, Blocked: blocked,
+		BilledMicros: micros, Blocked: blocked,
 		Basis:     strings.TrimSpace(field("x_cost_basis")),
 		Outcome:   strings.TrimSpace(field("x_outcome")),
 		ToolCalls: toolCalls,
@@ -571,7 +576,7 @@ type focusSummary struct {
 	Agents          map[string]bool
 	Days            map[string]bool // this file's (or this whole import's) days touched
 	FirstTS, LastTS string
-	TotalCents      money.Cents
+	TotalMicros     money.Micros
 }
 
 func newFocusSummary() *focusSummary {
@@ -582,7 +587,7 @@ func (s *focusSummary) accept(row focusRow) {
 	s.RowsAccepted++
 	s.Agents[row.Agent] = true
 	s.Days[row.Day] = true
-	s.TotalCents += row.BilledCents
+	s.TotalMicros += row.BilledMicros
 	if s.FirstTS == "" || row.TS < s.FirstTS {
 		s.FirstTS = row.TS
 	}
@@ -604,7 +609,7 @@ func (s *focusSummary) merge(o *focusSummary) {
 	for d := range o.Days {
 		s.Days[d] = true
 	}
-	s.TotalCents += o.TotalCents
+	s.TotalMicros += o.TotalMicros
 	if o.FirstTS != "" && (s.FirstTS == "" || o.FirstTS < s.FirstTS) {
 		s.FirstTS = o.FirstTS
 	}
@@ -631,8 +636,11 @@ func (s *focusSummary) Sentence(dryRun bool) string {
 	if s.FirstTS != "" {
 		fmt.Fprintf(&b, ", %s to %s", s.FirstTS, s.LastTS)
 	}
+	// TotalMicros.String(), not .Cents(): the whole point of keeping this in
+	// Micros is that a reader asking what this folder holds sees a sub-cent
+	// total (four decimals) rather than a total rounded down to nothing.
 	fmt.Fprintf(&b, ", %d row%s, %d distinct agent%s, %s total BilledCost.",
-		s.RowsAccepted, plural(s.RowsAccepted), len(s.Agents), plural(len(s.Agents)), s.TotalCents)
+		s.RowsAccepted, plural(s.RowsAccepted), len(s.Agents), plural(len(s.Agents)), s.TotalMicros)
 	if n := len(s.Refusals); n > 0 {
 		verb2 := "refused"
 		if dryRun {
@@ -663,6 +671,16 @@ func sortedDays(touched map[string]bool) []string {
 // from the rows this call happened to insert. That is what makes two files
 // touching the same day, or the same file imported twice, converge on the
 // same charges instead of drifting apart.
+//
+// SUM THEN ROUND, exactly once, per group: the SQL SUM below adds whole
+// Micros values (SQLite's SUM on an INTEGER column is exact 64-bit integer
+// arithmetic, never float, well short of where a day's LLM calls could
+// overflow it), and money.Micros.Cents is called on that sum, not on any row
+// before it. Mutant (f) in the testing plan swaps this to ROUND THEN SUM --
+// pre-rounding each row to its own cent boundary inside the SQL before
+// summing those -- and the ten-row test catches it: ten calls at $0.0035 sum
+// to four cents correctly rounded once, and to zero each rounded on its own
+// first.
 func deriveCharges(tx *sql.Tx, daysTouched map[string]bool) error {
 	days := sortedDays(daysTouched)
 	if len(days) == 0 {
@@ -686,7 +704,7 @@ func deriveCharges(tx *sql.Tx, daysTouched map[string]bool) error {
 			return fmt.Errorf("clearing %s's derived charges: %w", d, err)
 		}
 		rows, err := tx.Query(`SELECT COALESCE(team,''), COALESCE(provider,''), model,
-				SUM(billed_cents), SUM(tokens_in+tokens_out)
+				SUM(billed_microusd), SUM(tokens_in+tokens_out)
 			FROM ai_calls WHERE day=? AND blocked=0
 			GROUP BY COALESCE(team,''), COALESCE(provider,''), model
 			ORDER BY 1,2,3`, d)
@@ -695,12 +713,12 @@ func deriveCharges(tx *sql.Tx, daysTouched map[string]bool) error {
 		}
 		type grp struct {
 			team, provider, model string
-			cents, qty            int64
+			micros, qty           int64
 		}
 		var groups []grp
 		for rows.Next() {
 			var g grp
-			if err := rows.Scan(&g.team, &g.provider, &g.model, &g.cents, &g.qty); err != nil {
+			if err := rows.Scan(&g.team, &g.provider, &g.model, &g.micros, &g.qty); err != nil {
 				rows.Close()
 				return err
 			}
@@ -714,7 +732,8 @@ func deriveCharges(tx *sql.Tx, daysTouched map[string]bool) error {
 
 		for _, g := range groups {
 			service := strings.TrimSpace(g.provider) + " API"
-			if _, err := ins.Exec(d, service, nullIfEmpty(g.team), g.cents, g.qty,
+			cents := money.Micros(g.micros).Cents() // the one rounding, after the sum
+			if _, err := ins.Exec(d, service, nullIfEmpty(g.team), int64(cents), g.qty,
 				g.model, g.model); err != nil {
 				return fmt.Errorf("writing the %s/%s charges row for %s: %w", g.team, g.model, d, err)
 			}
@@ -736,22 +755,26 @@ func deriveCharges(tx *sql.Tx, daysTouched map[string]bool) error {
 func deriveAttribution(tx *sql.Tx, daysTouched map[string]bool) error {
 	days := sortedDays(daysTouched)
 	for _, d := range days {
+		// Ranked by the exact Micros sum, not by billed_cents: two agents
+		// whose calls individually round to zero cents would otherwise tie
+		// at zero and the ranking would fall back to whatever order SQLite
+		// happened to return, rather than to who actually spent more.
 		rows, err := tx.Query(`SELECT COALESCE(team,''), COALESCE(provider,''),
-				agent, SUM(billed_cents) AS cents
+				agent, SUM(billed_microusd) AS micros
 			FROM ai_calls WHERE day=? AND blocked=0
 			GROUP BY COALESCE(team,''), COALESCE(provider,''), agent
-			ORDER BY 1, 2, cents DESC, agent ASC`, d)
+			ORDER BY 1, 2, micros DESC, agent ASC`, d)
 		if err != nil {
 			return err
 		}
 		type row struct {
 			team, provider, agent string
-			cents                 int64
+			micros                int64
 		}
 		var all []row
 		for rows.Next() {
 			var r row
-			if err := rows.Scan(&r.team, &r.provider, &r.agent, &r.cents); err != nil {
+			if err := rows.Scan(&r.team, &r.provider, &r.agent, &r.micros); err != nil {
 				rows.Close()
 				return err
 			}
@@ -764,7 +787,7 @@ func deriveAttribution(tx *sql.Tx, daysTouched map[string]bool) error {
 		rows.Close()
 
 		// The winner per (team, service) is the first row of its group: the
-		// query above already orders by cents DESC within the group, ties
+		// query above already orders by micros DESC within the group, ties
 		// broken on the agent's own name so the pick is the same on every
 		// run rather than on whatever order SQLite happened to visit rows.
 		seen := map[string]bool{}

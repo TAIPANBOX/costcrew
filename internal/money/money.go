@@ -193,3 +193,122 @@ func MustParse(s string) Cents {
 	}
 	return c
 }
+
+// Micros is a signed amount in millionths of a unit: one cent is 10,000 of
+// these. Cents alone cannot hold a single LLM call's own price -- ten calls
+// at $0.0035 are $0.035, three and a half cents, and a system that rounds
+// every call to the nearest cent before summing drops every one of them to
+// zero and never recovers the difference. Micros exists so a PER-CALL amount
+// is kept exact, and the only place it is allowed to lose its fractional
+// cent is a SUM of many of them, rounded once, in Cents below.
+type Micros int64
+
+// ParseMicros reads a decimal string into Micros, exact to six decimal
+// places and rounding half away from zero at the seventh and beyond -- the
+// same rule Parse uses at the third, one scale finer. It never touches
+// float64, for the reason Parse's own doc comment gives: a string parsed as
+// a float and then scaled up lands on the wrong subunit before any rounding
+// rule gets a say.
+func ParseMicros(s string) (Micros, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0, errShape
+	}
+	neg := false
+	switch s[0] {
+	case '-':
+		neg, s = true, s[1:]
+	case '+':
+		s = s[1:]
+	}
+	if s == "" || s[0] == '-' || s[0] == '+' {
+		return 0, fmt.Errorf("%w: %q", errShape, s)
+	}
+	intPart, frac, _ := strings.Cut(s, ".")
+	if intPart == "" && frac == "" {
+		return 0, errShape
+	}
+	if intPart == "" {
+		intPart = "0"
+	}
+	whole, err := strconv.ParseInt(intPart, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("%w: %q", errShape, s)
+	}
+
+	const scale = 6 // micro = 1e-6
+	var micros int64
+	switch {
+	case frac == "":
+		micros = 0
+	case len(frac) <= scale:
+		d, err := strconv.ParseInt(frac, 10, 64)
+		if err != nil {
+			return 0, fmt.Errorf("%w: %q", errShape, s)
+		}
+		for i := len(frac); i < scale; i++ {
+			d *= 10
+		}
+		micros = d
+	default:
+		head, err := strconv.ParseInt(frac[:scale], 10, 64)
+		if err != nil {
+			return 0, fmt.Errorf("%w: %q", errShape, s)
+		}
+		micros = head
+		if frac[scale] >= '5' && frac[scale] <= '9' {
+			micros++
+		}
+		if _, err := strconv.ParseInt(frac[scale:], 10, 64); err != nil {
+			return 0, fmt.Errorf("%w: %q", errShape, s)
+		}
+	}
+
+	total := whole*1_000_000 + micros
+	if neg {
+		total = -total
+	}
+	return Micros(total), nil
+}
+
+// Cents rounds a Micros amount to the nearest cent, half away from zero --
+// the same convention Parse and Bps already use, restated here rather than
+// invented anew. This is the ONE place a sub-cent amount is allowed to
+// round: called once, on the SUM of many calls' Micros, never on a single
+// call's own amount, which is the whole reason this type exists rather than
+// storing cents from the start.
+func (m Micros) Cents() Cents {
+	neg := m < 0
+	v := int64(m)
+	if neg {
+		v = -v
+	}
+	c := (v + 5_000) / 10_000
+	if neg {
+		return Cents(-c)
+	}
+	return Cents(c)
+}
+
+// String renders four decimals when the amount is under a cent, so a reader
+// sees the fraction rather than a rounded-away zero, and two decimals
+// otherwise (through Cents, so the two agree on every value at or above a
+// cent). The four-decimal form is itself rounded, half away from zero, to
+// the nearest 1e-4 of the unit: a Micros value carries six decimal places of
+// precision and this prints four of them, not all six.
+func (m Micros) String() string {
+	if m <= -10_000 || m >= 10_000 || m == 0 {
+		return m.Cents().String()
+	}
+	neg := m < 0
+	v := int64(m)
+	if neg {
+		v = -v
+	}
+	q := (v + 50) / 100 // hundred-micro units = 1e-4 of the unit
+	s := fmt.Sprintf("0.%04d", q)
+	if neg {
+		s = "-" + s
+	}
+	return s
+}

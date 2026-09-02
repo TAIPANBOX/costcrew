@@ -15,7 +15,13 @@ record of its HTTP surface (see `parity/README.md` for what that does and
 does not prove).
 
 Single static binary, pure-Go SQLite (`modernc.org/sqlite`), no build step, no
-runtime to install, no network. Money is integer cents everywhere.
+runtime to install, no network. Money is integer cents at every stored total.
+One reader keeps a PER-CALL amount in a finer integer subunit first
+(`money.Micros`, millionths of a unit, in `ai_calls.billed_microusd`) because
+an LLM call is routinely worth a few tenths of a cent and a column that
+rounds each one to cents before summing loses every one of them; the daily
+total it derives is still rounded to cents, once, never per call. See
+`money.Micros` and invariant 25.
 
 ## What this repository contributes, declared and proved
 
@@ -352,6 +358,26 @@ an absent invariant.
     `generated_estate_replaced` entry in the chain). The `COALESCE` fix is
     held by every test in `internal/finops/ai_test.go` that runs `KPIs()`
     against a store carrying real rows and nothing generated.)*
+
+25. **A per-call amount is never rounded before it is summed.** `ai_calls`
+    keeps each call's own cost in `money.Micros` (millionths of a unit), not
+    cents: an LLM call is routinely worth a few tenths of a cent, and a
+    column that rounds every one to the nearest cent on its own loses all of
+    them before they have a chance to add up. Ten calls at $0.0035 are three
+    and a half cents, not zero. `deriveCharges` sums a whole day's Micros in
+    SQL, exact 64-bit integer arithmetic, and rounds to Cents exactly once,
+    half away from zero, the same convention `money.Parse` and `money.Bps`
+    already use. The first version of this reader parsed `BilledCost`
+    straight into `money.Cents` and rounded every row on its own before it
+    was ever summed; a review before merge, not a test that had been
+    written yet, is what caught it.
+    *(gate: `TestSubCentCallsRoundHalfAwayFromZeroOnceSummed` (two calls
+    round up to one cent; ten calls sum to an exact tie at 3.5 cents and
+    round up to four, not down to three) and
+    `TestCostIsNeverParsedThroughFloat64` ($0.000249 comes back as exactly
+    249 micros through `money.ParseMicros`; a float64 round-trip of the same
+    string gives 248). `internal/money`'s own `TestSubCentCallsRoundHalfAwayFromZeroOnceSummed`
+    and `TestMicrosCentsIsSymmetric` hold the arithmetic in isolation.)*
 
 ## Decisions that have no gate yet
 

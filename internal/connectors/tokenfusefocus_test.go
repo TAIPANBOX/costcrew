@@ -93,29 +93,31 @@ func TestTokenFuseFocusIsRead(t *testing.T) {
 		t.Errorf("%d non-blocked rows, want 4", total-blocked)
 	}
 
-	var blockedCents int64
+	var blockedMicros int64
 	var blockedBasis string
-	if err := db.QueryRow(`SELECT billed_cents, basis FROM ai_calls WHERE blocked=1`).
-		Scan(&blockedCents, &blockedBasis); err != nil {
+	if err := db.QueryRow(`SELECT billed_microusd, basis FROM ai_calls WHERE blocked=1`).
+		Scan(&blockedMicros, &blockedBasis); err != nil {
 		t.Fatal(err)
 	}
-	if blockedCents != 0 {
-		t.Errorf("the blocked row's billed_cents = %d, want 0", blockedCents)
+	if blockedMicros != 0 {
+		t.Errorf("the blocked row's billed_microusd = %d, want 0", blockedMicros)
 	}
 	if blockedBasis != "blocked" {
 		t.Errorf("the blocked row's basis = %q, want \"blocked\"", blockedBasis)
 	}
 
-	// Three charges rows: the two haiku calls (each $0.003500, which
-	// money.Parse rounds to 0 cents on its own third-decimal digit '3') sum
-	// to 0; sonnet's single $0.010500 rounds to 1; opus's single NON-blocked
-	// $0.017500 rounds to 2 (third digit '7' rounds up). The blocked opus
+	// Three charges rows, each the SUM of that day's Micros for the model,
+	// rounded to cents ONCE: the two haiku calls are $0.003500 each, 3500
+	// micros apiece, summing to 7000 micros -- seven tenths of a cent,
+	// which rounds up (half away from zero) to 1 cent, not down to 0.
+	// Sonnet's single $0.010500 (10500 micros) rounds to 1. Opus's single
+	// NON-blocked $0.017500 (17500 micros) rounds to 2. The blocked opus
 	// call is excluded from charges entirely, by model and by row.
 	type gotRow struct {
 		cents, qty int64
 	}
 	want := map[string]gotRow{
-		"claude-haiku-4-5":  {0, 3000}, // 2 calls x (1000in+500out)
+		"claude-haiku-4-5":  {1, 3000}, // 2 calls x (1000in+500out); 7000 micros -> 1 cent
 		"claude-sonnet-4-5": {1, 1500},
 		"claude-opus-4-5":   {2, 1500}, // the blocked opus call is not here
 	}
@@ -163,6 +165,92 @@ func TestTokenFuseFocusIsRead(t *testing.T) {
 	}
 	if confidence != "gateway-header" {
 		t.Errorf("confidence = %q, want gateway-header", confidence)
+	}
+}
+
+// TestSubCentCallsRoundHalfAwayFromZeroOnceSummed is the property this
+// reader exists to hold, exercised through a real import rather than only
+// through money.Micros directly (internal/money's own tests cover the
+// arithmetic in isolation; this proves deriveCharges actually calls it the
+// way the arithmetic assumes). Ten haiku calls of $0.0035 on one day are
+// $0.035, three and a half cents on the nose -- a TIE -- and half away from
+// zero, the same convention money.Parse and money.Bps already use, rounds a
+// tie up: four cents, not three.
+func TestSubCentCallsRoundHalfAwayFromZeroOnceSummed(t *testing.T) {
+	row := func() []string {
+		f := focusRowFields()
+		f[0] = "0.003500" // BilledCost
+		f[1] = "0.003500" // EffectiveCost
+		return f
+	}
+
+	t.Run("two calls sum to seven tenths of a cent, rounds up to one", func(t *testing.T) {
+		dir := t.TempDir()
+		lines := focusHeader + "\n" + strings.Join(row(), ",") + "\n" + strings.Join(row(), ",")
+		writeFocusFile(t, dir, "good.csv", lines)
+		msg, err, db := importFrom(t, dir)
+		if err != nil {
+			t.Fatalf("Import: %v (%s)", err, msg)
+		}
+		var cents int64
+		if err := db.QueryRow(`SELECT billed_cents FROM charges
+			WHERE provenance='tokenfuse-focus'`).Scan(&cents); err != nil {
+			t.Fatalf("no charges row was derived: %v (%s)", err, msg)
+		}
+		if cents != 1 {
+			t.Errorf("two $0.0035 calls produced a charges row of %d cents, want 1: "+
+				"$0.007 rounded half away from zero", cents)
+		}
+	})
+
+	t.Run("ten calls sum to a tie at three and a half cents, rounds up to four", func(t *testing.T) {
+		dir := t.TempDir()
+		var b strings.Builder
+		b.WriteString(focusHeader + "\n")
+		for i := 0; i < 10; i++ {
+			b.WriteString(strings.Join(row(), ","))
+			b.WriteString("\n")
+		}
+		writeFocusFile(t, dir, "good.csv", b.String())
+		msg, err, db := importFrom(t, dir)
+		if err != nil {
+			t.Fatalf("Import: %v (%s)", err, msg)
+		}
+		var cents int64
+		if err := db.QueryRow(`SELECT billed_cents FROM charges
+			WHERE provenance='tokenfuse-focus'`).Scan(&cents); err != nil {
+			t.Fatalf("no charges row was derived: %v (%s)", err, msg)
+		}
+		if cents != 4 {
+			t.Errorf("ten $0.0035 calls produced a charges row of %d cents, want 4: "+
+				"$0.035 is an exact tie at 3.5 cents, and half away from zero rounds up", cents)
+		}
+	})
+}
+
+// TestCostIsNeverParsedThroughFloat64 is mutant (b): parsing BilledCost as a
+// float64 and multiplying by 1e6 gives the wrong answer for real values, not
+// just contrived ones. $0.000249 is exactly 249 micros -- six decimal
+// digits, nothing to round -- but float64(0.000249) is stored as
+// 0.00024899999999999998, and truncating that back to an integer after
+// multiplying by 1e6 gives 248. money.ParseMicros never goes through a
+// float, so this must come back exact.
+func TestCostIsNeverParsedThroughFloat64(t *testing.T) {
+	f := focusRowFields()
+	f[0] = "0.000249" // BilledCost
+	f[1] = "0.000249" // EffectiveCost
+	dir := t.TempDir()
+	writeFocusFile(t, dir, "good.csv", focusHeader+"\n"+strings.Join(f, ","))
+	msg, err, db := importFrom(t, dir)
+	if err != nil {
+		t.Fatalf("Import: %v (%s)", err, msg)
+	}
+	var micros int64
+	if err := db.QueryRow(`SELECT billed_microusd FROM ai_calls`).Scan(&micros); err != nil {
+		t.Fatal(err)
+	}
+	if micros != 249 {
+		t.Errorf("billed_microusd = %d, want 249 (a float64 round trip of $0.000249 gives 248)", micros)
 	}
 }
 

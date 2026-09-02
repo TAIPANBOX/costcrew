@@ -159,13 +159,25 @@ func TestAIByAgentCountsCallsTokensCostAndBlocked(t *testing.T) {
 	for _, r := range rows {
 		byAgent[r.Agent] = r
 	}
+	// triage-aws made two $0.0035 haiku calls: 7000 micros, under a cent, so
+	// this is exactly the figure that must NOT print as $0.00 -- the whole
+	// reason Cost is money.Micros here rather than money.Cents.
 	triage := byAgent["agent://taipanbox.dev/costcrew/triage-aws"]
 	if triage.Calls != 2 || triage.BlockedCalls != 0 {
 		t.Errorf("triage-aws = %+v, want 2 calls, 0 blocked", triage)
 	}
+	if triage.Cost != 7_000 {
+		t.Errorf("triage-aws cost = %d micros, want 7000 ($0.0035 x 2)", triage.Cost)
+	}
+	if s := triage.Cost.String(); s != "0.0070" {
+		t.Errorf("triage-aws cost.String() = %q, want \"0.0070\" (under a cent: four decimals)", s)
+	}
 	forecaster := byAgent["agent://taipanbox.dev/costcrew/forecaster"]
 	if forecaster.Calls != 2 || forecaster.BlockedCalls != 0 {
 		t.Errorf("forecaster = %+v, want 2 calls, 0 blocked", forecaster)
+	}
+	if forecaster.Cost != 28_000 { // $0.0105 (sonnet) + $0.0175 (opus)
+		t.Errorf("forecaster cost = %d micros, want 28000", forecaster.Cost)
 	}
 	deep := byAgent["agent://taipanbox.dev/costcrew/deep-analysis"]
 	if deep.Calls != 1 || deep.BlockedCalls != 1 {

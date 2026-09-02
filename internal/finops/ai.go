@@ -143,11 +143,17 @@ func AIUnits(db *sql.DB, month string) (units []world.AIUnit, hasOutcomes bool, 
 // rather than from charges: charges has no agent column, by design, because
 // the daily ledger is where a team's spend is reconciled and an individual
 // agent's calls are not.
+//
+// Cost is money.Micros, not money.Cents: this is a PER-AGENT figure, not a
+// daily-ledger sum, and an agent whose calls this month are all a few tenths
+// of a cent each must not print as $0.00. Micros.String() shows four
+// decimals for exactly that case and two otherwise, so this prints the same
+// way charges.billed_cents does once the amount clears a cent.
 type AgentAIRow struct {
 	Agent        string
 	Calls        int
 	Tokens       int64
-	Cost         money.Cents
+	Cost         money.Micros
 	BlockedCalls int
 }
 
@@ -158,7 +164,7 @@ type AgentAIRow struct {
 // for that would be inventing one; the count is what is actually known.
 func AIByAgent(db *sql.DB, month string) ([]AgentAIRow, error) {
 	rows, err := db.Query(`SELECT agent, COUNT(*),
-			COALESCE(SUM(tokens_in+tokens_out),0), COALESCE(SUM(billed_cents),0),
+			COALESCE(SUM(tokens_in+tokens_out),0), COALESCE(SUM(billed_microusd),0),
 			SUM(CASE WHEN blocked=1 THEN 1 ELSE 0 END)
 		FROM ai_calls WHERE day LIKE ?
 		GROUP BY agent ORDER BY 4 DESC, agent ASC`, month+"%")
@@ -169,11 +175,11 @@ func AIByAgent(db *sql.DB, month string) ([]AgentAIRow, error) {
 	var out []AgentAIRow
 	for rows.Next() {
 		var r AgentAIRow
-		var cents int64
-		if err := rows.Scan(&r.Agent, &r.Calls, &r.Tokens, &cents, &r.BlockedCalls); err != nil {
+		var micros int64
+		if err := rows.Scan(&r.Agent, &r.Calls, &r.Tokens, &micros, &r.BlockedCalls); err != nil {
 			return nil, err
 		}
-		r.Cost = money.Cents(cents)
+		r.Cost = money.Micros(micros)
 		out = append(out, r)
 	}
 	return out, rows.Err()
