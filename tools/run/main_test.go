@@ -42,7 +42,7 @@ func TestThisBinaryCannotSpend(t *testing.T) {
 // absent from the catalogue and the check returned a bare false. Unknown is
 // not free, and the direction of that mistake is the one that spends.
 func TestAnUnknownEngineIsRefused(t *testing.T) {
-	e := price(
+	e := price(nil,
 		crew.Task{Title: "something", Goal: "do it", Budget: money.Cents(1500)},
 		crew.Analyst{Name: "an-analyst", Engine: "a-name-from-nowhere", State: "active"},
 		2000)
@@ -61,7 +61,7 @@ func TestAnUnknownEngineIsRefused(t *testing.T) {
 // AND compared 0 against the guard, so the refusal could never fire: an
 // estimator whose bound is always satisfied is not a bound.
 func TestASubCentCallIsNotFree(t *testing.T) {
-	e := price(
+	e := price(nil,
 		crew.Task{Title: "explain the move", Goal: "say what happened", Budget: money.Cents(1500)},
 		crew.Analyst{Name: "an-analyst", Engine: "openrouter", State: "active"},
 		2000)
@@ -83,11 +83,11 @@ func TestTheGuardRefusesAnOutputCapItCannotAfford(t *testing.T) {
 	task := crew.Task{Title: "t", Goal: "g", Budget: money.Cents(1500)}
 	an := crew.Analyst{Name: "a", Engine: "openrouter", State: "active"}
 
-	if e := price(task, an, 2000); e.Refused {
+	if e := price(nil, task, an, 2000); e.Refused {
 		t.Fatalf("refused at a normal cap: %q", e.Verdict)
 	}
 	// Same task, same guard, an output cap it cannot pay for.
-	e := price(task, an, 200_000_000)
+	e := price(nil, task, an, 200_000_000)
 	if !e.Refused {
 		t.Errorf("a cap of two hundred million tokens was not refused against a "+
 			"guard of %s: %q", task.Budget, e.Verdict)
@@ -108,7 +108,7 @@ func TestWorkIsNotPricedForSomebodyWhoCannotDoIt(t *testing.T) {
 		{"suspended", crew.Analyst{Name: "a", Engine: "openrouter", State: "suspended"}, "is suspended"},
 		{"no engine", crew.Analyst{Name: "a", State: "active"}, "no engine"},
 	} {
-		e := price(crew.Task{Title: "t", Budget: money.Cents(1500)}, c.a, 2000)
+		e := price(nil, crew.Task{Title: "t", Budget: money.Cents(1500)}, c.a, 2000)
 		if !e.Refused {
 			t.Errorf("%s: not refused, said %q", c.name, e.Verdict)
 		} else if !strings.Contains(e.Verdict, c.want) {
@@ -227,22 +227,31 @@ func TestAFailedCallReturnsItsReservation(t *testing.T) {
 // string. A bound whose guarantee is narrower than its sentence is how the
 // worst case was exceeded once already.
 func TestThePromptBoundCoversTheWholePrompt(t *testing.T) {
+	db := packetTestDB(t)
+	an := plantedAnomalyFixture()
+	plantAnomaly(t, db, an)
+
 	task := crew.Task{ID: 1,
 		Title: "Explain the Amazon EC2 move on 2026-07-14",
 		Goal: "2054.10 above of baseline on the aws desk. Say what happened, " +
-			"whether it recurs, and what it would take to stop it."}
+			"whether it recurs, and what it would take to stop it.",
+		Anomaly: an.ID, Desk: an.Source}
 	a := crew.Analyst{Name: "triage-aws", Role: "Triage analyst", Desk: "aws",
 		Engine:  "openrouter",
 		State:   "active",
 		Mission: "First look at every finding on the aws desk.",
 		Skills:  []string{"triage", "aws"}}
 
-	e := price(task, a, 1200)
+	e := price(db, task, a, 1200)
 	if e.Refused {
 		t.Fatalf("the fixture was refused before it was priced: %s", e.Verdict)
 	}
+	if e.Packet == "" {
+		t.Fatal("the fixture's task carries an anomaly, and priced no packet for it: " +
+			"this test's own extension (a round with tool results) needs a real one")
+	}
 
-	sent := prompt(task, a, "2026-08-24")
+	sent := prompt(task, a, "2026-08-24", e.Packet)
 	if e.PromptTokens < len(sent) {
 		t.Errorf("the bound is %d tokens and the prompt is %d bytes, short by %d: "+
 			"one token per byte is the only bound no tokeniser can exceed, and it "+
@@ -250,8 +259,26 @@ func TestThePromptBoundCoversTheWholePrompt(t *testing.T) {
 			e.PromptTokens, len(sent), len(sent)-e.PromptTokens)
 	}
 	// And it must not move because the clock did.
-	e2 := price(task, a, 1200)
+	e2 := price(db, task, a, 1200)
 	if e.PromptTokens != e2.PromptTokens {
 		t.Errorf("two estimates of one task differ, %d and %d", e.PromptTokens, e2.PromptTokens)
+	}
+
+	// Extended for the tool loop (B2-SPEC.md section 3.4): "the tool
+	// results count toward the prompt bound of the next round". A round
+	// past the first sends everything round one sent PLUS the conversation
+	// history the loop appended, including a tool's own result, capped at
+	// toolResultMaxBytes by the dispatcher. tokens() has to remain a valid
+	// upper bound over THAT larger string too, not only over the original
+	// prompt: undercounting a later round by summing pieces instead of the
+	// whole sent string is exactly the failure shape this test already
+	// exists for, one level up.
+	toolResult := strings.Repeat("driver row\n", 2000) // realistic shape, well past the cap
+	toolResult = boundBytes(toolResult, toolResultMaxBytes)
+	round2 := sent + toolResult
+	if got := tokens(round2); got < len(round2) {
+		t.Errorf("tokens() undercounts a round carrying a tool result: %d tokens "+
+			"for %d bytes (%d bytes of tool result appended)",
+			got, len(round2), len(toolResult))
 	}
 }

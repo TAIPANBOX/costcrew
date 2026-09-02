@@ -427,13 +427,24 @@ func callOpenRouter(ctx context.Context, model, prompt string, maxTok int) (call
 // The task, and the brief the analyst was hired with. Nothing else: an analyst
 // without figures-read is not handed figures, and this is where that rule is
 // kept rather than hoped for.
-func prompt(t crew.Task, a crew.Analyst, today string) string {
+//
+// packetText is the TASK PACKET (packet.go), inserted here rather than
+// built by this function: it needs a database read the estimator's own
+// worst-case measurement (main.go's price()) must not repeat at call time,
+// since the estate can move between pricing a run and executing it and a
+// bound only true of a moment ago is not a bound. price() calls packet()
+// once and carries the result in estimate.Packet; execute() passes that
+// same string back in here unchanged. An empty packetText renders nothing,
+// which is right both for a task with no figures section to show and for
+// every existing caller that has never heard of a packet.
+func prompt(t crew.Task, a crew.Analyst, today, packetText string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "You are %s, %s on the %s desk of a FinOps practice.\n", a.Name, a.Role, a.Desk)
 	if a.Mission != "" {
 		fmt.Fprintf(&b, "Your brief: %s\n", a.Mission)
 	}
 	b.WriteString(jobDescriptionBlock(a.Name, a.Desk))
+	b.WriteString(packetText)
 	fmt.Fprintf(&b, "\nThe task on your desk is %q.\n", t.Title)
 	if t.Goal != "" {
 		fmt.Fprintf(&b, "What it asks for: %s\n", t.Goal)
@@ -464,11 +475,25 @@ func prompt(t crew.Task, a crew.Analyst, today string) string {
 //
 // The artifact is a draft, never a post. Only a person's stamp publishes, and
 // that invariant is older than this file.
-func execute(ctx context.Context, db *sql.DB, e estimate, maxTok int, run *runBudget, b bus, gw gatewayConfig) error {
+//
+// roDB is charges_query's read-only pool (internal/store.OpenReadOnly),
+// threaded through to the dispatcher for the one tool that needs it; every
+// other tool call in the loop below reads db, same as saveDraft does.
+func execute(ctx context.Context, db, roDB *sql.DB, e estimate, maxTok int, run *runBudget, b bus, gw gatewayConfig) error {
 	if e.Refused {
 		return fmt.Errorf("refused before the call: %s", e.Verdict)
 	}
-	if err := run.reserve(e.WorstMicros); err != nil {
+
+	// Every round of the tool loop is its own model call (B2-SPEC.md
+	// section 3.4), so the reservation covers the worst case
+	// loopsFor(e.Engine) times over, before the first round rather than
+	// growing it round by round: TestTheLoopStopsAtMaxRounds is what proves
+	// six rounds fit under it. An engine outside the loop (Bedrock, or
+	// anything unknown) still reserves exactly one call's worth, as before
+	// this file knew a loop existed.
+	loops := int64(loopsFor(e.Engine))
+	reserveMicros := e.WorstMicros * loops
+	if err := run.reserve(reserveMicros); err != nil {
 		return refusal{err}
 	}
 
@@ -476,25 +501,22 @@ func execute(ctx context.Context, db *sql.DB, e estimate, maxTok int, run *runBu
 	// the run id and the trust domain never change within a run: the budget
 	// is the tighter of the ceiling and THIS task's own guard, and the agent
 	// id names THIS task's analyst. gw.on() false leaves gh at its zero
-	// value, which callAnthropic (via call) reads as "no gateway" and routes
-	// to api.anthropic.com exactly as before this file knew one existed.
+	// value, which every round below (via anthropicRound, or call() for an
+	// engine outside the loop) reads as "no gateway" and routes to
+	// api.anthropic.com exactly as before this file knew one existed. The
+	// same gh is passed to every round, so every round carries the same
+	// three x-fuse headers.
 	var gh gatewayHeaders
 	if gw.on() {
 		gh = gatewayHeadersFor(gw, b.run, e.Analyst.Name, e.Task.Budget)
 	}
-	res, err := call(ctx, e.Engine, e.Model, prompt(e.Task, e.Analyst, time.Now().Format("2006-01-02")), maxTok, gh)
+	sent := prompt(e.Task, e.Analyst, time.Now().Format("2006-01-02"), e.Packet)
+	res, err := runToolLoop(ctx, db, roDB, e, sent, maxTok, gh, e.Analyst, b)
 	if err != nil {
-		run.settle(e.WorstMicros, 0)
+		run.settle(reserveMicros, res.ActualMicros)
 		return err
 	}
-
-	// What it ACTUALLY cost, from the usage the router reports, not from the
-	// worst case. The worst case is what bounds the decision; this is what
-	// goes in the ledger.
-	in := float64(res.InTokens) / 1e6 * e.Price.InPerM
-	out := float64(res.OutTokens) / 1e6 * e.Price.OutPerM
-	res.ActualMicros = int64((in + out) * 1e6)
-	run.settle(e.WorstMicros, res.ActualMicros)
+	run.settle(reserveMicros, res.ActualMicros)
 
 	if err := saveDraft(db, e, res, b); err != nil {
 		return err
@@ -623,7 +645,7 @@ func (r *runBudget) total() int64 {
 // under "Where it stopped".
 type refusal struct{ error }
 
-func spend(db *sql.DB, ests []estimate, maxTok int, cap money.Cents, only int, b bus, gw gatewayConfig) error {
+func spend(db, roDB *sql.DB, ests []estimate, maxTok int, cap money.Cents, only int, b bus, gw gatewayConfig) error {
 	run := &runBudget{ceilingMicros: int64(cap) * 10_000}
 
 	todo := make([]estimate, 0, len(ests))
@@ -694,8 +716,15 @@ func spend(db *sql.DB, ests []estimate, maxTok int, cap money.Cents, only int, b
 			defer wg.Done()
 			defer func() { <-sem }()
 
-			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-			err := execute(ctx, db, e, maxTok, run, b, gw)
+			// Scaled by how many rounds this task's engine can loop
+			// through: a task on the tool loop can make up to
+			// maxToolRounds model calls in series, each able to take up
+			// to the 90-second HTTP timeout the round functions set, so
+			// the SAME "2 minutes was for one call" reasoning above needs
+			// the same multiple this task's reservation already got.
+			deadline := 2 * time.Minute * time.Duration(loopsFor(e.Engine))
+			ctx, cancel := context.WithTimeout(context.Background(), deadline)
+			err := execute(ctx, db, roDB, e, maxTok, run, b, gw)
 			cancel()
 
 			mu.Lock()

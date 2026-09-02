@@ -47,7 +47,10 @@ func TestAGatewayCallCarriesTheAnalystsIdentity(t *testing.T) {
 	e := estimate{Task: task, Analyst: analyst, Engine: "anthropic",
 		Model: "claude-x", WorstMicros: 1_000, Priced: true}
 
-	if err := execute(context.Background(), db, e, 100, run, b, gw); err != nil {
+	// roDB is nil: the canned response below carries no tool_use block, so
+	// the loop stops at round one and the dispatcher (the only reader of
+	// roDB) is never reached.
+	if err := execute(context.Background(), db, nil, e, 100, run, b, gw); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 
@@ -96,7 +99,7 @@ func TestA402FromTheGatewayReturnsTheReservationAndNamesTheBudget(t *testing.T) 
 	e := estimate{Task: task, Analyst: analyst, Engine: "anthropic",
 		Model: "claude-x", WorstMicros: 20_000, Priced: true}
 
-	err := execute(context.Background(), db, e, 100, run, b, gw)
+	err := execute(context.Background(), db, nil, e, 100, run, b, gw)
 	if err == nil {
 		t.Fatal("a 402 from the gateway was not reported as an error at all")
 	}
@@ -138,7 +141,7 @@ func TestA402WithANonJSONBodyStillProducesAReadableRefusal(t *testing.T) {
 	e := estimate{Task: task, Analyst: analyst, Engine: "anthropic",
 		Model: "claude-x", WorstMicros: 20_000, Priced: true}
 
-	err := execute(context.Background(), db, e, 100, run, b, gw)
+	err := execute(context.Background(), db, nil, e, 100, run, b, gw)
 	if err == nil {
 		t.Fatal("a non-JSON 402 body was not reported as an error")
 	}

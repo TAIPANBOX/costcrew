@@ -92,6 +92,15 @@ func packetTestDB(t *testing.T) *sql.DB {
 			t.Fatal(err)
 		}
 	}
+	// The same two migrations runnerTasks (provenance_test.go) applies:
+	// saveDraft writes artifacts.source and tasks.live_micros, neither of
+	// which crew.Schema's CREATE TABLE carries on its own.
+	if err := crew.EnsureArtifactProvenance(db); err != nil {
+		t.Fatal(err)
+	}
+	if err := crew.EnsureLiveSpendLedger(db); err != nil {
+		t.Fatal(err)
+	}
 	return db
 }
 
