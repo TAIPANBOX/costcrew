@@ -238,6 +238,14 @@ run_case $'skill taxonomy: a roster skill loses its rights entry' \
 	internal/crew/mandate.go \
 	$'"scenario-modelling":     {"figures-read", "budgets-read"},' \
 	$''
+run_case $'connector status: every entry claims Built regardless of its reader' \
+	fail \
+	./internal/connectors \
+	$'TestBuiltMeansAReaderExists' \
+	$'Built must hold exactly' \
+	internal/connectors/connectors.go \
+	$'if _, ok := readers[Catalogue[i].ID]; ok {' \
+	$'if true {'
 run_case $'rights vocabulary: an explanation for a right nothing grants' \
 	fail \
 	./internal/web \

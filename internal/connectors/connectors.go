@@ -11,9 +11,12 @@
 //	          paid for once as storage, while the same data pulled through a
 //	          cost API is a penny every single request.
 //
-// Status is built or documented and nothing in between. A half-built
-// connector that looks finished is exactly how a console starts showing
-// numbers nobody can trace.
+// Status is built or documented and nothing in between, and it is DERIVED
+// from the readers registry below rather than written on each entry: seven
+// entries once said Built by hand while no reader existed anywhere in the
+// module for any of them, which is exactly the kind of half-built connector
+// that looks finished and is not. Built now holds only when readers[id]
+// actually exists.
 package connectors
 
 import (
@@ -30,6 +33,17 @@ const (
 	Built      Status = "built"      // there is a reader and a test
 	Documented Status = "documented" // the endpoint is established, the code is not written
 )
+
+// Reader actually reads a connector's source and returns the sentence Test()
+// promises: files read, first and last day, rows, total. It takes the saved
+// connection config and the store to write into.
+type Reader func(db *sql.DB, cfg map[string]string) (string, error)
+
+// readers is the whole truth about what this console can actually read.
+// EMPTY today: no reader is written for any connector yet, and deriveStatus
+// below is the one place that fact reaches Status, so the catalogue cannot
+// claim a connector is Built when nothing here can read it.
+var readers = map[string]Reader{}
 
 type Kind string
 
@@ -80,12 +94,14 @@ CREATE TABLE IF NOT EXISTS connections(
 var Catalogue = []Connector{
 	{
 		ID: "aws-data-exports", Name: "AWS Data Exports (FOCUS 1.2)", Provider: "aws",
-		Kind: ExportDrop, Feeds: "charges", Status: Built, Metered: false,
+		Kind: ExportDrop, Feeds: "charges", Metered: false,
 		Auth: "none for the reader: it reads files already delivered to a folder",
 		CostNote: "No charge for the export itself. You pay S3 storage and requests for " +
 			"the delivered objects, which is pennies a month at this size.",
 		Note: "AWS ships FOCUS 1.0 and 1.2 tables only. Delivery is at least daily, and " +
-			"the previous period can still be revised for about two weeks after month end.",
+			"the previous period can still be revised for about two weeks after month end. " +
+			"The reader is not written; the export's shape and cost are documented so the " +
+			"decision can be made before it is.",
 		Doc: "https://docs.aws.amazon.com/cur/latest/userguide/what-is-data-exports.html",
 		Inputs: []Input{{Name: "path", Label: "Folder the export lands in",
 			Hint: "the local path, or drop the unzipped folder on this page"}},
@@ -94,24 +110,27 @@ var Catalogue = []Connector{
 	},
 	{
 		ID: "aws-cost-explorer", Name: "AWS Cost Explorer", Provider: "aws",
-		Kind: API, Feeds: "charges", Status: Built, Metered: true,
+		Kind: API, Feeds: "charges", Metered: true,
 		Auth: "an IAM role with ce:GetCostAndUsage",
 		CostNote: "USD 0.01 per request, every request, forever. A daily pull across " +
 			"five dimensions is a few dollars a month and rises with curiosity.",
 		Note: "Use the export above for history and this only for the current day, " +
-			"which the export has not delivered yet.",
+			"which the export has not delivered yet. The reader is not written; the " +
+			"export's shape and cost are documented so the decision can be made before it is.",
 		Doc:    "https://docs.aws.amazon.com/aws-cost-management/latest/APIReference/",
 		Inputs: []Input{{Name: "profile", Label: "AWS profile", Hint: "from your ~/.aws/config"}},
 		Cannot: "It cannot give you resource-level detail. That is the export's job.",
 	},
 	{
 		ID: "gcp-billing-export", Name: "GCP BigQuery billing export", Provider: "gcp",
-		Kind: ExportDrop, Feeds: "charges", Status: Built, Metered: false,
+		Kind: ExportDrop, Feeds: "charges", Metered: false,
 		Auth:     "a service account with BigQuery read on the billing dataset",
 		CostNote: "Free to enable. You pay BigQuery storage and whatever your queries scan.",
 		Note: "Enabling it is console-only by Google's design; there is no public API. " +
 			"Backfill reaches to the start of the PREVIOUS month, so enabling in " +
-			"September still captures August and loses everything before it.",
+			"September still captures August and loses everything before it. The reader " +
+			"is not written; the export's shape and cost are documented so the decision " +
+			"can be made before it is.",
 		Doc: "https://cloud.google.com/billing/docs/how-to/export-data-bigquery",
 		Inputs: []Input{
 			{Name: "project", Label: "Project", Hint: "where the dataset lives"},
@@ -122,26 +141,30 @@ var Catalogue = []Connector{
 	},
 	{
 		ID: "azure-focus", Name: "Azure Cost Management (FOCUS)", Provider: "azure",
-		Kind: ExportDrop, Feeds: "charges", Status: Built, Metered: false,
+		Kind: ExportDrop, Feeds: "charges", Metered: false,
 		Auth:     "a storage account key or a managed identity with blob read",
 		CostNote: "The export is free; you pay blob storage for what it writes.",
-		Doc:      "https://learn.microsoft.com/en-us/azure/cost-management-billing/",
+		Note: "The reader is not written; the export's shape and cost are documented " +
+			"so the decision can be made before it is.",
+		Doc: "https://learn.microsoft.com/en-us/azure/cost-management-billing/",
 		Inputs: []Input{{Name: "container", Label: "Blob container",
 			Hint: "where the scheduled export writes"}},
 		Cannot: "Reservation utilisation is a separate export. This one is charges.",
 	},
 	{
 		ID: "kubecost", Name: "Kubecost", Provider: "kubernetes",
-		Kind: API, Feeds: "charges", Status: Built, Metered: false,
+		Kind: API, Feeds: "charges", Metered: false,
 		Auth:     "an endpoint on the cluster, usually port-forwarded",
 		CostNote: "Free to query. The cluster it runs on is not free, but you are already paying for that.",
-		Doc:      "https://docs.kubecost.com/apis/apis-overview",
-		Inputs:   []Input{{Name: "url", Label: "Kubecost URL", Hint: "http://localhost:9090"}},
-		Cannot:   "It cannot allocate what the cluster cannot label. Unlabelled pods stay shared.",
+		Note: "The reader is not written; the export's shape and cost are documented " +
+			"so the decision can be made before it is.",
+		Doc:    "https://docs.kubecost.com/apis/apis-overview",
+		Inputs: []Input{{Name: "url", Label: "Kubecost URL", Hint: "http://localhost:9090"}},
+		Cannot: "It cannot allocate what the cluster cannot label. Unlabelled pods stay shared.",
 	},
 	{
 		ID: "opencost", Name: "OpenCost", Provider: "kubernetes",
-		Kind: API, Feeds: "charges", Status: Documented, Metered: false,
+		Kind: API, Feeds: "charges", Metered: false,
 		Auth:     "an endpoint on the cluster",
 		CostNote: "Free.",
 		Note:     "The endpoint and its shape are established; the reader is not written yet.",
@@ -151,10 +174,12 @@ var Catalogue = []Connector{
 	},
 	{
 		ID: "anthropic-usage", Name: "Anthropic usage and cost", Provider: "ai",
-		Kind: API, Feeds: "charges (ai)", Status: Built, Metered: false,
+		Kind: API, Feeds: "charges (ai)", Metered: false,
 		Auth:     "an ADMIN key (sk-ant-admin...), not an ordinary API key",
 		CostNote: "The usage endpoint is not billed. The tokens it reports certainly were.",
-		Doc:      "https://docs.claude.com/en/api/admin-api",
+		Note: "The reader is not written; the export's shape and cost are documented " +
+			"so the decision can be made before it is.",
+		Doc: "https://docs.claude.com/en/api/admin-api",
 		Inputs: []Input{{Name: "key", Label: "Admin key", Secret: true,
 			EnvVar: "ANTHROPIC_ADMIN_KEY", Hint: "an admin key, not an API key"}},
 		Cannot: "It cannot tell you which AGENT spent it. That needs the calls to " +
@@ -163,17 +188,19 @@ var Catalogue = []Connector{
 	},
 	{
 		ID: "openrouter-usage", Name: "OpenRouter activity", Provider: "ai",
-		Kind: API, Feeds: "charges (ai)", Status: Built, Metered: false,
+		Kind: API, Feeds: "charges (ai)", Metered: false,
 		Auth:     "the same key you call it with",
 		CostNote: "Free to query.",
-		Doc:      "https://openrouter.ai/docs/api-reference",
+		Note: "The reader is not written; the export's shape and cost are documented " +
+			"so the decision can be made before it is.",
+		Doc: "https://openrouter.ai/docs/api-reference",
 		Inputs: []Input{{Name: "key", Label: "API key", Secret: true,
 			EnvVar: "OPENROUTER_API_KEY"}},
 		Cannot: "Per-agent attribution, for the same reason as above.",
 	},
 	{
 		ID: "compute-optimizer", Name: "AWS Compute Optimizer", Provider: "aws",
-		Kind: API, Feeds: "rightsizing", Status: Documented, Metered: false,
+		Kind: API, Feeds: "rightsizing", Metered: false,
 		Auth:     "an IAM role with compute-optimizer:Get*",
 		CostNote: "Free, but it needs CloudWatch metrics, which are not.",
 		Doc:      "https://docs.aws.amazon.com/compute-optimizer/",
@@ -182,13 +209,31 @@ var Catalogue = []Connector{
 	},
 	{
 		ID: "saas-seats", Name: "SaaS seat reconciliation", Provider: "saas",
-		Kind: Local, Feeds: "saas_licences", Status: Documented, Metered: false,
+		Kind: Local, Feeds: "saas_licences", Metered: false,
 		Auth:     "an export from each vendor's admin console",
 		CostNote: "Free, and manual, which is the honest description.",
 		Note:     "There is no standard here. Every vendor exports something different.",
 		Inputs:   []Input{{Name: "path", Label: "Folder of vendor exports"}},
 		Cannot:   "Nothing automates this. Anyone who says otherwise is selling scrapers.",
 	},
+}
+
+func init() {
+	deriveStatus()
+}
+
+// deriveStatus sets Status on every catalogue entry from the readers
+// registry. This is the ONLY place anything assigns Connector.Status: no
+// entry above names it, so there is nowhere left for the catalogue to claim
+// a reader that does not exist.
+func deriveStatus() {
+	for i := range Catalogue {
+		if _, ok := readers[Catalogue[i].ID]; ok {
+			Catalogue[i].Status = Built
+		} else {
+			Catalogue[i].Status = Documented
+		}
+	}
 }
 
 func Get(id string) (Connector, bool) {
@@ -350,18 +395,31 @@ func Test(db *sql.DB, id string, env func(string) string) (string, bool, error) 
 // This is the rule the whole catalogue exists to make visible: a metered
 // connector never runs because somebody clicked past a screen. The
 // confirmation is a separate act, and the page prints the cost beside it.
+// That gate is checked FIRST, and independent of Status: Metered is a fact
+// about the external service, true whether or not this console has a reader
+// for it yet, so it must not become reachable only once a reader exists.
+//
+// Once past that gate, Import looks up the reader. When none is registered
+// (which is every connector today) it returns the same refusal it always
+// has: there is nothing to read. When one is registered, it is handed the
+// saved, non-secret config and it runs.
 func Import(db *sql.DB, id string, confirmed bool) (string, error) {
 	c, ok := Get(id)
 	if !ok {
 		return "", fmt.Errorf("no such connector")
 	}
-	if c.Status == Documented {
-		return "", fmt.Errorf("%s is documented, not built: there is nothing to run", c.Name)
-	}
 	if c.Metered && !confirmed {
 		return "", fmt.Errorf("%s costs money to run (%s). Confirm before it is called",
 			c.Name, c.CostNote)
 	}
-	return "", fmt.Errorf("no live account is connected to this installation, so " +
-		"there is nothing to read. The estate you are looking at is generated")
+	reader, hasReader := readers[id]
+	if !hasReader {
+		return "", fmt.Errorf("no live account is connected to this installation, so " +
+			"there is nothing to read. The estate you are looking at is generated")
+	}
+	conn, err := Load(db, id)
+	if err != nil {
+		return "", err
+	}
+	return reader(db, conn.Config)
 }
