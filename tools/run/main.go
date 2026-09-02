@@ -85,6 +85,16 @@ type estimate struct {
 	// is not a bound.
 	WorstMicros int64
 
+	// Packet is the TASK PACKET (packet.go), captured ONCE here at estimate
+	// time and carried unchanged into execute()'s actual prompt. Reading
+	// the estate again at call time, rather than reusing this, would let
+	// the two disagree: the packet is capped at packetMaxBytes either way,
+	// but its CONTENT could grow between pricing a run and executing it (a
+	// person posts an explanation while a run is in flight), and the
+	// estimate this struct carries would then be an estimate of a prompt
+	// that was never actually sent.
+	Packet string
+
 	Verdict string // would run, or why not
 	Refused bool
 }
@@ -104,6 +114,18 @@ func run(dir, ceiling string, maxTok, sprint int, live bool, only int, engine, e
 	}
 	defer st.Close()
 	db := st.DB()
+
+	// charges_query's own connection: opened here, once, alongside the
+	// read-write one, rather than inside the spending path -- the same
+	// reason the bus below is opened here, so a run that cannot get one
+	// fails before anything is priced or spent rather than partway through.
+	// Safe to open unconditionally even for a dry run: store.Open above has
+	// already created app.db, so this never races an empty directory.
+	roDB, err := store.OpenReadOnly(dir)
+	if err != nil {
+		return fmt.Errorf("opening the read-only connection charges_query needs: %w", err)
+	}
+	defer roDB.Close()
 
 	// The bus this run reports to. Opened here rather than inside the
 	// spending path so that a run which cannot open it fails BEFORE it
@@ -143,7 +165,7 @@ func run(dir, ceiling string, maxTok, sprint int, live bool, only int, engine, e
 		if engine != "" && by[t.Assignee].Engine != engine {
 			continue
 		}
-		ests = append(ests, price(t, by[t.Assignee], maxTok))
+		ests = append(ests, price(db, t, by[t.Assignee], maxTok))
 	}
 	sort.Slice(ests, func(i, j int) bool { return ests[i].WorstMicros > ests[j].WorstMicros })
 
@@ -159,11 +181,11 @@ func run(dir, ceiling string, maxTok, sprint int, live bool, only int, engine, e
 		return fmt.Errorf("-live needs -ceiling: a run that can spend has to be " +
 			"bounded by a figure somebody typed")
 	}
-	return spend(db, ests, maxTok, cap, only, b, gatewayConfig{URL: gatewayURL, Host: host, CeilingUSD: cap})
+	return spend(db, roDB, ests, maxTok, cap, only, b, gatewayConfig{URL: gatewayURL, Host: host, CeilingUSD: cap})
 }
 
 // price puts a worst case on one task.
-func price(t crew.Task, a crew.Analyst, maxTok int) estimate {
+func price(db *sql.DB, t crew.Task, a crew.Analyst, maxTok int) estimate {
 	e := estimate{Task: t, Analyst: a, Engine: a.Engine}
 
 	switch {
@@ -194,7 +216,11 @@ func price(t crew.Task, a crew.Analyst, maxTok int) estimate {
 	//
 	// A fixed date, not today's: the estimate must not move because the clock
 	// did, and every date is the same ten bytes.
-	e.PromptTokens = tokens(prompt(t, a, "0000-00-00"))
+	//
+	// The packet is read HERE, once, and carried in e.Packet rather than
+	// rebuilt by execute(): see estimate.Packet's own comment for why.
+	e.Packet = packet(db, t, a)
+	e.PromptTokens = tokens(prompt(t, a, "0000-00-00", e.Packet))
 
 	metered, known := engines.Metered(a.Engine)
 	if !known {

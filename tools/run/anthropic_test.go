@@ -52,7 +52,7 @@ func TestAnthropicIsAskedForAnAnswerRatherThanReasoning(t *testing.T) {
 func TestTheModelIsToldTheDate(t *testing.T) {
 	p := prompt(crew.Task{ID: 1, Title: "a task", Goal: "a goal"},
 		crew.Analyst{Name: "triage-aws", Role: "analyst", Desk: "aws"},
-		"2026-08-24")
+		"2026-08-24", "")
 	if !strings.Contains(p, "Today is 2026-08-24.") {
 		t.Errorf("the prompt does not carry the date, so the model fills the "+
 			"gap itself:\n%s", p)

@@ -87,14 +87,17 @@ func KPIs(db *sql.DB, period string) ([]KPI, error) {
 
 	// -------------------------------------------------- the crew
 	//
-	// COALESCE on all three sums, not just spent_cents: SUM over zero rows is
-	// NULL, and scanning NULL into a Go int fails, the same defect the
-	// anomalies query above was fixed for and the reason its own comment
-	// exists. This one was still half-hardened, unreached until refusal 1 in
-	// the tokenfuse-focus reader gave a real way to empty tasks on a live
-	// store (-replace-generated wipes the seeded board along with the rest
-	// of the generated estate): the KPI page 500'd the moment somebody used
-	// the flag this step ships and then opened it.
+	// COALESCE on all three SUMs, not just the last one (spent_cents already
+	// had it). SUM over zero rows is NULL regardless of the CASE inside it,
+	// and scanning NULL into a plain Go int fails outright, the same defect
+	// the anomalies query above was fixed for and the reason its own
+	// comment exists. Found twice, independently, by two different paths:
+	// -replace-generated wipes the seeded board along with the rest of the
+	// generated estate, so the KPI page 500'd the moment somebody used the
+	// flag and then opened it; and tools/run's own kpis tool test built a
+	// store with nothing seeded into tasks at all and hit the identical
+	// scan error. Both are the same bug -- an estate with no tasks yet --
+	// reached from opposite directions.
 	var tasks, posted, returned int
 	var spent int64
 	if err := db.QueryRow(`SELECT COUNT(*),

@@ -56,14 +56,19 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 282 tests, 18 packages
-./scripts/gates-have-teeth.sh        # 48 cases; needs a clean tree; ~60s
-./scripts/features-are-bound.sh      # 59 scenarios, both directions
+go test ./...                        # 412 tests, 18 packages
+./scripts/gates-have-teeth.sh        # 58 cases; needs a clean tree; ~90s
+./scripts/features-are-bound.sh      # 80 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refused PR #19 on two findings the list above never asked for; a staticcheck built for an older Go cannot read this module, so on such a machine CI is the only place it runs
 ```
+
+Counts follow the suite, measured on `feat/skills-are-tools`; nothing here keeps
+them current automatically, so they lag whichever branch last updated them by
+hand (B1a's own merge left this block at 282/48/59 while its own PR body
+reported 301/52/70).
 
 The gates in this repo are Go tests rather than shell scripts, so
 `gates-have-teeth.sh` mutates the PRODUCT and requires the test to go red.
@@ -379,6 +384,70 @@ an absent invariant.
     249 micros through `money.ParseMicros`; a float64 round-trip of the same
     string gives 248). `internal/money`'s own `TestSubCentCallsRoundHalfAwayFromZeroOnceSummed`
     and `TestMicrosCentsIsSymmetric` hold the arithmetic in isolation.)*
+26. **A tool is called only under a right the analyst holds, and a query
+    reaches only the charges.** Before this, a skill on the roster was a tag
+    on a card and the model calling anything on the analyst's behalf did not
+    exist. `dispatch()` (`tools/run/dispatch.go`) looks a call up by name,
+    refuses one this console never registered, and refuses one
+    `crew.RightsFor(analyst.Skills, analyst.State)` does not cover -- named to
+    the model, journaled to the shared bus as a `tool_call` event, printed to
+    the console -- before the tool's own function is ever reached.
+    `charges_query`, the one tool whose argument the model writes as SQL
+    rather than picks from a schema, is checked independently of the right
+    gate, in two layers that do not trust each other: `tablesInSQL` walks the
+    statement's own FROM/JOIN structure as a first, cheap pass, and
+    `refuseUnknownTables` -- added after review of PR #20 found that the
+    first pass alone was not enough to trust on its own -- tokenizes EVERY
+    identifier the statement contains, in every quoting form SQLite accepts
+    (bare, `"double"`, `` `backtick` ``, `[bracket]`), and refuses the
+    statement if any one of them is the name of a real table or view this
+    database currently has (`sqlite_master`, read fresh on every call, so a
+    table added next month needs no code change) that is not `charges`,
+    `drivers` or `attribution`. WITH (a CTE is a derived table by another
+    name and this tool's three allowed tables need none), `sqlite_*`,
+    `pragma_*` and a `main.`/`temp.` schema qualification are refused
+    outright, unconditionally, wherever they appear in the statement, with
+    no database round trip needed to know it. The text must be one `SELECT`;
+    every write keyword, `;`, `--` and `/*` are refused outright. The
+    statement runs on a SECOND connection SQLite itself keeps in
+    `query_only` mode on every physical connection it opens
+    (`internal/store.OpenReadOnly`, not a single `PRAGMA` run once against
+    whichever connection a pool happened to hand back), a 5-second deadline,
+    and the result is capped at 200 rows regardless of what the statement
+    itself asked for.
+    *(gate: `TestAToolTheAnalystHasNoRightForIsRefused`,
+    `TestAnUnknownToolIsRefused`, `TestMissingRequiredArgumentIsRefused` for
+    the dispatcher; `TestChargesQueryHostileInputs` (every hostile input
+    B2-SPEC.md section 3.3 names, plus PR #20 review's own list -- a derived
+    table followed by a comma-continued disallowed table, every quoting
+    form, `main.`, `pragma_table_info(...)`, `sqlite_schema`, a CTE, all as
+    subtests, each required to name its own reason) and
+    `TestChargesQueryHostileInputsNeverTouchARow` (the same inputs run
+    through the full tool against a store with a canary row in `analysts`,
+    requiring the row unchanged and its marker absent from every result) for
+    `charges_query`; `TestOpenReadOnlyRefusesAWrite` for the read-only
+    connection on its own; `TestWrapWithLimitCapsTheStatement` and
+    `TestRefuseUnknownTablesCatchesARealDisallowedTable` each isolate one
+    layer directly, calling it rather than the full pipeline, because an
+    end-to-end test alone cannot tell "this layer works" from "a different,
+    redundant layer already caught it" -- which is exactly what happened
+    once already (`wrapWithLimit`'s own mutant passed
+    `TestChargesQueryResultIsCappedAt200Rows` outright the first time it was
+    tried) and would have happened again here: `tablesInSQL` turned out to
+    already catch every hostile input this file constructs, including the
+    ones PR #20's review named as the reason to add `refuseUnknownTables` at
+    all -- read `tablesInSQL`'s own comment for what its predecessor claimed
+    about a comma-list continuing past a derived table, tested and found
+    false. `TestATableNamedCTEPassesTablesInSQLButNotTheWithBan` is the one
+    case that does isolate a real gap: a CTE named `charges` shadows the
+    real table, `tablesInSQL` sees only the allowed name and finds nothing
+    to refuse, and only the whole-statement WITH check stops a model reading
+    fabricated numbers under the real table's name.
+    `scripts/gates-have-teeth.sh` plants and catches six mutants: dropping
+    the table allow-list, dropping `_query_only` from the read-only
+    connection's DSN, dropping the semicolon refusal, dropping the row cap,
+    dropping `refuseUnknownTables`'s own check, and dropping the
+    whole-statement WITH check.)*
 
 ## Decisions that have no gate yet
 

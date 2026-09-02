@@ -28,7 +28,7 @@ func TestThePromptCarriesTheJobDescription(t *testing.T) {
 		Engine: "openrouter", State: "active",
 		Mission: "Explain, within a day, every movement in the aws desk's bill."}
 
-	sent := prompt(task, a, "2026-08-24")
+	sent := prompt(task, a, "2026-08-24", "")
 
 	if !strings.Contains(sent, "Your job description") {
 		t.Fatalf("the prompt carries no job description block:\n%s", sent)
@@ -66,7 +66,7 @@ func TestThePromptOmitsTheBlockForAnUnmatchedAnalyst(t *testing.T) {
 	a := crew.Analyst{Name: "a-name-from-nowhere", Role: "Nobody's role", Desk: "aws",
 		Engine: "openrouter", State: "active"}
 
-	sent := prompt(task, a, "2026-08-24")
+	sent := prompt(task, a, "2026-08-24", "")
 	if strings.Contains(sent, "Your job description") {
 		t.Errorf("a name no role family matches still got a job description block:\n%s", sent)
 	}

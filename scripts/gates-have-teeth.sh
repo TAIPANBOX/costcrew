@@ -518,7 +518,7 @@ run_case 'a bound narrower than its own promise' caught ./tools/run \
 	'TestThePromptBoundCoversTheWholePrompt' \
 	'short by' \
 	tools/run/main.go \
-	'e.PromptTokens = tokens(prompt(t, a, "0000-00-00"))' \
+	'e.PromptTokens = tokens(prompt(t, a, "0000-00-00", e.Packet))' \
 	'e.PromptTokens = tokens(t.Title, t.Goal, a.Mission, a.Role)'
 
 # A deliverable must not show its own syntax. The seeded drafts were written to
@@ -721,6 +721,63 @@ run_case 'a deleted gate is not a passing gate' gone ./internal/crew \
 	internal/crew/owners_test.go \
 	'func TestEveryDeskHasAnOwner(' \
 	'func GoneTestEveryDeskHasAnOwner('
+
+# B2: a tool is called only under a right the analyst holds, and a query
+# reaches only the charges. Two mutants for the two halves of that sentence;
+# charges_query.go's own four (table allow-list, the read-only connection's
+# _query_only, the semicolon refusal, the row cap) are proven by hand in the
+# PR body rather than carried here, the same way B1a's roles teeth case
+# calls out to a script instead of duplicating its whole fault list.
+run_case $'skills are tools: the dispatcher stops checking the right' \
+	fail \
+	./tools/run \
+	$'TestAToolTheAnalystHasNoRightForIsRefused' \
+	$'tool_refused' \
+	tools/run/dispatch.go \
+	$'if !hasString(rights, def.Right) {' \
+	$'if false && !hasString(rights, def.Right) {'
+run_case $'skills are tools: charges_query drops its table allow-list' \
+	fail \
+	./tools/run \
+	$'TestChargesQueryHostileInputs' \
+	$'want refused' \
+	tools/run/charges_query.go \
+	$'if !chargesAllowedTables[tb] {' \
+	$'if false {'
+
+# T3 review of PR #20: a whole-statement identifier scan against
+# sqlite_master, independent of the FROM/JOIN walk above, so a construct
+# that walk's structural tracking gets wrong is not the only thing
+# standing between the model's text and a table this tool does not allow.
+# Targeted at the test written to isolate it (TestRefuseUnknownTablesCatchesARealDisallowedTable),
+# not at an end-to-end hostile-input case: tablesInSQL already catches
+# every hostile input this file's own tests construct, so an end-to-end
+# case would pass on this mutant exactly the way wrapWithLimit's own
+# mutant once slipped past TestChargesQueryResultIsCappedAt200Rows.
+run_case $'skills are tools: the whole-statement identifier scan is dropped' \
+	fail \
+	./tools/run \
+	$'TestRefuseUnknownTablesCatchesARealDisallowedTable' \
+	$'did not refuse' \
+	tools/run/charges_query.go \
+	$'if real[low] && !chargesAllowedTables[low] {' \
+	$'if real[low] && false {'
+
+# WITH is refused unconditionally, anywhere in the statement -- not only
+# where a plain "must start with SELECT" check would already catch a
+# top-level one, and not only where tablesInSQL's own FROM/JOIN walk would
+# independently catch a disallowed table. Targeted at the test built to
+# isolate exactly that: a CTE named "charges" shadows the real table, so
+# tablesInSQL sees only the allowed name and finds nothing to refuse on
+# its own.
+run_case $'skills are tools: a CTE naming itself charges is allowed again' \
+	fail \
+	./tools/run \
+	$'TestATableNamedCTEPassesTablesInSQLButNotTheWithBan' \
+	$'accepted a CTE' \
+	tools/run/charges_query.go \
+	$'if withAnywhereRE.MatchString(trimmed) {' \
+	$'if false {'
 
 echo
 if [ -n "$(git status --porcelain)" ]; then
