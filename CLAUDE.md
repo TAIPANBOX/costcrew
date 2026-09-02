@@ -56,7 +56,7 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 382 tests, 18 packages
+go test ./...                        # 384 tests, 18 packages
 ./scripts/gates-have-teeth.sh        # 59 cases; needs a clean tree; ~90s
 ./scripts/features-are-bound.sh      # 88 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
@@ -585,6 +585,21 @@ an absent invariant.
     other (`TestOptionsWithinOneDeliverableNeverContradict`), and dropping
     the `T.anomaly` check so an over-threshold figure applies silently
     (`TestAnOptionAboveTAnomalyIsCarriedNotApplied`).)*
+
+28. **A fixture driver carries its desk in `Source`, the field every reader
+    filters on.** `world.Drivers()` once wrote "planted fixture, event E02"
+    there while `driversSection` (the packet) filters on `Source == desk`,
+    so the "Drivers on this service and desk" section was empty for every
+    seeded anomaly in every live run, and no test noticed because every
+    packet test planted its own driver row with the desk already right.
+    `@yurii 2026-09-02` found it reading the code. The live apply path
+    (`internal/finops.applyDriver`) always wrote the desk; the fixture now
+    does too, and the packet is proven non-empty on the seeded estate itself.
+    *(gate: `TestEveryFixtureDriverCarriesItsDesk` (every fixture driver's
+    `Source` is one of the fixture's desks) and
+    `TestTheSeededFixtureDriversReachThePacket` (E02's driver reaches
+    `driversSection` and `packet()` after `estate.Seed`), both red on the
+    old code.)*
 
 ## Decisions that have no gate yet
 

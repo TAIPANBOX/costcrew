@@ -352,8 +352,15 @@ func Drivers() []Driver {
 		if e.ID == "N05" || e.ID == "N04" {
 			kind, start, end = "recurring", FirstDay, LastDay
 		}
-		out = append(out, Driver{start, end, e.Service, e.Driver, kind,
-			"planted fixture, event " + e.ID})
+		// Source is the DESK, the same meaning the live apply path gives the
+		// field (internal/finops.applyDriver writes the task's desk or the
+		// anomaly's source) and the same key the packet's driversSection
+		// filters on. Until 2026-09-02 this carried "planted fixture, event
+		// <id>" instead, which nothing read, and the packet's "Drivers on
+		// this service and desk" section was empty for every seeded anomaly
+		// in every live run. Found by Yurii reading the code; two tests in
+		// tools/run/fixture_drivers_test.go hold it now.
+		out = append(out, Driver{start, end, e.Service, e.Driver, kind, e.Source})
 	}
 	return out
 }
