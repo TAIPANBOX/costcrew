@@ -1038,6 +1038,61 @@ func TestAFrozenForecastCannotBeRefrozen(t *testing.T) {
 	}
 }
 
+// The sprint form's goal field reaches crew.Propose and comes back in the
+// proposal, both in what the page shows and in what the box re-displays for
+// the approve step to carry forward (B4-SPEC.md section 3).
+func TestThePlanFormCarriesAGoalIntoTheProposal(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+
+	_, body, _ := h.get(t, "/sprint/plan")
+	if !strings.Contains(body, `name="goal"`) {
+		t.Fatal("the plan page has no goal field")
+	}
+
+	_, body, _ = h.get(t, "/sprint/plan?goal=commitment-modelling+for+this+sprint")
+	if !strings.Contains(body, "the sprint goal names commitment-modelling") {
+		t.Error("typing a goal did not change the proposal: no item names it as why")
+	}
+	if !strings.Contains(body, `value="commitment-modelling for this sprint"`) {
+		t.Error("the goal box does not echo what was typed")
+	}
+
+	// The approve form's hidden goal field carries the same text through to
+	// Approve, which recomputes the proposal from label/start/end/goal
+	// rather than trusting anything the browser sent about the items
+	// themselves.
+	hidden := func(field string) string {
+		m := regexp.MustCompile(`name="` + field + `" value="([^"]*)"`).FindStringSubmatch(body)
+		if m == nil {
+			t.Fatalf("the approve form has no %s field to read back", field)
+		}
+		return m[1]
+	}
+	label, start, end := hidden("label"), hidden("start"), hidden("end")
+	csrf := h.csrf(t, "/sprint/plan?goal=commitment-modelling+for+this+sprint")
+	code, loc := h.post(t, "/sprint/plan", url.Values{
+		"csrf": {csrf}, "label": {label}, "start": {start}, "end": {end},
+		"goal": {"commitment-modelling for this sprint"},
+	})
+	if strings.Contains(loc, "msg=") {
+		t.Fatalf("approving with a goal was refused: %d %s", code, loc)
+	}
+	tasks, err := crew.Tasks(h.st.DB(), crew.TaskFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, tk := range tasks {
+		if tk.Assignee == "commitments" && strings.Contains(tk.Goal, "commitment-modelling for this sprint") {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("approving did not create a task for the commitments analyst from the typed goal")
+	}
+}
+
 // A plan is a proposal. Nothing reaches the board until somebody approves it.
 func TestPlanningIsAProposalUntilApproved(t *testing.T) {
 	h := start(t)
