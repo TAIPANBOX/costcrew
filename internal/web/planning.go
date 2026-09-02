@@ -265,7 +265,9 @@ func (s *Server) approvePlan(w http.ResponseWriter, r *http.Request) {
 		redirectMsg(w, r, "/sprint/plan", err.Error())
 		return
 	}
-	n, err := crew.Approve(s.db, p)
+	// "owner": a web session is always a person, and sprint.approve is the
+	// owner's class (ROLES-2026-09.md section 1).
+	n, err := crew.Approve(s.db, p, "owner")
 	if err != nil {
 		redirectMsg(w, r, "/sprint/plan", err.Error())
 		return

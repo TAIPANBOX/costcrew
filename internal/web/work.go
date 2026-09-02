@@ -659,10 +659,12 @@ func (s *Server) artifactAction(kind string) http.HandlerFunc {
 		if kind == "post" {
 			// The stamp is a person's act and it is recorded as that person's,
 			// never as the analyst's: the whole point of the gate is that it
-			// was a human who agreed.
-			err = crew.Post(s.db, id, u.Username)
+			// was a human who agreed. "owner" is the acting link: a web
+			// session is always a person, and B1A-SPEC.md section 2 says the
+			// owner link decides everything that exists today.
+			err = crew.Post(s.db, id, u.Username, "owner")
 		} else {
-			err = crew.Return(s.db, id, r.PostFormValue("reason"))
+			err = crew.Return(s.db, id, r.PostFormValue("reason"), "owner")
 		}
 		s.done(w, r, back, err)
 	}
