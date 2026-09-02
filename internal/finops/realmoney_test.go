@@ -65,6 +65,40 @@ func TestTheKPISaysNothingAboutMoneyNobodySpent(t *testing.T) {
 	}
 }
 
+// The KPI library reports refusals on an estate with no tasks at all, not
+// an error.
+//
+// Red first: SUM(CASE WHEN state='posted' ...) over zero rows is NULL
+// regardless of the CASE inside it, and two of the three SUMs in the
+// crew-cost query scanned straight into a plain int with no COALESCE
+// around them (the third already had one). Found by tools/run's own
+// coverage test for its new `kpis` tool, which is the first caller ever to
+// run KPIs() against crew.Schema with nothing seeded into tasks: every
+// existing caller either seeds the full roster (crew.Seed, kpiDB below) or
+// never reaches an empty table at all.
+func TestKPIsReportsRatherThanErrorsWithNoTasksAtAll(t *testing.T) {
+	db := seeded(t)
+	// anomaly.Schema too: KPIs() reads the anomalies table before it ever
+	// reaches tasks, and this test is about the SECOND table being empty,
+	// not the first being absent.
+	for _, sch := range []string{anomaly.Schema, crew.Schema} {
+		if _, err := db.Exec(sch); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// crew.LiveSpend, which KPIs() also calls, reads tasks.live_micros,
+	// which crew.Schema's CREATE TABLE does not carry: it is added by this
+	// migration, exactly as tools/run's own test fixture needs it too.
+	if err := crew.EnsureLiveSpendLedger(db); err != nil {
+		t.Fatal(err)
+	}
+	// crew.Schema alone, no crew.Seed: the tasks table exists and holds
+	// nothing.
+	if _, err := finops.KPIs(db, world.LastDay[:7]); err != nil {
+		t.Fatalf("KPIs() over an empty tasks table: %v", err)
+	}
+}
+
 // kpiDB is a store with the crew plane, which seeded() alone does not have:
 // Compute reads tasks, and a KPI over a table that is not there measures
 // nothing while reporting a number.
