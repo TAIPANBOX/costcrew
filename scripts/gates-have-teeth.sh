@@ -761,7 +761,7 @@ run_case $'skills are tools: the whole-statement identifier scan is dropped' \
 	$'did not refuse' \
 	tools/run/charges_query.go \
 	$'if real[low] && !chargesAllowedTables[low] {' \
-	$'if false {'
+	$'if real[low] && false {'
 
 # WITH is refused unconditionally, anywhere in the statement -- not only
 # where a plain "must start with SELECT" check would already catch a
