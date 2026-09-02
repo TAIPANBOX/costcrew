@@ -54,7 +54,7 @@ func TestImportRefusesADocumentedConnector(t *testing.T) {
 	if _, ok := readers["opencost"]; ok {
 		t.Fatal("test assumes opencost has no reader; the registry has grown one")
 	}
-	if _, err := Import(st.DB(), "opencost", true); err == nil {
+	if _, err := Import(st.DB(), "opencost", true, ImportOptions{}); err == nil {
 		t.Error("importing a connector with no reader was accepted")
 	}
 }
@@ -70,7 +70,7 @@ func TestImportRefusesAMeteredConnectorWithoutConfirmation(t *testing.T) {
 		t.Fatal("test assumes aws-cost-explorer exists and is metered")
 	}
 
-	if _, err := Import(st.DB(), "aws-cost-explorer", false); err == nil {
+	if _, err := Import(st.DB(), "aws-cost-explorer", false, ImportOptions{}); err == nil {
 		t.Fatal("a metered import ran without confirmation")
 	} else if !strings.Contains(err.Error(), "costs money") {
 		t.Errorf("the refusal does not name the cost: %v", err)
@@ -80,12 +80,12 @@ func TestImportRefusesAMeteredConnectorWithoutConfirmation(t *testing.T) {
 	// gate is proven to hold even when there IS something to call: without
 	// this, the test would only prove that an unbuilt connector refuses,
 	// which TestImportRefusesADocumentedConnector already covers.
-	readers["aws-cost-explorer"] = func(db *sql.DB, cfg map[string]string) (string, error) {
+	readers["aws-cost-explorer"] = func(db *sql.DB, cfg map[string]string, opt ImportOptions) (string, error) {
 		return "should never be called without confirmation", nil
 	}
 	defer delete(readers, "aws-cost-explorer")
 
-	if _, err := Import(st.DB(), "aws-cost-explorer", false); err == nil {
+	if _, err := Import(st.DB(), "aws-cost-explorer", false, ImportOptions{}); err == nil {
 		t.Error("a metered import with a reader present still ran without confirmation")
 	}
 }
@@ -123,13 +123,13 @@ func TestImportCallsARegisteredReader(t *testing.T) {
 		t.Fatal(err)
 	}
 	var gotCfg map[string]string
-	readers["opencost"] = func(db *sql.DB, cfg map[string]string) (string, error) {
+	readers["opencost"] = func(db *sql.DB, cfg map[string]string, opt ImportOptions) (string, error) {
 		gotCfg = cfg
 		return "Read 3 files, 2026-08-01 to 2026-08-31, 900 rows", nil
 	}
 	defer delete(readers, "opencost")
 
-	msg, err := Import(st.DB(), "opencost", false)
+	msg, err := Import(st.DB(), "opencost", false, ImportOptions{})
 	if err != nil {
 		t.Fatalf("a registered reader was not called: %v", err)
 	}

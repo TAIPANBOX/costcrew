@@ -300,6 +300,14 @@ run_case $'connector status: every entry claims Built regardless of its reader' 
 	internal/connectors/connectors.go \
 	$'if _, ok := readers[Catalogue[i].ID]; ok {' \
 	$'if true {'
+run_case $'generated estate: the refusal to mix it with real money is dropped' \
+	fail \
+	./internal/connectors \
+	$'TestGeneratedEstateIsNotMixed' \
+	$'-replace-generated' \
+	internal/connectors/tokenfusefocus.go \
+	$'if mixed && !opt.ReplaceGenerated {' \
+	$'if false && mixed && !opt.ReplaceGenerated {'
 run_case $'rights vocabulary: an explanation for a right nothing grants' \
 	fail \
 	./internal/web \

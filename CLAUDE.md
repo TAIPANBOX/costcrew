@@ -332,6 +332,27 @@ an absent invariant.
     check is real code on that path rather than a promise standing next to
     it.)*
 
+24. **A generated estate is never mixed with real money.** The first reader
+    the registry has ever held (`tokenfuse-focus`) refuses every row while
+    `charges` still holds generated ones (`provenance IS NULL`), unless the
+    operator passes `-replace-generated`. With it, the generated `charges`
+    (scoped to `provenance IS NULL`, so a later connector's own real rows are
+    never touched by an earlier one's flag), `drivers`, `attribution` and the
+    seeded `anomalies`, `tasks`, `artifacts`, `sprints`, `forecasts` and
+    `chargeback` rows are removed FIRST, in one transaction, and the removal
+    is journaled; the roster, accounts and connections are not on that list.
+    Emptying the seeded board this way is what found a second bug: `KPIs()`'s
+    first-pass-acceptance query summed `tasks` with two of its three `SUM`s
+    missing the `COALESCE` the query beside it already carried, so an operator
+    who used the flag and then opened `/kpis` got a 500 rather than a page
+    that had never seen a task.
+    *(gate: `TestGeneratedEstateIsNotMixed`, both directions: the refusal
+    (nothing written, the generated rows untouched, no journal line) and the
+    flag (the generated rows gone, the real ones present, a
+    `generated_estate_replaced` entry in the chain). The `COALESCE` fix is
+    held by every test in `internal/finops/ai_test.go` that runs `KPIs()`
+    against a store carrying real rows and nothing generated.)*
+
 ## Decisions that have no gate yet
 
 Written here so that "it holds" and "something holds it" stay different

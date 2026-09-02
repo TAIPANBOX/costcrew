@@ -59,4 +59,9 @@ var wireTypes = []string{
 	"agent_state_changed",
 	"agent_removed",
 	"agent_transferred",
+	// A generated estate replaced by real data a connector's reader found.
+	// About this console's own bookkeeping, not a run: no shared word covers
+	// deciding a fixture is done and removing it, so this keeps its own name
+	// for the same reason agent_hired does.
+	"generated_estate_replaced",
 }

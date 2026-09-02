@@ -86,11 +86,20 @@ func KPIs(db *sql.DB, period string) ([]KPI, error) {
 	})
 
 	// -------------------------------------------------- the crew
+	//
+	// COALESCE on all three sums, not just spent_cents: SUM over zero rows is
+	// NULL, and scanning NULL into a Go int fails, the same defect the
+	// anomalies query above was fixed for and the reason its own comment
+	// exists. This one was still half-hardened, unreached until refusal 1 in
+	// the tokenfuse-focus reader gave a real way to empty tasks on a live
+	// store (-replace-generated wipes the seeded board along with the rest
+	// of the generated estate): the KPI page 500'd the moment somebody used
+	// the flag this step ships and then opened it.
 	var tasks, posted, returned int
 	var spent int64
 	if err := db.QueryRow(`SELECT COUNT(*),
-		SUM(CASE WHEN state='posted' THEN 1 ELSE 0 END),
-		SUM(CASE WHEN state='returned' THEN 1 ELSE 0 END),
+		COALESCE(SUM(CASE WHEN state='posted' THEN 1 ELSE 0 END),0),
+		COALESCE(SUM(CASE WHEN state='returned' THEN 1 ELSE 0 END),0),
 		COALESCE(SUM(spent_cents),0) FROM tasks`).
 		Scan(&tasks, &posted, &returned, &spent); err != nil {
 		return nil, err
@@ -207,12 +216,30 @@ func KPIs(db *sql.DB, period string) ([]KPI, error) {
 		Blocked: "no carbon data source is connected, and the estimates providers " +
 			"publish are not comparable between them.",
 	})
+	attrPct, hasAttr, err := AttributionCoverage(db, period)
+	if err != nil {
+		return nil, err
+	}
+	// Note is set only when hasAttr, not unconditionally: the template
+	// renders {{if .Note}} and {{if .Blocked}} independently, so a Note
+	// written for the reporting case would show ALONGSIDE the refusal on a
+	// store with nothing real yet, saying both "spend a connector wrote"
+	// and "model calls do not carry an agent header" in the same row. Found
+	// by the parity gate comparing a fresh install against itself: /kpis
+	// differed even though neither side had imported anything.
+	var attrNote string
+	if hasAttr {
+		attrNote = "Real AI spend a connector's reader wrote, with the agent the gateway's " +
+			"own header named for the largest share of each day."
+	}
 	add(KPI{
 		ID: "agent-attribution", Name: "AI spend attributed to an agent", Group: "Unit economics",
-		Target: ">= 90%",
-		Blocked: "model calls do not carry an agent header through a gateway, so AI " +
-			"spend can be attributed to a team and no further. The anomaly pages say " +
-			"which grain they are at rather than implying the finer one.",
+		Value: fmt.Sprintf("%.0f", attrPct), Unit: "%", Target: ">= 90",
+		HasVal: hasAttr, Meets: hasAttr && attrPct >= 90,
+		Note: attrNote,
+		Blocked: blockedIf(!hasAttr, "model calls do not carry an agent header through a "+
+			"gateway yet, so AI spend can be attributed to a team and no further. The "+
+			"anomaly pages say which grain they are at rather than implying the finer one."),
 	})
 
 	return out, nil
