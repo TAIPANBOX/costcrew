@@ -450,51 +450,117 @@ an absent invariant.
     whole-statement WITH check.)*
 
 27. **An analyst's deliverable ends in options, never an action; a stamp is
-    what applies one.** `@yurii 2026-09-02`: "він має давати на вибір якісь
-    певні рішення, які він вважає за потрібне спочатку супервайзеру, тобто
-    головному агенту, а вже той має запитувати юзера, користувача, власника
-    цих агентів, що робити далі." A fenced `options` block at the end of the
-    body (`crew.ParseOptions`) names one to three classes from the SAME
-    closed vocabulary `jobDescriptionBlock` already shows the model
-    (`crew.ValidClassesFor`, the writing role's own `decides_alone` and
-    `hands_up`); a class outside it is refused WHOLE at save time --
-    `crew.ValidateAndSaveOptions`, called from `saveDraft` -- the deliverable
-    keeps its prose and loses its options, the task is returned
-    (`crew.Return` with `actorLink` `"supervisor"`, the class it decides
-    alone), and `option_refused` is journaled with the reason, from inside
-    that function so a caller cannot forget to. `internal/finops.Apply` is
-    the one table (B3-SPEC.md section 3) that turns an option into a side
-    effect, reusing the plane that already owns it
-    (`anomaly.Explain/Dismiss/Accept`, `finops.Freeze/Close/Reopen`,
+    what applies one, and options in the SAME deliverable are alternatives,
+    never independent actions.** `@yurii 2026-09-02`: "він має давати на
+    вибір якісь певні рішення, які він вважає за потрібне спочатку
+    супервайзеру, тобто головному агенту, а вже той має запитувати юзера,
+    користувача, власника цих агентів, що робити далі." A fenced `options`
+    block at the end of the body (`crew.ParseOptions`) names one to three
+    classes from the SAME closed vocabulary `jobDescriptionBlock` already
+    shows the model (`crew.ValidClassesFor`, the writing role's own
+    `decides_alone` and `hands_up`); a class outside it is refused WHOLE at
+    save time -- `crew.ValidateAndSaveOptions`, called from `saveDraft` --
+    the deliverable keeps its prose and loses its options, the task is
+    returned (`crew.Return` with `actorLink` `"supervisor"`, the class it
+    decides alone), and `option_refused` is journaled with the reason, from
+    inside that function so a caller cannot forget to. Naming NO options is
+    refused the same way unless `crew.AllowsNoOptions` allows it, true only
+    when the writing role's WHOLE vocabulary -- `ValidClassesFor`,
+    `decides_alone` and `hands_up` together -- is empty or entirely prose
+    (`commentary.variance`, `commentary.showback`, `forecast.project`);
+    checking `decides_alone` alone let a role with a real `hands_up` list (a
+    reporter's `explainer.publish`, `message.team`) skip the block on
+    nothing.
+
+    `internal/finops.Apply` is the one table (B3-SPEC.md section 3) that
+    turns an option into a side effect, reusing the plane that already owns
+    it (`anomaly.Explain/Dismiss/Accept`, `finops.Freeze/Close/Reopen`,
     `estate.InsertDriver`, extracted from `Seed`'s own inline insert so a
     second caller does not copy the column order by hand); three classes
     (`allocation.rule`, `budget.set`, `explainer.publish`) are recorded only
     for now, because the generic option shape carries no rule id, team,
     month or explainer id for them to act on, and inventing one would be
     exactly `commit money`'s neighbour on the never-list, "invent a number it
-    was not given" -- see the PR body. `internal/finops.Supervise` is the
-    supervisor's pass (`-supervise` on the runner, needs `-sprint`; a console
-    button on the sprint page): collect the sprint's posted deliverables'
-    open options, drop the ones that contradict (two on the same anomaly
-    with different summaries -- the option shape carries no separate
-    `caused_by`) or exceed the writing analyst's own guard headroom, rank by
-    saving then risk, apply what `MayDecide("supervisor", class)` allows as
-    the supervisor's own act, and carry the rest into ONE decision request
-    per owner per sprint (`crew.WriteDecisionRequest` rewrites the existing
-    artifact rather than duplicating it), posted automatically once every
-    carried option for that owner is answered. Only the request's own owner,
-    or an admin, may apply or refuse a carried option
-    (`internal/web/decisions.go`'s `mayAnswerFor`, the same shape
-    `roster.go`'s `mayManage` already holds for an agent's own owner); a
-    refusal needs a reason, the same argument `Return` and
-    `anomaly.Dismiss` already make.
+    was not given" -- see the PR body. Applying one option marks every OTHER
+    live option of the SAME deliverable, and every live rival option of a
+    DIFFERENT deliverable answering the same `anomaly.explain` question (next
+    paragraph), `not_chosen` (`crew.LiveRivalsOf`, called from inside `Apply`
+    so every caller -- the supervisor's own auto-apply, the owner's web
+    route -- gets this for free, with no special-casing); `not_chosen` is
+    free text, no schema change, and is the only state a rival option of an
+    applied one ever reaches -- there is no `dropped` state anywhere in this
+    file.
+
+    `internal/finops.Supervise` is the supervisor's pass (`-supervise` on
+    the runner, needs `-sprint`; a console button on the sprint page):
+    collect the sprint's posted deliverables' open options, group them by
+    their OWN deliverable (a group is decided together, never as independent
+    rows), rank by saving then risk, and for each deliverable's top-ranked
+    option apply it as the supervisor's own act when BOTH
+    `MayDecide("supervisor", class)` allows it AND its `figure_cents` is at
+    or under `roles.yaml`'s own `T.anomaly` threshold
+    (`crew.ThresholdFor("T.anomaly")`, read from the roles data, never a
+    literal and never the writing analyst's own guard headroom -- comparing
+    a cloud figure against an LLM-spend guard compares units that do not
+    compare); otherwise the WHOLE deliverable's options are carried into ONE
+    decision request per owner per sprint (`crew.WriteDecisionRequest`
+    rewrites the existing artifact rather than duplicating it), posted
+    automatically once every carried option for that owner is answered.
+    Nothing is ever dropped: a figure over `T.anomaly` is a key decision
+    carried to the owner even for a class the supervisor's own job
+    description would otherwise decide alone, and a contradiction -- two
+    DIFFERENT deliverables' `anomaly.explain` options naming a different
+    cause for the SAME anomaly, with different summaries -- is exactly
+    `roles.yaml`'s own `hands_to_owner_conditions`, "any question two
+    analysts answer differently on the same evidence": both sides are
+    carried, addressed to the higher-ranked side's owner as ONE question
+    naming the other analyst (`contradictionRouting`), never two requests
+    and never a coin flip. Options of ONE deliverable never contradict each
+    other -- they are the SAME analyst's own alternatives, a choice, not a
+    disagreement -- and options of different classes are alternatives, never
+    contradictions.
+
+    The decision request's own body lists a multi-option deliverable's
+    options as "choose at most one," not as a flat list, and carries a
+    contradiction's note under the option it belongs to
+    (`decisionRequestBody`). Its lapse date is a promise about ITSELF, never
+    enforced: `WriteDecisionRequest` sets it once and a rewrite (a second
+    pass, more options carried) leaves it exactly as it was
+    (`crew.ExistingLapses` reads it back so the SAME pass that rewrites the
+    body renders the SAME date) -- a promise "answer by X" whose X moved
+    every rerun was the false promise heraldyx once made ("eventually times
+    out") and had to retract. Once today is past that date the body says so
+    ("Unanswered since X") rather than still inviting an answer ("Answer by
+    X") -- `isStale`, a plain string comparison, because both are
+    `"2006-01-02"` -- and heraldyx's and agent-passport's own sentences for
+    `decision_requested` already say the same thing about themselves: "names
+    a date after which it counts as lapsed; nothing enforces that date."
+    There is no sweeper.
+
+    Only the request's own owner, or an admin, may apply or refuse a carried
+    option (`internal/web/decisions.go`'s `mayAnswerFor`, the same shape
+    `roster.go`'s `mayManage` already holds for an agent's own owner);
+    applying one marks the deliverable's other carried options `not_chosen`
+    the same way `Apply` does for the supervisor's own act (same reason
+    shape, `decided_by` the owner's own username); a refusal needs a reason,
+    the same argument `Return` and `anomaly.Dismiss` already make, and
+    refusing marks only that one option.
+
     *(gate: `TestADeliverableEndsInOptionsTheRoleMayName`,
     `TestAnOptionOutsideTheRoleIsRefusedAndReturned`,
+    `TestAllowsNoOptionsIsFalseForAHandsUpOnlyRole`,
     `TestTheSupervisorDecidesItsOwnClassesAndCarriesTheRest`,
+    `TestOnlyOneAlternativeOfOneDeliverableIsApplied`,
+    `TestWhenTheTopRankedOptionIsHandsUpTheWholeChoiceIsCarried`,
+    `TestAnOptionAboveTAnomalyIsCarriedNotApplied`,
+    `TestARealAnalystsGuardNeverBlocksACloudFigure`,
+    `TestApplyingOneCarriedOptionMarksItsSiblingNotChosen`,
     `TestOnlyTheOwnersStampAppliesAKeyDecision`,
     `TestADecisionRequestAsksOncePerOwnerPerSprint`, `TestARefusalNeedsAReason`,
-    `TestContradictingOptionsOnTheSameAnomalyAreDropped`,
-    `TestAgreeingOptionsOnTheSameAnomalyAreNotDropped`,
+    `TestContradictingOptionsAreCarriedAsOneQuestion`,
+    `TestAgreeingOptionsOnTheSameAnomalyAreNotLinked`,
+    `TestOptionsWithinOneDeliverableNeverContradict`,
+    `TestASecondPassKeepsTheFirstLapseDateAndMarksItStale`,
     `TestOptionsBlockHostileInputs` (not JSON, an undefined class, a negative
     figure, 50 options, a 1 MB block, a string where an integer belongs), and
     `TestAScriptTagInAnOptionSummaryRendersAsText` for the seventh hostile
@@ -509,13 +575,16 @@ an absent invariant.
     plants: `work.go`'s `artifactAction("post")` marking an option applied
     alongside `crew.Post`, using only `internal/crew` (already imported
     there) because the property is that POSTING touches no option at all,
-    not that a specific side effect ran. Two more mutants were planted by
+    not that a specific side effect ran. Three more mutants were planted by
     hand and reverted rather than kept as permanent cases, each named with
-    the test that caught it in this feature's PR body: dropping the
-    `MayDecide` check in `Supervise`'s own loop
-    (`TestTheSupervisorDecidesItsOwnClassesAndCarriesTheRest`), and dropping
-    `dropUnfit`'s contradiction check
-    (`TestContradictingOptionsOnTheSameAnomalyAreDropped`).)*
+    the test that caught it in review of this feature's first version:
+    applying every alternative of one deliverable instead of just the
+    top-ranked one (`TestOnlyOneAlternativeOfOneDeliverableIsApplied`),
+    keying the contradiction check by ordinal instead of artifact identity so
+    one deliverable's own alternatives read as a contradiction with each
+    other (`TestOptionsWithinOneDeliverableNeverContradict`), and dropping
+    the `T.anomaly` check so an over-threshold figure applies silently
+    (`TestAnOptionAboveTAnomalyIsCarriedNotApplied`).)*
 
 ## Decisions that have no gate yet
 

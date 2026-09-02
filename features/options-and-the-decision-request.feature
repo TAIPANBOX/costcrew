@@ -66,3 +66,21 @@ Feature: An analyst offers options; the supervisor decides what it can; the owne
     When the supervisor's pass runs again
     Then the same decision request is written to, not duplicated: the owner
       still has exactly one request for that sprint
+
+  @test:TestOnlyOneAlternativeOfOneDeliverableIsApplied
+  Scenario: Options in one deliverable are a choice, and only one is ever applied
+    Given one deliverable carrying two alternative options for the same
+      task, ranked by saving so one clearly comes first
+    When the supervisor's pass applies the top-ranked option, because its
+      job description decides that class alone
+    Then the other option of the same deliverable is marked not_chosen,
+      never applied, and never silently dropped
+
+  @test:TestAnOptionAboveTAnomalyIsCarriedNotApplied
+  Scenario: A figure above T.anomaly is a key decision, even for a class the supervisor could otherwise decide alone
+    Given a deliverable's option whose figure is over the roles.yaml
+      T.anomaly threshold, in a class the supervisor's own job description
+      would normally decide by itself
+    When the supervisor's pass runs
+    Then the option is carried to the owner instead of applied: the figure
+      alone makes it a key decision
