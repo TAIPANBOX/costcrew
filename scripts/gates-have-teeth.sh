@@ -745,6 +745,40 @@ run_case $'skills are tools: charges_query drops its table allow-list' \
 	$'if !chargesAllowedTables[tb] {' \
 	$'if false {'
 
+# T3 review of PR #20: a whole-statement identifier scan against
+# sqlite_master, independent of the FROM/JOIN walk above, so a construct
+# that walk's structural tracking gets wrong is not the only thing
+# standing between the model's text and a table this tool does not allow.
+# Targeted at the test written to isolate it (TestRefuseUnknownTablesCatchesARealDisallowedTable),
+# not at an end-to-end hostile-input case: tablesInSQL already catches
+# every hostile input this file's own tests construct, so an end-to-end
+# case would pass on this mutant exactly the way wrapWithLimit's own
+# mutant once slipped past TestChargesQueryResultIsCappedAt200Rows.
+run_case $'skills are tools: the whole-statement identifier scan is dropped' \
+	fail \
+	./tools/run \
+	$'TestRefuseUnknownTablesCatchesARealDisallowedTable' \
+	$'did not refuse' \
+	tools/run/charges_query.go \
+	$'if real[low] && !chargesAllowedTables[low] {' \
+	$'if false {'
+
+# WITH is refused unconditionally, anywhere in the statement -- not only
+# where a plain "must start with SELECT" check would already catch a
+# top-level one, and not only where tablesInSQL's own FROM/JOIN walk would
+# independently catch a disallowed table. Targeted at the test built to
+# isolate exactly that: a CTE named "charges" shadows the real table, so
+# tablesInSQL sees only the allowed name and finds nothing to refuse on
+# its own.
+run_case $'skills are tools: a CTE naming itself charges is allowed again' \
+	fail \
+	./tools/run \
+	$'TestATableNamedCTEPassesTablesInSQLButNotTheWithBan' \
+	$'accepted a CTE' \
+	tools/run/charges_query.go \
+	$'if withAnywhereRE.MatchString(trimmed) {' \
+	$'if false {'
+
 echo
 if [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'

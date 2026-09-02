@@ -394,30 +394,60 @@ an absent invariant.
     the console -- before the tool's own function is ever reached.
     `charges_query`, the one tool whose argument the model writes as SQL
     rather than picks from a schema, is checked independently of the right
-    gate: the text must be one `SELECT` (plain `WITH` allowed, `WITH
-    RECURSIVE` and every write keyword refused by name, `;`, `--` and `/*`
-    refused outright), every `FROM`/`JOIN` target at any nesting depth must be
-    in `charges`, `drivers` or `attribution`, the statement runs on a SECOND
-    connection SQLite itself keeps in `query_only` mode on every physical
-    connection it opens (`internal/store.OpenReadOnly`, not a single `PRAGMA`
-    run once against whichever connection a pool happened to hand back), a
-    5-second deadline, and the result is capped at 200 rows regardless of
-    what the statement itself asked for.
+    gate, in two layers that do not trust each other: `tablesInSQL` walks the
+    statement's own FROM/JOIN structure as a first, cheap pass, and
+    `refuseUnknownTables` -- added after review of PR #20 found that the
+    first pass alone was not enough to trust on its own -- tokenizes EVERY
+    identifier the statement contains, in every quoting form SQLite accepts
+    (bare, `"double"`, `` `backtick` ``, `[bracket]`), and refuses the
+    statement if any one of them is the name of a real table or view this
+    database currently has (`sqlite_master`, read fresh on every call, so a
+    table added next month needs no code change) that is not `charges`,
+    `drivers` or `attribution`. WITH (a CTE is a derived table by another
+    name and this tool's three allowed tables need none), `sqlite_*`,
+    `pragma_*` and a `main.`/`temp.` schema qualification are refused
+    outright, unconditionally, wherever they appear in the statement, with
+    no database round trip needed to know it. The text must be one `SELECT`;
+    every write keyword, `;`, `--` and `/*` are refused outright. The
+    statement runs on a SECOND connection SQLite itself keeps in
+    `query_only` mode on every physical connection it opens
+    (`internal/store.OpenReadOnly`, not a single `PRAGMA` run once against
+    whichever connection a pool happened to hand back), a 5-second deadline,
+    and the result is capped at 200 rows regardless of what the statement
+    itself asked for.
     *(gate: `TestAToolTheAnalystHasNoRightForIsRefused`,
     `TestAnUnknownToolIsRefused`, `TestMissingRequiredArgumentIsRefused` for
     the dispatcher; `TestChargesQueryHostileInputs` (every hostile input
-    B2-SPEC.md section 3.3 names, as subtests, each required to name its own
-    reason) and `TestChargesQueryHostileInputsNeverTouchARow` (the same
-    inputs run through the full tool against a store with a canary row in
-    `analysts`, requiring the row unchanged and its marker absent from every
-    result) for `charges_query`; `TestOpenReadOnlyRefusesAWrite` for the
-    read-only connection on its own; `TestWrapWithLimitCapsTheStatement` for
-    the row cap, which an end-to-end test alone could not tell from the
-    dispatcher's own separate, redundant in-memory truncation.
-    `scripts/gates-have-teeth.sh` plants and catches four mutants: dropping
+    B2-SPEC.md section 3.3 names, plus PR #20 review's own list -- a derived
+    table followed by a comma-continued disallowed table, every quoting
+    form, `main.`, `pragma_table_info(...)`, `sqlite_schema`, a CTE, all as
+    subtests, each required to name its own reason) and
+    `TestChargesQueryHostileInputsNeverTouchARow` (the same inputs run
+    through the full tool against a store with a canary row in `analysts`,
+    requiring the row unchanged and its marker absent from every result) for
+    `charges_query`; `TestOpenReadOnlyRefusesAWrite` for the read-only
+    connection on its own; `TestWrapWithLimitCapsTheStatement` and
+    `TestRefuseUnknownTablesCatchesARealDisallowedTable` each isolate one
+    layer directly, calling it rather than the full pipeline, because an
+    end-to-end test alone cannot tell "this layer works" from "a different,
+    redundant layer already caught it" -- which is exactly what happened
+    once already (`wrapWithLimit`'s own mutant passed
+    `TestChargesQueryResultIsCappedAt200Rows` outright the first time it was
+    tried) and would have happened again here: `tablesInSQL` turned out to
+    already catch every hostile input this file constructs, including the
+    ones PR #20's review named as the reason to add `refuseUnknownTables` at
+    all -- read `tablesInSQL`'s own comment for what its predecessor claimed
+    about a comma-list continuing past a derived table, tested and found
+    false. `TestATableNamedCTEPassesTablesInSQLButNotTheWithBan` is the one
+    case that does isolate a real gap: a CTE named `charges` shadows the
+    real table, `tablesInSQL` sees only the allowed name and finds nothing
+    to refuse, and only the whole-statement WITH check stops a model reading
+    fabricated numbers under the real table's name.
+    `scripts/gates-have-teeth.sh` plants and catches six mutants: dropping
     the table allow-list, dropping `_query_only` from the read-only
-    connection's DSN, dropping the semicolon refusal, and dropping the row
-    cap.)*
+    connection's DSN, dropping the semicolon refusal, dropping the row cap,
+    dropping `refuseUnknownTables`'s own check, and dropping the
+    whole-statement WITH check.)*
 
 ## Decisions that have no gate yet
 

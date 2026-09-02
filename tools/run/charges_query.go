@@ -9,26 +9,51 @@ package main
 // place a wrong answer is silent in a way none of the other ten tools can
 // produce.
 //
-// Five independent layers, and each is load-bearing on its own:
+// Six independent layers, and each is load-bearing on its own:
 //
-//  1. checkChargesSQL refuses anything that is not a single, well-formed
-//     SELECT naming only charges, drivers or attribution -- text checks,
-//     before the statement is ever prepared.
-//  2. wrapWithLimit puts the checked statement inside
+//  1. checkChargesSQL's own text checks refuse anything that is not a
+//     single, well-formed SELECT: no PRAGMA/ATTACH/DETACH, no write
+//     keyword, no ;, no comment, no WITH anywhere in the statement (a CTE
+//     is a derived table by another name and this tool's three allowed
+//     tables need none), no main./temp. schema qualification, and no
+//     identifier starting with sqlite_ or pragma_ (SQLite's own system
+//     tables and the pragma_*() table-valued functions, both callable
+//     from a FROM clause exactly like a real table). None of these needs
+//     a database round trip to decide, so all of them run first.
+//  2. tablesInSQL, the FROM/JOIN walk: a first, cheap structural pass,
+//     refusing anything it can already tell is not charges, drivers or
+//     attribution.
+//  3. refuseUnknownTables, the whole-statement identifier scan added
+//     after review of PR #20: (2) tracks SQL structure (FROM, JOIN,
+//     comma-lists, nesting depth) to decide which tokens are table
+//     references, and structure-tracking code can be wrong about a
+//     construct nobody thought to test against it. This layer does not
+//     try to track structure at all: it tokenizes EVERY identifier the
+//     statement contains, in every quoting form SQLite accepts (bare,
+//     "double", `backtick`, [bracket]), and refuses the statement if any
+//     one of them is the name of a real table or view this database
+//     currently has (read fresh from sqlite_master on every call, so a
+//     table added next month is covered with no code change) that is not
+//     charges, drivers or attribution. A column or alias that happens not
+//     to be a real table name passes through untouched; the only thing
+//     this layer can ever refuse is text that names something real -- it
+//     is also the one check here that needs the database, which is why it
+//     runs last, after every cheaper check already had its say.
+//  4. wrapWithLimit puts the checked statement inside
 //     `SELECT * FROM (<it>) LIMIT 201`, so the row cap holds regardless of
 //     what LIMIT clause (if any, however deep in a subquery) the statement
 //     itself carries, rather than trying to find and rewrite one occurrence
 //     of the word LIMIT in arbitrary text. See wrapWithLimit's own comment
 //     for why this is not what B2-SPEC.md section 3.3 literally describes.
-//  3. The statement runs on store.OpenReadOnly's connection, which the
+//  5. The statement runs on store.OpenReadOnly's connection, which the
 //     database driver itself keeps in SQLite's query_only mode on every
 //     physical connection it opens (internal/store/readonly.go), so even a
-//     miss in (1) cannot write.
-//  4. A context deadline, applied here even though the dispatcher already
+//     miss in (1)-(3) cannot write.
+//  6. A context deadline, applied here even though the dispatcher already
 //     applies its own generic one, so this tool's own timeout requirement
-//     is provable without depending on being called through dispatch().
-//  5. The result itself is capped at 200 rows on the way out, independent
-//     of whatever the query returned.
+//     is provable without depending on being called through dispatch();
+//     and the result itself is capped at 200 rows on the way out,
+//     independent of whatever the query returned.
 
 import (
 	"context"
@@ -53,19 +78,25 @@ const (
 
 // chargesAllowedTables is the whole allow-list. Nothing else -- not
 // sqlite_master, not analysts, not accounts, not tasks, not artifacts -- is
-// ever a valid FROM or JOIN target for this tool.
+// ever a valid reference for this tool, in any position or any quoting.
 var chargesAllowedTables = map[string]bool{
 	"charges":     true,
 	"drivers":     true,
 	"attribution": true,
 }
 
-// chargesBannedKeywords is PRAGMA, ATTACH/DETACH, RECURSIVE (which is what
-// makes WITH RECURSIVE recursive; plain WITH is not in this list and stays
-// allowed), and every write keyword SQLite has a statement form for.
-// Checked as whole words, case-insensitively, anywhere in the statement --
-// not only at its start -- because a write keyword hiding inside a
-// subquery or after a UNION is exactly as dangerous as one at the front.
+// chargesBannedKeywords is PRAGMA, ATTACH/DETACH, RECURSIVE, and every
+// write keyword SQLite has a statement form for. Checked as whole words,
+// case-insensitively, anywhere in the statement -- not only at its start --
+// because a write keyword hiding inside a subquery or after a UNION is
+// exactly as dangerous as one at the front.
+//
+// WITH is not in this list: it is refused unconditionally, everywhere in
+// the statement, by checkChargesSQL directly, alongside every other
+// whole-statement, no-legitimate-use-for-this-tool refusal that needs no
+// database round trip (sqlite_*, pragma_*, main./temp.). A CTE is a
+// derived table by another name and this tool's three allowed tables need
+// none.
 var chargesBannedKeywords = []string{
 	"pragma", "attach", "detach", "recursive",
 	"insert", "update", "delete", "drop", "alter", "create", "replace",
@@ -83,12 +114,27 @@ func mustWordREs(words []string) map[string]*regexp.Regexp {
 	return out
 }
 
-// checkChargesSQL is every text rule 3.3 lists, applied in the order that
-// fails cheapest first. It returns the TRIMMED statement, unchanged: this
-// function decides whether the statement runs at all, and wrapWithLimit
-// (called separately, only once this has approved something) is what
-// bounds its result.
-func checkChargesSQL(raw string) (string, error) {
+// withAnywhereRE catches WITH wherever it sits in the statement, not only
+// at the start: `SELECT * FROM charges, (WITH x AS (SELECT * FROM
+// accounts) SELECT * FROM x) y` opens its CTE inside a derived table, past
+// where a plain "does the statement start with WITH" check would ever
+// look.
+var withAnywhereRE = regexp.MustCompile(`(?i)\bWITH\b`)
+
+// mainTempSchemaRE catches a main. or temp. schema qualification wherever
+// it sits, independent of whatever name follows the dot: the qualifier
+// itself is refused, not only the cases where what follows happens to
+// match a real, disallowed table.
+var mainTempSchemaRE = regexp.MustCompile(`(?i)\b(main|temp)\s*\.`)
+
+// checkChargesSQL is every text rule 3.3 lists, plus the checks review of
+// PR #20 added, applied in the order that fails cheapest first:
+// everything that needs no database round trip runs before
+// refuseUnknownTables, the one check that does. It returns
+// the TRIMMED statement, unchanged: this function decides whether the
+// statement runs at all, and wrapWithLimit (called separately, only once
+// this has approved something) is what bounds its result.
+func checkChargesSQL(db *sql.DB, raw string) (string, error) {
 	if len(raw) > maxChargesQueryBytes {
 		return "", fmt.Errorf("the statement is %d bytes, refused: at most %d",
 			len(raw), maxChargesQueryBytes)
@@ -106,7 +152,7 @@ func checkChargesSQL(raw string) (string, error) {
 	if strings.Contains(trimmed, "/*") {
 		return "", fmt.Errorf("refused: a statement may not contain a /* comment")
 	}
-	if !startsWithSelectOrWith(trimmed) {
+	if !startsWithSelect(trimmed) {
 		return "", fmt.Errorf("refused: a statement must start with SELECT")
 	}
 	for _, kw := range chargesBannedKeywords {
@@ -114,13 +160,34 @@ func checkChargesSQL(raw string) (string, error) {
 			return "", fmt.Errorf("refused: %s is not allowed", strings.ToUpper(kw))
 		}
 	}
+	// WITH, and a main./temp. schema qualification, are refused by their
+	// own shape alone -- neither needs the database round trip below, so
+	// both run here, with the other checks that fail cheapest first.
+	if withAnywhereRE.MatchString(trimmed) {
+		return "", fmt.Errorf("refused: WITH is not allowed")
+	}
+	if loc := mainTempSchemaRE.FindString(trimmed); loc != "" {
+		return "", fmt.Errorf("refused: schema-qualified names (%s) are not allowed",
+			strings.TrimRight(loc, ". \t"))
+	}
+	// sqlite_* and pragma_* are refused by their own prefix alone too, in
+	// any quoting form: no database round trip needed to know a name
+	// starts with a reserved prefix.
+	for _, tok := range identifierTokens(trimmed) {
+		low := strings.ToLower(tok)
+		if strings.HasPrefix(low, "sqlite_") {
+			return "", fmt.Errorf("refused: %q is not allowed (sqlite_ is reserved)", tok)
+		}
+		if strings.HasPrefix(low, "pragma_") {
+			return "", fmt.Errorf("refused: %q is not allowed (pragma_ is reserved)", tok)
+		}
+	}
 
+	// tablesInSQL: the first, cheap pass over the statement's own FROM/JOIN
+	// structure.
 	tables, err := tablesInSQL(trimmed)
 	if err != nil {
 		return "", err
-	}
-	if len(tables) == 0 {
-		return "", fmt.Errorf("refused: no table is named in the statement")
 	}
 	for _, tb := range tables {
 		if !chargesAllowedTables[tb] {
@@ -128,22 +195,28 @@ func checkChargesSQL(raw string) (string, error) {
 				"refused: table %q is not one of charges, drivers, attribution", tb)
 		}
 	}
+	if len(tables) == 0 {
+		return "", fmt.Errorf("refused: no table is named in the statement")
+	}
+
+	// refuseUnknownTables: the one check that needs the database, run
+	// last -- see its own comment for why a comprehensive, structure-independent
+	// scan against the REAL schema still matters even though tablesInSQL
+	// above already turned out to catch every hostile input this file's
+	// own tests construct.
+	if err := refuseUnknownTables(db, trimmed); err != nil {
+		return "", err
+	}
 	return trimmed, nil
 }
 
-// startsWithSelectOrWith is 3.3's "the text must start with SELECT", plus
-// the one carve-out the same rule names in the same breath: "plain WITH
-// allowed". A statement opening with WITH still has to resolve to a SELECT
-// eventually (SQLite has no other statement a WITH clause can front), and
-// WITH RECURSIVE specifically is refused separately, by name, through
-// chargesBannedKeywords -- not by rejecting every WITH here, which would
-// refuse the ordinary, non-recursive CTE the same rule says is fine.
-func startsWithSelectOrWith(trimmed string) bool {
+// startsWithSelect is 3.3's "the text must start with SELECT". Unlike the
+// version this replaced, WITH is not accepted here: checkChargesSQL
+// refuses WITH unconditionally now, so accepting it here only to refuse it
+// a few lines later was the same rule stated twice, once wrong.
+func startsWithSelect(trimmed string) bool {
 	fields := strings.Fields(trimmed)
-	if len(fields) == 0 {
-		return false
-	}
-	return strings.EqualFold(fields[0], "select") || strings.EqualFold(fields[0], "with")
+	return len(fields) > 0 && strings.EqualFold(fields[0], "select")
 }
 
 // -------------------------------------------------------------- table names
@@ -157,12 +230,20 @@ func startsWithSelectOrWith(trimmed string) bool {
 // caught because the scan keeps going through the same parenthesised
 // tokens, not because this case is special-cased.
 //
-// Known, accepted gap: a comma-separated table list that continues AFTER a
-// derived table ("FROM (SELECT ...) x, drivers") stops being tracked once
-// the derived table opens, so a further name after that comma is missed.
-// None of 3.3's hostile inputs is shaped like that, and getting it exactly
-// right needs a real parser; this is a conservative, stated limit rather
-// than a silent one.
+// This is the FIRST, cheap pass (checkChargesSQL runs it before the
+// database round trip refuseUnknownTables needs). A comma list that
+// continues past a derived table close paren -- "FROM (SELECT ...) x,
+// drivers" -- IS still tracked correctly: listOpenAt is keyed by paren
+// depth, and closing the derived table's depth only clears that depth's
+// own flag, leaving the outer FROM's list open for the comma that follows
+// (TestADerivedTableDoesNotEndTheCommaList proves it directly). A
+// previous version of this comment claimed the opposite, un-tested; it was
+// wrong about its own state machine. What this pass does NOT attempt,
+// deliberately, is every quoting form or a dynamic notion of what a real
+// table is -- that is refuseUnknownTables's job, run second and
+// independently, so a mistake in this walk's structural tracking (found or
+// not yet found) is not the only thing standing between the model's text
+// and a table this tool does not allow.
 func tablesInSQL(sql string) ([]string, error) {
 	toks := tokenizeSQL(sql)
 	seen := map[string]bool{}
@@ -244,6 +325,15 @@ func isIdentByte(c byte) bool {
 // cannot smuggle a fake "FROM x" past the scan above. It never panics on
 // any input, including invalid UTF-8: everything is indexed by byte, which
 // Go allows unconditionally.
+//
+// It does NOT understand double/backtick/bracket identifier quoting --
+// those bytes fall into the default case below and are silently dropped,
+// which happens to still surface the identifier inside them as a bare
+// token (tablesInSQL benefits from that by accident, for the same reason
+// checkChargesSQL does not rely on it alone: an accident is not a
+// guarantee). identifierTokens, used by checkChargesSQL's own sqlite_/pragma_
+// check and by refuseUnknownTables, is the one that understands all four
+// forms on purpose.
 func tokenizeSQL(s string) []string {
 	var out []string
 	i := 0
@@ -283,6 +373,164 @@ func tokenizeSQL(s string) []string {
 	return out
 }
 
+// ------------------------------------------------ the whole-statement scan
+
+// realTableNames reads every table and view this database currently has,
+// straight from sqlite_master, lower-cased. Read fresh on every call
+// rather than cached: a query that runs a handful of times per task, at
+// most six times a round, does not need caching, and a cache is one more
+// thing that could go stale the moment a table is added or dropped.
+func realTableNames(db *sql.DB) (map[string]bool, error) {
+	rows, err := db.Query(`SELECT name FROM sqlite_master WHERE type IN ('table','view')`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]bool{}
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		out[strings.ToLower(name)] = true
+	}
+	return out, rows.Err()
+}
+
+// refuseUnknownTables is the whole-statement pass PR #20's review asked
+// for: independent of tablesInSQL's FROM/JOIN structural walk above, it
+// does not try to work out which clause an identifier sits in at all. It
+// tokenizes EVERY identifier the statement contains, in every quoting
+// form (identifierTokens), and refuses the statement if any one of them
+// matches a real table or view this database CURRENTLY has (realTableNames,
+// read fresh every call, so a table added next month is covered with no
+// code change here) that is not charges, drivers or attribution.
+//
+// This is deliberately about REAL tables, not an enumerated deny-list: a
+// column or alias that is not the name of anything in the schema passes
+// straight through, whatever it is called, and the only database round
+// trip this tool's checks make is the one this function needs -- which is
+// why it runs last, after every check above has already had its cheaper
+// say. WITH, sqlite_* and pragma_* are refused earlier, in checkChargesSQL
+// itself, by their own shape alone: none of those three needs to know
+// what tables exist to be refused.
+func refuseUnknownTables(db *sql.DB, sql string) error {
+	real, err := realTableNames(db)
+	if err != nil {
+		return fmt.Errorf("checking the schema: %v", err)
+	}
+	for _, tok := range identifierTokens(sql) {
+		low := strings.ToLower(tok)
+		if real[low] && !chargesAllowedTables[low] {
+			return fmt.Errorf(
+				"refused: table %q is not one of charges, drivers, attribution", tok)
+		}
+	}
+	return nil
+}
+
+// identifierTokens extracts every identifier-shaped token from sql, in
+// every form SQLite accepts one: bare (charges), "double quoted",
+// `backtick quoted`, and [bracket quoted]. A single-quoted string is
+// skipped whole, opaque, and never an identifier -- SQLite's own rule,
+// and the reason 'accounts' inside a string literal is not a table
+// reference while "accounts" is. It never panics on any input, including
+// an unterminated quote: the reader functions below stop at end of string
+// rather than index past it.
+func identifierTokens(sql string) []string {
+	var out []string
+	i := 0
+	for i < len(sql) {
+		c := sql[i]
+		switch {
+		case c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == ',' || c == '(' || c == ')' || c == '.':
+			i++
+		case c == '\'':
+			i = skipQuoted(sql, i, '\'')
+		case c == '"':
+			tok, next := readQuoted(sql, i, '"')
+			out = append(out, tok)
+			i = next
+		case c == '`':
+			tok, next := readQuoted(sql, i, '`')
+			out = append(out, tok)
+			i = next
+		case c == '[':
+			tok, next := readBracketQuoted(sql, i)
+			out = append(out, tok)
+			i = next
+		case isIdentByte(c):
+			j := i
+			for j < len(sql) && isIdentByte(sql[j]) {
+				j++
+			}
+			out = append(out, sql[i:j])
+			i = j
+		default:
+			i++
+		}
+	}
+	return out
+}
+
+// readQuoted reads a "-quoted or `-quoted identifier starting at s[start],
+// where doubling the quote character is the escape for a literal one
+// inside it (SQLite's rule for both forms), and returns its unescaped
+// content plus the index just past the closing quote.
+func readQuoted(s string, start int, q byte) (content string, next int) {
+	var b strings.Builder
+	j := start + 1
+	for j < len(s) {
+		if s[j] == q {
+			if j+1 < len(s) && s[j+1] == q {
+				b.WriteByte(q)
+				j += 2
+				continue
+			}
+			j++
+			break
+		}
+		b.WriteByte(s[j])
+		j++
+	}
+	return b.String(), j
+}
+
+// readBracketQuoted reads a [bracket quoted] identifier starting at
+// s[start]: SQL Server's form, which SQLite also accepts, with no
+// doubling escape -- it simply reads to the first ].
+func readBracketQuoted(s string, start int) (content string, next int) {
+	j := start + 1
+	k := j
+	for k < len(s) && s[k] != ']' {
+		k++
+	}
+	content = s[j:k]
+	if k < len(s) {
+		k++
+	}
+	return content, k
+}
+
+// skipQuoted advances past a '-quoted string literal starting at s[start],
+// the same doubling-escape rule as readQuoted, without keeping its
+// content: a string literal is never an identifier.
+func skipQuoted(s string, start int, q byte) int {
+	j := start + 1
+	for j < len(s) {
+		if s[j] == q {
+			if j+1 < len(s) && s[j+1] == q {
+				j += 2
+				continue
+			}
+			j++
+			break
+		}
+		j++
+	}
+	return j
+}
+
 // ----------------------------------------------------------------- the cap
 
 // wrapWithLimit puts the checked statement inside an outer
@@ -316,7 +564,7 @@ func runChargesQueryTool(ctx context.Context, _, roDB *sql.DB, args json.RawMess
 	if roDB == nil {
 		return "", fmt.Errorf("no read-only connection is configured for this run")
 	}
-	checked, err := checkChargesSQL(in.SQL)
+	checked, err := checkChargesSQL(roDB, in.SQL)
 	if err != nil {
 		return "", err
 	}
