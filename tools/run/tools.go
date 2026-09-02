@@ -298,7 +298,6 @@ func runTeamMonthTool(_ context.Context, db, _ *sql.DB, args json.RawMessage) (s
 	if err != nil {
 		return "", err
 	}
-	var sources []string
 	for rows.Next() {
 		var src string
 		var b int64
@@ -307,7 +306,6 @@ func runTeamMonthTool(_ context.Context, db, _ *sql.DB, args json.RawMessage) (s
 			return "", err
 		}
 		budget += b
-		sources = append(sources, src)
 		found = true
 	}
 	rows.Close()
