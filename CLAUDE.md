@@ -449,6 +449,74 @@ an absent invariant.
     dropping `refuseUnknownTables`'s own check, and dropping the
     whole-statement WITH check.)*
 
+27. **An analyst's deliverable ends in options, never an action; a stamp is
+    what applies one.** `@yurii 2026-09-02`: "він має давати на вибір якісь
+    певні рішення, які він вважає за потрібне спочатку супервайзеру, тобто
+    головному агенту, а вже той має запитувати юзера, користувача, власника
+    цих агентів, що робити далі." A fenced `options` block at the end of the
+    body (`crew.ParseOptions`) names one to three classes from the SAME
+    closed vocabulary `jobDescriptionBlock` already shows the model
+    (`crew.ValidClassesFor`, the writing role's own `decides_alone` and
+    `hands_up`); a class outside it is refused WHOLE at save time --
+    `crew.ValidateAndSaveOptions`, called from `saveDraft` -- the deliverable
+    keeps its prose and loses its options, the task is returned
+    (`crew.Return` with `actorLink` `"supervisor"`, the class it decides
+    alone), and `option_refused` is journaled with the reason, from inside
+    that function so a caller cannot forget to. `internal/finops.Apply` is
+    the one table (B3-SPEC.md section 3) that turns an option into a side
+    effect, reusing the plane that already owns it
+    (`anomaly.Explain/Dismiss/Accept`, `finops.Freeze/Close/Reopen`,
+    `estate.InsertDriver`, extracted from `Seed`'s own inline insert so a
+    second caller does not copy the column order by hand); three classes
+    (`allocation.rule`, `budget.set`, `explainer.publish`) are recorded only
+    for now, because the generic option shape carries no rule id, team,
+    month or explainer id for them to act on, and inventing one would be
+    exactly `commit money`'s neighbour on the never-list, "invent a number it
+    was not given" -- see the PR body. `internal/finops.Supervise` is the
+    supervisor's pass (`-supervise` on the runner, needs `-sprint`; a console
+    button on the sprint page): collect the sprint's posted deliverables'
+    open options, drop the ones that contradict (two on the same anomaly
+    with different summaries -- the option shape carries no separate
+    `caused_by`) or exceed the writing analyst's own guard headroom, rank by
+    saving then risk, apply what `MayDecide("supervisor", class)` allows as
+    the supervisor's own act, and carry the rest into ONE decision request
+    per owner per sprint (`crew.WriteDecisionRequest` rewrites the existing
+    artifact rather than duplicating it), posted automatically once every
+    carried option for that owner is answered. Only the request's own owner,
+    or an admin, may apply or refuse a carried option
+    (`internal/web/decisions.go`'s `mayAnswerFor`, the same shape
+    `roster.go`'s `mayManage` already holds for an agent's own owner); a
+    refusal needs a reason, the same argument `Return` and
+    `anomaly.Dismiss` already make.
+    *(gate: `TestADeliverableEndsInOptionsTheRoleMayName`,
+    `TestAnOptionOutsideTheRoleIsRefusedAndReturned`,
+    `TestTheSupervisorDecidesItsOwnClassesAndCarriesTheRest`,
+    `TestOnlyTheOwnersStampAppliesAKeyDecision`,
+    `TestADecisionRequestAsksOncePerOwnerPerSprint`, `TestARefusalNeedsAReason`,
+    `TestContradictingOptionsOnTheSameAnomalyAreDropped`,
+    `TestAgreeingOptionsOnTheSameAnomalyAreNotDropped`,
+    `TestOptionsBlockHostileInputs` (not JSON, an undefined class, a negative
+    figure, 50 options, a 1 MB block, a string where an integer belongs), and
+    `TestAScriptTagInAnOptionSummaryRendersAsText` for the seventh hostile
+    input (rendered as text because `optionView`'s fields are never wrapped
+    in `template.HTML`, unlike `Rendered`). `scripts/roles-are-bound.sh`
+    holds every class `internal/finops/apply.go`'s table names to
+    `roles.yaml`, the same generic `// class:` scan property 1 already
+    applies across `internal/` and `tools/`, extended in effect by tagging
+    this file's own switch rather than by a second, redundant check.
+    `scripts/gates-have-teeth.sh`'s `options: an analyst's Post applies an
+    option` case is B3-SPEC.md section 6's own words for the fault it
+    plants: `work.go`'s `artifactAction("post")` marking an option applied
+    alongside `crew.Post`, using only `internal/crew` (already imported
+    there) because the property is that POSTING touches no option at all,
+    not that a specific side effect ran. Two more mutants were planted by
+    hand and reverted rather than kept as permanent cases, each named with
+    the test that caught it in this feature's PR body: dropping the
+    `MayDecide` check in `Supervise`'s own loop
+    (`TestTheSupervisorDecidesItsOwnClassesAndCarriesTheRest`), and dropping
+    `dropUnfit`'s contradiction check
+    (`TestContradictingOptionsOnTheSameAnomalyAreDropped`).)*
+
 ## Decisions that have no gate yet
 
 Written here so that "it holds" and "something holds it" stay different

@@ -1,0 +1,51 @@
+{{define "content"}}
+<p class="crumb"><a href="/sprints">Sprints</a> / <a href="/sprint/{{.Sprint}}">sprint {{.Sprint}}</a> / decision request</p>
+
+<header class="page">
+  <h1>Decision request for {{.Owner}}</h1>
+  <p>The supervisor's pass carried these because its own job description does not decide them alone.</p>
+</header>
+
+<div class="panel">
+  <h2>What the supervisor found</h2>
+  <div class="body doc">{{.Body}}</div>
+</div>
+
+<div class="panel">
+  <h2>Answer it</h2>
+  <div class="body">
+    {{range .Options}}
+    <div style="margin-bottom:16px">
+      <dl class="facts">
+        <dt>Class</dt><dd>{{.Class}} <span class="chip open">{{.State}}</span></dd>
+        <dt>From</dt><dd><a href="/task/{{.TaskID}}">task {{.TaskID}}</a></dd>
+        <dt>Summary</dt><dd>{{.Summary}}</dd>
+        <dt>Figure</dt><dd>{{.Figure}}{{if .Saving}} · saving {{.Saving}}{{end}}</dd>
+        <dt>Risk</dt><dd>{{.Risk}}</dd>
+        <dt>Needs</dt><dd>{{.Needs}}</dd>
+      </dl>
+      {{if $.CanAnswer}}
+      <div class="row" style="align-items:flex-start">
+        <form class="action" method="post" action="/option/{{.Artifact}}/{{.Ordinal}}/apply">
+          <input type="hidden" name="csrf" value="{{$.CSRF}}">
+          <button type="submit">Apply</button>
+        </form>
+        <form class="action" method="post" action="/option/{{.Artifact}}/{{.Ordinal}}/refuse" style="flex:1 1 320px">
+          <input type="hidden" name="csrf" value="{{$.CSRF}}">
+          <label for="r{{.Artifact}}-{{.Ordinal}}">Refuse</label>
+          <textarea id="r{{.Artifact}}-{{.Ordinal}}" name="reason" placeholder="Why this option is refused."></textarea>
+          <button class="quiet" type="submit">Refuse</button>
+        </form>
+      </div>
+      {{end}}
+      <hr style="border:none;border-top:1px solid var(--line-soft);margin:14px 0">
+    </div>
+    {{else}}
+    <p class="note">Every option here has been answered. This request is posted.</p>
+    {{end}}
+    {{if not .CanAnswer}}
+    <p class="note">Only {{.Owner}}, who this decision request is addressed to, or an admin, may answer it.</p>
+    {{end}}
+  </div>
+</div>
+{{end}}
