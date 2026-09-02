@@ -114,17 +114,23 @@ func TestLiveCallRefusesEnginesItDoesNotImplement(t *testing.T) {
 
 func TestCostMicrosMatchesTheSameFormulaToolsRunUses(t *testing.T) {
 	// $3.00 in per million, $15.00 out per million (anthropic/claude-sonnet-5,
-	// internal/engines/prices.go): 1000 in-tokens and 500 out-tokens.
+	// internal/engines/prices.go): 1000 in-tokens and 500 out-tokens is
+	// 3.00e-3 + 7.50e-3 dollars, i.e. exactly 10,500 micros by hand.
+	//
+	// want is a hand-computed constant, not a second float64 expression:
+	// two independently written expressions that are mathematically the
+	// same order of operations can still round to adjacent int64s one ULP
+	// apart depending on whether the compiler folds them at compile time or
+	// emits an FMA at runtime, and `go test -cover`'s instrumentation
+	// changes exactly that -- @measured, this test flaked between 10499 and
+	// 10500 depending on -cover alone, 2026-09-03. A tolerance is the
+	// correct fix, not chasing codegen: a real formula bug misses by far
+	// more than one part in ten thousand.
 	p := engines.Price{InPerM: 3.00, OutPerM: 15.00}
 	got := costMicros(1000, 500, p)
-	// The same order of operations costMicros itself uses: both halves
-	// summed as float64 BEFORE the one truncation to int64, not truncated
-	// and then summed, which can differ by a micro either way.
-	in := 1000.0 / 1e6 * 3.00
-	out := 500.0 / 1e6 * 15.00
-	want := int64((in + out) * 1e6)
-	if got != want {
-		t.Errorf("costMicros(1000, 500, ...) = %d, want %d", got, want)
+	const want, tolerance = 10_500, 2
+	if diff := got - want; diff < -tolerance || diff > tolerance {
+		t.Errorf("costMicros(1000, 500, ...) = %d, want %d +/- %d", got, want, tolerance)
 	}
 	if got <= 0 {
 		t.Fatal("a real call with real tokens costs zero micros, which cannot be right")
