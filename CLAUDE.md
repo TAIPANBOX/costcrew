@@ -56,7 +56,7 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 434 tests, 20 packages
+go test ./...                        # 436 tests, 20 packages
 ./scripts/gates-have-teeth.sh        # 63 cases; needs a clean tree; ~90s
 ./scripts/features-are-bound.sh      # 92 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
@@ -68,7 +68,7 @@ staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refus
 Counts follow the suite, measured on `feat/the-bench-scores-a-named-cause-against-the-truth`
 (`go test ./... -v | grep -c '^--- PASS'`, `go list ...TestGoFiles/XTestGoFiles...`,
 `grep -c '^run_case' scripts/gates-have-teeth.sh`, `grep -rc Scenario: features/*.feature`,
-2026-09-02); nothing here keeps them current automatically, so they lag whichever
+2026-09-03); nothing here keeps them current automatically, so they lag whichever
 branch last updated them by hand (B1a's own merge left this block at 282/48/59
 while its own PR body reported 301/52/70).
 
