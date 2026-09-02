@@ -53,6 +53,7 @@ health path passed.
 go test ./...                        # 282 tests, 18 packages
 ./scripts/gates-have-teeth.sh        # 48 cases; needs a clean tree; ~60s
 ./scripts/features-are-bound.sh      # 59 scenarios, both directions
+./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 ```
@@ -300,6 +301,36 @@ an absent invariant.
     same refusal it always has: `TestImportRefusesADocumentedConnector`.
     `TestCountsMatchTheCatalogue` and `TestImportCallsARegisteredReader`
     round out the four.)*
+
+23. **A role decides what its job description lists, and nothing else.** The
+    card, the prompt packet and the mission seeded onto every analyst are
+    three renderings of one file, `internal/crew/roles.yaml`, not three
+    hand-written copies of the same thirty-nine sentences. Before this,
+    `missionFor`'s switch statement said what an analyst was FOR and nothing
+    else read it, so a prompt could tell an analyst nothing about what it
+    might decide alone or where a purchase, an infrastructure change or a
+    vendor negotiation had to go instead. Three classes are owned by nobody
+    in the crew for exactly that reason: `purchase`, `infra.change` and
+    `vendor.negotiate` are never a decision the console applies, only ever an
+    option a person acts on outside it.
+    *(gate: `scripts/roles-are-bound.sh`, reachable from the suite as
+    `TestRolesAreBound`, holding four properties both ways: every class named
+    in code exists in the file and every class in the file is owned by
+    exactly one link; every roster name matches exactly one role family and
+    every family matches at least one roster name; every class a role
+    decides alone is within what its rights back; and the supervisor's
+    `hands_to_owner` is exactly the set of classes the owner owns, plus the
+    two named conditions. `crew.MayDecide` and `crew.Escalates` are the two
+    functions everything above reduces to, tested directly by
+    `TestARoleCannotDecideAClassItDoesNotOwn`; `TestEveryRoleHasAJobDescription`
+    and `TestThePromptCarriesTheJobDescription` hold the card and the prompt
+    packet. `Post`, `Return` and `Approve` each ask `MayDecide` for the
+    actor's link before touching the database, refusing with
+    `ErrMayNotDecide` otherwise; every caller today passes "owner", so the
+    refusal never fires in production, and
+    `TestPostReturnApproveRefuseALinkThatMayNotDecide` is what proves the
+    check is real code on that path rather than a promise standing next to
+    it.)*
 
 ## Decisions that have no gate yet
 

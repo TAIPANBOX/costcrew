@@ -454,9 +454,25 @@ func Comment_(db *sql.DB, task int, author, body string) error {
 	return err
 }
 
+// ErrMayNotDecide is returned when actorLink is not the link this practice's
+// job descriptions have decide the class Post, Return or Approve stands for.
+var ErrMayNotDecide = errors.New("this link may not decide this class")
+
 // Post is the stamp. It is the only thing that makes a deliverable count, and
 // it is a person's act rather than an analyst's.
-func Post(db *sql.DB, artifactID int, stamper string) error {
+//
+// actorLink is the acting link this console asks MayDecide about before
+// stamping: "analyst", "supervisor" or "owner". Every caller today is a
+// person acting through the console, i.e. the owner link, which
+// B1A-SPEC.md section 2 says decides everything that exists -- so the two
+// callers below (internal/web/work.go, internal/web/planning.go) both pass
+// "owner", and Post's refusal here is not reachable from a real request
+// today. It is reachable from a test, which is the point: the check is real
+// code on the path a stamp takes, not a promise standing next to it.
+func Post(db *sql.DB, artifactID int, stamper, actorLink string) error {
+	if ok, reason := MayDecide(actorLink, ClassTaskAccept); !ok {
+		return fmt.Errorf("%w: %s", ErrMayNotDecide, reason)
+	}
 	var task int
 	var state string
 	err := db.QueryRow(`SELECT task, state FROM artifacts WHERE id=?`, artifactID).Scan(&task, &state)
@@ -480,9 +496,16 @@ func Post(db *sql.DB, artifactID int, stamper string) error {
 
 // Return sends a deliverable back, and the reason is the whole point: it is
 // what the analyst is meant to act on.
-func Return(db *sql.DB, artifactID int, reason string) error {
+//
+// actorLink is checked against MayDecide the same way Post's is; see Post's
+// comment for why every real caller passes "owner" and the refusal path is
+// exercised by a test rather than by a request.
+func Return(db *sql.DB, artifactID int, reason, actorLink string) error {
 	if strings.TrimSpace(reason) == "" {
 		return ErrNeedReason
+	}
+	if ok, why := MayDecide(actorLink, ClassTaskReturn); !ok {
+		return fmt.Errorf("%w: %s", ErrMayNotDecide, why)
 	}
 	var task int
 	var state string
@@ -738,7 +761,16 @@ func triageDesk(source string) string {
 
 // Approve materialises a plan onto the board. This is the only thing that
 // creates the tasks, and it is a person's act.
-func Approve(db *sql.DB, p Plan) (int, error) {
+//
+// actorLink is checked against MayDecide the same way Post's is; see Post's
+// comment for why every real caller passes "owner" and the refusal path is
+// exercised by a test rather than by a request. sprint.approve is owned by
+// "owner" (ROLES-2026-09.md section 1), which is what a real caller passing
+// "supervisor" or "analyst" here would be refused against.
+func Approve(db *sql.DB, p Plan, actorLink string) (int, error) {
+	if ok, why := MayDecide(actorLink, ClassSprintApprove); !ok {
+		return 0, fmt.Errorf("%w: %s", ErrMayNotDecide, why)
+	}
 	if len(p.Items) == 0 {
 		return 0, fmt.Errorf("there is nothing to plan: no anomaly is unowned and " +
 			"nothing is blocked, which is a good week rather than a problem")

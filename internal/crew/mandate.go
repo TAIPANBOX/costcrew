@@ -111,35 +111,29 @@ func RightsFor(skills []string, state string) []string {
 
 // cadenceFor: how often this job reports, which follows from the job.
 //
-// Triage looks every day because an anomaly a week old has already been paid.
-// A forecast reported daily is noise. Nobody chose "weekly for everyone"; it
-// was the absence of a choice.
+// Read from roles.yaml (ROLES-2026-09.md section 2's "Cadence, audience"
+// bullet per role family), by roster name. role is unused: it always has
+// been, since the family the cadence follows from is carried in name, not in
+// the human-readable role string on the fixture. Kept in the signature so
+// SeedRoster and BackfillMandate, which pass it positionally, do not change.
+//
+// A name that matches no role family (a hire made by hand, before a family
+// existed for it) falls back to "weekly", which was the unconditional
+// default before this read from data at all.
 func cadenceFor(name, role string) string {
-	switch {
-	case strings.HasPrefix(name, "triage-"), strings.HasPrefix(name, "investigator-"):
-		return "daily"
-	case strings.HasPrefix(name, "partner-"), name == "exec-reporter":
-		return "fortnightly"
-	case name == "forecaster", name == "governance", name == "kpi-steward",
-		name == "sustainability", name == "benchmarking":
-		return "monthly"
-	case name == "supervisor":
-		return "on-request"
+	if r, ok := RoleFor(name); ok && r.Cadence != "" {
+		return r.Cadence
 	}
 	return "weekly"
 }
 
-// audienceFor: who actually reads it.
+// audienceFor: who actually reads it. Read from roles.yaml the same way, with
+// "{desk}" substituted for this agent's own desk (ForDesk). Falls back to the
+// same "the X desk" default the console has always produced for a name no
+// role family matches.
 func audienceFor(name, desk string) string {
-	switch {
-	case name == "supervisor":
-		return "whoever asked"
-	case name == "exec-reporter", name == "governance":
-		return "the executive pack"
-	case strings.HasPrefix(name, "partner-"):
-		return "the teams on the " + desk + " desk"
-	case desk == "management":
-		return "the FinOps lead"
+	if r, ok := RoleForDesk(name, desk); ok && r.Audience != "" {
+		return r.Audience
 	}
 	return "the " + desk + " desk"
 }
@@ -163,62 +157,30 @@ func parentFor(name, desk string, hasPartner map[string]bool) string {
 }
 
 // missionFor is the one sentence somebody reads before deciding whether this
-// agent should exist. Built from the job, so it cannot contradict it.
+// agent should exist. Read from roles.yaml (ROLES-2026-09.md section 2's
+// "Mission" bullet per role family), with "{desk}" substituted for this
+// agent's own desk (ForDesk) -- the same substitution this function has
+// always done itself, moved into one place so the seeded mission column, the
+// card and the prompt packet cannot say it three different ways.
+//
+// A name that matches no role family (a hire made by hand, before a family
+// existed for it) falls back to the same generic sentence this function has
+// always produced for one: <role> for <desk>.
 func missionFor(a world.Agent) string {
-	where := "the " + a.Desk + " desk"
-	if a.Desk == "management" {
-		where = "the whole estate"
+	if r, ok := RoleForDesk(a.Name, a.Desk); ok && r.Mission != "" {
+		return r.Mission
 	}
-	switch {
-	case a.Name == "supervisor":
-		return "Plan the crew's week and route work to the desk that owns it. " +
-			"It plans; it does not execute, and nothing it proposes reaches the estate without a person."
-	case strings.HasPrefix(a.Name, "investigator-"):
-		return "Explain, within a day, every movement in " + where + "'s bill that the detector raised, " +
-			"and say which of them was somebody's decision rather than a fault."
-	case strings.HasPrefix(a.Name, "optimizer-"):
-		return "Find resources on " + where + " that are paid for at a size nobody uses, " +
-			"and propose the smaller size with the saving attached."
-	case strings.HasPrefix(a.Name, "reporter-"):
-		return "Write what " + where + " cost this period in language the teams paying for it can act on."
-	case strings.HasPrefix(a.Name, "capacity-"):
-		return "Say what " + where + " will need next quarter, and how far the last such answer was out."
-	case strings.HasPrefix(a.Name, "triage-"):
-		return "Take every new finding on " + where + " within the day, decide whether it is real, " +
-			"and put a named cause on it or say plainly that none is established."
-	case strings.HasPrefix(a.Name, "partner-"):
-		return "Own the relationship with the teams spending on " + where + ": " +
-			"carry their questions in, and carry the answers back in their own terms."
+	return a.Role + " for " + whereFor(a.Desk) + "."
+}
+
+// whereFor is the phrase ForDesk substitutes for "{desk}", duplicated here
+// (rather than calling ForDesk on an empty JobDescription) only for the
+// no-role-matched fallback above, which needs the phrase and nothing else.
+func whereFor(desk string) string {
+	if desk == "management" {
+		return "the whole estate"
 	}
-	switch a.Name {
-	case "ai-spend":
-		return "Watch what the organisation's own agents cost, this crew included, and say when a model choice stopped paying for itself."
-	case "unit-econ-ai":
-		return "Turn AI spend into a cost per outcome, so a rising bill can be told apart from a rising workload."
-	case "saas-manager":
-		return "Keep the licence estate honest: what is issued, what is used, and what renews before anybody has decided to renew it."
-	case "renewals":
-		return "Prepare every renewal before the vendor does, with the usage evidence and a benchmark attached."
-	case "chargeback":
-		return "Split every shared cost across the teams that caused it, so the total charged equals the invoice, to the cent."
-	case "commitments":
-		return "Model what to commit to and for how long, and track how much of what was committed is actually being used."
-	case "forecaster":
-		return "Say what the estate will cost this month, freeze it, and then be scored against what it actually cost."
-	case "kpi-steward":
-		return "Keep the KPI definitions stable, and refuse to report one whose inputs are not there rather than reporting a zero."
-	case "exec-reporter":
-		return "Give the executive pack the four numbers that decide something, and the reason each one moved."
-	case "governance":
-		return "Assemble the evidence that the estate's own rules are being followed, and name the ones that are not."
-	case "data-quality":
-		return "Check that what the console reports can be traced to a charge, and stop the crew when it cannot."
-	case "benchmarking":
-		return "Compare this estate against its peers on the few measures where the comparison is fair."
-	case "sustainability":
-		return "Report the estate's energy and carbon alongside its cost, using the providers' own published factors."
-	}
-	return a.Role + " for " + where + "."
+	return "the " + desk + " desk"
 }
 
 // hiredOn staggers the hire dates deterministically.
