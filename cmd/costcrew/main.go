@@ -235,6 +235,15 @@ func run(addr, dir string, scfg stack.Config) error {
 			"intake queue that was never built", n)
 	}
 
+	// Skill names this console has renamed, so an installation seeded before
+	// the rename does not sit forever on a skill rightsForSkill no longer
+	// recognises.
+	if n, err := crew.RenameRetiredSkills(st.DB()); err != nil {
+		return fmt.Errorf("renaming retired skill names: %w", err)
+	} else if n > 0 {
+		log.Printf("CostCrew: renamed a retired skill name on %d analyst(s)", n)
+	}
+
 	// Attestations this console invented before it knew better. Only those
 	// with no evidence behind them; a recorded one survives.
 	if n, err := crew.ClearFabricated(st.DB()); err != nil {

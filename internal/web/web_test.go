@@ -661,14 +661,16 @@ func TestAMeteredConnectorRefusesWithoutAnExplicitYes(t *testing.T) {
 		t.Fatalf("saving the connector config failed: %s", loc)
 	}
 
-	// A test must not call it either. Free connectors get tested; billed ones
-	// get described.
+	// A test must not call it either. aws-cost-explorer has no reader (like
+	// every connector today), so it is honestly Documented, and that is the
+	// reason a test result gives FIRST: nothing runs whether or not somebody
+	// would have confirmed the cost.
 	if _, loc := h.post(t, path+"/test", url.Values{"csrf": {h.csrf(t, path)}}); strings.Contains(loc, "msg=") {
 		t.Errorf("testing a metered connector errored: %s", loc)
 	}
 	_, body, _ = h.get(t, path)
-	if !strings.Contains(body, "NOT called") {
-		t.Error("the test result does not say the metered connector was left alone")
+	if !strings.Contains(body, "Nothing was called") {
+		t.Error("the test result does not say the connector was left alone")
 	}
 }
 

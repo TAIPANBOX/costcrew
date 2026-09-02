@@ -11,10 +11,10 @@ import (
 // A seeded analyst arrives with a mandate, not with blanks.
 //
 // The roster used to seed every agent with no mission, no rights, one cadence
-// and one audience, which made thirty-six different jobs render as thirty-six
-// identical cards. Worse, it was not merely thin: an agent whose card shows no
-// rights is claiming it can reach nothing, and that claim was false for every
-// one of them.
+// and one audience, which made thirty-nine different jobs render as
+// thirty-nine identical cards. Worse, it was not merely thin: an agent whose
+// card shows no rights is claiming it can reach nothing, and that claim was
+// false for every one of them.
 //
 // Everything below is DERIVED from what the fixture already says, so there is
 // one place a job is described and the mandate follows from it. Nothing here
@@ -65,6 +65,17 @@ var rightsForSkill = map[string][]string{
 	"waterline-tracking":       {"figures-read", "budgets-read"},
 	"sustainability-reporting": {"figures-read", "export-data"},
 	"carbon-accounting":        {"figures-read", "sql-readonly"},
+
+	// These six were on the roster in world.go and absent here, so the three
+	// analysts holding them (deep-analysis, migration-watch, intake-triage)
+	// were seeded with the figures-read floor and nothing their own mission
+	// needed. Rights follow the same vocabulary already in use above.
+	"root-cause-analysis":    {"figures-read", "sql-readonly"},
+	"migration-tracking":     {"figures-read", "sql-readonly"},
+	"step-detection":         {"figures-read", "sql-readonly"},
+	"scenario-modelling":     {"figures-read", "budgets-read"},
+	"intake-reading":         {"figures-read"},
+	"request-classification": {"figures-read"},
 }
 
 // RightsFor is the union of what an analyst's skills need, sorted so the same
@@ -212,8 +223,9 @@ func missionFor(a world.Agent) string {
 
 // hiredOn staggers the hire dates deterministically.
 //
-// Thirty-six agents hired on the same day is not a crew, it is a seed script,
-// and every page that sorts or filters by tenure would sort by nothing.
+// Thirty-nine agents hired on the same day is not a crew, it is a seed
+// script, and every page that sorts or filters by tenure would sort by
+// nothing.
 func hiredOn(i int) string {
 	// Spread backwards from the estate's last day, roughly one every twelve
 	// days, so the newest are weeks old and the oldest a bit over a year.
@@ -406,4 +418,82 @@ func DropRetiredRights(db *sql.DB) (int, error) {
 // subject for.
 var retiredRights = map[string]struct{}{
 	"requests-read": {},
+}
+
+// retiredSkillNames maps a skill string this console has renamed to its
+// replacement.
+//
+// "carbon-reporting" and "efficiency-metrics" named the sustainability
+// analyst's two skills before rightsForSkill existed for either, so both
+// silently granted nothing beyond the figures-read floor. "carbon-accounting"
+// and "sustainability-reporting" are the names rightsForSkill actually
+// defines rights for; the roster in world.go was moved onto them, and this
+// map is what carries an installation seeded under the old names there too.
+var retiredSkillNames = map[string]string{
+	"carbon-reporting":   "carbon-accounting",
+	"efficiency-metrics": "sustainability-reporting",
+}
+
+// RenameRetiredSkills rewrites a skill name this console has retired, on
+// every analyst that still carries it, and tops its rights up to whatever the
+// new name grants that the old one, absent from rightsForSkill, never did.
+//
+// Like DropRetiredRights, it only ever ADDS rights the renamed skill earns;
+// a right somebody granted by hand, or that another skill already earns, is
+// never removed. RightsFor still applies the state's own rules (a Restricted
+// analyst still loses channel-post, publish-explainer and export-data), so
+// the merge cannot hand back something the state forbids.
+func RenameRetiredSkills(db *sql.DB) (int, error) {
+	if err := ensureRoster(db); err != nil {
+		return 0, err
+	}
+	rows, err := db.Query(`SELECT name, COALESCE(skills,''), COALESCE(rights,''), state FROM analysts`)
+	if err != nil {
+		return 0, err
+	}
+	type change struct{ name, skills, rights string }
+	var changes []change
+	for rows.Next() {
+		var name, skills, rights, state string
+		if err := rows.Scan(&name, &skills, &rights, &state); err != nil {
+			rows.Close()
+			return 0, err
+		}
+		list := splitList(skills)
+		renamed := false
+		for i, s := range list {
+			if next, ok := retiredSkillNames[s]; ok {
+				list[i] = next
+				renamed = true
+			}
+		}
+		if !renamed {
+			continue
+		}
+		sort.Strings(list)
+		have := map[string]bool{}
+		for _, r := range splitList(rights) {
+			have[r] = true
+		}
+		for _, r := range RightsFor(list, state) {
+			have[r] = true
+		}
+		merged := make([]string, 0, len(have))
+		for r := range have {
+			merged = append(merged, r)
+		}
+		sort.Strings(merged)
+		changes = append(changes, change{name, strings.Join(list, ","), strings.Join(merged, ",")})
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+	for _, c := range changes {
+		if _, err := db.Exec(`UPDATE analysts SET skills=?, rights=? WHERE name=?`,
+			c.skills, c.rights, c.name); err != nil {
+			return 0, err
+		}
+	}
+	return len(changes), nil
 }

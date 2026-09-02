@@ -81,7 +81,7 @@ type Agent struct {
 	Skills     []string
 }
 
-// Crew is thirty-six analysts. The variety is the point: a console that only
+// Crew is thirty-nine analysts. The variety is the point: a console that only
 // ever shows healthy agents never gets its unhappy paths looked at, and the
 // unhappy paths are where a governance product earns its place.
 var Crew = buildCrew()
@@ -125,7 +125,7 @@ func buildCrew() []Agent {
 	// The three cloud desks get a full crew each.
 	for _, d := range []string{"aws", "gcp", "azure"} {
 		add(Agent{"investigator-" + d, "Investigator (" + d + " desk)", d, Active, "", cheap,
-			"15.00", "100.00", []string{"variance-commentary", "anomaly-triage", "sql-readonly"}})
+			"15.00", "100.00", []string{"variance-commentary", "anomaly-triage", "driver-classification"}})
 		add(Agent{"optimizer-" + d, "Optimizer (" + d + " desk)", d, Active, "", cheap,
 			"18.00", "90.00", []string{"rightsizing-analysis", "commitment-modelling"}})
 		add(Agent{"reporter-" + d, "Reporter (" + d + " desk)", d, Active, "", cheap,
@@ -184,7 +184,7 @@ func buildCrew() []Agent {
 		"12.00", "60.00", []string{"vendor-benchmarking", "peer-comparison"}})
 	add(Agent{"sustainability", "Sustainability analyst", "management", Restricted,
 		"May propose only: carbon data source is not yet trusted for published figures",
-		cheap, "12.00", "40.00", []string{"carbon-reporting", "efficiency-metrics"}})
+		cheap, "12.00", "40.00", []string{"carbon-accounting", "sustainability-reporting"}})
 	add(Agent{"deep-analysis", "Deep analysis (on request)", "management", OverGuard,
 		"Passed its 180.00 monthly ceiling on the 19th; further runs refused until the month turns",
 		strong, "40.00", "180.00", []string{"root-cause-analysis", "scenario-modelling"}})

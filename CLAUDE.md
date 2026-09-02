@@ -50,9 +50,9 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 261 tests, 16 packages
-./scripts/gates-have-teeth.sh        # 45 cases; needs a clean tree; ~60s
-./scripts/features-are-bound.sh      # 49 scenarios, both directions
+go test ./...                        # 282 tests, 18 packages
+./scripts/gates-have-teeth.sh        # 48 cases; needs a clean tree; ~60s
+./scripts/features-are-bound.sh      # 59 scenarios, both directions
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 ```
@@ -264,6 +264,42 @@ an absent invariant.
     `TestTheLiveMarkerIsDrawnLikeAMarker`. @measured 2026-08-24: marker text
     6.53:1 light and 7.17:1 dark, border 4.8:1 and 5.2:1; the ten text pairs on
     the overview pass in both themes, thinnest slack 0.29 on the state chip.)*
+
+21. **A skill on the roster is a skill this console can back with rights, and
+    the hire form offers exactly that set.** `rightsForSkill` is the source of
+    truth for what a skill grants; `SkillPool`, what the hire form offers, is
+    its sorted keys, derived rather than written by hand a second time. Before
+    this, `SkillPool` was a hand-kept list of fifteen while `rightsForSkill`
+    already defined thirty-eight, so thirty of the roster's forty-five skill
+    strings were never offered by the form, and nine of them (including
+    `sql-readonly`, a RIGHT written where a skill goes, on the three
+    investigators) had no rights entry at all: an analyst holding one was
+    seeded with the figures-read floor and nothing its own mission needed.
+    *(gate: `TestEverySkillOnTheRosterHasRights`,
+    `TestSkillPoolIsExactlyTheSkillsWithRights`. The sustainability analyst's
+    two skills were renamed onto the map's existing `carbon-accounting` and
+    `sustainability-reporting` rather than adding new entries under the
+    roster's old names; `RenameRetiredSkills` carries an installation seeded
+    under the old names onto the new ones, once, topping up only the rights
+    the new name adds.)*
+
+22. **A connector is Built only if a reader is registered for it.** The
+    package comment has said Built means "there is a reader and a test" since
+    the catalogue was written; the field itself was set by hand on every
+    entry regardless, and seven of ten said Built while no reader existed
+    anywhere in the module for any of them. `Status` is now derived from the
+    `readers` registry in exactly one place (`deriveStatus`, run from
+    `init()`), so an entry can never again claim more than the registry
+    backs. The registry is empty today: every entry is honestly `Documented`,
+    and each of the seven that used to say otherwise now says so in its own
+    Note.
+    *(gate: `TestBuiltMeansAReaderExists`. `Import` still refuses a metered
+    connector without confirmation FIRST, before it ever asks whether a
+    reader exists: `TestImportRefusesAMeteredConnectorWithoutConfirmation`.
+    Once past that gate it looks up the reader and, finding none, returns the
+    same refusal it always has: `TestImportRefusesADocumentedConnector`.
+    `TestCountsMatchTheCatalogue` and `TestImportCallsARegisteredReader`
+    round out the four.)*
 
 ## Decisions that have no gate yet
 
