@@ -21,6 +21,7 @@ import (
 	"sort"
 
 	"github.com/TAIPANBOX/costcrew/internal/crew"
+	"github.com/TAIPANBOX/costcrew/internal/deliver"
 	"github.com/TAIPANBOX/costcrew/internal/engines"
 	"github.com/TAIPANBOX/costcrew/internal/money"
 	"github.com/TAIPANBOX/costcrew/internal/store"
@@ -286,28 +287,15 @@ func price(db *sql.DB, t crew.Task, a crew.Analyst, maxTok int) estimate {
 	return e
 }
 
-// tokens is an UPPER BOUND on the prompt, not an estimate of it.
-//
-// It was len/4, the usual rule of thumb, and the first live call on the
-// Anthropic route cost 0.0185 against a "worst case" of 0.0182. The prompt
-// came in at 174 tokens where the rule predicted about 66, under by two and a
-// half times, and a bound that the very first call steps over is not a bound.
-//
-// So: one token per byte. No tokeniser splits below a byte, which makes this
-// provably an upper bound rather than a better guess, and it needs no
-// vocabulary file and no vendor agreement about what a token is.
-//
-// It costs almost nothing in precision where it matters. The output side
-// dominates: a 700-character prompt bounded at 700 tokens instead of 175 adds
-// about a fifth of a cent at Anthropic's input price, against nearly two cents
-// of output. Being loose on the small half to be certain about the total is
-// the right way round.
+// tokens is production's own call into internal/deliver.Tokens, which is an
+// UPPER BOUND on a prompt, never an estimate of it: one token per byte, since
+// no tokeniser splits below a byte. Moved there (B7-SPEC.md section 3) so
+// tools/bench prices a live run's worst case "the same arithmetic tools/run
+// prices with" (B7-SPEC.md section 2) rather than a second formula that only
+// looks like it. This wrapper keeps the old unexported name so every call
+// site and test in this package needed no change.
 func tokens(parts ...string) int {
-	n := 0
-	for _, p := range parts {
-		n += len(p)
-	}
-	return n + 1
+	return deliver.Tokens(parts...)
 }
 
 func report(db *sql.DB, ests []estimate, maxTok int, cap money.Cents, hasCap bool) {

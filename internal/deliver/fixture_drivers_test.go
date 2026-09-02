@@ -1,4 +1,4 @@
-package main
+package deliver
 
 // The seeded fixture's drivers must reach the packet. Until 2026-09-02
 // world.Drivers() filled Driver.Source with a provenance string ("planted
@@ -9,8 +9,17 @@ package main
 // apply path, internal/finops.applyDriver, writes t.Desk or an.Source).
 // Found by Yurii reading the code, not by any test, which is why these two
 // exist.
+//
+// Moved here, unrenamed, from tools/run/fixture_drivers_test.go
+// (PR #24, commit 47d293a) when B7 relocated the packet builder itself to
+// this package: see CLAUDE.md invariant 29 for why tools/bench needed that
+// move, and invariant 28 for what these two tests hold. packet(db, task, a)
+// in the original is Packet(db, task, a, false) here -- production's own
+// value for the hiding boolean that did not exist before B7 -- and nothing
+// else about either test changed.
 
 import (
+	"database/sql"
 	"strings"
 	"testing"
 
@@ -43,9 +52,9 @@ func TestEveryFixtureDriverCarriesItsDesk(t *testing.T) {
 // E02 is the fixture's own example of a real, large, explained move: GKE on
 // the gcp desk on 2026-06-22, driver "Quarterly model refresh, planned". An
 // investigator's packet for that anomaly must carry that driver, through the
-// same driversSection and packet() the live runner uses.
+// same driversSection and Packet the live runner uses.
 func TestTheSeededFixtureDriversReachThePacket(t *testing.T) {
-	db := packetTestDB(t)
+	db := deliverTestDB(t)
 	if _, err := estate.Seed(db); err != nil {
 		t.Fatal(err)
 	}
@@ -63,13 +72,13 @@ func TestTheSeededFixtureDriversReachThePacket(t *testing.T) {
 		t.Fatalf("driversSection for E02 on the gcp desk does not name the planted driver; got %q", section)
 	}
 
-	task, err := crew.GetTask(db, plantAnomalyTask(t, db, an.ID, "gcp"))
+	task, err := crew.GetTask(db, plantFixtureDriverTask(t, db, an.ID, "gcp"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	a := crew.Analyst{Name: "investigator-gcp", Desk: "gcp", State: "active",
 		Skills: []string{"driver-classification"}}
-	got := packet(db, task, a)
+	got := Packet(db, task, a, false)
 	for _, want := range []string{"Drivers on this service and desk", "Quarterly model refresh, planned"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("the packet for E02 is missing %q", want)
@@ -83,4 +92,24 @@ func keys(m map[string]bool) []string {
 		out = append(out, k)
 	}
 	return out
+}
+
+// plantFixtureDriverTask is deliverTestDB's package own equivalent of
+// tools/run/packet_test.go's plantAnomalyTask: a task row an anomaly with
+// no driver-hiding concern of its own is attached to, so GetTask can hand
+// TestTheSeededFixtureDriversReachThePacket a real crew.Task.
+func plantFixtureDriverTask(t *testing.T, db *sql.DB, anomalyID, desk string) int {
+	t.Helper()
+	res, err := db.Exec(`INSERT INTO tasks
+		(title, goal, assignee, desk, state, budget_cents, spent_cents, anomaly, created, updated)
+		VALUES ('Explain the move', 'say what happened', '', ?, 'queued', 0, 0, ?,
+		        datetime('now'), datetime('now'))`, desk, anomalyID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return int(id)
 }

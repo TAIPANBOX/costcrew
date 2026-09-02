@@ -167,6 +167,46 @@
       }
     },
     {
+      "name": "costcrew-bench",
+      "class": "tool",
+      "checked": {
+        "package": "github.com/TAIPANBOX/costcrew/tools/bench",
+        "flags": {
+          "dir": {
+            "required": false
+          },
+          "engine": {
+            "required": false
+          },
+          "live": {
+            "required": false
+          },
+          "max-tokens": {
+            "required": false
+          },
+          "n": {
+            "required": false
+          },
+          "seed": {
+            "required": false
+          },
+          "skill": {
+            "required": false
+          }
+        }
+      },
+      "declared": {
+        "role": {
+          "value": "scores an analyst's named cause against the known driver on the generated fixture (or, on imported data with no driver, against the posted/returned stamp), so a FinOps lead reads a percentage rather than a pile of deliverables",
+          "why": "as above"
+        },
+        "never_calls_live_by_default": {
+          "value": true,
+          "why": "-live is required before this binary can reach a real model, and neither mock engine is ever selectable with it; not checkable from outside the source, since a manifest cannot prove an operator will not pass the flag."
+        }
+      }
+    },
+    {
       "name": "costcrew-recon",
       "class": "tool",
       "checked": {
