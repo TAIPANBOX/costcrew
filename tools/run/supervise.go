@@ -19,14 +19,10 @@ func superviseRun(db *sql.DB, sprintID int, b bus) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("SUPERVISE. sprint %d: %d applied, %d dropped, %d carried, %d decision request(s).\n\n",
-		sprintID, len(pass.Applied), len(pass.Dropped), len(pass.Carried), len(pass.Requests))
+	fmt.Printf("SUPERVISE. sprint %d: %d applied, %d carried, %d decision request(s). Nothing is dropped.\n\n",
+		sprintID, len(pass.Applied), len(pass.Carried), len(pass.Requests))
 	for _, o := range pass.Applied {
 		fmt.Printf("  applied  %-22s artifact %d option %d\n", o.Class, o.Artifact, o.Ordinal)
-	}
-	for _, d := range pass.Dropped {
-		fmt.Printf("  dropped  %-22s artifact %d option %d: %s\n",
-			d.Option.Class, d.Option.Artifact, d.Option.Ordinal, d.Reason)
 	}
 	for _, r := range pass.Requests {
 		fmt.Printf("  decision request for %-14s %d option(s)\n", r.Owner, r.Options)
@@ -34,7 +30,7 @@ func superviseRun(db *sql.DB, sprintID int, b bus) error {
 			fmt.Fprintf(os.Stderr, "  the bus refused this decision request's event: %v\n", err)
 		}
 	}
-	if len(pass.Applied)+len(pass.Dropped)+len(pass.Carried) == 0 {
+	if len(pass.Applied)+len(pass.Carried) == 0 {
 		fmt.Println("  nothing to review: no posted deliverable in this sprint carries an open option.")
 	}
 	return nil

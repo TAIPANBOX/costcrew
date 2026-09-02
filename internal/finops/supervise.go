@@ -11,6 +11,29 @@ package finops
 // вирішити це питання, тобто, що стосується безпосередньо взаємодії людей
 // або прийняття якихось ключових рішень, а не щоразу, коли в агента
 // виникають якісь спірні моменти."
+//
+// Two properties this file holds that are easy to get wrong, both found in
+// review of the first version:
+//
+//  1. Options in ONE deliverable are ALTERNATIVES, never independent
+//     actions -- "давати на вибір якісь певні рішення" is offering a
+//     CHOICE. So this never applies more than one option of one deliverable:
+//     it decides (or carries) the whole group together, and applying one
+//     always marks the rest not_chosen (crew.LiveRivalsOf, called from
+//     Apply).
+//  2. Nothing is dropped. The first version dropped contradictions and
+//     over-guard figures; roles.yaml's own job description for the
+//     supervisor says otherwise for both. A contradiction -- two
+//     deliverables' anomaly.explain options naming a different cause for
+//     the same anomaly -- is exactly "any question two analysts answer
+//     differently on the same evidence", one of the supervisor's own
+//     hands_to_owner_conditions: both sides are carried, addressed to ONE
+//     owner as one question. And "the desk's monthly guard headroom" the
+//     first version compared a cloud figure against was the wrong number
+//     entirely (an LLM-spend guard, not a chargeback threshold); the real
+//     gate is roles.yaml's T.anomaly, read from the roles data, and a
+//     figure over it is carried, never dropped, even for a class the
+//     supervisor's own job description would otherwise decide alone.
 
 import (
 	"database/sql"
@@ -27,12 +50,6 @@ import (
 // days)".
 const decisionLapseDays = 7
 
-// Dropped names one option the pass refused to carry forward, and why.
-type Dropped struct {
-	Option crew.Option
-	Reason string
-}
-
 // RequestWritten is one owner's decision request, for the caller (the
 // runner's -supervise mode, the console's button) to report.
 type RequestWritten struct {
@@ -44,16 +61,16 @@ type RequestWritten struct {
 // without re-deriving anything from the database.
 type Pass struct {
 	Applied  []crew.Option
-	Dropped  []Dropped
 	Carried  []crew.Option
 	Requests []RequestWritten
 }
 
 // Supervise runs the deterministic pass over one sprint's posted
-// deliverables: collect every open option, drop the ones that contradict
-// each other or a guard, rank the rest, apply what the supervisor's own job
-// description decides alone, and carry everything else into one decision
-// request per owner.
+// deliverables: collect every open option, decide each deliverable's whole
+// choice together (apply the top-ranked one when the supervisor's own job
+// description allows it and its figure is within T.anomaly, otherwise carry
+// every option of that deliverable), and carry a contradiction between two
+// deliverables to one owner as one question. Nothing is dropped.
 func Supervise(db *sql.DB, sprintID int, rec Recorder) (Pass, error) {
 	var pass Pass
 
@@ -61,55 +78,82 @@ func Supervise(db *sql.DB, sprintID int, rec Recorder) (Pass, error) {
 	if err != nil {
 		return pass, err
 	}
+	rankOptions(opts)
 
-	kept, dropped, err := dropUnfit(db, opts)
+	redirectOwner, note, err := contradictionRouting(db, opts)
 	if err != nil {
 		return pass, err
 	}
-	for _, d := range dropped {
-		if err := crew.MarkOptionDropped(db, d.Option.Artifact, d.Option.Ordinal, d.Reason); err != nil {
-			return pass, err
-		}
-	}
-	pass.Dropped = dropped
 
-	rankOptions(kept)
+	groupOrder, groups := groupByArtifact(opts)
+	tAnomaly, _ := crew.ThresholdFor("T.anomaly") // zero value if missing: 0 cents is conservative, see below
 
 	byOwner := map[string][]crew.Option{}
-	for _, o := range kept {
-		// The supervisor's OWN decides_alone list, exactly: nothing an
-		// analyst's job description also decides alone bypasses this pass --
-		// see applySideEffect's own comment and this function's package
-		// comment for why an analyst's Post never reaches Apply on its own.
-		if may, _ := crew.MayDecide("supervisor", o.Class); may {
-			if err := Apply(db, o, "supervisor", rec); err != nil {
+	ownerOrder := make([]string, 0)
+	notes := map[string]string{}
+
+	for _, artID := range groupOrder {
+		group := groups[artID]
+		top := group[0] // rankOptions already sorted opts; groupByArtifact preserves that order within each group
+
+		may, _ := crew.MayDecide("supervisor", top.Class)
+		// A figure over T.anomaly is a key decision, carried even for a
+		// class the supervisor's own job description would otherwise
+		// decide alone. tAnomaly.ValueCents is 0 when the threshold is
+		// somehow missing from roles.yaml (it never is: mustLoadRoles
+		// would already have panicked), which makes every real figure
+		// "over" it -- the conservative direction, carrying rather than
+		// silently applying past a threshold that could not be read.
+		withinThreshold := top.FigureCents <= tAnomaly.ValueCents
+
+		if may && withinThreshold {
+			if err := Apply(db, top, "supervisor", rec); err != nil {
 				return pass, err
 			}
-			pass.Applied = append(pass.Applied, o)
+			pass.Applied = append(pass.Applied, top)
 			continue
 		}
-		if err := crew.MarkOptionCarried(db, o.Artifact, o.Ordinal); err != nil {
-			return pass, err
-		}
-		pass.Carried = append(pass.Carried, o)
 
-		owner, err := ownerOfOption(db, o)
+		owner, err := ownerOfOption(db, top)
 		if err != nil {
 			return pass, err
 		}
-		byOwner[owner] = append(byOwner[owner], o)
+		if redirect, is := redirectOwner[artID]; is {
+			owner = redirect
+		}
+		for _, o := range group {
+			if err := crew.MarkOptionCarried(db, o.Artifact, o.Ordinal); err != nil {
+				return pass, err
+			}
+			pass.Carried = append(pass.Carried, o)
+			if n, is := note[optionKey(o)]; is {
+				notes[optionKey(o)] = n
+			}
+		}
+		if _, seen := byOwner[owner]; !seen {
+			ownerOrder = append(ownerOrder, owner)
+		}
+		byOwner[owner] = append(byOwner[owner], group...)
 	}
+	sort.Strings(ownerOrder) // a stable, deterministic order independent of map iteration
 
-	owners := make([]string, 0, len(byOwner))
-	for owner := range byOwner {
-		owners = append(owners, owner)
-	}
-	sort.Strings(owners) // a map range would make two runs disagree about nothing but order
-
-	lapses := time.Now().UTC().AddDate(0, 0, decisionLapseDays).Format("2006-01-02")
-	for _, owner := range owners {
+	defaultLapses := time.Now().UTC().AddDate(0, 0, decisionLapseDays).Format("2006-01-02")
+	for _, owner := range ownerOrder {
 		ownerOpts := byOwner[owner]
-		body, err := decisionRequestBody(db, sprintID, ownerOpts, lapses)
+
+		// The FIRST lapse date this request was ever given, kept across
+		// every rewrite (crew.WriteDecisionRequest's own comment says why):
+		// read it before writing anything, so the body this pass renders
+		// names the date that write is about to (not) change, never a
+		// fresh one.
+		lapses := defaultLapses
+		if existing, found, err := crew.ExistingLapses(db, sprintID, owner); err != nil {
+			return pass, err
+		} else if found && existing != "" {
+			lapses = existing
+		}
+
+		body, err := decisionRequestBody(db, sprintID, ownerOpts, notes, lapses)
 		if err != nil {
 			return pass, err
 		}
@@ -126,87 +170,39 @@ func Supervise(db *sql.DB, sprintID int, rec Recorder) (Pass, error) {
 	return pass, nil
 }
 
-// dropUnfit is step 2: contradictions and over-guard figures, each marked
-// with the reason it did not survive to be ranked.
-//
-// A contradiction is two open options ON THE SAME ANOMALY (the task's own
-// anomaly id) whose summaries disagree: the options block carries no
-// separate caused_by field of its own (B3-SPEC.md section 2's shape is
-// class/summary/figure_cents/saving_cents/risk/needs/evidence), and an
-// anomaly.explain option's summary IS its named cause, the same text
-// internal/finops.Apply hands to anomaly.Explain as the reason. Two
-// analysts naming a different cause for the same anomaly is read from that.
-//
-// Over-guard reads "the desk's monthly guard headroom" as the WRITING
-// analyst's own guard (roles.yaml section 3's "Reads" bullet: "each
-// analyst's skills, state, first-pass rate and guard headroom" -- an
-// analyst-scoped figure, the same one the crew page already computes via
-// crew.SpendInMonth against Analyst.Monthly), because there is no separate
-// per-desk guard in this console today.
-func dropUnfit(db *sql.DB, opts []crew.Option) (kept []crew.Option, dropped []Dropped, err error) {
+// groupByArtifact splits already-ranked options by their own deliverable,
+// preserving the rank order both across groups (groupOrder) and within one
+// (each group's own slice): options in one deliverable are decided
+// together, never as independent rows.
+func groupByArtifact(ranked []crew.Option) (order []int, groups map[int][]crew.Option) {
+	groups = map[int][]crew.Option{}
+	for _, o := range ranked {
+		if _, ok := groups[o.Artifact]; !ok {
+			order = append(order, o.Artifact)
+		}
+		groups[o.Artifact] = append(groups[o.Artifact], o)
+	}
+	return order, groups
+}
+
+// contradictionRouting finds anomaly.explain options that disagree across
+// DIFFERENT deliverables on the SAME anomaly: roles.yaml's own
+// hands_to_owner_conditions, "any question two analysts answer differently
+// on the same evidence". Neither side is ever dropped or auto-applied
+// (anomaly.explain is not in the supervisor's own decides_alone list, so
+// the ordinary per-deliverable logic above already carries both); what this
+// adds is making sure both sides land in ONE decision request rather than
+// two. redirectOwner, keyed by artifact id, names the owner a contradicted
+// deliverable's WHOLE choice must route to instead of its own natural
+// owner: the higher-ranked side's. note, keyed by option, names the other
+// analyst for the decision request body.
+func contradictionRouting(db *sql.DB, ranked []crew.Option) (redirectOwner map[int]string, note map[string]string, err error) {
+	redirectOwner = map[int]string{}
+	note = map[string]string{}
+
 	byAnomaly := map[string][]crew.Option{}
-	anomalyOf := map[string]string{} // artifact:ordinal -> anomaly id, cached
-	for _, o := range opts {
-		taskID, terr := crew.TaskOfArtifact(db, o.Artifact)
-		if terr != nil {
-			return nil, nil, terr
-		}
-		t, terr := crew.GetTask(db, taskID)
-		if terr != nil {
-			return nil, nil, terr
-		}
-		if t.Anomaly != "" {
-			byAnomaly[t.Anomaly] = append(byAnomaly[t.Anomaly], o)
-		}
-		anomalyOf[optionKey(o)] = t.Anomaly
-	}
-
-	contradicted := map[string]string{} // optionKey -> reason
-	for anomalyID, group := range byAnomaly {
-		summaries := map[string]bool{}
-		for _, o := range group {
-			summaries[strings.TrimSpace(o.Summary)] = true
-		}
-		if len(summaries) <= 1 {
-			continue // every option on this anomaly agrees; not a contradiction
-		}
-		for _, o := range group {
-			contradicted[optionKey(o)] = fmt.Sprintf(
-				"contradicts another option on anomaly %s: this practice's "+
-					"analysts named more than one cause for the same move", anomalyID)
-		}
-	}
-
-	roster, err := crew.Roster(db)
-	if err != nil {
-		return nil, nil, err
-	}
-	byName := map[string]crew.Analyst{}
-	for _, a := range roster {
-		byName[a.Name] = a
-	}
-	// "This month" by the wall clock is usually empty: the seeded/generated
-	// estate, and every sprint fixture in it, is dated in the past rather
-	// than around today. The newest month any task actually has spend in is
-	// the one a guard headroom check can mean something against, the same
-	// reasoning internal/web/work.go's staff() page applies via
-	// world.LastDay for the crew page's own over-guard figure.
-	month, err := latestSpendMonth(db)
-	if err != nil {
-		return nil, nil, err
-	}
-	if month == "" {
-		month = time.Now().UTC().Format("2006-01")
-	}
-	spentByAnalyst, err := crew.SpendInMonth(db, month)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	for _, o := range opts {
-		key := optionKey(o)
-		if reason, is := contradicted[key]; is {
-			dropped = append(dropped, Dropped{Option: o, Reason: reason})
+	for _, o := range ranked {
+		if o.Class != "anomaly.explain" {
 			continue
 		}
 		taskID, terr := crew.TaskOfArtifact(db, o.Artifact)
@@ -217,32 +213,78 @@ func dropUnfit(db *sql.DB, opts []crew.Option) (kept []crew.Option, dropped []Dr
 		if terr != nil {
 			return nil, nil, terr
 		}
-		a := byName[t.Assignee]
-		if a.Monthly > 0 {
-			headroom := a.Monthly - spentByAnalyst[a.Name]
-			if money.Cents(o.FigureCents) > headroom {
-				dropped = append(dropped, Dropped{Option: o, Reason: fmt.Sprintf(
-					"%s is %s over %s's guard headroom for %s (%s left of %s)",
-					money.Cents(o.FigureCents), money.Cents(o.FigureCents)-headroom,
-					t.Assignee, month, headroom, a.Monthly)})
-				continue
+		if t.Anomaly == "" {
+			continue
+		}
+		byAnomaly[t.Anomaly] = append(byAnomaly[t.Anomaly], o) // preserves rank order
+	}
+
+	for anomalyID, group := range byAnomaly {
+		// One representative per deliverable (its lowest-ordinal
+		// anomaly.explain option on this anomaly): two alternatives of ONE
+		// deliverable naming different causes are a choice, not a
+		// contradiction with each other, the same reasoning
+		// crew.LiveRivalsOf's own comment gives.
+		byArtifact := map[int]crew.Option{}
+		order := make([]int, 0)
+		for _, o := range group {
+			if _, ok := byArtifact[o.Artifact]; !ok {
+				order = append(order, o.Artifact)
+			}
+			cur, ok := byArtifact[o.Artifact]
+			if !ok || o.Ordinal < cur.Ordinal {
+				byArtifact[o.Artifact] = o
 			}
 		}
-		kept = append(kept, o)
+		if len(order) < 2 {
+			continue
+		}
+		summaries := map[string]bool{}
+		for _, artID := range order {
+			summaries[strings.TrimSpace(byArtifact[artID].Summary)] = true
+		}
+		if len(summaries) <= 1 {
+			continue // every deliverable that named a cause for this anomaly agrees
+		}
+
+		// order is in rank order (group was built from `ranked`), so
+		// order[0]'s deliverable is the higher-ranked one: its owner is
+		// where the whole question goes.
+		winnerArtifact := order[0]
+		winnerTaskID, terr := crew.TaskOfArtifact(db, winnerArtifact)
+		if terr != nil {
+			return nil, nil, terr
+		}
+		winnerOwner, terr := crew.TaskOwner(db, winnerTaskID)
+		if terr != nil {
+			return nil, nil, terr
+		}
+
+		for i, artID := range order {
+			rivalArtID := order[0]
+			if i == 0 {
+				rivalArtID = order[1]
+			}
+			rival := byArtifact[rivalArtID]
+			rivalTaskID, terr := crew.TaskOfArtifact(db, rival.Artifact)
+			if terr != nil {
+				return nil, nil, terr
+			}
+			rivalTask, terr := crew.GetTask(db, rivalTaskID)
+			if terr != nil {
+				return nil, nil, terr
+			}
+
+			redirectOwner[artID] = winnerOwner
+			note[optionKey(byArtifact[artID])] = fmt.Sprintf(
+				"two analysts answered differently on anomaly %s: %s (task %d) says %q",
+				anomalyID, rivalTask.Assignee, rivalTaskID, rival.Summary)
+		}
 	}
-	return kept, dropped, nil
+	return redirectOwner, note, nil
 }
 
 func optionKey(o crew.Option) string { return fmt.Sprintf("%d:%d", o.Artifact, o.Ordinal) }
-
-// latestSpendMonth is the newest sprint month with any spend at all, read
-// from the tasks/sprints join crew.SpendInMonth itself already reads.
-func latestSpendMonth(db *sql.DB) (string, error) {
-	var m string
-	err := db.QueryRow(`SELECT COALESCE(MAX(substr(s.start,1,7)),'')
-		FROM tasks t JOIN sprints s ON s.id = t.sprint WHERE t.spent_cents > 0`).Scan(&m)
-	return m, err
-}
 
 // rankOptions is step 3: saving_cents descending, then risk ascending
 // (low, medium, high, anything else last).
@@ -288,16 +330,20 @@ func ownerOfOption(db *sql.DB, o crew.Option) (string, error) {
 
 // decisionRequestBody is section 4's fixed shape: the question, the options
 // with their figures, the supervisor's preference and why, and the lapse
-// date. The preference here is the deterministic ranking itself (the
-// highest-ranked option, ranked by saving then risk): B4 step two replaces
-// this paragraph with one a model writes from the same list, and this
-// report's NOT PROVEN line says so.
-func decisionRequestBody(db *sql.DB, sprintID int, opts []crew.Option, lapses string) (string, error) {
+// date. Grouped by deliverable -- options in one deliverable are a CHOICE,
+// not a flat list of independent asks -- with a note under an option that
+// is one side of a "two analysts answered differently" question. The
+// preference here is the deterministic ranking itself (the highest-ranked
+// carried option overall): B4 step two replaces this paragraph with one a
+// model writes from the same list, and this report's NOT PROVEN line says
+// so.
+func decisionRequestBody(db *sql.DB, sprintID int, opts []crew.Option, notes map[string]string, lapses string) (string, error) {
 	label := sprintLabel(db, sprintID)
 	var b strings.Builder
 	fmt.Fprintf(&b, "## Decision needed: %d option(s) from %s\n\n", len(opts), label)
-	b.WriteString("These are classes this practice's supervisor may not decide alone; " +
-		"its own job description hands them to you.\n\n")
+	b.WriteString("These are classes this practice's supervisor may not decide alone, " +
+		"figures above T.anomaly even where it could, or a question two analysts " +
+		"answered differently; its own job description hands them to you.\n\n")
 
 	if len(opts) > 0 {
 		top := opts[0]
@@ -307,15 +353,49 @@ func decisionRequestBody(db *sql.DB, sprintID int, opts []crew.Option, lapses st
 			"reasons yet.\n\n", top.Class, taskID, top.Summary)
 	}
 
-	for _, o := range opts {
-		taskID, _ := crew.TaskOfArtifact(db, o.Artifact)
-		fmt.Fprintf(&b, "- **%s** (task %d): %s\n", o.Class, taskID, o.Summary)
-		fmt.Fprintf(&b, "  Figure: %s. Saving: %s. Risk: %s. Needs: %s.\n",
-			money.Cents(o.FigureCents), money.Cents(o.SavingCents), o.Risk, o.Needs)
+	order, byArtifact := groupByArtifact(opts)
+	for _, artID := range order {
+		group := byArtifact[artID]
+		taskID, _ := crew.TaskOfArtifact(db, artID)
+		if len(group) > 1 {
+			fmt.Fprintf(&b, "### Task %d: choose at most one\n", taskID)
+		} else {
+			fmt.Fprintf(&b, "### Task %d\n", taskID)
+		}
+		for _, o := range group {
+			fmt.Fprintf(&b, "- **%s** (option %d): %s\n", o.Class, o.Ordinal, o.Summary)
+			fmt.Fprintf(&b, "  Figure: %s. Saving: %s. Risk: %s. Needs: %s.\n",
+				money.Cents(o.FigureCents), money.Cents(o.SavingCents), o.Risk, o.Needs)
+			if n, is := notes[optionKey(o)]; is {
+				fmt.Fprintf(&b, "  %s\n", n)
+			}
+		}
+		b.WriteString("\n")
 	}
 
-	fmt.Fprintf(&b, "\n**Lapses:** if nobody answers by %s, this decision request lapses.\n", lapses)
+	// Named as the supervisor's own deadline, never as a promise that
+	// something enforces it: heraldyx's and agent-passport's own words for
+	// this event are "names a date after which it counts as lapsed;
+	// nothing enforces that date", and this console says the same thing
+	// about itself rather than a stronger one it does not keep. There is no
+	// sweeper; the only thing that ever re-reads this date is the
+	// supervisor's own NEXT pass, which is what turns "answer by" into
+	// "unanswered since" once today is past it, and lapses itself never
+	// moves once a request is first written (crew.WriteDecisionRequest).
+	if isStale(lapses) {
+		fmt.Fprintf(&b, "**Unanswered since %s.** This is the supervisor's own deadline, now "+
+			"past; nothing enforces it.\n", lapses)
+	} else {
+		fmt.Fprintf(&b, "**Answer by %s.** This is the supervisor's own deadline; nothing "+
+			"enforces it.\n", lapses)
+	}
 	return b.String(), nil
+}
+
+// isStale is true once today is past lapses. Both are "2006-01-02", so a
+// plain string comparison is exact and needs no parsing.
+func isStale(lapses string) bool {
+	return time.Now().UTC().Format("2006-01-02") > lapses
 }
 
 func sprintLabel(db *sql.DB, sprintID int) string {

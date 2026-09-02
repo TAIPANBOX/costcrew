@@ -43,8 +43,8 @@ func (s *Server) superviseSprint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	redirectMsg(w, r, back, fmt.Sprintf(
-		"%d applied, %d dropped, %d carried, %d decision request(s) written",
-		len(pass.Applied), len(pass.Dropped), len(pass.Carried), len(pass.Requests)))
+		"%d applied, %d carried, %d decision request(s) written",
+		len(pass.Applied), len(pass.Carried), len(pass.Requests)))
 }
 
 // decisionOwners is who has an open decision request on this sprint, for the

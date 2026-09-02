@@ -32,11 +32,11 @@ import (
 type OptionState string
 
 const (
-	OptionOpen    OptionState = "open"    // saved, nobody has looked
-	OptionCarried OptionState = "carried" // handed to an owner in a decision request
-	OptionApplied OptionState = "applied" // a stamp (the supervisor's or an owner's) applied it
-	OptionRefused OptionState = "refused" // a stamp refused it, with a reason
-	OptionDropped OptionState = "dropped" // the supervisor's pass dropped it, with a reason
+	OptionOpen      OptionState = "open"       // saved, nobody has looked
+	OptionCarried   OptionState = "carried"    // handed to an owner in a decision request
+	OptionApplied   OptionState = "applied"    // a stamp (the supervisor's or an owner's) applied it
+	OptionRefused   OptionState = "refused"    // a stamp refused it, with a reason
+	OptionNotChosen OptionState = "not_chosen" // its deliverable's choice went the other way
 )
 
 // Option is one row of artifact_options: one course of action an analyst's
@@ -192,13 +192,19 @@ func ValidClassesFor(role JobDescription) map[string]bool {
 // AllowsNoOptions is true for a role that may end a deliverable in zero
 // options: B3-SPEC.md section 2's own words, "zero is allowed only for a
 // commentary.* or forecast.project deliverable, which produce prose". Read
-// as: every class the role's own job description lets it decide alone is
-// one of those two kinds, or it decides no closed class alone at all (the
-// FinOps partner, the executive reporter and others whose Owes bullet is
-// prose with no backticked class -- there is no machine-checked class such a
-// role could attach an option to in the first place).
+// as: every class the role's own job description names AT ALL -- decides
+// alone or hands up, ValidClassesFor's union -- is one of those two kinds,
+// or the union is empty (the role decides no closed class alone and hands
+// none up either: nothing here is a machine-checked class such a role could
+// attach an option to in the first place).
+//
+// Checked against the union rather than DecidesAlone alone: a role with an
+// empty decides_alone but a real hands_up list (an investigator's own
+// hands_up carries purchase, infra.change, message.team) still owes options
+// naming those classes, and reading DecidesAlone alone let such a role skip
+// the block entirely, vacuously true on nothing.
 func AllowsNoOptions(role JobDescription) bool {
-	for _, c := range role.DecidesAlone {
+	for c := range ValidClassesFor(role) {
 		switch c {
 		case "commentary.variance", "commentary.showback", "forecast.project":
 		default:
@@ -437,19 +443,82 @@ func MarkOptionRefused(db *sql.DB, artifactID, ordinal int, actor, reason string
 	return setOptionState(db, artifactID, ordinal, OptionRefused, actor, reason)
 }
 
-// MarkOptionDropped records that the supervisor's pass dropped this option
-// before it ever reached a person, with the reason (a contradiction or an
-// over-guard figure).
-func MarkOptionDropped(db *sql.DB, artifactID, ordinal int, reason string) error {
-	if strings.TrimSpace(reason) == "" {
-		return ErrNeedReason
-	}
-	return setOptionState(db, artifactID, ordinal, OptionDropped, "supervisor", reason)
-}
-
 // MarkOptionCarried records that the supervisor's pass carried this option
 // into a decision request, because its class is not one the supervisor's own
 // job description lets it decide alone.
 func MarkOptionCarried(db *sql.DB, artifactID, ordinal int) error {
 	return setOptionState(db, artifactID, ordinal, OptionCarried, "supervisor", "")
+}
+
+// MarkOptionNotChosen records that this option was not the one a deliverable's
+// choice applied. `@yurii 2026-09-02`: "давати на вибір якісь певні рішення"
+// is offering a CHOICE, and roles.yaml's own option.select ("which of an
+// analyst's options is carried forward") is the supervisor's word for
+// making it -- an owner's stamp makes the same kind of choice. actor is
+// whoever applied the option THIS one lost to; reason names it.
+func MarkOptionNotChosen(db *sql.DB, artifactID, ordinal int, actor, reason string) error {
+	return setOptionState(db, artifactID, ordinal, OptionNotChosen, actor, reason)
+}
+
+// LiveRivalsOf is every other option that applying opt resolves: every other
+// still-live (open or carried) option of opt's OWN deliverable -- options in
+// one deliverable are alternatives, decided together, never independent
+// actions -- plus, when opt is anomaly.explain, every other still-live
+// anomaly.explain option on the SAME anomaly from a DIFFERENT deliverable
+// whose (trimmed) summary differs from opt's. That second case is
+// roles.yaml's own hands_to_owner_conditions, "any question two analysts
+// answer differently on the same evidence": applying one side of that
+// question is what answers it, even though the two options live on two
+// different artifacts.
+func LiveRivalsOf(db *sql.DB, opt Option) ([]Option, error) {
+	same, err := Options(db, opt.Artifact)
+	if err != nil {
+		return nil, err
+	}
+	var out []Option
+	for _, o := range same {
+		if o.Ordinal == opt.Ordinal {
+			continue
+		}
+		if o.State != OptionOpen && o.State != OptionCarried {
+			continue
+		}
+		out = append(out, o)
+	}
+
+	if opt.Class != "anomaly.explain" {
+		return out, nil
+	}
+	taskID, err := TaskOfArtifact(db, opt.Artifact)
+	if err != nil {
+		return out, nil // best-effort: same-artifact rivals still resolve
+	}
+	t, err := GetTask(db, taskID)
+	if err != nil || t.Anomaly == "" {
+		return out, nil
+	}
+	rows, err := db.Query(`SELECT o.artifact, o.ordinal, o.class, COALESCE(o.summary,''),
+		o.figure_cents, o.saving_cents, COALESCE(o.risk,''), COALESCE(o.needs,''),
+		COALESCE(o.evidence,''), o.state, COALESCE(o.decided_by,''), COALESCE(o.decided_at,''),
+		COALESCE(o.reason,'')
+		FROM artifact_options o
+		JOIN artifacts a ON a.id = o.artifact
+		JOIN tasks t2 ON t2.id = a.task
+		WHERE t2.anomaly = ? AND o.class = 'anomaly.explain' AND o.artifact <> ?
+		  AND o.state IN ('open','carried')`, t.Anomaly, opt.Artifact)
+	if err != nil {
+		return out, err
+	}
+	defer rows.Close()
+	rivals, err := scanOptions(rows)
+	if err != nil {
+		return out, err
+	}
+	trimmed := strings.TrimSpace(opt.Summary)
+	for _, r := range rivals {
+		if strings.TrimSpace(r.Summary) != trimmed {
+			out = append(out, r)
+		}
+	}
+	return out, nil
 }

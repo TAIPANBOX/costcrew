@@ -221,3 +221,98 @@ func TestARefusalNeedsAReason(t *testing.T) {
 		t.Errorf("reason %q was not recorded", got.Reason)
 	}
 }
+
+// Red first (test d from the review): the owner applying one of two carried
+// alternatives of ONE deliverable marks the sibling not_chosen, and the
+// decision request posts once nothing of it is left carried.
+func TestApplyingOneCarriedOptionMarksItsSiblingNotChosen(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "boss", "boss-password-2026")
+	if _, err := h.au.Create("owner1", "owner1-password-2026", "operator"); err != nil {
+		t.Fatal(err)
+	}
+	artID, ord1, ord2, sprintID := plantTwoCarriedOptions(t, h, "owner1")
+	owner := h.as(t, "owner1", "owner1-password-2026")
+
+	path := "/option/" + strconv.Itoa(artID) + "/" + strconv.Itoa(ord1) + "/apply"
+	code, loc := owner.post(t, path, url.Values{"csrf": {owner.csrf(t, "/board")}})
+	if code != 303 {
+		t.Fatalf("applying option %d answered %d", ord1, code)
+	}
+
+	got1 := optionState(t, h, artID, ord1)
+	got2 := optionState(t, h, artID, ord2)
+	if got1 != crew.OptionApplied {
+		t.Errorf("option %d state %q, want applied (redirected to %s)", ord1, got1, loc)
+	}
+	if got2 != crew.OptionNotChosen {
+		t.Errorf("option %d (the sibling) state %q, want not_chosen", ord2, got2)
+	}
+
+	// And nothing of this deliverable is carried any more: the decision
+	// request has nothing left to ask about (PostDecisionRequestIfComplete's
+	// own unit-level behaviour is decision_test.go's -- not repeated here).
+	remaining, err := crew.CarriedOptionsFor(h.st.DB(), sprintID, "owner1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(remaining) != 0 {
+		t.Errorf("%d options still carried for owner1 after the choice was made, want 0", len(remaining))
+	}
+}
+
+// plantTwoCarriedOptions is a sprint, a posted deliverable with TWO carried
+// alternatives on it, and the decision request that already carries both --
+// what finops.Supervise itself leaves behind for a deliverable whose choice
+// it could not decide (supervise_test.go proves the routing there).
+func plantTwoCarriedOptions(t *testing.T, h *harness, owner string) (artifact, ordinal1, ordinal2, sprintID int) {
+	t.Helper()
+	db := h.st.DB()
+	sres, err := db.Exec(`INSERT INTO sprints (label, start, finish, state, goal)
+		VALUES ('2026-W95', '2026-08-11', '2026-08-17', 'active', 'a goal')`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sid, err := sres.LastInsertId()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tres, err := db.Exec(`INSERT INTO tasks
+		(sprint, title, goal, assignee, desk, state, budget_cents, spent_cents, created, updated, owner)
+		VALUES (?, 'a task', 'a goal', 'investigator-aws', 'aws', 'active', 0, 0,
+		        datetime('now'), datetime('now'), ?)`, sid, owner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	taskID, err := tres.LastInsertId()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ares, err := db.Exec(`INSERT INTO artifacts
+		(task, author, title, body, state, created)
+		VALUES (?, 'investigator-aws', 'a deliverable', 'body', 'posted', datetime('now'))`, taskID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	artID, err := ares.LastInsertId()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO artifact_options
+		(artifact, ordinal, class, summary, figure_cents, saving_cents, risk, needs, evidence, state)
+		VALUES (?, 1, 'period.close', 'close August', 500000, 0, 'low', 'the owner', '[]', 'carried')`,
+		artID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO artifact_options
+		(artifact, ordinal, class, summary, figure_cents, saving_cents, risk, needs, evidence, state)
+		VALUES (?, 2, 'budget.set', 'raise the budget instead', 400000, 0, 'low', 'the owner', '[]', 'carried')`,
+		artID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO decision_requests (artifact, sprint, owner, lapses, created)
+		VALUES (?,?,?,?,datetime('now'))`, artID, sid, owner, "2026-08-24"); err != nil {
+		t.Fatal(err)
+	}
+	return int(artID), 1, 2, int(sid)
+}

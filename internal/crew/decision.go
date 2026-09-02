@@ -61,20 +61,37 @@ func DecisionRequestFor(db *sql.DB, sprintID int, owner string) (artifactID int,
 	return artifactID, err == nil, err
 }
 
+// ExistingLapses reads the date already on file for one owner's request in
+// one sprint, if any: the date WriteDecisionRequest must not move on a
+// rewrite, and decisionRequestBody must render honestly, past or not.
+func ExistingLapses(db *sql.DB, sprintID int, owner string) (lapses string, found bool, err error) {
+	err = db.QueryRow(`SELECT lapses FROM decision_requests WHERE sprint=? AND owner=?`,
+		sprintID, owner).Scan(&lapses)
+	if err == sql.ErrNoRows {
+		return "", false, nil
+	}
+	return lapses, err == nil, err
+}
+
 // WriteDecisionRequest writes, or rewrites the body of, the one decision
 // request for (sprintID, owner). Rewriting rather than duplicating is what
 // makes running the supervisor's pass a second time (more options carried
 // since the first run) still "one decision request per owner per sprint".
+//
+// lapses is used ONLY the first time a request is created. On a rewrite the
+// stored date is left exactly as it was: a promise "answer by X" whose X
+// keeps moving every time the pass reruns is the false promise heraldyx
+// once made ("eventually times out") and had to retract. Nothing enforces
+// the date either way -- see decisionRequestBody's own words -- but at
+// least it stays the date it always was. Call ExistingLapses first if the
+// caller needs to know what that date already is, e.g. to render the body
+// with the SAME date this write is about to (not) change.
 func WriteDecisionRequest(db *sql.DB, sprintID int, owner, body, lapses string) (int, error) {
 	if artID, found, err := DecisionRequestFor(db, sprintID, owner); err != nil {
 		return 0, err
 	} else if found {
 		if _, err := db.Exec(`UPDATE artifacts SET body=?, state=? WHERE id=?`,
 			body, string(Draft), artID); err != nil {
-			return 0, err
-		}
-		if _, err := db.Exec(`UPDATE decision_requests SET lapses=? WHERE artifact=?`,
-			lapses, artID); err != nil {
 			return 0, err
 		}
 		return artID, nil

@@ -43,6 +43,19 @@ type Recorder interface {
 // internal/web's owner-answer routes for carried ones) -- so an
 // analyst's Post, which never calls this function, still applies nothing,
 // exactly as before this file existed.
+//
+// Applying an option always resolves its deliverable's whole choice:
+// `@yurii 2026-09-02`, "давати на вибір якісь певні рішення" is offering a
+// CHOICE, never independent actions, so every other still-live option
+// crew.LiveRivalsOf finds -- the rest of THIS deliverable's own
+// alternatives, and, for anomaly.explain, the other side of a "two analysts
+// answered differently" question living on a different deliverable
+// (roles.yaml's own hands_to_owner_conditions) -- is marked not_chosen in
+// the SAME call. The choosing itself is roles.yaml's own option.select,
+// "which of an analyst's options is carried forward"; it is journaled as
+// part of the existing option_applied event (a not_chosen list in its own
+// data) rather than as a fourth wire type, because a new type costs a
+// registry change in every repository that reads the shared bus.
 func Apply(db *sql.DB, opt crew.Option, actor string, rec Recorder) error {
 	taskID, err := crew.TaskOfArtifact(db, opt.Artifact)
 	if err != nil {
@@ -59,14 +72,36 @@ func Apply(db *sql.DB, opt crew.Option, actor string, rec Recorder) error {
 	if err := crew.MarkOptionApplied(db, opt.Artifact, opt.Ordinal, actor); err != nil {
 		return err
 	}
+
+	rivals, err := crew.LiveRivalsOf(db, opt)
+	if err != nil {
+		return err
+	}
+	notChosenReason := fmt.Sprintf("not chosen: option %d (%s) was applied", opt.Ordinal, opt.Class)
+	for _, riv := range rivals {
+		if err := crew.MarkOptionNotChosen(db, riv.Artifact, riv.Ordinal, actor, notChosenReason); err != nil {
+			return err
+		}
+	}
+
 	if rec != nil {
-		_ = rec.Emit("option_applied", actor, "info", map[string]any{
+		data := map[string]any{
 			"artifact":     opt.Artifact,
 			"ordinal":      opt.Ordinal,
 			"class":        opt.Class,
 			"task":         taskID,
 			"figure_cents": opt.FigureCents,
-		}, nil)
+		}
+		if len(rivals) > 0 {
+			nc := make([]map[string]any, 0, len(rivals))
+			for _, riv := range rivals {
+				nc = append(nc, map[string]any{
+					"artifact": riv.Artifact, "ordinal": riv.Ordinal, "class": riv.Class,
+				})
+			}
+			data["not_chosen"] = nc
+		}
+		_ = rec.Emit("option_applied", actor, "info", data, nil)
 	}
 	return nil
 }

@@ -122,14 +122,44 @@ func TestZeroOptionsIsAllowedOnlyForProse(t *testing.T) {
 		t.Errorf("refused with no reason")
 	}
 
+	// A reporter's OWN decides_alone is commentary-only, but its hands_up
+	// (explainer.publish, message.team) is not: it still owes an options
+	// block once those classes are in play, so it is refused too. This is
+	// the fix AllowsNoOptions needed -- checking decides_alone alone let a
+	// role with a real hands_up list skip the block entirely.
 	reporterTask := plantPlainTask(t, db)
 	artID2 := plantDraftArtifact(t, db, reporterTask, prose)
 	refused2, reason2, err := crew.ValidateAndSaveOptions(db, artID2, "reporter-aws", prose, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if refused2 {
-		t.Errorf("a reporter's prose deliverable (commentary-only) was refused: %s", reason2)
+	if !refused2 {
+		t.Errorf("a reporter's prose deliverable was accepted with no options block, even "+
+			"though its own hands_up (explainer.publish, message.team) is not prose: %s", reason2)
+	}
+
+	// A role whose whole vocabulary -- decides_alone AND hands_up -- is
+	// empty has no machine-checked class to attach an option to at all, and
+	// is genuinely allowed to skip the block.
+	benchTask := plantPlainTask(t, db)
+	artID3 := plantDraftArtifact(t, db, benchTask, prose)
+	refused3, reason3, err := crew.ValidateAndSaveOptions(db, artID3, "benchmarking", prose, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if refused3 {
+		t.Errorf("a role with no decides_alone and no hands_up was refused for naming no options: %s", reason3)
+	}
+}
+
+// AllowsNoOptions is false for a role whose decides_alone is empty but
+// whose hands_up is not: such a role still owes an options block once a
+// hands-up class is in play, and checking decides_alone alone let it skip
+// the block entirely, vacuously true on nothing.
+func TestAllowsNoOptionsIsFalseForAHandsUpOnlyRole(t *testing.T) {
+	role := crew.JobDescription{Family: "test-hands-up-only", HandsUp: []string{"period.close"}}
+	if crew.AllowsNoOptions(role) {
+		t.Error("a role whose only classes are hands_up was allowed to skip the options block")
 	}
 }
 
