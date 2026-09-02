@@ -433,6 +433,7 @@ func prompt(t crew.Task, a crew.Analyst, today string) string {
 	if a.Mission != "" {
 		fmt.Fprintf(&b, "Your brief: %s\n", a.Mission)
 	}
+	b.WriteString(jobDescriptionBlock(a.Name, a.Desk))
 	fmt.Fprintf(&b, "\nThe task on your desk is %q.\n", t.Title)
 	if t.Goal != "" {
 		fmt.Fprintf(&b, "What it asks for: %s\n", t.Goal)
