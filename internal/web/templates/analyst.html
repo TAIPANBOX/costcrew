@@ -71,6 +71,31 @@
 </div>
 </div>
 
+{{if .JD.Found}}
+<div class="panel">
+  <h2>Job description</h2>
+  <p class="note">{{.JD.Family}}'s job as the practice defines it, rendered from the same file the prompt packet reads: nothing below is typed into this page.</p>
+  <div class="body">
+    <dl class="facts">
+      <dt>Mission</dt><dd>{{.JD.Mission}}</dd>
+      <dt>Reads</dt><dd>{{.JD.Reads}}</dd>
+      <dt>Cadence</dt><dd>{{.JD.Cadence}}</dd>
+      <dt>Audience</dt><dd>{{.JD.Audience}}{{if .JD.AudienceNote}} <span class="sub">{{.JD.AudienceNote}}</span>{{end}}</dd>
+      <dt>Owes</dt><dd>{{.JD.Owes}}</dd>
+      <dt>Decides alone</dt>
+      <dd>{{if .JD.DecidesAlone}}{{range .JD.DecidesAlone}}<span class="chip grain">{{.ID}}</span> {{end}}<span class="sub">{{.JD.DecidesText}}</span>{{else}}<span class="note">none</span>{{end}}</dd>
+      <dt>Hands up</dt>
+      <dd>{{if .JD.HandsUp}}{{range .JD.HandsUp}}<span class="chip grain">{{.ID}}</span> {{end}}<span class="sub">{{.JD.HandsText}}</span>{{else}}<span class="note">nothing named</span>{{end}}</dd>
+      {{if .JD.HandsToOwner}}<dt>Hands to the owner</dt>
+      <dd>{{range .JD.HandsToOwner}}<span class="chip grain">{{.ID}}</span> {{end}}<span class="sub">{{.JD.HandsToOwnerText}}</span></dd>{{end}}
+      {{if .JD.QualityBar}}<dt>Quality bar</dt><dd>{{.JD.QualityBar}}</dd>{{end}}
+      {{if .JD.Note}}<dt>Note</dt><dd><span class="sub">{{.JD.Note}}</span></dd>{{end}}
+    </dl>
+    <p class="note"><strong>Never:</strong> {{.JD.NeverFull}}{{if .JD.NeverAlso}} And, for the supervisor specifically: {{.JD.NeverAlso}}{{end}}</p>
+  </div>
+</div>
+{{end}}
+
 <div class="two">
 <div class="panel">
   <h2>What it may do</h2>

@@ -68,6 +68,81 @@ var cannotEver = []string{
 	"approve its own artifact, close its own anomaly, or sign off its own sprint",
 }
 
+// classRef is one decision class as the card shows it: its id, what it
+// changes, and, when the class carries a threshold, the figure that bounds
+// it. Built from crew.ClassFor rather than typed into the template, so the
+// card cannot say something roles.yaml does not.
+type classRef struct {
+	ID      string
+	Changes string
+	UpTo    string // "up to T.anomaly: USD 5,000 per anomaly", or empty
+}
+
+func classRefs(ids []string) []classRef {
+	out := make([]classRef, 0, len(ids))
+	for _, id := range ids {
+		c, ok := crew.ClassFor(id)
+		if !ok {
+			continue
+		}
+		r := classRef{ID: c.ID, Changes: c.Changes}
+		if c.UpTo != "" {
+			if t, ok := crew.ThresholdFor(c.UpTo); ok {
+				r.UpTo = "up to " + c.UpTo + ": " + t.Value
+			}
+		}
+		out = append(out, r)
+	}
+	return out
+}
+
+// jobDescription is the card's "Job description" panel: the eight fields
+// ROLES-2026-09.md gives every role family, the decision classes it decides
+// alone and hands up, and the five nevers -- rendered from crew.RoleForDesk,
+// never typed into analyst.html. See B1A-SPEC.md section 2.1.
+type jobDescription struct {
+	Found        bool
+	Family       string
+	Mission      string
+	Reads        string
+	Cadence      string
+	Audience     string
+	AudienceNote string
+	Owes         string
+	DecidesAlone []classRef
+	DecidesText  string
+	HandsUp      []classRef
+	HandsText    string
+	QualityBar   string
+	Note         string
+	Never        []string
+	NeverFull    string
+
+	// Supervisor only; empty for every analyst.
+	HandsToOwner           []classRef
+	HandsToOwnerText       string
+	HandsToOwnerConditions []string
+	NeverAlso              string
+}
+
+func jobDescriptionFor(a crew.Analyst) jobDescription {
+	r, ok := crew.RoleForDesk(a.Name, a.Desk)
+	if !ok {
+		return jobDescription{Found: false}
+	}
+	return jobDescription{
+		Found: true, Family: r.Family, Mission: r.Mission, Reads: r.Reads,
+		Cadence: r.Cadence, Audience: r.Audience, AudienceNote: r.AudienceNote,
+		Owes:         r.Owes,
+		DecidesAlone: classRefs(r.DecidesAlone), DecidesText: r.DecidesAloneText,
+		HandsUp: classRefs(r.HandsUp), HandsText: r.HandsUpText,
+		QualityBar: r.QualityBar, Note: r.Note,
+		Never: crew.Never(), NeverFull: crew.NeverFullText(),
+		HandsToOwner: classRefs(r.HandsToOwner), HandsToOwnerText: r.HandsToOwnerText,
+		HandsToOwnerConditions: r.HandsToOwnerConditions, NeverAlso: r.NeverAlso,
+	}
+}
+
 type eventRow struct {
 	when   string // RFC 3339, as the stream writes it
 	Kind   string
@@ -422,12 +497,13 @@ func (s *Server) analyst(w http.ResponseWriter, r *http.Request) {
 		StopCount  stopSummary
 		SortStops  sortSpec
 		RealMoney  string
+		JD         jobDescription
 	}{s.shellFor(r, a.Name, "staff"), a, sc, agentChip(a.State),
 		work, caused, handled, events, children, rhythm, rights, cannotEver,
 		engine, doc, docJSON, spend, month, guardUsed, s.host, u.May("operator"),
 		mayManage(u, a), append(deskNames(), "management"), owners, others,
 		openWork, elsewhere, rsrt, wsrt, stops, summariseStops(stops), ssrt,
-		crew.RealMoney(liveMicros, liveTasks)})
+		crew.RealMoney(liveMicros, liveTasks), jobDescriptionFor(a)})
 }
 
 // analystPassport serves the document itself.
