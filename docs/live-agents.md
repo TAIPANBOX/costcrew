@@ -150,6 +150,45 @@ I would not run a sprint until a `-dry` and a single live task have both been
 seen, and I would not raise the ceiling above a dollar until the per-call
 refusal has been watched refusing something.
 
+## Through the gateway
+
+Built 2026-09-02, plan item B6. When `-gateway` is set (flag, or
+`COSTCREW_GATEWAY` as a fallback), the Anthropic route posts to
+`<gateway>/v1/messages` instead of `api.anthropic.com`, forwarding the API
+key exactly as before, and adds three headers TokenFuse reads: the
+invocation's own run id, the analyst's agent id under this installation's
+trust domain (the same one the estate bus would write for that call), and a
+budget in USD, the tighter of the run's ceiling and the task's own guard.
+`x-fuse-outcome` is not sent; there is nothing this step has to report there
+yet. `x-fuse-parent-run-id` is sent only when the runner already has a
+notion of a parent, which today it never does, so it is never invented.
+
+OpenRouter and Bedrock are unchanged: TokenFuse speaks the Anthropic
+Messages API and nothing OpenAI-shaped yet, so a run with `-gateway` set
+still calls those two directly, and says so once, with a count, rather than
+letting the gap pass in silence.
+
+A `402` from the gateway is read the same way as the runner's own ceiling
+refusal: the run stops, the reservation comes back, and the sentence printed
+names the budget and what was already spent, parsed from the gateway's own
+JSON body.
+
+@measured 2026-09-02, `ghcr.io/taipanbox/tokenfuse:v0.4.1` run as the
+built-in stub via Docker: one call for a real task went through, and the
+gateway's own FOCUS export (`tokenfuse focus-export`) named
+`x_agent_id agent://gcp.taipanbox.local/partner-gcp` and
+`x_run_id crew-1788359462`, billed 0.052500 USD on the stub's fixed
+1000/500 tokens, with `x_parent_run_id` and `x_outcome` both empty exactly
+as this step leaves them. A second call at the default token cap, same
+0.05 ceiling, was refused by the gateway itself with 402, and the runner
+reported it, returned the reservation, and moved on rather than crashing or
+marking the task failed by the model. The stub's canned body carries no
+text at all, which this runner's own response reader (unrelated to this
+change) reads as no deliverable, so neither call wrote a line to the estate
+bus; see `features/through-the-gateway.feature` for the full account and
+`docs/stack-connection.md` for what TokenFuse proved separately, against a
+real budget push, before this runner ever called it.
+
 ## What this is not
 
 It is not needed for the pilot. The build in `~/Desktop/CostCrew-for-Tania` is

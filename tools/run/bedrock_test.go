@@ -17,7 +17,7 @@ import (
 // This asserts the ROUTE, not the answer. A test that reached Bedrock would
 // need credentials and would spend money to prove a switch statement.
 func TestBedrockHasACaller(t *testing.T) {
-	_, err := call(context.Background(), "bedrock", "eu.amazon.nova-micro-v1:0", "hello", 16)
+	_, err := call(context.Background(), "bedrock", "eu.amazon.nova-micro-v1:0", "hello", 16, gatewayHeaders{})
 	if err != nil && strings.Contains(err.Error(), "no caller is written for engine") {
 		t.Fatalf("an analyst hired onto bedrock cannot be run at all: %v", err)
 	}

@@ -100,7 +100,22 @@ func (e *Emitter) Close() error {
 
 func (e *Emitter) On() bool { return e.w != nil }
 
-// AgentURI is this installation's name for one analyst.
+// AgentURI is this installation's name for one analyst, as a standalone
+// function of a host and a name rather than a method on an open Emitter.
+//
+// tools/run's gateway headers need this exact value even when the estate bus
+// is off (eventsPath empty, no Emitter ever opened): TokenFuse still needs an
+// agent id on every call once -gateway is set, and it has to be the SAME id
+// the bus would have written had it been on, or the gateway's trace and the
+// bus would name two different agents for the one call. Exporting the pure
+// computation is what lets a caller with no Emitter get the identical answer.
+func AgentURI(host, name string) string {
+	if host == "" {
+		host = "costcrew.local"
+	}
+	return "agent://" + host + "/" + name
+}
+
 // host is this installation's trust domain, with the same default the URI
 // builder uses, so the two can never disagree about what "ours" means.
 func (e *Emitter) host() string {
@@ -111,11 +126,7 @@ func (e *Emitter) host() string {
 }
 
 func (e *Emitter) AgentURI(name string) string {
-	host := e.cfg.Host
-	if host == "" {
-		host = "costcrew.local"
-	}
-	return "agent://" + host + "/" + name
+	return AgentURI(e.cfg.Host, name)
 }
 
 // Emit appends one event.

@@ -185,6 +185,11 @@
       "class": "tool",
       "checked": {
         "package": "github.com/TAIPANBOX/costcrew/tools/run",
+        "env": {
+          "COSTCREW_GATEWAY": {
+            "required": false
+          }
+        },
         "flags": {
           "ceiling": {
             "required": false
@@ -193,6 +198,9 @@
             "required": false
           },
           "engine": {
+            "required": false
+          },
+          "gateway": {
             "required": false
           },
           "live": {
@@ -226,6 +234,10 @@
         "spends_real_money": {
           "value": true,
           "why": "it calls a paid provider with a key the operator supplies. Nothing in the source distinguishes a paid endpoint from a free one, and a manifest that claimed to know would be guessing about somebody else's billing."
+        },
+        "the_gateway_is_anthropic_only": {
+          "value": "-gateway routes only the Anthropic route to TokenFuse",
+          "why": "TokenFuse speaks the Anthropic Messages API at /v1/messages and nothing OpenAI-shaped, so a call from an analyst hired onto openrouter or bedrock still goes straight to that engine's own host even with -gateway set. Not checkable from outside this repository: the routing is a switch statement in tools/run/live.go, and a manifest that claimed otherwise would be guessing at another engine's future rather than describing this one's present."
         }
       }
     },

@@ -31,6 +31,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
@@ -39,6 +40,7 @@ import (
 	"time"
 
 	"github.com/TAIPANBOX/costcrew/internal/crew"
+	"github.com/TAIPANBOX/costcrew/internal/stack"
 )
 
 // callResult is what came back, and what it actually cost.
@@ -49,17 +51,164 @@ type callResult struct {
 	ActualMicros int64
 }
 
+// gatewayConfig is this INVOCATION's gateway setup: the same for every call a
+// run makes, built once from -gateway, -stack-host and -ceiling.
+//
+// An empty URL means the gateway is off, and the Anthropic route calls
+// api.anthropic.com exactly as it did before this file knew a gateway
+// existed. Only the Anthropic route uses this: OpenRouter and Bedrock keep
+// calling their own hosts directly, because TokenFuse speaks the Anthropic
+// Messages API at /v1/messages and nothing OpenAI-shaped.
+type gatewayConfig struct {
+	URL        string      // normalized: http(s) only, no trailing slash
+	Host       string      // this installation's trust domain, for the agent id
+	CeilingUSD money.Cents // the run's ceiling, i.e. -ceiling parsed
+}
+
+func (g gatewayConfig) on() bool { return g.URL != "" }
+
+// gatewayHeaders is what ONE call tells TokenFuse: who is asking, on whose
+// run, and what it may spend. Built fresh per call because the budget is the
+// tighter of the run's ceiling and THIS task's own guard, which differs task
+// to task even though the run id and the agent id do not.
+type gatewayHeaders struct {
+	URL       string // empty means "do not route through a gateway at all"
+	RunID     string
+	AgentID   string
+	BudgetUSD string // already formatted, two decimals minimum
+
+	// ParentRunID is sent only when non-empty. This runner has no notion of a
+	// parent run today (crew.Analyst.Parent is a different thing: it names
+	// who an agent acts on behalf of, not which run started this one), and
+	// item 1 of this change is explicit that one must not be invented here.
+	// The field exists so a caller that DOES have one someday can set it
+	// without another signature change.
+	ParentRunID string
+
+	// x-fuse-outcome is deliberately not a field here and is never sent by
+	// this file. It is TokenFuse's opaque tag for how a call ended, and this
+	// step has nothing worth reporting there yet: adding it later is an
+	// additive change, and sending an empty or guessed value now would be
+	// worse than the header's plain absence.
+}
+
+// gatewayHeadersFor builds one call's headers from the run's shared config
+// and that call's own task guard and analyst name. cfg.on() must be checked
+// by the caller; this only formats.
+func gatewayHeadersFor(cfg gatewayConfig, runID, analystName string, taskGuard money.Cents) gatewayHeaders {
+	return gatewayHeaders{
+		URL:       cfg.URL,
+		RunID:     runID,
+		AgentID:   stack.AgentURI(cfg.Host, analystName),
+		BudgetUSD: gatewayBudgetUSD(cfg.CeilingUSD, taskGuard),
+	}
+}
+
+// gatewayBudgetUSD is the tighter of the run's ceiling and the task's own
+// guard. Sending the wider of the two would let the gateway wave through a
+// call this runner's own reservation would already have refused, which
+// would make the header a decoration rather than a real second bound.
+func gatewayBudgetUSD(runCeiling, taskGuard money.Cents) string {
+	b := runCeiling
+	if taskGuard > 0 && taskGuard < b {
+		b = taskGuard
+	}
+	return b.String()
+}
+
+// gatewayEnvDefault backs -gateway's default with COSTCREW_GATEWAY, so an
+// installation can set it once rather than on every invocation's command
+// line. It lives here and not in main.go: main.go is proved to hold no way to
+// read the environment (TestThisBinaryCannotSpend reads main.go's own source
+// for the literal substring "os.Getenv"), and this is genuinely that.
+func gatewayEnvDefault() string {
+	return strings.TrimSpace(os.Getenv("COSTCREW_GATEWAY"))
+}
+
+// normalizeGateway validates -gateway and strips a trailing slash, so
+// <gateway>/v1/messages never doubles a slash. A scheme other than http(s) is
+// refused here, before the run does anything, rather than surfacing as a
+// confusing dial error on the first call an analyst happens to make.
+func normalizeGateway(raw string) (string, error) {
+	// The literal empty string, and only that, means "not configured": it is
+	// what an unset flag defaulting to gatewayEnvDefault() carries when
+	// COSTCREW_GATEWAY is not set either. Anything else that trims down to
+	// nothing (whitespace on its own) was NOT left unset; it is refused
+	// rather than silently read the same as "off", which would turn a typo
+	// or a bad script interpolation into a quiet fallback to
+	// api.anthropic.com nobody asked for.
+	if raw == "" {
+		return "", nil
+	}
+	trimmed := strings.TrimSpace(raw)
+	u, err := url.Parse(trimmed)
+	if trimmed == "" || err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return "", fmt.Errorf("-gateway %q is not an http(s) URL", raw)
+	}
+	return strings.TrimRight(trimmed, "/"), nil
+}
+
+// directCallsNotice is the one line a run prints when -gateway is set and
+// some of its work is on an engine the gateway cannot front. Not an error and
+// not silent: OpenRouter and Bedrock keep calling their own hosts directly
+// until TokenFuse grows an OpenAI-shaped route, and a person watching the run
+// should be told that is happening rather than notice its absence from a
+// trace later.
+func directCallsNotice(gatewayOn bool, todo []estimate) string {
+	if !gatewayOn {
+		return ""
+	}
+	n := 0
+	for _, e := range todo {
+		if e.Engine != "anthropic" {
+			n++
+		}
+	}
+	if n == 0 {
+		return ""
+	}
+	return fmt.Sprintf("%d call(s) on openrouter/bedrock go direct: TokenFuse "+
+		"has no OpenAI-shaped route yet.\n", n)
+}
+
+// parseGatewayRefusal reads TokenFuse's 402 body into the sentence a person
+// reads. The body is untrusted input from a process this runner does not
+// control: a body that is not the documented shape still produces a readable
+// sentence rather than a panic or a silently empty one.
+func parseGatewayRefusal(raw []byte) error {
+	var out struct {
+		Error struct {
+			Type      string  `json:"type"`
+			BudgetUSD float64 `json:"budget_usd"`
+			SpentUSD  float64 `json:"spent_usd"`
+			Reason    string  `json:"reason"`
+			RunID     string  `json:"run_id"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(raw, &out); err != nil || out.Error.Reason == "" {
+		return fmt.Errorf("the gateway refused this call with 402, and its body "+
+			"was not the documented shape: %s", trim(strings.TrimSpace(string(raw)), 200))
+	}
+	return fmt.Errorf("the gateway refused this call: %s (budget %.4f, spent %.4f, run %s)",
+		out.Error.Reason, out.Error.BudgetUSD, out.Error.SpentUSD, out.Error.RunID)
+}
+
 // call routes to the engine the analyst was HIRED with.
 //
 // Which engine an analyst runs on is a decision recorded at hire time and
 // visible on its card, and this is where that decision finally does
 // something. A router that ignored it would make the field decoration.
-func call(ctx context.Context, engine, model, prompt string, maxTok int) (callResult, error) {
+//
+// gw is only used by the Anthropic route. OpenRouter and Bedrock are
+// unchanged: TokenFuse speaks the Anthropic Messages API at /v1/messages and
+// nothing OpenAI-shaped, so those two keep calling their own hosts directly
+// until it grows a route for them.
+func call(ctx context.Context, engine, model, prompt string, maxTok int, gw gatewayHeaders) (callResult, error) {
 	switch engine {
 	case "openrouter":
 		return callOpenRouter(ctx, model, prompt, maxTok)
 	case "anthropic":
-		return callAnthropic(ctx, model, prompt, maxTok)
+		return callAnthropic(ctx, model, prompt, maxTok, gw)
 	case "bedrock":
 		return callBedrock(ctx, model, prompt, maxTok)
 	}
@@ -94,20 +243,57 @@ func anthropicBody(model, prompt string, maxTok int) ([]byte, error) {
 	})
 }
 
-func callAnthropic(ctx context.Context, model, prompt string, maxTok int) (callResult, error) {
-	key := strings.TrimSpace(os.Getenv("ANTHROPIC_API_KEY"))
-	if key == "" {
-		return callResult{}, fmt.Errorf("ANTHROPIC_API_KEY is not set in this process")
-	}
-	body, _ := anthropicBody(model, prompt, maxTok)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		"https://api.anthropic.com/v1/messages", bytes.NewReader(body))
+// anthropicRequest builds the outbound request, separately from sending it,
+// so the URL and every header can be asserted without a network call and
+// without a key: TestWithNoGatewayTheRequestGoesToAnthropicDirectly does
+// exactly that, on the exposed *http.Request, never on the wire.
+//
+// gw.URL empty routes to api.anthropic.com exactly as this runner did before
+// it knew a gateway existed. gw.URL set routes to <gateway>/v1/messages
+// instead and carries the x-fuse-* headers TokenFuse reads for metering and
+// attribution; the API key travels in x-api-key exactly as today, which is
+// what lets the gateway pass it through unchanged to the real upstream.
+func anthropicRequest(ctx context.Context, key, model, prompt string, maxTok int, gw gatewayHeaders) (*http.Request, error) {
+	body, err := anthropicBody(model, prompt, maxTok)
 	if err != nil {
-		return callResult{}, err
+		return nil, err
+	}
+	endpoint := "https://api.anthropic.com/v1/messages"
+	if gw.URL != "" {
+		endpoint = gw.URL + "/v1/messages"
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
 	}
 	req.Header.Set("x-api-key", key)
 	req.Header.Set("anthropic-version", "2023-06-01")
 	req.Header.Set("Content-Type", "application/json")
+	if gw.URL != "" {
+		// TokenFuse refuses a call with no run id (400 metering_required), so
+		// this is never conditional on RunID being non-empty: openBus mints
+		// one for every invocation now, on or off the estate bus, for exactly
+		// this reason.
+		req.Header.Set("x-fuse-run-id", gw.RunID)
+		req.Header.Set("x-fuse-agent-id", gw.AgentID)
+		req.Header.Set("x-fuse-budget-usd", gw.BudgetUSD)
+		if gw.ParentRunID != "" {
+			req.Header.Set("x-fuse-parent-run-id", gw.ParentRunID)
+		}
+		// x-fuse-outcome is intentionally not set. See gatewayHeaders.
+	}
+	return req, nil
+}
+
+func callAnthropic(ctx context.Context, model, prompt string, maxTok int, gw gatewayHeaders) (callResult, error) {
+	key := strings.TrimSpace(os.Getenv("ANTHROPIC_API_KEY"))
+	if key == "" {
+		return callResult{}, fmt.Errorf("ANTHROPIC_API_KEY is not set in this process")
+	}
+	req, err := anthropicRequest(ctx, key, model, prompt, maxTok, gw)
+	if err != nil {
+		return callResult{}, err
+	}
 
 	resp, err := (&http.Client{Timeout: 90 * time.Second}).Do(req)
 	if err != nil {
@@ -115,6 +301,20 @@ func callAnthropic(ctx context.Context, model, prompt string, maxTok int) (callR
 	}
 	defer resp.Body.Close()
 	raw, _ := io.ReadAll(resp.Body)
+	// A 402 from the GATEWAY is a budget refusal, not an ordinary failed
+	// call, and it is treated exactly like the runner's own ceiling check:
+	// execute() already returns the reservation on any error here, and
+	// wrapping this one in refusal{} is what makes spend()'s loop stop the
+	// run instead of marking the task blocked, which is the reading a
+	// budget event deserves over "this analyst's call failed".
+	//
+	// Gated on gw.URL != "" so a 402 that somehow came from api.anthropic.com
+	// directly (Anthropic does not use this status, but nothing here should
+	// assume that forever) is never misread as a gateway refusal it did not
+	// send.
+	if resp.StatusCode == http.StatusPaymentRequired && gw.URL != "" {
+		return callResult{}, refusal{parseGatewayRefusal(raw)}
+	}
 	if resp.StatusCode != 200 {
 		return callResult{}, fmt.Errorf("anthropic answered %d: %s",
 			resp.StatusCode, trim(strings.TrimSpace(string(raw)), 160))
@@ -263,7 +463,7 @@ func prompt(t crew.Task, a crew.Analyst, today string) string {
 //
 // The artifact is a draft, never a post. Only a person's stamp publishes, and
 // that invariant is older than this file.
-func execute(ctx context.Context, db *sql.DB, e estimate, maxTok int, run *runBudget, b bus) error {
+func execute(ctx context.Context, db *sql.DB, e estimate, maxTok int, run *runBudget, b bus, gw gatewayConfig) error {
 	if e.Refused {
 		return fmt.Errorf("refused before the call: %s", e.Verdict)
 	}
@@ -271,7 +471,17 @@ func execute(ctx context.Context, db *sql.DB, e estimate, maxTok int, run *runBu
 		return refusal{err}
 	}
 
-	res, err := call(ctx, e.Engine, e.Model, prompt(e.Task, e.Analyst, time.Now().Format("2006-01-02")), maxTok)
+	// The headers for THIS call, built fresh every time even though the URL,
+	// the run id and the trust domain never change within a run: the budget
+	// is the tighter of the ceiling and THIS task's own guard, and the agent
+	// id names THIS task's analyst. gw.on() false leaves gh at its zero
+	// value, which callAnthropic (via call) reads as "no gateway" and routes
+	// to api.anthropic.com exactly as before this file knew one existed.
+	var gh gatewayHeaders
+	if gw.on() {
+		gh = gatewayHeadersFor(gw, b.run, e.Analyst.Name, e.Task.Budget)
+	}
+	res, err := call(ctx, e.Engine, e.Model, prompt(e.Task, e.Analyst, time.Now().Format("2006-01-02")), maxTok, gh)
 	if err != nil {
 		run.settle(e.WorstMicros, 0)
 		return err
@@ -412,7 +622,7 @@ func (r *runBudget) total() int64 {
 // under "Where it stopped".
 type refusal struct{ error }
 
-func spend(db *sql.DB, ests []estimate, maxTok int, cap money.Cents, only int, b bus) error {
+func spend(db *sql.DB, ests []estimate, maxTok int, cap money.Cents, only int, b bus, gw gatewayConfig) error {
 	run := &runBudget{ceilingMicros: int64(cap) * 10_000}
 
 	todo := make([]estimate, 0, len(ests))
@@ -438,6 +648,12 @@ func spend(db *sql.DB, ests []estimate, maxTok int, cap money.Cents, only int, b
 	if worst > run.ceilingMicros {
 		return fmt.Errorf("the worst case is %s and the ceiling is %s: refused "+
 			"before the first call", usd(worst), cap)
+	}
+	// Said once, not per call: an operator watching a run of forty tasks does
+	// not need forty identical lines to learn that OpenRouter and Bedrock are
+	// bypassing the gateway they just pointed this run at.
+	if msg := directCallsNotice(gw.on(), todo); msg != "" {
+		fmt.Print(msg)
 	}
 	fmt.Println()
 
@@ -478,7 +694,7 @@ func spend(db *sql.DB, ests []estimate, maxTok int, cap money.Cents, only int, b
 			defer func() { <-sem }()
 
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-			err := execute(ctx, db, e, maxTok, run, b)
+			err := execute(ctx, db, e, maxTok, run, b, gw)
 			cancel()
 
 			mu.Lock()
