@@ -96,6 +96,23 @@ func TestRealEngineWithoutLivePricesAndExits2(t *testing.T) {
 	}
 }
 
+// -n asked for more than the two-case fixture holds: the price is for
+// what was ACTUALLY priced, and the refusal says so, the same clamp-and-say
+// rule -n's own boundary applies to a real scoring run.
+func TestRealEngineWithoutLivePricesSayWhenNClamped(t *testing.T) {
+	dir := t.TempDir()
+	code, out, _ := runArgs(t, "-dir", dir, "-skill", "investigate", "-engine", "anthropic", "-n", "20")
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2", code)
+	}
+	if !strings.Contains(out, "requested 20") {
+		t.Errorf("asking for 20 cases against a two-case fixture did not say it was clamped:\n%s", out)
+	}
+	if !strings.Contains(out, "Worst case for 2 case(s)") {
+		t.Errorf("the priced count does not match the clamped case count:\n%s", out)
+	}
+}
+
 // A normal mock run against a freshly-seeded -dir: this is the one thing
 // this agent actually runs, in every test and in the report's own "Ran it".
 func TestANormalMockRunSucceeds(t *testing.T) {

@@ -191,6 +191,9 @@ func runFixtureMode(ctx context.Context, db *sql.DB, w io.Writer, n int, skill, 
 			if err != nil {
 				return 1, err
 			}
+			if note != "" {
+				fmt.Fprintln(w, note)
+			}
 			printWorstCasePrice(w, len(cases), engine, model, worst)
 			return 2, nil
 		}
