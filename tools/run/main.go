@@ -41,6 +41,14 @@ func main() {
 	// nothing else, and it is the same file the console appends to.
 	events := flag.String("stack-events", "", "append agent-events to this NDJSON file; empty means off")
 	host := flag.String("stack-host", "", "the agent:// authority for this installation; must match the console's")
+	// The TokenFuse gateway, off unless pointed somewhere. Falls back to
+	// COSTCREW_GATEWAY so an installation can set it once rather than on
+	// every invocation; an explicit -gateway "" still turns it off even with
+	// the environment variable set. Only the Anthropic route uses it today:
+	// TokenFuse speaks the Anthropic Messages API and nothing OpenAI-shaped.
+	gateway := flag.String("gateway", gatewayEnvDefault(),
+		"TokenFuse gateway for the Anthropic route, e.g. http://127.0.0.1:4177; "+
+			"empty calls api.anthropic.com directly. Falls back to COSTCREW_GATEWAY.")
 	flag.Parse()
 
 	if *showPrices {
@@ -51,7 +59,7 @@ func main() {
 		return
 	}
 
-	if err := run(*dir, *ceiling, *maxTok, *sprint, *live, *only, *engine, *events, *host); err != nil {
+	if err := run(*dir, *ceiling, *maxTok, *sprint, *live, *only, *engine, *events, *host, *gateway); err != nil {
 		fmt.Fprintln(os.Stderr, "run:", err)
 		os.Exit(1)
 	}
@@ -81,7 +89,15 @@ type estimate struct {
 	Refused bool
 }
 
-func run(dir, ceiling string, maxTok, sprint int, live bool, only int, engine, events, host string) error {
+func run(dir, ceiling string, maxTok, sprint int, live bool, only int, engine, events, host, gateway string) error {
+	// Validated before the store or the bus are even opened. A bad -gateway
+	// value is a configuration mistake, not a spending one, and the sooner it
+	// is reported the less of the run has already happened around it.
+	gatewayURL, err := normalizeGateway(gateway)
+	if err != nil {
+		return err
+	}
+
 	st, err := store.Open(dir)
 	if err != nil {
 		return err
@@ -143,7 +159,7 @@ func run(dir, ceiling string, maxTok, sprint int, live bool, only int, engine, e
 		return fmt.Errorf("-live needs -ceiling: a run that can spend has to be " +
 			"bounded by a figure somebody typed")
 	}
-	return spend(db, ests, maxTok, cap, only, b)
+	return spend(db, ests, maxTok, cap, only, b, gatewayConfig{URL: gatewayURL, Host: host, CeilingUSD: cap})
 }
 
 // price puts a worst case on one task.

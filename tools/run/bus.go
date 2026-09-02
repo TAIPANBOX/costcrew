@@ -66,8 +66,18 @@ func (b bus) toolCall(e estimate, res callResult) error {
 //
 // So: a bus with no host is an error, and no bus at all is fine.
 func openBus(eventsPath, host string) (bus, error) {
+	// A run id is minted here regardless of whether the estate bus is on.
+	//
+	// Until 2026-09-02 this was minted only inside the branch below, so a
+	// runner started with no -stack-events held an empty run id. That was
+	// harmless while nothing else needed one. Now the TokenFuse gateway does:
+	// it refuses a call with no run id (400 metering_required), and -gateway
+	// is meant to work whether or not -stack-events is also given. One run of
+	// this binary is one execution of an agent whether or not anybody is
+	// listening on the estate bus.
+	run := newRunID()
 	if eventsPath == "" {
-		return bus{}, nil
+		return bus{run: run}, nil
 	}
 	if host == "" {
 		return bus{}, fmt.Errorf(
@@ -79,7 +89,7 @@ func openBus(eventsPath, host string) (bus, error) {
 	if err != nil {
 		return bus{}, fmt.Errorf("opening the shared bus at %s: %w", eventsPath, err)
 	}
-	return bus{em: em, run: newRunID()}, nil
+	return bus{em: em, run: run}, nil
 }
 
 func (b bus) close() {
