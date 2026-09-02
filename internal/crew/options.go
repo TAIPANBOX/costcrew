@@ -1,0 +1,455 @@
+package crew
+
+// The options block: an analyst's deliverable ends in a machine-readable
+// list of OPTIONS, never an action. B3-SPEC.md sections 1 and 2.
+//
+// `@yurii 2026-09-02`: "він має давати на вибір якісь певні рішення, які він
+// вважає за потрібне спочатку супервайзеру, тобто головному агенту, а вже
+// той має запитувати юзера, користувача, власника цих агентів, що робити
+// далі."
+//
+// An analyst's Post has never applied anything (crew.go's own comment on
+// Post says so). What changes here is that the deliverable's PROSE now also
+// carries a closed, checked list of what a person could do about it: each
+// option names a decision class from internal/crew/roles.yaml, and the class
+// has to be one the writing role's own job description lists under
+// decides_alone or hands_up -- the same closed vocabulary
+// tools/run/mandate.go's jobDescriptionBlock already shows the model, so
+// there is one source for what a role may say and what this file will
+// accept. A class outside that list is refused whole: nothing is written to
+// artifact_options, and the caller (tools/run/live.go's saveDraft) returns
+// the task with the reason.
+
+import (
+	"database/sql"
+	"encoding/json"
+	"fmt"
+	"regexp"
+	"strings"
+)
+
+// OptionState is where one option of a deliverable has got to.
+type OptionState string
+
+const (
+	OptionOpen    OptionState = "open"    // saved, nobody has looked
+	OptionCarried OptionState = "carried" // handed to an owner in a decision request
+	OptionApplied OptionState = "applied" // a stamp (the supervisor's or an owner's) applied it
+	OptionRefused OptionState = "refused" // a stamp refused it, with a reason
+	OptionDropped OptionState = "dropped" // the supervisor's pass dropped it, with a reason
+)
+
+// Option is one row of artifact_options: one course of action an analyst's
+// deliverable named, never one it took.
+type Option struct {
+	Artifact    int
+	Ordinal     int
+	Class       string
+	Summary     string
+	FigureCents int64
+	SavingCents int64
+	Risk        string
+	Needs       string
+	Evidence    []string
+	State       OptionState
+	DecidedBy   string
+	DecidedAt   string
+	Reason      string
+}
+
+// Recorder used below is guard.go's: this package already declares it, the
+// same interface anomaly.Recorder and store.Recorder are, restated in each
+// package rather than imported so the dependency graph stays what it is.
+
+// optionsBlockMaxBytes bounds the fenced block itself, the same way
+// tools/run/packet.go bounds the packet: a number a hostile 1 MB block is
+// checked against before anything tries to parse it.
+const optionsBlockMaxBytes = 64 * 1024
+
+// optionsMax is "one to three options" (B3-SPEC.md section 2).
+const optionsMax = 3
+
+// optionsFence finds the LAST ```options ... ``` block in a deliverable: the
+// spec places it "at the end of the deliverable", and taking the last match
+// rather than the first means a model that echoes the shape earlier in its
+// prose (explaining the format to itself) does not get read as the block.
+var optionsFence = regexp.MustCompile("(?s)```options[ \\t]*\\r?\\n(.*?)```")
+
+// rawOption is the wire shape a model writes. FigureCents and SavingCents are
+// json.Number rather than int64 or float64: encoding/json refuses a JSON
+// string into a json.Number field (catching "a string where an integer
+// goes") and Number.Int64() refuses anything with a decimal point or
+// exponent (catching a non-integer figure), where int64 would have accepted
+// a JSON string that merely looked numeric and float64 would have silently
+// rounded 123.6 instead of refusing it.
+type rawOption struct {
+	Class       string      `json:"class"`
+	Summary     string      `json:"summary"`
+	FigureCents json.Number `json:"figure_cents"`
+	SavingCents json.Number `json:"saving_cents"`
+	Risk        string      `json:"risk"`
+	Needs       string      `json:"needs"`
+	Evidence    []string    `json:"evidence"`
+}
+
+// ParseOptions extracts and structurally validates the trailing options
+// block. found is false when no fenced ```options block exists at all, which
+// is not itself a refusal: whether a deliverable may end in zero options
+// depends on the writing role (AllowsNoOptions) and is the caller's call,
+// not this function's. reason is non-empty exactly when the block that WAS
+// found is malformed in some way this function can catch on its own, before
+// any class is checked against a role: not valid JSON, too large, too many
+// options, or a figure that is not a whole number of cents.
+//
+// It does not check classes against a role at all -- ValidateAndSaveOptions
+// does that once it knows which role wrote the deliverable, because this
+// function has no role to check against and must not guess one.
+func ParseOptions(body string) (opts []Option, found bool, reason string) {
+	m := optionsFence.FindStringSubmatch(body)
+	if m == nil {
+		return nil, false, ""
+	}
+	found = true
+	raw := m[1]
+	if len(raw) > optionsBlockMaxBytes {
+		return nil, found, fmt.Sprintf(
+			"the options block is %d bytes, over the %d byte limit", len(raw), optionsBlockMaxBytes)
+	}
+
+	var block struct {
+		Options []rawOption `json:"options"`
+	}
+	if err := json.Unmarshal([]byte(raw), &block); err != nil {
+		return nil, found, "the options block is not valid JSON: " + err.Error()
+	}
+	if len(block.Options) > optionsMax {
+		return nil, found, fmt.Sprintf(
+			"%d options, at most %d allowed", len(block.Options), optionsMax)
+	}
+
+	out := make([]Option, 0, len(block.Options))
+	for i, r := range block.Options {
+		if strings.TrimSpace(r.Class) == "" {
+			return nil, found, fmt.Sprintf("option %d names no class", i+1)
+		}
+		figure, err := centsOf(r.FigureCents)
+		if err != nil {
+			return nil, found, fmt.Sprintf("option %d's figure_cents %v", i+1, err)
+		}
+		if figure < 0 {
+			return nil, found, fmt.Sprintf("option %d's figure_cents is negative", i+1)
+		}
+		saving, err := centsOf(r.SavingCents)
+		if err != nil {
+			return nil, found, fmt.Sprintf("option %d's saving_cents %v", i+1, err)
+		}
+		out = append(out, Option{
+			Ordinal:     i + 1,
+			Class:       strings.TrimSpace(r.Class),
+			Summary:     r.Summary,
+			FigureCents: figure,
+			SavingCents: saving,
+			Risk:        r.Risk,
+			Needs:       r.Needs,
+			Evidence:    append([]string(nil), r.Evidence...),
+			State:       OptionOpen,
+		})
+	}
+	return out, found, ""
+}
+
+// centsOf reads a json.Number as a whole number of cents. An absent field
+// decodes as the empty json.Number and is zero, which is a legal value
+// ("saving_cents": 0 is the spec's own example for an option with no
+// saving).
+func centsOf(n json.Number) (int64, error) {
+	if n == "" {
+		return 0, nil
+	}
+	v, err := n.Int64()
+	if err != nil {
+		return 0, fmt.Errorf("must be a whole number of cents, not %q", n.String())
+	}
+	return v, nil
+}
+
+// ValidClassesFor is the class vocabulary one role's deliverable may name:
+// the union of its decides_alone and hands_up lists. The same closed
+// vocabulary the prompt packet already shows the model
+// (tools/run/mandate.go's jobDescriptionBlock), so there is one source for
+// what a role may say and what this file will accept.
+func ValidClassesFor(role JobDescription) map[string]bool {
+	out := make(map[string]bool, len(role.DecidesAlone)+len(role.HandsUp))
+	for _, c := range role.DecidesAlone {
+		out[c] = true
+	}
+	for _, c := range role.HandsUp {
+		out[c] = true
+	}
+	return out
+}
+
+// AllowsNoOptions is true for a role that may end a deliverable in zero
+// options: B3-SPEC.md section 2's own words, "zero is allowed only for a
+// commentary.* or forecast.project deliverable, which produce prose". Read
+// as: every class the role's own job description lets it decide alone is
+// one of those two kinds, or it decides no closed class alone at all (the
+// FinOps partner, the executive reporter and others whose Owes bullet is
+// prose with no backticked class -- there is no machine-checked class such a
+// role could attach an option to in the first place).
+func AllowsNoOptions(role JobDescription) bool {
+	for _, c := range role.DecidesAlone {
+		switch c {
+		case "commentary.variance", "commentary.showback", "forecast.project":
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// ValidateAndSaveOptions is section 2's save-time gate. It parses the
+// deliverable's trailing options block and, if every option's class is one
+// roleName's own job description lists (under decides_alone or hands_up),
+// stores the options as open rows and returns refused=false. Otherwise
+// NOTHING is written to artifact_options -- "the deliverable is saved
+// WITHOUT its options" -- refused is true, and reason names why; the
+// refusal is journaled here as option_refused, with the actor named as the
+// role that wrote it, so the audit page carries it whether or not the
+// caller does anything else with the reason.
+//
+// It does not touch artifacts or tasks at all: what a refusal means for the
+// task (tools/run/live.go returns it to the analyst) is the caller's
+// decision, because this function's only job is the options block itself.
+func ValidateAndSaveOptions(db *sql.DB, artifactID int, roleName, body string, rec Recorder) (refused bool, reason string, err error) {
+	role, roleOK := RoleFor(roleName)
+
+	opts, found, parseReason := ParseOptions(body)
+	if parseReason != "" {
+		journalOptionRefused(rec, roleName, artifactID, parseReason)
+		return true, parseReason, nil
+	}
+	// No block at all is additive, not a refusal, when the writer matches no
+	// role family: the same rule jobDescriptionBlock and packet() already
+	// hold for a name roles.yaml has never heard of (a hire made by hand, a
+	// synthetic name a test fixture uses for something unrelated). It is
+	// only a refusal once the writer IS a known role that owes a real
+	// decision class, because that role's own vocabulary says a block was
+	// owed and none arrived.
+	if !found {
+		if roleOK && !AllowsNoOptions(role) {
+			reason := fmt.Sprintf("this deliverable must end in one to three options "+
+				"naming a class %s's job description lists under decides_alone or "+
+				"hands_up; none was found", roleName)
+			journalOptionRefused(rec, roleName, artifactID, reason)
+			return true, reason, nil
+		}
+		return false, "", nil
+	}
+	// A block WAS found, even if it names zero options: that is a deliberate
+	// signal (a model that writes `{"options": []}` is saying it considered
+	// the question), so from here on an unrecognized role is refused rather
+	// than trusted, because nothing exists to check its classes against.
+	if !roleOK {
+		reason := fmt.Sprintf(
+			"no job description is on file for %q, so no class it names can be checked", roleName)
+		journalOptionRefused(rec, roleName, artifactID, reason)
+		return true, reason, nil
+	}
+	if len(opts) == 0 {
+		if !AllowsNoOptions(role) {
+			reason := fmt.Sprintf("this deliverable must end in one to three options "+
+				"naming a class %s's job description lists under decides_alone or "+
+				"hands_up; the block named zero", roleName)
+			journalOptionRefused(rec, roleName, artifactID, reason)
+			return true, reason, nil
+		}
+		return false, "", nil // zero options, and this role's own classes are all prose
+	}
+
+	legal := ValidClassesFor(role)
+	for _, o := range opts {
+		if !legal[o.Class] {
+			reason := fmt.Sprintf("%q is not a class %s's job description lists under "+
+				"decides_alone or hands_up", o.Class, roleName)
+			journalOptionRefused(rec, roleName, artifactID, reason)
+			return true, reason, nil
+		}
+		// A second, independent check against the vocabulary itself, not only
+		// against the role's own list: this reads what a MODEL wrote, and
+		// mustLoadRoles (roles.go) already refuses a role naming an undefined
+		// class at package init, so legal[o.Class] being true here should
+		// already imply ClassFor succeeds -- but that implication runs through
+		// roles.yaml being well-formed, not through anything this function
+		// re-checks, and the model's text is untrusted input like any other.
+		if _, ok := ClassFor(o.Class); !ok {
+			reason := fmt.Sprintf("%q is not a decision class this practice defines", o.Class)
+			journalOptionRefused(rec, roleName, artifactID, reason)
+			return true, reason, nil
+		}
+	}
+
+	for _, o := range opts {
+		ev, _ := json.Marshal(o.Evidence)
+		if _, err := db.Exec(`INSERT INTO artifact_options
+			(artifact, ordinal, class, summary, figure_cents, saving_cents, risk, needs, evidence, state)
+			VALUES (?,?,?,?,?,?,?,?,?,?)`,
+			artifactID, o.Ordinal, o.Class, o.Summary, o.FigureCents, o.SavingCents,
+			o.Risk, o.Needs, string(ev), string(OptionOpen)); err != nil {
+			return false, "", err
+		}
+	}
+	return false, "", nil
+}
+
+func journalOptionRefused(rec Recorder, roleName string, artifactID int, reason string) {
+	if rec == nil {
+		return
+	}
+	_ = rec.Emit("option_refused", roleName, "warn", map[string]any{
+		"artifact": artifactID, "reason": reason,
+	}, nil)
+}
+
+// ------------------------------------------------------------------ reads
+
+// Options is one artifact's options, in ordinal order.
+func Options(db *sql.DB, artifactID int) ([]Option, error) {
+	rows, err := db.Query(`SELECT artifact, ordinal, class, COALESCE(summary,''),
+		figure_cents, saving_cents, COALESCE(risk,''), COALESCE(needs,''),
+		COALESCE(evidence,''), state, COALESCE(decided_by,''), COALESCE(decided_at,''),
+		COALESCE(reason,'') FROM artifact_options WHERE artifact=? ORDER BY ordinal`, artifactID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanOptions(rows)
+}
+
+// GetOption reads one option by its primary key.
+func GetOption(db *sql.DB, artifactID, ordinal int) (Option, error) {
+	opts, err := Options(db, artifactID)
+	if err != nil {
+		return Option{}, err
+	}
+	for _, o := range opts {
+		if o.Ordinal == ordinal {
+			return o, nil
+		}
+	}
+	return Option{}, ErrNotFound
+}
+
+// OpenOptionsForSprint is every option in state "open" belonging to a POSTED
+// deliverable of the sprint: what the supervisor's pass collects
+// (B3-SPEC.md section 4, step 1). A deliverable that has not been posted is
+// not yet the crew's answer, so its options are not collected either.
+func OpenOptionsForSprint(db *sql.DB, sprintID int) ([]Option, error) {
+	rows, err := db.Query(`SELECT o.artifact, o.ordinal, o.class, COALESCE(o.summary,''),
+		o.figure_cents, o.saving_cents, COALESCE(o.risk,''), COALESCE(o.needs,''),
+		COALESCE(o.evidence,''), o.state, COALESCE(o.decided_by,''), COALESCE(o.decided_at,''),
+		COALESCE(o.reason,'')
+		FROM artifact_options o
+		JOIN artifacts a ON a.id = o.artifact
+		JOIN tasks t ON t.id = a.task
+		WHERE t.sprint = ? AND a.state = 'posted' AND o.state = 'open'
+		ORDER BY o.artifact, o.ordinal`, sprintID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanOptions(rows)
+}
+
+// CarriedOptionsFor is the live list of options carried to one owner in one
+// sprint: what a decision request's page shows, and what
+// PostDecisionRequestIfComplete counts down to zero.
+func CarriedOptionsFor(db *sql.DB, sprintID int, owner string) ([]Option, error) {
+	rows, err := db.Query(`SELECT o.artifact, o.ordinal, o.class, COALESCE(o.summary,''),
+		o.figure_cents, o.saving_cents, COALESCE(o.risk,''), COALESCE(o.needs,''),
+		COALESCE(o.evidence,''), o.state, COALESCE(o.decided_by,''), COALESCE(o.decided_at,''),
+		COALESCE(o.reason,'')
+		FROM artifact_options o
+		JOIN artifacts a ON a.id = o.artifact
+		JOIN tasks t ON t.id = a.task
+		WHERE t.sprint = ? AND COALESCE(t.owner,'') = ? AND o.state = 'carried'
+		ORDER BY o.artifact, o.ordinal`, sprintID, owner)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanOptions(rows)
+}
+
+func scanOptions(rows *sql.Rows) ([]Option, error) {
+	var out []Option
+	for rows.Next() {
+		var o Option
+		var evidence string
+		var state string
+		if err := rows.Scan(&o.Artifact, &o.Ordinal, &o.Class, &o.Summary,
+			&o.FigureCents, &o.SavingCents, &o.Risk, &o.Needs, &evidence, &state,
+			&o.DecidedBy, &o.DecidedAt, &o.Reason); err != nil {
+			return nil, err
+		}
+		o.State = OptionState(state)
+		if evidence != "" {
+			_ = json.Unmarshal([]byte(evidence), &o.Evidence)
+		}
+		out = append(out, o)
+	}
+	return out, rows.Err()
+}
+
+// ------------------------------------------------------------------ writes
+
+// setOptionState is the one place every option transition writes through,
+// so decided_by and decided_at are never set by one path and forgotten by
+// another.
+func setOptionState(db *sql.DB, artifactID, ordinal int, state OptionState, by, reason string) error {
+	res, err := db.Exec(`UPDATE artifact_options
+		SET state=?, decided_by=?, decided_at=datetime('now'), reason=?
+		WHERE artifact=? AND ordinal=?`,
+		string(state), nullIf(by), nullIf(reason), artifactID, ordinal)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// MarkOptionApplied records that actor applied this option. Called by
+// internal/finops.Apply once the side effect (if this class has one) has
+// already succeeded, never before.
+func MarkOptionApplied(db *sql.DB, artifactID, ordinal int, actor string) error {
+	return setOptionState(db, artifactID, ordinal, OptionApplied, actor, "")
+}
+
+// MarkOptionRefused records that actor refused this option, and insists on
+// why: a refusal without a reason is indistinguishable from nobody having
+// looked, the same argument Return and anomaly.Dismiss already make.
+func MarkOptionRefused(db *sql.DB, artifactID, ordinal int, actor, reason string) error {
+	if strings.TrimSpace(reason) == "" {
+		return ErrNeedReason
+	}
+	return setOptionState(db, artifactID, ordinal, OptionRefused, actor, reason)
+}
+
+// MarkOptionDropped records that the supervisor's pass dropped this option
+// before it ever reached a person, with the reason (a contradiction or an
+// over-guard figure).
+func MarkOptionDropped(db *sql.DB, artifactID, ordinal int, reason string) error {
+	if strings.TrimSpace(reason) == "" {
+		return ErrNeedReason
+	}
+	return setOptionState(db, artifactID, ordinal, OptionDropped, "supervisor", reason)
+}
+
+// MarkOptionCarried records that the supervisor's pass carried this option
+// into a decision request, because its class is not one the supervisor's own
+// job description lets it decide alone.
+func MarkOptionCarried(db *sql.DB, artifactID, ordinal int) error {
+	return setOptionState(db, artifactID, ordinal, OptionCarried, "supervisor", "")
+}

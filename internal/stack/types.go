@@ -54,6 +54,10 @@ var wireTypes = []string{
 	"forecast_frozen",
 	"explainer_published",
 	"sprint_planned",
+	// B3-SPEC.md section 2: a deliverable's options block named a class
+	// outside the writing role's own job description, so it was saved
+	// without its options and the task came back with the reason.
+	"option_refused",
 	"agent_hired",
 	"agent_rebriefed",
 	"agent_state_changed",

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/TAIPANBOX/costcrew/internal/crew"
 	"github.com/TAIPANBOX/costcrew/internal/stack"
 )
 
@@ -26,6 +27,17 @@ type bus struct {
 	// agent, which is what the contract means by a run, and every call it
 	// makes belongs to that one rather than to a run per call.
 	run string
+
+	// rec is this installation's own hash-chained journal (store.Store's
+	// AsRecorder, structurally the same crew.Recorder every package here
+	// restates it as), set in run() from the *store.Store it already opens.
+	// Separate from em on purpose: em is the STACK's shared bus, off unless
+	// -stack-events is given, and rec is this console's own /audit page,
+	// which every run can write to because every run opens a store. B3-SPEC.md
+	// section 3: "every application goes through the journal chain with the
+	// actor... so the audit page shows who decided what and on which
+	// evidence" -- that page reads store.Store's journal, not the stack bus.
+	rec crew.Recorder
 }
 
 // toolCall says an analyst called a model, in the estate's own word for it.

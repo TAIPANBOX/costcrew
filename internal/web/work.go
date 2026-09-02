@@ -231,6 +231,28 @@ func (s *Server) sprintPage(w http.ResponseWriter, r *http.Request) {
 type artView struct {
 	crew.Artifact
 	Rendered template.HTML
+	// Options is the deliverable's own machine-readable list, B3-SPEC.md
+	// section 2: html/template escapes every field by default, which is what
+	// keeps a script tag in an option's summary rendering as text rather
+	// than as markup -- unlike Rendered above, nothing here is ever wrapped
+	// in template.HTML.
+	Options []optionView
+}
+
+// optionView adds the two figures formatted as money, which the template
+// cannot do for itself from a bare int64 of cents.
+type optionView struct {
+	crew.Option
+	Figure money.Cents
+	Saving money.Cents
+}
+
+func optionViews(opts []crew.Option) []optionView {
+	out := make([]optionView, 0, len(opts))
+	for _, o := range opts {
+		out = append(out, optionView{o, money.Cents(o.FigureCents), money.Cents(o.SavingCents)})
+	}
+	return out
 }
 
 // renderBody turns an analyst's markdown-ish output into something readable
@@ -433,7 +455,8 @@ func (s *Server) taskPage(w http.ResponseWriter, r *http.Request) {
 
 	av := make([]artView, 0, len(arts))
 	for _, a := range arts {
-		av = append(av, artView{a, renderBody(a.Body)})
+		opts, _ := crew.Options(s.db, a.ID)
+		av = append(av, artView{a, renderBody(a.Body), optionViews(opts)})
 	}
 	// The sprint's label, so the page can link the week this belongs to
 	// rather than printing a row id nobody can look up.

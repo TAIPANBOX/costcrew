@@ -33,6 +33,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/TAIPANBOX/costcrew/internal/money"
@@ -466,8 +467,58 @@ func prompt(t crew.Task, a crew.Analyst, today, packetText string) string {
 	b.WriteString("Use plain prose with ## headings, **bold** and simple " +
 		"- bullets. No tables, no code fences.\n")
 
+	b.WriteString(optionsBlockInstructions(a.Name, a.Desk))
+
 	b.WriteString("\nWrite the deliverable. Be specific, say what you do not know, " +
 		"and do not invent a number you were not given.\n")
+	return b.String()
+}
+
+// optionsBlockInstructions tells the model the one shape it must not use
+// prose for: the options block, fenced and tagged, at the very end. The
+// classes it may name come from the SAME job description jobDescriptionBlock
+// already printed above ("You may decide alone" / "You hand to the
+// supervisor") -- this repeats them as a closed list next to the JSON shape
+// itself, from the same roles.yaml data, so the vocabulary the model sees has
+// one source rather than two texts that could drift (B3-SPEC.md section 2:
+// "the prompt tells the model the block's shape and the classes it may name,
+// from the same roles data").
+//
+// Empty when the role matches no family, the same additive rule
+// jobDescriptionBlock and packet() already hold: nothing here should tell a
+// model to produce a shape this console cannot check.
+func optionsBlockInstructions(name, desk string) string {
+	r, ok := crew.RoleForDesk(name, desk)
+	if !ok {
+		return ""
+	}
+	legal := crew.ValidClassesFor(r)
+	if len(legal) == 0 {
+		if crew.AllowsNoOptions(r) {
+			return "\nThis role's deliverable is prose; it needs no options block.\n"
+		}
+		return ""
+	}
+	classes := make([]string, 0, len(legal))
+	for c := range legal {
+		classes = append(classes, c)
+	}
+	sort.Strings(classes)
+
+	var b strings.Builder
+	b.WriteString("\nEnd the deliverable with a fenced block tagged options, JSON, " +
+		"naming one to three courses of action -- never one you have already taken:\n")
+	b.WriteString("```options\n")
+	b.WriteString(`{"options": [{"class": "...", "summary": "...", "figure_cents": 0, ` +
+		`"saving_cents": 0, "risk": "low|medium|high", "needs": "nothing|a person to ...", ` +
+		"\"evidence\": [\"...\"]}]}\n")
+	b.WriteString("```\n")
+	fmt.Fprintf(&b, "class must be one of: %s. figure_cents and saving_cents are whole "+
+		"numbers of cents, never a decimal. This deliverable proposes; it never applies "+
+		"anything itself.\n", strings.Join(classes, ", "))
+	if crew.AllowsNoOptions(r) {
+		b.WriteString("Zero options is fine here if there is nothing to decide.\n")
+	}
 	return b.String()
 }
 
@@ -540,12 +591,41 @@ func execute(ctx context.Context, db, roDB *sql.DB, e estimate, maxTok int, run 
 // heading is the fault this console exists to catch in other people's data.
 func saveDraft(db *sql.DB, e estimate, res callResult, b bus) error {
 	title := "Deliverable for " + e.Task.Title
-	if _, err := db.Exec(`INSERT INTO artifacts
+	ins, err := db.Exec(`INSERT INTO artifacts
 		(task, author, title, body, state, created, source)
 		VALUES (?,?,?,?, 'draft', datetime('now'), 'live')`,
-		e.Task.ID, e.Analyst.Name, trim(title, 120), res.Text); err != nil {
+		e.Task.ID, e.Analyst.Name, trim(title, 120), res.Text)
+	if err != nil {
 		return err
 	}
+	artifactID, err := ins.LastInsertId()
+	if err != nil {
+		return err
+	}
+
+	// B3-SPEC.md section 2: the deliverable ends in a machine-readable list
+	// of OPTIONS naming a class the writing role's own job description
+	// allows; a class outside that is refused whole -- nothing is written to
+	// artifact_options, the deliverable is returned to the analyst with the
+	// reason, and the refusal is journaled (option_refused, inside
+	// ValidateAndSaveOptions itself so it happens whether or not this
+	// function does anything else with the reason).
+	//
+	// "supervisor" is the acting link here: this is a mechanical policy
+	// check running before any person has seen the deliverable, not a
+	// person's own return, and task.return is the supervisor's class to
+	// decide (roles.yaml). See crew.Return's own comment for why every
+	// PERSON-driven caller elsewhere passes "owner" instead.
+	if refused, reason, verr := crew.ValidateAndSaveOptions(
+		db, int(artifactID), e.Analyst.Name, res.Text, b.rec); verr != nil {
+		return verr
+	} else if refused {
+		if rerr := crew.Return(db, int(artifactID), reason, "supervisor"); rerr != nil {
+			return rerr
+		}
+		fmt.Printf("  %-22s %-14s OPTIONS REFUSED: %s\n", trim(e.Task.Title, 22), e.Analyst.Name, reason)
+	}
+
 	// The charge lands on the task in cents, which is the ledger's unit. The
 	// true amount accumulates in micro-dollars and the cents follow the
 	// rounding of the TOTAL, not the sum of the roundings.

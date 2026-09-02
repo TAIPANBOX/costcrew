@@ -135,6 +135,10 @@ func run(dir, ceiling string, maxTok, sprint int, live bool, only int, engine, e
 		return err
 	}
 	defer b.close()
+	// The local hash chain: every run opens a store, so every run can write
+	// to it, whether or not -stack-events points anywhere. See bus.rec's own
+	// comment.
+	b.rec = st.AsRecorder()
 
 	var cap money.Cents
 	hasCap := false
