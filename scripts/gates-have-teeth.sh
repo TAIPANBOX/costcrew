@@ -230,6 +230,14 @@ run_case $'retired rights: a skill hands one back out' \
 	internal/crew/mandate.go \
 	$'"routing":                  {"figures-read"},' \
 	$'"routing":                  {"figures-read", "requests-read"},'
+run_case $'skill taxonomy: a roster skill loses its rights entry' \
+	fail \
+	./internal/crew \
+	$'TestEverySkillOnTheRosterHasRights' \
+	$'have no rightsForSkill entry' \
+	internal/crew/mandate.go \
+	$'"scenario-modelling":     {"figures-read", "budgets-read"},' \
+	$''
 run_case $'rights vocabulary: an explanation for a right nothing grants' \
 	fail \
 	./internal/web \

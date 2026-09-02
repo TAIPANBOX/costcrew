@@ -221,6 +221,72 @@ func TestHiringRefusesAnAttestationWithNoEvidence(t *testing.T) {
 	}
 }
 
+// An installation seeded before carbon-reporting and efficiency-metrics were
+// renamed to carbon-accounting and sustainability-reporting still carries the
+// old names in its skills column, and rightsForSkill no longer recognises
+// them, so RightsFor silently grants nothing beyond figures-read for a skill
+// that could earn more. The migration renames the string and tops the rights
+// up to what the new name grants, without touching a right somebody added by
+// hand.
+func TestRenameRetiredSkillsUpgradesALegacyRow(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	if _, err := crew.SeedRoster(st.DB(), "yurii"); err != nil {
+		t.Fatal(err)
+	}
+	// Simulate a row seeded before the rename: the old skill names, and the
+	// rights that the old rightsForSkill (which had no entry for either)
+	// actually produced for a Restricted analyst.
+	if _, err := st.DB().Exec(`UPDATE analysts SET skills='carbon-reporting,efficiency-metrics',
+		rights='figures-read' WHERE name='sustainability'`); err != nil {
+		t.Fatal(err)
+	}
+
+	n, err := crew.RenameRetiredSkills(st.DB())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Errorf("renamed skills on %d analyst(s), want 1 (only sustainability carries the old names)", n)
+	}
+
+	a, err := crew.GetAnalyst(st.DB(), "sustainability")
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantSkills := []string{"carbon-accounting", "sustainability-reporting"}
+	if strings.Join(a.Skills, ",") != strings.Join(wantSkills, ",") {
+		t.Errorf("skills = %v, want %v", a.Skills, wantSkills)
+	}
+	// carbon-accounting grants sql-readonly, which the old name never did.
+	// sustainability-reporting grants export-data, but the analyst is
+	// Restricted, and Restricted strips export-data, so it must not appear.
+	foundSQL, foundExport := false, false
+	for _, r := range a.Rights {
+		if r == "sql-readonly" {
+			foundSQL = true
+		}
+		if r == "export-data" {
+			foundExport = true
+		}
+	}
+	if !foundSQL {
+		t.Errorf("rights %v do not carry sql-readonly, which carbon-accounting grants", a.Rights)
+	}
+	if foundExport {
+		t.Errorf("rights %v carry export-data, which a Restricted analyst must not hold", a.Rights)
+	}
+
+	// Runs on every start, so a second run on the now-renamed row must change
+	// nothing.
+	if again, err := crew.RenameRetiredSkills(st.DB()); err != nil || again != 0 {
+		t.Errorf("a second run renamed %d analyst(s), want 0 (%v)", again, err)
+	}
+}
+
 // The migration clears what the console invented and leaves what a person
 // recorded.
 func TestClearingFabricatedKeepsARecordedOne(t *testing.T) {

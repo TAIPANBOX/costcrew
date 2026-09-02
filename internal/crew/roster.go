@@ -86,14 +86,28 @@ var (
 		"propose-only", "close-covered", "channel-post", "publish-explainer",
 		"export-data", "kpi-registry",
 	}
-	SkillPool = []string{
-		"variance-commentary", "anomaly-triage", "driver-classification",
-		"rightsizing-analysis", "commitment-modelling", "forecasting-commentary",
-		"forecast-accuracy", "unit-economics", "exec-reporting",
-		"showback-narration", "capacity-estimation", "ai-spend-analysis",
-		"licence-reconciliation", "allocation-rules", "period-close",
-	}
 )
+
+// SkillPool is what the hire form offers: every skill this console knows how
+// to back with rights, and nothing else.
+//
+// It used to be written out by hand, fifteen entries deep while
+// rightsForSkill already carried thirty-eight, and thirty of the roster's own
+// forty-five skill strings were never offered to a person hiring by hand.
+// Deriving it from rightsForSkill instead means the two can no longer drift:
+// a skill this console cannot back with a right can never be offered, and a
+// skill it can back can never go missing from the form.
+// TestSkillPoolIsExactlyTheSkillsWithRights holds the two together.
+var SkillPool = sortedSkillKeys(rightsForSkill)
+
+func sortedSkillKeys(m map[string][]string) []string {
+	out := make([]string, 0, len(m))
+	for s := range m {
+		out = append(out, s)
+	}
+	sort.Strings(out)
+	return out
+}
 
 // SeedRoster copies the fixture's crew into the store, once.
 func SeedRoster(db *sql.DB, owner string) (int, error) {
