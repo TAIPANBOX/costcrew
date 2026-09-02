@@ -21,6 +21,7 @@ import (
 
 	"github.com/TAIPANBOX/costcrew/internal/anomaly"
 	"github.com/TAIPANBOX/costcrew/internal/auth"
+	"github.com/TAIPANBOX/costcrew/internal/connectors"
 	"github.com/TAIPANBOX/costcrew/internal/crew"
 	"github.com/TAIPANBOX/costcrew/internal/detect"
 	"github.com/TAIPANBOX/costcrew/internal/estate"
@@ -190,6 +191,13 @@ func run(addr, dir string, scfg stack.Config) error {
 	}
 	if rows > 0 {
 		log.Printf("CostCrew: built the estate, %d charge rows", rows)
+	}
+	// charges.provenance and ai_calls, unconditionally: the AI page and the
+	// KPI library read both on every render regardless of whether this
+	// connector has ever been pointed at a folder, so a store that has never
+	// imported anything still needs the column and the table to exist.
+	if err := connectors.EnsureFocusSchema(st.DB()); err != nil {
+		return fmt.Errorf("ensuring the FOCUS reader's schema: %w", err)
 	}
 	if err := estate.SeedBudgets(st.DB()); err != nil {
 		return fmt.Errorf("setting budgets: %w", err)

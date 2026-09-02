@@ -164,18 +164,55 @@ func (s *Server) ai(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	month := world.LastDay[:7]
-	units := world.AIUnits()
-	var rows []world.AIUnit
+	// Real data first: it lands on whatever month the imported file covers,
+	// not necessarily the generated world's own last day, and a page that
+	// only ever looked at world.LastDay would show nothing real just
+	// because the file was for a different month.
+	if latest, ok, err := finops.LatestRealAIMonth(s.db); err != nil {
+		http.Error(w, "store unavailable", http.StatusInternalServerError)
+		return
+	} else if ok {
+		month = latest
+	}
+
+	// The store first, the generated world only when the store has nothing
+	// for this month: real rows from a connector like tokenfuse-focus
+	// replace the fixture entirely once they exist, rather than sitting
+	// beside it, which is what refusal 1 in the reader itself guarantees.
+	rows, hasOutcomes, err := finops.AIUnits(s.db, month)
+	if err != nil {
+		http.Error(w, "store unavailable", http.StatusInternalServerError)
+		return
+	}
+	real := len(rows) > 0
+	if !real {
+		for _, u := range world.AIUnits() {
+			if u.Month != month {
+				continue
+			}
+			rows = append(rows, u)
+		}
+	}
 	var total money.Cents
 	var tokens int64
-	for _, u := range units {
-		if u.Month != month {
-			continue
-		}
-		rows = append(rows, u)
+	for _, u := range rows {
 		total += u.Cost
 		tokens += u.Tokens
 	}
+
+	var agentRows []finops.AgentAIRow
+	var mixedNote string
+	if real {
+		if agentRows, err = finops.AIByAgent(s.db, month); err != nil {
+			http.Error(w, "store unavailable", http.StatusInternalServerError)
+			return
+		}
+		if mixedNote, err = finops.MixedMoneyNote(s.db, "ai", month); err != nil {
+			http.Error(w, "store unavailable", http.StatusInternalServerError)
+			return
+		}
+	}
+
 	list, _ := anomaly.List(s.db, anomaly.Filter{Source: "ai"})
 	// What this console's OWN agents cost, from the board rather than from the
 	// invoices. It is a separate number and it is said to be a separate one:
@@ -202,16 +239,20 @@ func (s *Server) ai(w http.ResponseWriter, r *http.Request) {
 	}, "cost")
 	s.render(w, tplAI, struct {
 		shell
-		Rows      []world.AIUnit
-		Total     money.Cents
-		Tokens    string
-		Anomalies int
-		Sort      sortSpec
-		CrewCost  money.Cents
-		CrewTasks int
-		Month     string
+		Rows        []world.AIUnit
+		Total       money.Cents
+		Tokens      string
+		Anomalies   int
+		Sort        sortSpec
+		CrewCost    money.Cents
+		CrewTasks   int
+		Month       string
+		Real        bool
+		HasOutcomes bool
+		AgentRows   []finops.AgentAIRow
+		MixedNote   string
 	}{s.shellFor(r, "AI spend", "ai"), rows, total, thousands(tokens), len(list), sp,
-		crewCost, crewTasks, month})
+		crewCost, crewTasks, month, real, hasOutcomes, agentRows, mixedNote})
 }
 
 // thousands groups a large count so a reader can tell a million from ten.

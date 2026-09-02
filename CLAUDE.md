@@ -15,7 +15,13 @@ record of its HTTP surface (see `parity/README.md` for what that does and
 does not prove).
 
 Single static binary, pure-Go SQLite (`modernc.org/sqlite`), no build step, no
-runtime to install, no network. Money is integer cents everywhere.
+runtime to install, no network. Money is integer cents at every stored total.
+One reader keeps a PER-CALL amount in a finer integer subunit first
+(`money.Micros`, millionths of a unit, in `ai_calls.billed_microusd`) because
+an LLM call is routinely worth a few tenths of a cent and a column that
+rounds each one to cents before summing loses every one of them; the daily
+total it derives is still rounded to cents, once, never per call. See
+`money.Micros` and invariant 25.
 
 ## What this repository contributes, declared and proved
 
@@ -56,6 +62,7 @@ go test ./...                        # 282 tests, 18 packages
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
+staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refused PR #19 on two findings the list above never asked for; a staticcheck built for an older Go cannot read this module, so on such a machine CI is the only place it runs
 ```
 
 The gates in this repo are Go tests rather than shell scripts, so
@@ -331,6 +338,47 @@ an absent invariant.
     `TestPostReturnApproveRefuseALinkThatMayNotDecide` is what proves the
     check is real code on that path rather than a promise standing next to
     it.)*
+
+24. **A generated estate is never mixed with real money.** The first reader
+    the registry has ever held (`tokenfuse-focus`) refuses every row while
+    `charges` still holds generated ones (`provenance IS NULL`), unless the
+    operator passes `-replace-generated`. With it, the generated `charges`
+    (scoped to `provenance IS NULL`, so a later connector's own real rows are
+    never touched by an earlier one's flag), `drivers`, `attribution` and the
+    seeded `anomalies`, `tasks`, `artifacts`, `sprints`, `forecasts` and
+    `chargeback` rows are removed FIRST, in one transaction, and the removal
+    is journaled; the roster, accounts and connections are not on that list.
+    Emptying the seeded board this way is what found a second bug: `KPIs()`'s
+    first-pass-acceptance query summed `tasks` with two of its three `SUM`s
+    missing the `COALESCE` the query beside it already carried, so an operator
+    who used the flag and then opened `/kpis` got a 500 rather than a page
+    that had never seen a task.
+    *(gate: `TestGeneratedEstateIsNotMixed`, both directions: the refusal
+    (nothing written, the generated rows untouched, no journal line) and the
+    flag (the generated rows gone, the real ones present, a
+    `generated_estate_replaced` entry in the chain). The `COALESCE` fix is
+    held by every test in `internal/finops/ai_test.go` that runs `KPIs()`
+    against a store carrying real rows and nothing generated.)*
+
+25. **A per-call amount is never rounded before it is summed.** `ai_calls`
+    keeps each call's own cost in `money.Micros` (millionths of a unit), not
+    cents: an LLM call is routinely worth a few tenths of a cent, and a
+    column that rounds every one to the nearest cent on its own loses all of
+    them before they have a chance to add up. Ten calls at $0.0035 are three
+    and a half cents, not zero. `deriveCharges` sums a whole day's Micros in
+    SQL, exact 64-bit integer arithmetic, and rounds to Cents exactly once,
+    half away from zero, the same convention `money.Parse` and `money.Bps`
+    already use. The first version of this reader parsed `BilledCost`
+    straight into `money.Cents` and rounded every row on its own before it
+    was ever summed; a review before merge, not a test that had been
+    written yet, is what caught it.
+    *(gate: `TestSubCentCallsRoundHalfAwayFromZeroOnceSummed` (two calls
+    round up to one cent; ten calls sum to an exact tie at 3.5 cents and
+    round up to four, not down to three) and
+    `TestCostIsNeverParsedThroughFloat64` ($0.000249 comes back as exactly
+    249 micros through `money.ParseMicros`; a float64 round-trip of the same
+    string gives 248). `internal/money`'s own `TestSubCentCallsRoundHalfAwayFromZeroOnceSummed`
+    and `TestMicrosCentsIsSymmetric` hold the arithmetic in isolation.)*
 
 ## Decisions that have no gate yet
 

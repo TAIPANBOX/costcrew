@@ -300,6 +300,22 @@ run_case $'connector status: every entry claims Built regardless of its reader' 
 	internal/connectors/connectors.go \
 	$'if _, ok := readers[Catalogue[i].ID]; ok {' \
 	$'if true {'
+run_case $'generated estate: the refusal to mix it with real money is dropped' \
+	fail \
+	./internal/connectors \
+	$'TestGeneratedEstateIsNotMixed' \
+	$'-replace-generated' \
+	internal/connectors/tokenfusefocus.go \
+	$'if mixed && !opt.ReplaceGenerated {' \
+	$'if false && mixed && !opt.ReplaceGenerated {'
+run_case $'sub-cent calls: rounded per row before the sum instead of once after it' \
+	fail \
+	./internal/connectors \
+	$'TestSubCentCallsRoundHalfAwayFromZeroOnceSummed' \
+	$'want 4' \
+	internal/connectors/tokenfusefocus.go \
+	$'SUM(billed_microusd), SUM(tokens_in+tokens_out)' \
+	$'SUM(((billed_microusd+5000)/10000)*10000), SUM(tokens_in+tokens_out)'
 run_case $'rights vocabulary: an explanation for a right nothing grants' \
 	fail \
 	./internal/web \

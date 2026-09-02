@@ -5,13 +5,18 @@
 </header>
 
 <div class="tiles">
-  <div class="tile"><div class="k">This month</div><div class="v">{{.Total}}</div><div class="s">across every model</div></div>
+  <div class="tile"><div class="k">This month</div><div class="v">{{.Total}}</div><div class="s">{{if .Real}}read from a connector{{else}}across every model{{end}}</div></div>
   <div class="tile"><div class="k">Tokens</div><div class="v">{{.Tokens}}</div><div class="s">measured, not derived from cost</div></div>
   <div class="tile"><div class="k">Anomalies here</div><div class="v {{if .Anomalies}}up{{end}}">{{.Anomalies}}</div><div class="s"><a href="/anomalies?source=ai">on the AI desk</a></div></div>
 </div>
 
+{{if .MixedNote}}<p class="msg">{{.MixedNote}}</p>{{end}}
+
 <div class="panel">
   <h2>Price and volume, separated</h2>
+  <div class="body">
+    <p class="note">Actions are {{if .HasOutcomes}}the count of outcomes tagged by the calling agents themselves{{else}}derived from tokens at a fixed ratio, and labelled as derived{{end}}. A per-action figure invented from a dollar amount is not a measurement, and this page will not print one as though it were.</p>
+  </div>
   <div class="scroll">
   <table>
     <thead><tr><th class="tight">Month</th>{{$.Sort.Header "team" "Team" "tight" false}}{{$.Sort.Header "model" "Model" "" false}}{{$.Sort.Header "tokens" "Tokens" "num" true}}{{$.Sort.Header "cost" "Cost" "num" true}}{{$.Sort.Header "permil" "Per million" "num" true}}{{$.Sort.Header "actions" "Actions" "num" true}}<th class="num">Per action</th></tr></thead>
@@ -19,7 +24,7 @@
     {{range .Rows}}
       <tr>
         <td class="tight">{{.Month}}</td>
-        <td class="tight"><a href="/team/{{.Team}}?period={{$.Month}}">{{.Team}}</a></td>
+        <td class="tight">{{if .Team}}<a href="/team/{{.Team}}?period={{$.Month}}">{{.Team}}</a>{{else}}<span class="note">none tagged</span>{{end}}</td>
         <td>{{if .Model}}{{.Model}}{{else}}<span class="note">unattributed</span>{{end}}</td>
         <td class="num">{{.Tokens}}</td>
         <td class="num">{{.Cost}}</td>
@@ -33,13 +38,37 @@
   </div>
 </div>
 
+{{if .Real}}
+<div class="panel">
+  <h2>By agent</h2>
+  <div class="body">
+    <p>Read from the gateway's own extension columns, not derived: every row a connector like TokenFuse FOCUS wrote carries the agent that made the call.</p>
+  </div>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Agent</th><th class="num">Calls</th><th class="num">Tokens</th><th class="num">Cost</th><th class="num">Blocked</th></tr></thead>
+    <tbody>
+    {{range .AgentRows}}
+      <tr>
+        <td>{{.Agent}}</td>
+        <td class="num">{{.Calls}}</td>
+        <td class="num">{{.Tokens}}</td>
+        <td class="num">{{.Cost}}</td>
+        <td class="num">{{if .BlockedCalls}}{{.BlockedCalls}}<span class="sub">reserved amount not carried in this export</span>{{else}}0{{end}}</td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+</div>
+{{else}}
 <div class="panel">
   <h2>What this cannot tell you</h2>
   <div class="body">
     <p>Which <strong>agent</strong> spent it. The charge rows carry a model and a workload and no agent, so everything here is at team grain. Naming an individual analyst needs model calls to carry an agent header through a gateway.</p>
-    <p class="note">The action count is derived from tokens at a fixed ratio and is labelled as derived. A per-action figure invented from a dollar amount is not a measurement, and this page will not print one as though it were.</p>
   </div>
 </div>
+{{end}}
 
 <div class="panel">
   <h2>This console's own agents</h2>

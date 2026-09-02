@@ -67,6 +67,10 @@
         {{if .C.Metered}}
         <label><input type="checkbox" name="confirm" value="yes" style="width:auto"> I understand this call is billed</label>
         {{end}}
+        {{- if eq .C.ID "tokenfuse-focus"}}
+        <label><input type="checkbox" name="replace-generated" value="yes" style="width:auto"> Replace the generated estate with this real data</label>
+        <p class="note">Only asked for, and only matters, while this store still has generated charges with no provenance. Removes them, the generated drivers and attribution, and the seeded anomalies, tasks, artifacts, sprints, forecasts and chargeback rows, in one transaction, before writing what this file holds. The roster, accounts and connections are not touched.</p>
+        {{end}}
         <button type="submit">Import</button>
       </form>
     </div>

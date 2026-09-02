@@ -136,9 +136,18 @@ func (s *Server) connectorAction(kind string) http.HandlerFunc {
 			s.done(w, r, back, err)
 		case "import":
 			// The confirmation is a separate act from the click that started
-			// it, and the page prints the cost beside the box.
+			// it, and the page prints the cost beside the box. replace-generated
+			// is the same shape of separate act, for the one refusal that is
+			// not about money: a reader that would mix a generated estate with
+			// real rows needs the same explicit yes, checked fresh on every
+			// submission rather than remembered from a saved setting.
 			confirmed := r.PostFormValue("confirm") == "yes"
-			_, err := connectors.Import(s.db, id, confirmed)
+			replaceGenerated := r.PostFormValue("replace-generated") == "yes"
+			_, err := connectors.Import(s.db, id, confirmed, connectors.ImportOptions{
+				ReplaceGenerated: replaceGenerated,
+				Actor:            u.Username,
+				Rec:              s.rec,
+			})
 			s.done(w, r, back, err)
 		}
 	}

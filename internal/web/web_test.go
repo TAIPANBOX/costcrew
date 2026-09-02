@@ -72,6 +72,13 @@ func startFull(t *testing.T, withHistory bool, eventsPath string) *harness {
 	if _, err := estate.Seed(st.DB()); err != nil {
 		t.Fatal(err)
 	}
+	// The harness seeds what production seeds: charges.provenance and
+	// ai_calls have to exist before the AI page's queries run, on every
+	// store, whether or not anything has ever imported through the
+	// tokenfuse-focus reader, the same as in cmd/costcrew/main.go.
+	if err := connectors.EnsureFocusSchema(st.DB()); err != nil {
+		t.Fatal(err)
+	}
 	if err := estate.SeedBudgets(st.DB()); err != nil {
 		t.Fatal(err)
 	}

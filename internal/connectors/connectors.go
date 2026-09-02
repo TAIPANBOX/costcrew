@@ -36,14 +36,50 @@ const (
 
 // Reader actually reads a connector's source and returns the sentence Test()
 // promises: files read, first and last day, rows, total. It takes the saved
-// connection config and the store to write into.
-type Reader func(db *sql.DB, cfg map[string]string) (string, error)
+// connection config, the options for this call, and the store to write into.
+//
+// One function does both jobs Test and Import need, DryRun told apart by
+// ImportOptions rather than by a second registry: a describe-only pass and a
+// real one drift the moment they are two functions, because nothing forces
+// the second edit when the first one changes what a file means.
+type Reader func(db *sql.DB, cfg map[string]string, opt ImportOptions) (string, error)
+
+// ImportOptions is what a Reader needs beyond the saved, non-secret config.
+type ImportOptions struct {
+	// DryRun is Test(): describe what Import would do and write nothing.
+	DryRun bool
+	// ReplaceGenerated is the operator's explicit yes to wipe a generated
+	// estate before real rows are written. A Reader that never mixes
+	// generated and real money ignores this unless it finds generated rows.
+	ReplaceGenerated bool
+	// Actor is who to credit in the journal for anything a Reader records
+	// there. Empty when nothing is known, such as inside Test().
+	Actor string
+	// Rec is where a Reader journals a decision it made, such as replacing
+	// the generated estate. Nil is valid and means nothing is journaled.
+	Rec Recorder
+}
+
+// Recorder is store.Recorder, restated here so this package does not import
+// the one that imports it, the same reason store.go gives for restating
+// anomaly.Recorder in its own package.
+type Recorder interface {
+	Emit(kind, actor, severity string, data map[string]any, onBehalfOf []string) error
+}
 
 // readers is the whole truth about what this console can actually read.
-// EMPTY today: no reader is written for any connector yet, and deriveStatus
-// below is the one place that fact reaches Status, so the catalogue cannot
-// claim a connector is Built when nothing here can read it.
-var readers = map[string]Reader{}
+//
+// A map LITERAL, not an init()-time assignment: deriveStatus runs from this
+// package's own init(), and Go does not promise which file's init() a
+// compiler visits first. A second init() registering a reader could run
+// after deriveStatus already decided Documented, and the entry would stay
+// wrong until the next process restart. Package-level variables are
+// initialised before any init() runs, in dependency order, so a literal here
+// is resolved before deriveStatus can read it, regardless of which file
+// tokenFuseFocusReader is defined in.
+var readers = map[string]Reader{
+	"tokenfuse-focus": tokenFuseFocusReader,
+}
 
 type Kind string
 
@@ -171,6 +207,21 @@ var Catalogue = []Connector{
 		Doc:      "https://www.opencost.io/docs/integrations/api",
 		Inputs:   []Input{{Name: "url", Label: "OpenCost URL"}},
 		Cannot:   "Same limit as Kubecost: no labels, no allocation.",
+	},
+	{
+		ID: "tokenfuse-focus", Name: "TokenFuse FOCUS export", Provider: "ai",
+		Kind: ExportDrop, Feeds: "charges (ai)", Metered: false,
+		Auth: "none for the reader: it reads files already written to a folder",
+		CostNote: "No charge for reading the export. TokenFuse itself, and whatever it " +
+			"gateways to, are separate bills.",
+		Note: "A FOCUS 1.2 CSV (or .csv.gz) with the gateway's own extension columns: an " +
+			"agent id and a run id on every row, so this is the first connector that can " +
+			"attribute AI spend to an agent rather than only a team. USD only in this step.",
+		Doc: "https://focus.finops.org/",
+		Inputs: []Input{{Name: "path", Label: "Folder tokenfuse focus-export wrote to",
+			Hint: "the local path, or drop the folder on this page"}},
+		Cannot: "It cannot tell you what the call was for: an outcome is what the calling " +
+			"agent tagged, or nothing.",
 	},
 	{
 		ID: "anthropic-usage", Name: "Anthropic usage and cost", Provider: "ai",
@@ -372,8 +423,28 @@ func Test(db *sql.DB, id string, env func(string) string) (string, bool, error) 
 			"costs money per request. Use Import, which asks first."
 		good = true
 	default:
-		result = "Configured and free to run. Import will read it and say what it found."
-		good = true
+		// Built and free: actually ask the reader what it would do, rather than
+		// print a generic sentence true of every non-metered connector. DryRun
+		// is the whole of what makes this safe to call here: the same function
+		// Import uses, told to look and not write.
+		reader, hasReader := readers[id]
+		if !hasReader {
+			// Status Built is derived from this exact map, so this cannot
+			// happen; kept as the same generic sentence rather than a panic,
+			// because a reader that vanishes between the check and the call
+			// is a bug this should describe, not crash on.
+			result = "Configured and free to run. Import will read it and say what it found."
+			good = true
+			break
+		}
+		desc, rerr := reader(db, conn.Config, ImportOptions{DryRun: true})
+		if rerr != nil {
+			result = rerr.Error()
+			good = false
+		} else {
+			result = desc
+			good = true
+		}
 	}
 
 	now := time.Now().UTC().Format(time.RFC3339)
@@ -400,10 +471,13 @@ func Test(db *sql.DB, id string, env func(string) string) (string, bool, error) 
 // for it yet, so it must not become reachable only once a reader exists.
 //
 // Once past that gate, Import looks up the reader. When none is registered
-// (which is every connector today) it returns the same refusal it always
-// has: there is nothing to read. When one is registered, it is handed the
-// saved, non-secret config and it runs.
-func Import(db *sql.DB, id string, confirmed bool) (string, error) {
+// (which is every connector but tokenfuse-focus today) it returns the same
+// refusal it always has: there is nothing to read. When one is registered,
+// it is handed the saved, non-secret config and opt, and it runs.
+//
+// opt.DryRun is always cleared: a caller cannot turn a real Import into a
+// describe-only pass by handing it a DryRun option built for Test.
+func Import(db *sql.DB, id string, confirmed bool, opt ImportOptions) (string, error) {
 	c, ok := Get(id)
 	if !ok {
 		return "", fmt.Errorf("no such connector")
@@ -421,5 +495,6 @@ func Import(db *sql.DB, id string, confirmed bool) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return reader(db, conn.Config)
+	opt.DryRun = false
+	return reader(db, conn.Config, opt)
 }
