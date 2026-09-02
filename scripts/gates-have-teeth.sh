@@ -557,7 +557,7 @@ run_case 'a model able to put a tag on the page' caught ./internal/web \
 run_case 'a model left to guess the date' caught ./tools/run \
 	'TestTheModelIsToldTheDate' \
 	'does not carry the date' \
-	tools/run/live.go \
+	internal/deliver/prompt.go \
 	'fmt.Fprintf(&b, "\nToday is %s.\n", today)' \
 	'fmt.Fprintf(&b, "\n%s", today[:0])'
 
