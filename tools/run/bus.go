@@ -65,6 +65,23 @@ func (b bus) toolCall(e estimate, res callResult) error {
 	}, nil)
 }
 
+// decisionRequested tells the STACK bus what saveDraft's option_refused
+// (crew.ValidateAndSaveOptions, via b.rec) and finops.Apply's option_applied
+// (also via b.rec) already tell the local hash chain: B3-SPEC.md section 4's
+// last point, "emit sprint_planned-style event decision_requested to the
+// bus". Separate from b.rec on purpose -- see bus.rec's own comment: em and
+// rec are two different surfaces here, unlike internal/web's s.rec, which
+// Tees them into one call for every write route including this one's
+// console-button counterpart (internal/web/supervise.go).
+func (b bus) decisionRequested(sprint int, owner string, options int) error {
+	if b.em == nil || !b.em.On() {
+		return nil
+	}
+	return b.em.Emit("decision_requested", "supervisor", "info", map[string]any{
+		"run": b.run, "sprint": sprint, "owner": owner, "options": options,
+	}, nil)
+}
+
 // openBus prepares this run's reporting, and refuses BEFORE anything is spent.
 //
 // The trust domain is not defaulted here. The console defaults it to

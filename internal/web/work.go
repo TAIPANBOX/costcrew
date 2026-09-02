@@ -219,11 +219,13 @@ func (s *Server) sprintPage(w http.ResponseWriter, r *http.Request) {
 	}, "state")
 	s.render(w, tplSprint, struct {
 		shell
-		S      crew.Sprint
-		Tasks  []taskView
-		CanAct bool
-		Sort   sortSpec
-	}{s.shellFor(r, found.Label, "sprints"), found, rows, u.May("operator"), srt})
+		S              crew.Sprint
+		Tasks          []taskView
+		CanAct         bool
+		Sort           sortSpec
+		DecisionOwners []string
+	}{s.shellFor(r, found.Label, "sprints"), found, rows, u.May("operator"), srt,
+		decisionOwners(s, id)})
 }
 
 // --------------------------------------------------------------------- task

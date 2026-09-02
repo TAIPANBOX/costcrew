@@ -198,6 +198,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /sprint/plan", s.planPage)
 	s.mux.HandleFunc("POST /sprint/plan", s.approvePlan)
 	s.mux.HandleFunc("POST /sprint/{id}/close", s.closeSprint)
+	s.mux.HandleFunc("POST /sprint/{id}/supervise", s.superviseSprint)
 	s.mux.HandleFunc("GET /static/app.css", s.styleCSS)
 }
 

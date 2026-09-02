@@ -63,6 +63,10 @@ var wireTypes = []string{
 	// id, independently of whatever the class's own side effect
 	// (anomaly_explained and the rest) already journals on its own.
 	"option_applied",
+	// B3-SPEC.md section 4: the supervisor's pass wrote a decision request
+	// to an owner for the classes its own job description hands up. Not yet
+	// in heraldyx's catalogue -- a follow-up named in this PR's body.
+	"decision_requested",
 	"agent_hired",
 	"agent_rebriefed",
 	"agent_state_changed",

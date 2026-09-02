@@ -223,6 +223,9 @@
           },
           "stack-host": {
             "required": false
+          },
+          "supervise": {
+            "required": false
           }
         }
       },
