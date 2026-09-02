@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/TAIPANBOX/costcrew/actions/workflows/ci.yml/badge.svg)](https://github.com/TAIPANBOX/costcrew/actions/workflows/ci.yml)
 ![Go](https://img.shields.io/badge/go-1.27-00ADD8.svg)
-![tests](https://img.shields.io/badge/tests-382-brightgreen.svg)
+![tests](https://img.shields.io/badge/tests-384-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)
 ![Status](https://img.shields.io/badge/enforces-nothing%20by%20design-success.svg)
 
@@ -156,7 +156,7 @@ off the stem; `-stack-host` sets the `agent://` authority.
 ## Gates
 
 ```sh
-go test ./...                        # 382 tests, 18 packages
+go test ./...                        # 384 tests, 18 packages
 ./scripts/features-are-bound.sh      # every scenario bound to a named test, both ways
 ./scripts/gates-have-teeth.sh        # 59 cases: each gate is made to fail on purpose
 gofmt -l . && go vet ./...
