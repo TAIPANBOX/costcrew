@@ -518,7 +518,7 @@ run_case 'a bound narrower than its own promise' caught ./tools/run \
 	'TestThePromptBoundCoversTheWholePrompt' \
 	'short by' \
 	tools/run/main.go \
-	'e.PromptTokens = tokens(prompt(t, a, "0000-00-00"))' \
+	'e.PromptTokens = tokens(prompt(t, a, "0000-00-00", e.Packet))' \
 	'e.PromptTokens = tokens(t.Title, t.Goal, a.Mission, a.Role)'
 
 # A deliverable must not show its own syntax. The seeded drafts were written to
