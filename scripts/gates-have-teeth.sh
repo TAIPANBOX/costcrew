@@ -722,6 +722,29 @@ run_case 'a deleted gate is not a passing gate' gone ./internal/crew \
 	'func TestEveryDeskHasAnOwner(' \
 	'func GoneTestEveryDeskHasAnOwner('
 
+# B2: a tool is called only under a right the analyst holds, and a query
+# reaches only the charges. Two mutants for the two halves of that sentence;
+# charges_query.go's own four (table allow-list, the read-only connection's
+# _query_only, the semicolon refusal, the row cap) are proven by hand in the
+# PR body rather than carried here, the same way B1a's roles teeth case
+# calls out to a script instead of duplicating its whole fault list.
+run_case $'skills are tools: the dispatcher stops checking the right' \
+	fail \
+	./tools/run \
+	$'TestAToolTheAnalystHasNoRightForIsRefused' \
+	$'tool_refused' \
+	tools/run/dispatch.go \
+	$'if !hasString(rights, def.Right) {' \
+	$'if false && !hasString(rights, def.Right) {'
+run_case $'skills are tools: charges_query drops its table allow-list' \
+	fail \
+	./tools/run \
+	$'TestChargesQueryHostileInputs' \
+	$'want refused' \
+	tools/run/charges_query.go \
+	$'if !chargesAllowedTables[tb] {' \
+	$'if false {'
+
 echo
 if [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'

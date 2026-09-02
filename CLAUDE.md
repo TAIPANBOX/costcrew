@@ -56,14 +56,19 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 282 tests, 18 packages
-./scripts/gates-have-teeth.sh        # 48 cases; needs a clean tree; ~60s
-./scripts/features-are-bound.sh      # 59 scenarios, both directions
+go test ./...                        # 348 tests, 18 packages
+./scripts/gates-have-teeth.sh        # needs a clean tree; ~60s
+./scripts/features-are-bound.sh      # 74 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refused PR #19 on two findings the list above never asked for; a staticcheck built for an older Go cannot read this module, so on such a machine CI is the only place it runs
 ```
+
+Counts follow the suite, measured on `feat/skills-are-tools`; nothing here keeps
+them current automatically, so they lag whichever branch last updated them by
+hand (B1a's own merge left this block at 282/48/59 while its own PR body
+reported 301/52/70).
 
 The gates in this repo are Go tests rather than shell scripts, so
 `gates-have-teeth.sh` mutates the PRODUCT and requires the test to go red.
@@ -379,6 +384,40 @@ an absent invariant.
     249 micros through `money.ParseMicros`; a float64 round-trip of the same
     string gives 248). `internal/money`'s own `TestSubCentCallsRoundHalfAwayFromZeroOnceSummed`
     and `TestMicrosCentsIsSymmetric` hold the arithmetic in isolation.)*
+26. **A tool is called only under a right the analyst holds, and a query
+    reaches only the charges.** Before this, a skill on the roster was a tag
+    on a card and the model calling anything on the analyst's behalf did not
+    exist. `dispatch()` (`tools/run/dispatch.go`) looks a call up by name,
+    refuses one this console never registered, and refuses one
+    `crew.RightsFor(analyst.Skills, analyst.State)` does not cover -- named to
+    the model, journaled to the shared bus as a `tool_call` event, printed to
+    the console -- before the tool's own function is ever reached.
+    `charges_query`, the one tool whose argument the model writes as SQL
+    rather than picks from a schema, is checked independently of the right
+    gate: the text must be one `SELECT` (plain `WITH` allowed, `WITH
+    RECURSIVE` and every write keyword refused by name, `;`, `--` and `/*`
+    refused outright), every `FROM`/`JOIN` target at any nesting depth must be
+    in `charges`, `drivers` or `attribution`, the statement runs on a SECOND
+    connection SQLite itself keeps in `query_only` mode on every physical
+    connection it opens (`internal/store.OpenReadOnly`, not a single `PRAGMA`
+    run once against whichever connection a pool happened to hand back), a
+    5-second deadline, and the result is capped at 200 rows regardless of
+    what the statement itself asked for.
+    *(gate: `TestAToolTheAnalystHasNoRightForIsRefused`,
+    `TestAnUnknownToolIsRefused`, `TestMissingRequiredArgumentIsRefused` for
+    the dispatcher; `TestChargesQueryHostileInputs` (every hostile input
+    B2-SPEC.md section 3.3 names, as subtests, each required to name its own
+    reason) and `TestChargesQueryHostileInputsNeverTouchARow` (the same
+    inputs run through the full tool against a store with a canary row in
+    `analysts`, requiring the row unchanged and its marker absent from every
+    result) for `charges_query`; `TestOpenReadOnlyRefusesAWrite` for the
+    read-only connection on its own; `TestWrapWithLimitCapsTheStatement` for
+    the row cap, which an end-to-end test alone could not tell from the
+    dispatcher's own separate, redundant in-memory truncation.
+    `scripts/gates-have-teeth.sh` plants and catches four mutants: dropping
+    the table allow-list, dropping `_query_only` from the read-only
+    connection's DSN, dropping the semicolon refusal, and dropping the row
+    cap.)*
 
 ## Decisions that have no gate yet
 
