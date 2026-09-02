@@ -54,6 +54,19 @@ var wireTypes = []string{
 	"forecast_frozen",
 	"explainer_published",
 	"sprint_planned",
+	// B3-SPEC.md section 2: a deliverable's options block named a class
+	// outside the writing role's own job description, so it was saved
+	// without its options and the task came back with the reason.
+	"option_refused",
+	// B3-SPEC.md section 3: a stamp -- the supervisor's own act, or an
+	// owner's -- applied an option, named with the actor and the option's
+	// id, independently of whatever the class's own side effect
+	// (anomaly_explained and the rest) already journals on its own.
+	"option_applied",
+	// B3-SPEC.md section 4: the supervisor's pass wrote a decision request
+	// to an owner for the classes its own job description hands up. Not yet
+	// in heraldyx's catalogue -- a follow-up named in this PR's body.
+	"decision_requested",
 	"agent_hired",
 	"agent_rebriefed",
 	"agent_state_changed",

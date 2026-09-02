@@ -133,10 +133,22 @@ CREATE TABLE IF NOT EXISTS artifacts(
 CREATE TABLE IF NOT EXISTS comments(
   id INTEGER PRIMARY KEY, task INTEGER NOT NULL, author TEXT, body TEXT,
   created TEXT);
+CREATE TABLE IF NOT EXISTS artifact_options(
+  artifact INTEGER NOT NULL, ordinal INTEGER NOT NULL, class TEXT NOT NULL,
+  summary TEXT, figure_cents INTEGER NOT NULL DEFAULT 0,
+  saving_cents INTEGER NOT NULL DEFAULT 0, risk TEXT, needs TEXT,
+  evidence TEXT, state TEXT NOT NULL, decided_by TEXT, decided_at TEXT,
+  reason TEXT,
+  PRIMARY KEY (artifact, ordinal));
+CREATE TABLE IF NOT EXISTS decision_requests(
+  artifact INTEGER PRIMARY KEY, sprint INTEGER NOT NULL, owner TEXT NOT NULL,
+  lapses TEXT, created TEXT);
 CREATE INDEX IF NOT EXISTS tasks_sprint ON tasks(sprint, state);
 CREATE INDEX IF NOT EXISTS tasks_assignee ON tasks(assignee, state);
 CREATE INDEX IF NOT EXISTS tasks_owner ON tasks(owner);
 CREATE INDEX IF NOT EXISTS artifacts_task ON artifacts(task);
+CREATE INDEX IF NOT EXISTS artifact_options_state ON artifact_options(state);
+CREATE INDEX IF NOT EXISTS decision_requests_owner ON decision_requests(owner, sprint);
 `
 
 // ------------------------------------------------------------------ reads
@@ -619,6 +631,21 @@ func TaskOfArtifact(db *sql.DB, artifactID int) (int, error) {
 		return 0, ErrNotFound
 	}
 	return task, err
+}
+
+// TaskOwner reads tasks.owner: the account that answers for the analyst who
+// was assigned this task when the charge was made (see the Schema comment on
+// this column). The supervisor's pass reads it to decide whose decision
+// request a carried option belongs in, rather than re-deriving "who owns
+// this analyst today" from the roster, which is exactly the drift invariant
+// 6 exists to prevent.
+func TaskOwner(db *sql.DB, taskID int) (string, error) {
+	var owner string
+	err := db.QueryRow(`SELECT COALESCE(owner,'') FROM tasks WHERE id=?`, taskID).Scan(&owner)
+	if err == sql.ErrNoRows {
+		return "", ErrNotFound
+	}
+	return owner, err
 }
 
 // AwaitingStamp is the work that is written and not yet judged.

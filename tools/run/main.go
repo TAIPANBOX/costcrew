@@ -35,6 +35,13 @@ func main() {
 	live := flag.Bool("live", false, "actually make the calls; needs -ceiling and spends real money")
 	only := flag.Int("only", 0, "with -live, run this one task id and stop")
 	engine := flag.String("engine", "", "only tasks whose analyst was hired with this engine")
+	// B3-SPEC.md section 4: the supervisor's pass, deterministic, no model
+	// call. Needs -sprint: which sprint's POSTED deliverables to review, the
+	// same requirement -live's -ceiling carries for the same reason -- a
+	// pass that ran over every sprint on the board because nobody named one
+	// is a pass nobody chose.
+	supervise := flag.Bool("supervise", false,
+		"run the supervisor's deterministic pass over -sprint's posted deliverables; needs -sprint")
 	// The estate integration, off unless pointed somewhere, exactly as the
 	// console's own is. The file NAME is the integration: genaryx keys each
 	// source's read offset off the stem, so this has to be costcrew.ndjson and
@@ -59,7 +66,7 @@ func main() {
 		return
 	}
 
-	if err := run(*dir, *ceiling, *maxTok, *sprint, *live, *only, *engine, *events, *host, *gateway); err != nil {
+	if err := run(*dir, *ceiling, *maxTok, *sprint, *live, *supervise, *only, *engine, *events, *host, *gateway); err != nil {
 		fmt.Fprintln(os.Stderr, "run:", err)
 		os.Exit(1)
 	}
@@ -99,7 +106,7 @@ type estimate struct {
 	Refused bool
 }
 
-func run(dir, ceiling string, maxTok, sprint int, live bool, only int, engine, events, host, gateway string) error {
+func run(dir, ceiling string, maxTok, sprint int, live, supervise bool, only int, engine, events, host, gateway string) error {
 	// Validated before the store or the bus are even opened. A bad -gateway
 	// value is a configuration mistake, not a spending one, and the sooner it
 	// is reported the less of the run has already happened around it.
@@ -135,6 +142,18 @@ func run(dir, ceiling string, maxTok, sprint int, live bool, only int, engine, e
 		return err
 	}
 	defer b.close()
+	// The local hash chain: every run opens a store, so every run can write
+	// to it, whether or not -stack-events points anywhere. See bus.rec's own
+	// comment.
+	b.rec = st.AsRecorder()
+
+	if supervise {
+		if sprint == 0 {
+			return fmt.Errorf("-supervise needs -sprint: a pass over every sprint on the " +
+				"board because nobody named one is a pass nobody chose")
+		}
+		return superviseRun(db, sprint, b)
+	}
 
 	var cap money.Cents
 	hasCap := false

@@ -13,12 +13,29 @@
 </div>
 
 {{if .CanAct}}{{if ne .S.State "closed"}}
+<form class="action" method="post" action="/sprint/{{.S.ID}}/supervise" style="margin-bottom:12px">
+  <input type="hidden" name="csrf" value="{{.CSRF}}">
+  <div class="row"><button type="submit">Run the supervisor's pass</button></div>
+  <p class="note">Collects every open option of this sprint's posted deliverables, applies what the
+    supervisor's own job description decides alone, and writes one decision request per owner for the rest.</p>
+</form>
 <form class="action" method="post" action="/sprint/{{.S.ID}}/close" style="margin-bottom:20px">
   <input type="hidden" name="csrf" value="{{.CSRF}}">
   <div class="row"><button class="quiet" type="submit">Close this sprint</button></div>
   <p class="note">Open tasks stay open. A sprint that tidies itself up on the way out hides exactly what a retrospective needs.</p>
 </form>
 {{end}}{{end}}
+
+{{if .DecisionOwners}}
+<div class="panel" style="margin-bottom:20px">
+  <h2>Decision requests</h2>
+  <div class="body">
+    <ul>
+      {{range .DecisionOwners}}<li><a href="/sprint/{{$.S.ID}}/decisions/{{.}}">for {{.}}</a></li>{{end}}
+    </ul>
+  </div>
+</div>
+{{end -}}
 
 <div class="panel">
   <div class="scroll">

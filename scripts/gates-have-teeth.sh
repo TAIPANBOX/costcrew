@@ -779,6 +779,24 @@ run_case $'skills are tools: a CTE naming itself charges is allowed again' \
 	$'if withAnywhereRE.MatchString(trimmed) {' \
 	$'if false {'
 
+# B3: an analyst's deliverable ends in options, and only a stamp -- the
+# supervisor's own act, or an owner's on a carried one -- applies one.
+# B3-SPEC.md section 6 names this mutant by its own words, "let Post apply
+# an option": work.go's artifactAction is the one place a person's Post
+# reaches the database, and this plants exactly the fault the sentence
+# describes, using only internal/crew (already imported here) rather than
+# internal/finops.Apply, because the property under test is that POSTING
+# must not touch an option's state at all, not that the wrong side effect
+# ran.
+run_case $'options: an analyst'"'"'s Post applies an option' \
+	fail \
+	./internal/web \
+	$'TestOnlyTheOwnersStampAppliesAKeyDecision' \
+	$'Post must apply nothing' \
+	internal/web/work.go \
+	$'\t\t\terr = crew.Post(s.db, id, u.Username, "owner")\n\t\t} else {' \
+	$'\t\t\terr = crew.Post(s.db, id, u.Username, "owner")\n\t\t\tif err == nil {\n\t\t\t\tif opts, _ := crew.Options(s.db, id); len(opts) > 0 {\n\t\t\t\t\t_ = crew.MarkOptionApplied(s.db, opts[0].Artifact, opts[0].Ordinal, u.Username)\n\t\t\t\t}\n\t\t\t}\n\t\t} else {'
+
 echo
 if [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'

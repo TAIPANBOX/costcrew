@@ -102,6 +102,7 @@ func concrete(pattern string) string {
 		{"{ref}", "x"}, {"{owner}", "yurii"}, {"{month}", "2026-07"},
 		{"{team}", "ml"}, {"{source}", "aws"}, {"{desk}", "aws"},
 		{"{service}", "s3"}, {"{key}", "k"}, {"{$}", ""},
+		{"{artifact}", "1"}, {"{ordinal}", "1"},
 	} {
 		out = strings.ReplaceAll(out, sub[0], sub[1])
 	}

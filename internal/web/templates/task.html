@@ -31,6 +31,25 @@
   <div class="body">
     {{if .Reason}}<p class="msg">Returned: {{.Reason}}</p>{{end}}
     <div class="doc">{{.Rendered}}</div>
+    {{if .Options}}
+    <div class="panel" style="margin-top:12px">
+      <h2>Options</h2>
+      <div class="body">
+        {{range .Options}}
+        <dl class="facts">
+          <dt>Class</dt><dd>{{.Class}} <span class="chip {{if eq .State "applied"}}accepted{{else if eq .State "refused"}}dismissed{{else if eq .State "not_chosen"}}dismissed{{else if eq .State "carried"}}triaged{{else}}open{{end}}">{{.State}}</span></dd>
+          <dt>Summary</dt><dd>{{.Summary}}</dd>
+          <dt>Figure</dt><dd>{{.Figure}}{{if .Saving}} · saving {{.Saving}}{{end}}</dd>
+          <dt>Risk</dt><dd>{{.Risk}}</dd>
+          <dt>Needs</dt><dd>{{.Needs}}</dd>
+          {{if .Reason}}<dt>Reason</dt><dd>{{.Reason}}</dd>{{end}}
+          {{if .DecidedBy}}<dt>Decided by</dt><dd>{{.DecidedBy}} · {{.DecidedAt}}</dd>{{end}}
+        </dl>
+        <hr style="border:none;border-top:1px solid var(--line-soft);margin:10px 0">
+        {{end}}
+      </div>
+    </div>
+    {{end -}}
     {{if .Stamped}}<p class="note">Stamped {{.Stamped}} by {{.Stamper}}. Only the stamp changes anything.</p>{{end}}
     {{if $.CanAct}}{{if ne .State "posted"}}
     <hr style="border:none;border-top:1px solid var(--line-soft);margin:16px 0">
