@@ -170,7 +170,7 @@ has been taken away.
 ## Status
 
 - [x] Rewritten in Go, the Python original deleted 2026-08-25
-- [x] Registered producer on the shared bus, fifteen types in SPEC 6.2
+- [x] Registered producer on the shared bus: every type this console emits is listed under `costcrew` in SPEC 6.2, and estate-gates C4 holds that both ways
 - [x] Installed by `stack-up --with-finops`
 - [x] Live agents: `tools/run -live` prices the worst case before every call
 - [ ] Per-agent attribution of AI spend, which needs TokenFuse in the path
