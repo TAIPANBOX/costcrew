@@ -506,3 +506,29 @@ func TestApproveModelPlanCreatesATaskWithTheModelsOwnBudget(t *testing.T) {
 		t.Errorf("approving the deterministic plan after the model's own was already approved = %d %s, want an already-on-the-board refusal", code2, loc2)
 	}
 }
+
+// Section 2's own words: "Zero items is a legal answer ('nothing this
+// sprint') and is shown as such." The page must say so, never render an
+// empty table as though the model had simply not answered.
+func TestAskPlanShowsZeroItemsAsNothingThisSprint(t *testing.T) {
+	answer := &planAnswer{body: "```plan\n{\"items\": []}\n```"}
+	srv := fakePlanGateway(t, answer)
+	h := startWithGateway(t, srv.URL)
+	t.Setenv("ANTHROPIC_API_KEY", "sk-ant-stub-not-real")
+	h.signUp(t, "owner", "owner-password-2026")
+
+	_, getBody, _ := h.get(t, "/sprint/plan")
+	form := planFormFields(t, getBody)
+	form.Set("csrf", h.csrf(t, "/sprint/plan"))
+
+	code, body := postBody(t, h, "/sprint/plan/ask", form)
+	if code != http.StatusOK {
+		t.Fatalf("POST /sprint/plan/ask = %d, want 200", code)
+	}
+	if !strings.Contains(body, "nothing this sprint") {
+		t.Errorf("a zero-item answer is not shown as \"nothing this sprint\": %s", trimTo(body, 4000))
+	}
+	if strings.Contains(body, "The call was refused") {
+		t.Errorf("zero items must not read as a refusal: %s", trimTo(body, 4000))
+	}
+}

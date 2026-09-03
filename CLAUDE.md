@@ -56,8 +56,8 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 566 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 73 cases; needs a clean tree; ~3m50s, up from ~3m40s at 69
+go test ./...                        # 567 tests, 20 packages
+./scripts/gates-have-teeth.sh        # 73 cases; needs a clean tree; ~5m13s, up from ~3m40s at 69
 ./scripts/features-are-bound.sh      # 126 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
@@ -88,10 +88,10 @@ one new structural test; tools/bench gained 7, 5 in the first pass and 2 more
 in coordinator review's -stack-host fix) and 67 -> 69 gates-have-teeth.sh
 cases (the second-door mutant, one case per binary). Feature scenarios
 105 -> 115 (8 in the first pass, 2 in the -stack-host fix). B4 step two
-(this file's own invariant 33) moved 528 -> 566 tests (internal/crew
+(this file's own invariant 33) moved 528 -> 567 tests (internal/crew
 gained 22 across two new files, `plan_ask_test.go` and
 `plan_ledger_test.go`; internal/deliver gained 8, `plan_packet_test.go`;
-internal/web gained 7, `planning_ask_test.go`; tools/run gained 1, the
+internal/web gained 8, `planning_ask_test.go`; tools/run gained 1, the
 planner-isolation check) and 69 -> 73 gates-have-teeth.sh cases (the four
 named mutants). Feature scenarios 115 -> 126 (11 new). Write routes
 (invariants 2 and 5) moved 34 -> 36 with the two new POST routes;

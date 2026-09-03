@@ -106,19 +106,34 @@ func assemblePlanPacket(goalBlock, itemsBlock, rosterBlock, jobDescBlock string)
 	if budget < 0 {
 		budget = 0
 	}
-	items := itemsBlock
-	if len(items) > budget {
-		items = BoundBytes(items, budget)
-	}
+	items := boundOrDrop(itemsBlock, budget)
 	rosterBudget := budget - len(items)
 	if rosterBudget < 0 {
 		rosterBudget = 0
 	}
-	roster := rosterBlock
-	if len(roster) > rosterBudget {
-		roster = BoundBytes(roster, rosterBudget)
-	}
+	roster := boundOrDrop(rosterBlock, rosterBudget)
 	return goalBlock + items + roster + jobDescBlock
+}
+
+// boundOrDrop is BoundBytes, except when max cannot even hold the
+// truncation note. BoundBytes on its own would then still return the note
+// ALONE, which is LONGER than max: measured on the seeded estate (70 items,
+// 39 active analysts), the packet this produced was 12,332 bytes against a
+// 12,288 cap, 44 over -- exactly len(truncatedNote) -- because a rosterBudget
+// that had shrunk to 0 still got BoundBytes(roster, 0), which returns
+// truncatedNote whole rather than nothing. Dropping the section entirely
+// when there is no room even for its own "cut" note is the same
+// "additive, never misleading" rule Packet already holds for an empty
+// section: nothing is better than a fragment claiming to be more than it is,
+// and it is the only way assemblePlanPacket's own bound actually holds.
+func boundOrDrop(s string, max int) string {
+	if len(s) <= max {
+		return s
+	}
+	if max < len(truncatedNote) {
+		return ""
+	}
+	return BoundBytes(s, max)
 }
 
 // PlanPrompt is the supervisor's one planning ask: a short persona line, the

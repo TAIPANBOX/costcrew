@@ -134,6 +134,19 @@ func TestPlanPacketNeverTrimsTheJobDescriptionEvenWhenOverflowing(t *testing.T) 
 	}
 
 	got := deliver.PlanPacket(nil, p, roster, map[string]money.Cents{})
+	// packetMaxBytes itself is unexported; 12*1024 is the literal this test
+	// mirrors packet.go's own constant with. Found on the seeded estate (70
+	// items, 39 active analysts) before this assertion existed: the packet
+	// came back 12,332 bytes, 44 over -- BoundBytes(roster, 0) returns its
+	// own truncation note WHOLE rather than nothing when the budget handed to
+	// it has already shrunk to zero, so "contains the job description" and
+	// "ends with it" both stayed true while the packet quietly grew past its
+	// own stated cap. This is the assertion that actually holds the bound;
+	// the two below only hold WHERE it was cut from.
+	const packetMaxBytes = 12 * 1024
+	if len(got) > packetMaxBytes {
+		t.Errorf("packet is %d bytes, over the %d byte cap it is supposed to hold to", len(got), packetMaxBytes)
+	}
 	want := deliver.JobDescriptionBlock("supervisor", "management")
 	if !strings.Contains(got, want) {
 		t.Errorf("an overflowing packet dropped (part of) the job description block")
