@@ -56,9 +56,9 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 590 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 74 cases; needs a clean tree; ~5m13s, up from ~3m40s at 69
-./scripts/features-are-bound.sh      # 129 scenarios, both directions
+go test ./...                        # 598 tests, 20 packages
+./scripts/gates-have-teeth.sh        # 75 cases; needs a clean tree; @measured `time ./scripts/gates-have-teeth.sh` 2026-09-03, 5m06s, 75 passed 0 failed
+./scripts/features-are-bound.sh      # 134 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
@@ -113,6 +113,20 @@ Feature scenarios 126 -> 129 (the three scenarios in
 `features/driver-window.feature`). No route moved: the task page's own
 `/task/{id}` route is unchanged, and the new Window row is conditional
 markup inside it, so invariants 1, 2 and 5's own counts are untouched.
+This file's own invariant 35 (PRICE-DISPLAY-SPEC.md) moved 590 -> 598 tests
+(`tools/run` gained 6, a new file `reserved_worst_case_test.go`, plus 1 in
+`due_test.go`; `internal/deliver` gained 2, `estimate_test.go`) and
+74 -> 75 gates-have-teeth.sh cases (the one named mutant this invariant's
+own gate case plants; the other two its own report names -- a hardcoded
+multiplier, and the multiplier on one figure but not the other -- were
+planted by hand and reverted rather than kept permanent, the same shape
+invariant 27's own history already describes). Feature scenarios 129 -> 134
+(the five scenarios in `features/priced-what-it-reserves.feature`). No
+route moved: this fix touches `tools/run`, `tools/bench` and
+`internal/deliver`'s own arithmetic, and the one `internal/web` file it
+touches (`cadence.go`) changes what number an existing route's existing
+template prints, not the route table itself, so invariants 1, 2 and 5's own
+counts are untouched.
 
 The gates in this repo are Go tests rather than shell scripts, so
 `gates-have-teeth.sh` mutates the PRODUCT and requires the test to go red.
@@ -1072,6 +1086,92 @@ an absent invariant.
     and taking today's date for a `driver.one-time` option on a task with
     no anomaly even when a target is present, caught by
     `TestApplyDriverOneTimeWithNoAnomalyAndATargetWritesItsWindow`.)*
+
+35. **The number a person reads before setting `-ceiling` is the number a
+    live run will actually reserve.** PRICE-DISPLAY-SPEC.md. Found running
+    the first real live crew task on a real Anthropic account: the dry-run
+    report (no `-live`) printed a worst case of $0.0385 for task 294; the
+    live run's own pre-call reserve refused it, saying "this call could cost
+    $0.2312" -- exactly `loopsFor("anthropic")` (6) times more. One
+    `execute()` of a task on the anthropic or openrouter engine can make up
+    to `loopsFor(e.Engine)` model calls through the tool-calling loop
+    (`tools/run/loop.go`), each one reserved before the first round is ever
+    sent (`execute()`'s own `reserve()` call, `tools/run/live.go`); every
+    OTHER place a worst case was compared against a ceiling or a guard --
+    `report()`'s own printed table and summary line, `price()`'s own
+    per-task Verdict against the guard, `spend()`'s own whole-run preflight
+    ("the worst case of the whole run is checked... before the first call",
+    this file's own package comment, point 3) and `-due`'s own
+    `dueWorstMicros` -- summed or compared the RAW, single-call
+    `e.WorstMicros` instead, so a task or a whole run could read as fitting
+    and then be refused for real once `reserve()` applied a multiplier
+    nothing else had ever been checked against. Only `report()` and
+    `price()`'s Verdict are named by the incident itself; `spend()`'s
+    preflight and `-due`'s were found reading this file and due.go while
+    fixing those two, the identical gap in two more places.
+
+    `reservedWorstCase(e estimate) int64` (`tools/run/main.go`) is now the
+    one function every one of those five call sites reads --
+    `e.WorstMicros * loopsFor(e.Engine)`, the same arithmetic `reserve()`
+    always did -- so none of them can diverge from `reserve()` again the way
+    this pair just had. `internal/deliver.LoopsFor` and `MaxToolRounds`
+    mirror `tools/run/loop.go`'s own `loopsFor`/`maxToolRounds` (which are
+    now one-line wrappers of these two, the same "moved here, old name kept
+    as a wrapper" shape every other shared formula in that file already
+    uses), because `internal/deliver.EstimateWorstCase` -- the `/cadence`
+    page's own preview -- cannot import `tools/run`'s "package main" to read
+    the multiplier there directly, and a cadence-due task on a looping
+    engine is run by `tools/run -due -live` through the identical
+    `execute()` and tool loop an ordinary sprint task is, so its preview
+    carried the same gap. `tools/bench` needed no change: a bench case never
+    enters the tool-calling loop for any engine, on `-live` or off it --
+    `scoreLive` (`tools/bench/gateway.go`) calls `internal/deliver.Call`
+    exactly once per case, the same single-shot path `tools/run`'s own
+    `call()` uses for an engine OUTSIDE the loop (Bedrock), never
+    `tools/run/loop.go`'s `anthropicToolLoop` or `openRouterToolLoop` --
+    confirmed by reading every call site under `tools/bench` rather than
+    assumed.
+    *(gate: `TestReportsWorstCaseIsWhatTheLiveRunWouldActuallyReserve`
+    (`tools/run`, this incident replayed: report()'s own printed figure
+    against the exact boundary `execute()`'s `reserve()` requires, found by
+    probing `runBudget` directly rather than duplicating live.go's own
+    arithmetic in the test);
+    `TestPriceRefusesATaskTheMultipliedWorstCaseCannotAffordEvenWhenTheSingleCallCanAffordIt`
+    and `TestReportAndPriceVerdictNeverDisagreeOnWhichFigureIsMultiplied`
+    for `price()`'s own Verdict, the second isolating both directions of the
+    "multiplier on one figure, not the other" mutant at an exact one-cent
+    boundary;
+    `TestSpendRefusesTheWholeRunBeforeTheFirstCallWhenTheMultipliedWorstExceedsTheCeiling`
+    for `spend()`'s own preflight (a ceiling between the single-call and the
+    multiplied sum must refuse `spend()` itself, not reach `execute()`'s
+    `reserve()` only to fail there silently, which `spend()`'s own refusal
+    handling prints and swallows into a nil return);
+    `TestDueRefusesBeforeAnyCallWhenTheMultipliedWorstExceedsTheCeilingButNotTheSingleCallWorst`
+    (`tools/run`, `due_test.go`) for `dueWorstMicros`, the same boundary
+    `TestDueRunsWhenTheCeilingExactlyEqualsTheWorstCase` already sat at and
+    never checked, by its own comment's admission;
+    `TestEstimateWorstCaseReturnsTheReservedFigureNotOneCallsOwnBound` and
+    `TestEstimateWorstCaseIsUnchangedForASingleCallEngine`
+    (`internal/deliver`) for the `/cadence` preview, computed independently
+    of `EstimateWorstCase`'s own internals so the test does not merely agree
+    with itself; `TestReservedWorstCaseMultipliesOnlyTheLoopingEngines` for
+    the boundary itself -- `openrouter` gets the same 6x as `anthropic`,
+    `bedrock` and an unknown engine are exactly 1x, unchanged. Three named
+    mutants, each planted by hand and reverted rather than kept as a
+    permanent case (`scripts/gates-have-teeth.sh` carries the fourth,
+    below): reverting `report()`'s own sum while leaving `reserve()`'s,
+    caught by `TestReportsWorstCaseIsWhatTheLiveRunWouldActuallyReserve`;
+    hardcoding the multiplier to a fixed 6 rather than reading
+    `loopsFor(e.Engine)`, caught by
+    `TestReservedWorstCaseMultipliesOnlyTheLoopingEngines`'s own bedrock and
+    unknown-engine cases; and applying the multiplier to `price()`'s own
+    Verdict while reverting `report()`'s total (or the reverse), caught by
+    `TestPriceRefusesATaskTheMultipliedWorstCaseCannotAffordEvenWhenTheSingleCallCanAffordIt`
+    and `TestReportAndPriceVerdictNeverDisagreeOnWhichFigureIsMultiplied`.
+    `scripts/gates-have-teeth.sh`'s own
+    `price display: report a task's worst case without the loop multiplier`
+    case plants the same first mutant as a permanent case, expect word
+    `fail`.)*
 
 ## Decisions that have no gate yet
 

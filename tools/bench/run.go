@@ -68,6 +68,18 @@ func scoreMock(db *sql.DB, cases []knownCase, engine string) ([]caseResult, erro
 // realized as a sum over the actual selected cases rather than one figure
 // times N, which is the same total when every packet is close to the same
 // size and a more accurate one when it is not.
+//
+// No loopsFor(engine) multiplier belongs here, unlike tools/run's own
+// report() and internal/deliver's EstimateWorstCase (PRICE-DISPLAY-SPEC.md,
+// 2026-09-03): a bench case never enters the tool-calling loop for ANY
+// engine, on -live or off it. scoreLive (gateway.go) calls
+// internal/deliver.Call exactly once per case -- the same single-shot path
+// tools/run's own call() uses for an engine OUTSIDE the loop (Bedrock) --
+// never tools/run/loop.go's anthropicToolLoop or openRouterToolLoop, which
+// this package cannot even reach: those are unexported to "package main"
+// tools/run, and this is a different binary. Confirmed by reading every
+// call site in this package (grep for ToolLoop under tools/bench finds
+// none) rather than assumed.
 func worstCaseMicros(db *sql.DB, cases []knownCase, engine, model string, p engines.Price, maxTok int) (int64, error) {
 	var total int64
 	for _, c := range cases {

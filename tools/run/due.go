@@ -150,6 +150,20 @@ func priceTasks(db *sql.DB, roster []crew.Analyst, tasks []crew.Task, maxTok int
 // attempt: priced and not refused, the same population spend()'s own todo
 // list holds. Summed in micros before anything is rounded, per
 // [[finest-unit-per-row-round-once-at-the-aggregate]].
+//
+// reservedWorstCase(e), not e.WorstMicros: dueExecute's own "refused before
+// any call" check (below) and the "cadence-due: N task(s) created... worst
+// case X" line it prints both read this sum, and a cadence-due task on
+// anthropic or openrouter runs through the SAME execute() and tool loop an
+// ordinary sprint task does, so this must be what that run would actually
+// reserve -- not one call's own bound. Before this fix a ceiling that could
+// never cover a looped task's real reservation still passed here, let
+// crew.Approve create the sprint and the task, and only failed once spend()
+// reached execute()'s own (already-multiplied) reserve() -- which spend()
+// swallows into a printed line and a nil return, so dueExecute saw success
+// and left a sprint and a never-run task on the board. Found reading this
+// file while confirming PRICE-DISPLAY-SPEC.md's own fix for report() and
+// price()'s Verdict; not named there by name, but the identical gap.
 func dueWorstMicros(ests []estimate) (worst int64, wouldRun, refused int) {
 	for _, e := range ests {
 		if e.Refused || !e.Priced {
@@ -157,7 +171,7 @@ func dueWorstMicros(ests []estimate) (worst int64, wouldRun, refused int) {
 			continue
 		}
 		wouldRun++
-		worst += e.WorstMicros
+		worst += reservedWorstCase(e)
 	}
 	return worst, wouldRun, refused
 }

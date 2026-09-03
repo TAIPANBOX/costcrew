@@ -203,8 +203,13 @@ func execute(ctx context.Context, db, roDB *sql.DB, e estimate, maxTok int, run 
 	// six rounds fit under it. An engine outside the loop (Bedrock, or
 	// anything unknown) still reserves exactly one call's worth, as before
 	// this file knew a loop existed.
-	loops := int64(loopsFor(e.Engine))
-	reserveMicros := e.WorstMicros * loops
+	//
+	// reservedWorstCase(e) (main.go), not a second e.WorstMicros*loops here:
+	// this call site and report()'s own summary line/table are the two
+	// PRICE-DISPLAY-SPEC.md found had drifted apart -- one multiplying, one
+	// not -- so they now share the one function rather than each carrying
+	// its own copy of "* loopsFor(e.Engine)".
+	reserveMicros := reservedWorstCase(e)
 	if err := run.reserve(reserveMicros); err != nil {
 		return refusal{err}
 	}
@@ -404,9 +409,21 @@ func spend(db, roDB *sql.DB, ests []estimate, maxTok int, cap money.Cents, only 
 			"subscription, or does not match -only")
 	}
 
+	// reservedWorstCase(e), not e.WorstMicros: this IS the "worst case of the
+	// whole run... checked against that ceiling before the first call" this
+	// file's own package comment promises (point 3). Before this fix it
+	// summed one call's own bound per task, so a run whose looped tasks
+	// could never actually fit could still pass this preflight, launch its
+	// goroutines, and only fail once execute()'s own (already-multiplied)
+	// reserve() refused each one individually -- which spend()'s own
+	// refusal handling below prints and swallows into a nil return, so the
+	// caller never saw this preflight had let anything through it should
+	// not have. PRICE-DISPLAY-SPEC.md, 2026-09-03; the same gap report()
+	// and price()'s Verdict had, found in this file rather than named there
+	// by name.
 	var worst int64
 	for _, e := range todo {
-		worst += e.WorstMicros
+		worst += reservedWorstCase(e)
 	}
 	fmt.Printf("LIVE. %d task(s), worst case %s, ceiling %s.\n", len(todo), usd(worst), cap)
 	if worst > run.ceilingMicros {

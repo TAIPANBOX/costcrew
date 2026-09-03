@@ -1059,6 +1059,23 @@ run_case 'driver-window: write Start = End = day ignoring the target' \
 	$'\t\tstart, end = tgt.Start, tgt.End' \
 	$'\t\tstart, end = "2026-09-03", "2026-09-03"; _ = tgt'
 
+# PRICE-DISPLAY-SPEC.md, 2026-09-03: report a task's worst case without the
+# loop multiplier -- the exact fault the incident behind invariant 35 was.
+# report()'s own printed run total reverts to summing one call's own bound
+# (e.WorstMicros) instead of reservedWorstCase(e), the same figure
+# execute()'s reserve() call requires before it lets the first round
+# through and never itself stops multiplying: a person reading this number
+# to choose -ceiling would again be shown less than a live run will
+# actually reserve.
+run_case 'price display: report a task'"'"'s worst case without the loop multiplier' \
+	fail \
+	./tools/run \
+	$'TestReportsWorstCaseIsWhatTheLiveRunWouldActuallyReserve' \
+	$'does not equal what a live run would actually reserve' \
+	tools/run/main.go \
+	$'\t\t\tworstMicros += reservedWorstCase(e)' \
+	$'\t\t\tworstMicros += e.WorstMicros'
+
 echo
 if [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'

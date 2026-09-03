@@ -99,6 +99,13 @@ func (s *Server) cadencePage(w http.ResponseWriter, r *http.Request) {
 	// Summed in micros, once, before it is ever formatted: rounding each
 	// row first and adding the rounded strings is exactly the fault
 	// [[finest-unit-per-row-round-once-at-the-aggregate]] names.
+	//
+	// worst is already the RESERVED figure, loops included: EstimateWorstCase
+	// multiplies by deliver.LoopsFor(a.Engine) internally, because a
+	// cadence-due item on anthropic or openrouter is run by tools/run -due
+	// through the SAME execute() and tool loop an ordinary sprint task is.
+	// No multiplication happens here -- see EstimateWorstCase's own comment,
+	// PRICE-DISPLAY-SPEC.md, 2026-09-03.
 	var totalWorstMicros int64
 	for _, it := range items {
 		word, lastPosted := parseCadenceWhy(it.Why)
