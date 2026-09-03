@@ -1433,6 +1433,21 @@ run_case 'leadership page: reformat a KPI value instead of printing its own stri
 	$'    <div class="v{{if not .HasVal}} refused{{end}}">{{if .HasVal}}{{.Value}}{{if .Unit}} {{.Unit}}{{end}}{{else}}{{.Blocked}}{{end}}</div>\n    <div class="s">{{if .PrevHasVal}}previous: {{.PrevValue}}{{if .Unit}} {{.Unit}}{{end}}{{else if .HasPeriod}}previous period refused: {{.PrevBlocked}}{{else}}no previous period{{end}}</div>' \
 	$'    <div class="v{{if not .HasVal}} refused{{end}}">{{if .HasVal}}{{printf "%.1f" .Numeric}}{{if .Unit}} {{.Unit}}{{end}}{{else}}{{.Blocked}}{{end}}</div>\n    <div class="s">{{if .PrevHasVal}}previous: {{printf "%.1f" .PrevNumeric}}{{if .Unit}} {{.Unit}}{{end}}{{else if .HasPeriod}}previous period refused: {{.PrevBlocked}}{{else}}no previous period{{end}}</div>'
 
+# A document this repository NAMES is one a reader can reach (invariant 48).
+# The fault planted here is the one that actually happened, in miniature: a
+# document moves or is renamed and the prose that points at it stays behind.
+# `docs/stack-connection.md` is real and cited in CLAUDE.md's own first
+# paragraph; a single letter turns that citation into a name nobody can open,
+# and it is not a *-SPEC.md, so the one exemption does not cover it.
+run_case 'documents: a named document that is neither in the tree nor a specification' \
+	fail \
+	./internal/manifest \
+	$'TestEveryDocumentThisRepositoryNamesCanBeFound' \
+	$'nobody can open' \
+	CLAUDE.md \
+	$'`docs/stack-connection.md` says what this console writes' \
+	$'`docs/stack-connections.md` says what this console writes'
+
 echo
 if [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'
