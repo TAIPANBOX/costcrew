@@ -56,7 +56,7 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 585 tests, 20 packages
+go test ./...                        # 590 tests, 20 packages
 ./scripts/gates-have-teeth.sh        # 74 cases; needs a clean tree; ~5m13s, up from ~3m40s at 69
 ./scripts/features-are-bound.sh      # 129 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
@@ -96,12 +96,16 @@ planner-isolation check) and 69 -> 73 gates-have-teeth.sh cases (the four
 named mutants). Feature scenarios 115 -> 126 (11 new). Write routes
 (invariants 2 and 5) moved 34 -> 36 with the two new POST routes;
 invariant 1's GET count (50) is unchanged, since neither new route is one.
-This file's own invariant 34 (DRIVER-WINDOW-SPEC.md) moved 567 -> 585 tests
-(internal/crew gained 8, `options_driverwindow_test.go`; internal/finops
-gained 5, `apply_driverwindow_test.go`, plus `TestApplyDriverRecurringWritesADriversRow`
+This file's own invariant 34 (DRIVER-WINDOW-SPEC.md) moved 567 -> 590 tests
+(internal/crew gained 10, `options_driverwindow_test.go` (8 in the first
+pass, 2 closing coverage gaps found while reconciling this step: the save-
+time gate's own byte cap, and `EnsureOptionTarget`'s migration); internal/finops
+gained 7, `apply_driverwindow_test.go` (5 in the first pass, 2 for a
+bypassed target that fails to decode), plus `TestApplyDriverRecurringWritesADriversRow`
 in `apply_test.go` rewritten in place rather than counted as new;
-internal/deliver gained 3, `prompt_test.go`; internal/web gained 2, appended
-to the existing `options_test.go`) and 73 -> 74 gates-have-teeth.sh cases
+internal/deliver gained 3, `prompt_test.go`; internal/web gained 3, appended
+to the existing `options_test.go` (2 in the first pass, 1 for a bypassed,
+malformed target)) and 73 -> 74 gates-have-teeth.sh cases
 (the one named mutant this invariant's own gate case plants; the other
 three it names were planted by hand and reverted rather than kept
 permanent, the same shape invariant 27's own history already describes).
@@ -1025,8 +1029,12 @@ an absent invariant.
     `TestApplyDriverOneTimeWithNoAnomalyAndATargetWritesItsWindow` for
     `applyDriver`'s own window rules; `TestApplyDriverRecurringWithNoTargetWritesNoDriversRow`
     and `TestApplyDriverOneTimeWithNoAnomalyAndNoTargetWritesNoDriversRow`
-    for the "no target reaches Apply, real error, no row" path
-    (`internal/finops`); `TestDriverRecurringWithNoTargetIsRefused`,
+    for the "no target reaches Apply, real error, no row" path;
+    `TestApplyDriverRecurringWithAMalformedTargetReturnsADecodeError` and
+    `TestApplyDriverRecurringWithAnEmptyTargetObjectReturnsAnError` for a
+    target that reached `Apply` by bypassing the save-time gate but does not
+    decode, or decodes with nothing in it (`internal/finops`);
+    `TestDriverRecurringWithNoTargetIsRefused`,
     `TestDriverRecurringWithAValidTargetIsSaved`,
     `TestDriverOneTimeOnAnAnomalyTaskNeedsNoTarget`,
     `TestDriverOneTimeWithNoAnomalyAndNoTargetIsRefused`,
@@ -1034,15 +1042,20 @@ an absent invariant.
     `TestDriverTargetBoundariesAreAccepted` (start equals end, exactly 366
     days, a window entirely in the past), `TestDriverTargetHostileInputs`
     (end before start, a five-year window, dates that do not parse, a
-    target on driver.one-time when its own task already has an anomaly),
-    and `TestDriverTargetOversizeIsCaughtByTheWholeBlockCap` for the
-    save-time gate (`internal/crew`); `TestPromptNamesTheDriverTargetShapeForASupervisor`,
+    target on driver.one-time when its own task already has an anomaly,
+    start and end written as numbers rather than strings),
+    `TestDriverTargetOversizeIsCaughtByTheWholeBlockCap` (the pre-existing
+    64 KiB whole-block cap) and `TestDriverTargetOverTargetMaxBytesIsRefusedByItsOwnCap`
+    (this gate's own smaller 4 KiB cap, between the two) for the save-time
+    gate; `TestEnsureOptionTargetAddsTheColumn` for the migration
+    (`internal/crew`); `TestPromptNamesTheDriverTargetShapeForASupervisor`,
     `TestPromptNamesTheDriverTargetShapeForAnInvestigator`,
     `TestPromptOmitsTheDriverTargetShapeForARoleWithNeitherDriverClass` for
     the prompt sentence (`internal/deliver`);
     `TestTheTaskPageShowsADriverOptionsWindow`,
-    `TestTheTaskPageOmitsTheWindowRowForAnOptionWithNoTarget` for the task
-    page (`internal/web`). `scripts/gates-have-teeth.sh`'s
+    `TestTheTaskPageOmitsTheWindowRowForAnOptionWithNoTarget` and
+    `TestTheTaskPageOmitsTheWindowRowForAMalformedTarget` for the task page
+    (`internal/web`). `scripts/gates-have-teeth.sh`'s
     `driver-window: write Start = End = day ignoring the target` case
     plants exactly the fault DRIVER-WINDOW-SPEC.md section 4 names first:
     reverting `applyDriver` to `time.Now().UTC()` for both ends of the

@@ -183,3 +183,46 @@ func TestApplyDriverOneTimeWithNoAnomalyAndATargetWritesItsWindow(t *testing.T) 
 		t.Errorf("scope %q, want * (no anomaly to narrow it to one service)", scope)
 	}
 }
+
+// A target that survived to Apply by bypassing crew.ValidateAndSaveOptions
+// (plantOptionWithTarget writes artifact_options directly, the same way a
+// caller skipping the save-time gate would) but is not a JSON object at
+// all: decodeDriverTarget's own "does not decode" path, distinct from a
+// merely absent target.
+func TestApplyDriverRecurringWithAMalformedTargetReturnsADecodeError(t *testing.T) {
+	db := applyTestDB(t)
+	opt := plantOptionWithTarget(t, db, "aws", "", "driver.recurring", "a weekly batch job",
+		`[1,2,3]`) // a JSON array, not an object with start/end
+
+	before := driversCount(t, db)
+	err := finops.Apply(db, opt, "supervisor", nil)
+	if err == nil {
+		t.Fatal("a malformed target was applied without error")
+	}
+	if !strings.Contains(err.Error(), "does not decode") {
+		t.Errorf("error %q does not say the target failed to decode", err.Error())
+	}
+	if after := driversCount(t, db); after != before {
+		t.Errorf("drivers went from %d to %d rows, want unchanged", before, after)
+	}
+}
+
+// A target that decodes as an object but carries neither field: the same
+// bypass shape, one step further in. decodeDriverTarget refuses this too,
+// rather than writing a drivers row with an empty start and end.
+func TestApplyDriverRecurringWithAnEmptyTargetObjectReturnsAnError(t *testing.T) {
+	db := applyTestDB(t)
+	opt := plantOptionWithTarget(t, db, "aws", "", "driver.recurring", "a weekly batch job", `{}`)
+
+	before := driversCount(t, db)
+	err := finops.Apply(db, opt, "supervisor", nil)
+	if err == nil {
+		t.Fatal("an empty target object was applied without error")
+	}
+	if !strings.Contains(err.Error(), "empty") {
+		t.Errorf("error %q does not say the target's start or end is empty", err.Error())
+	}
+	if after := driversCount(t, db); after != before {
+		t.Errorf("drivers went from %d to %d rows, want unchanged", before, after)
+	}
+}

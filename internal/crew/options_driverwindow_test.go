@@ -210,6 +210,19 @@ func TestDriverTargetHostileInputs(t *testing.T) {
 			`{"start": "2026-08-01", "end": "not-a-date"}`, ""},
 		{"a target on a class that takes none: driver.one-time on an anomaly task",
 			"driver.one-time", `{"start": "2026-08-01", "end": "2026-08-30"}`, "A-crew-2"},
+		// A syntactically valid JSON value that is not an object driverTarget
+		// can decode into: dates written as bare numbers rather than quoted
+		// strings, a realistic slip rather than a contrived one. This is the
+		// one case in this table that exercises validateDriverTarget's own
+		// json.Unmarshal error path rather than a date that parses as a
+		// string but not as a date -- every OTHER case here already survives
+		// ParseOptions's own outer unmarshal (a json.RawMessage field is
+		// always syntactically valid JSON by the time this function sees it,
+		// since the outer decoder has to tokenize its boundaries to capture
+		// it at all), so only a type mismatch, not a syntax error, can still
+		// fail here.
+		{"start and end written as numbers, not strings", "driver.recurring",
+			`{"start": 20260801, "end": 20260830}`, ""},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -269,5 +282,62 @@ func TestDriverTargetOversizeIsCaughtByTheWholeBlockCap(t *testing.T) {
 	}
 	if !strings.Contains(reason, "byte") {
 		t.Errorf("reason %q does not name the byte limit", reason)
+	}
+}
+
+// And validateDriverTarget's OWN, smaller cap (targetMaxBytes, 4 KiB),
+// sized so a target between 4 KiB and the 64 KiB whole-block cap is caught
+// by this function's own check rather than the outer one -- the case above
+// proves the outer cap still catches an extreme target; this proves the
+// inner one is not simply dead code sitting under it.
+func TestDriverTargetOverTargetMaxBytesIsRefusedByItsOwnCap(t *testing.T) {
+	db := optionsTestDB(t)
+	taskID := plantPlainTask(t, db)
+	mid := `{"start": "2026-08-01", "end": "2026-08-30", "padding": "` +
+		strings.Repeat("x", 10_000) + `"}` // ~10 KB: over targetMaxBytes (4 KiB), under optionsBlockMaxBytes (64 KiB)
+	body := driverOptionBody("driver.recurring", mid)
+	artID := plantDraftArtifact(t, db, taskID, body)
+
+	refused, reason, err := crew.ValidateAndSaveOptions(db, artID, "supervisor", body, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !refused {
+		t.Fatal("a target over targetMaxBytes but under the whole-block cap was accepted")
+	}
+	if !strings.Contains(reason, "byte") {
+		t.Errorf("reason %q does not name the byte limit", reason)
+	}
+}
+
+// EnsureOptionTarget migrates an installation from before artifact_options
+// carried a target column at all -- the same "create the OLD schema by
+// hand, run the ensure function twice, confirm the column now accepts a
+// value" shape connectors.TestEnsureFocusSchemaAddsInvoiceIdColumns already
+// holds for its own added column.
+func TestEnsureOptionTargetAddsTheColumn(t *testing.T) {
+	db := optionsTestDB(t)
+	// Simulate an installation from before this column existed: replace the
+	// table with the OLD shape (no target anywhere), then run the ensure
+	// function and confirm it gained the column, safely, twice.
+	if _, err := db.Exec(`DROP TABLE artifact_options`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`CREATE TABLE artifact_options(
+		artifact INTEGER NOT NULL, ordinal INTEGER NOT NULL, class TEXT NOT NULL,
+		summary TEXT, figure_cents INTEGER NOT NULL DEFAULT 0,
+		saving_cents INTEGER NOT NULL DEFAULT 0, risk TEXT, needs TEXT,
+		evidence TEXT, state TEXT NOT NULL, decided_by TEXT, decided_at TEXT,
+		reason TEXT, PRIMARY KEY (artifact, ordinal))`); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 2; i++ {
+		if err := crew.EnsureOptionTarget(db); err != nil {
+			t.Fatalf("run %d: %v", i+1, err)
+		}
+	}
+	if _, err := db.Exec(`INSERT INTO artifact_options
+		(artifact, ordinal, class, state, target) VALUES (1, 1, 'driver.recurring', 'open', 'x')`); err != nil {
+		t.Fatalf("artifact_options.target does not exist after EnsureOptionTarget: %v", err)
 	}
 }

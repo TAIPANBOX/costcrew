@@ -158,3 +158,23 @@ func plantDriverOptionTask(t *testing.T, h *harness, desk, target string) int {
 	}
 	return int(taskID)
 }
+
+// A driver option whose target survived to the page by bypassing the
+// save-time gate (plantDriverOptionTask writes artifact_options directly)
+// but is not a {start, end} object at all: driverWindow's own decode
+// failure renders no row, the same "nothing to show" as a plain absent
+// target, rather than a broken or empty one.
+func TestTheTaskPageOmitsTheWindowRowForAMalformedTarget(t *testing.T) {
+	h := startWith(t, true)
+	h.signUp(t, "boss", "boss-password-2026")
+
+	taskID := plantDriverOptionTask(t, h, "aws", `[1,2,3]`)
+
+	code, body, _ := h.get(t, "/task/"+strconv.Itoa(taskID))
+	if code != 200 {
+		t.Fatalf("/task/%d answered %d", taskID, code)
+	}
+	if strings.Contains(body, "<dt>Window</dt>") {
+		t.Errorf("a Window row rendered for a malformed target:\n%s", body)
+	}
+}
