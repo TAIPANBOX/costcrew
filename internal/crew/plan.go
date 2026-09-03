@@ -645,12 +645,34 @@ func buildSkillFirstSegments() map[string][]string {
 	return out
 }
 
+// goalSegmentMinLetters and goalSegmentExcludedFiller narrow rule (c), on
+// review: a goal is free prose, and an item added because a short, common
+// word ("data", "cost", "model", "step") or ordinary filler ("this
+// sprint") happened to be a skill's first segment is noise a person has to
+// strike out every time. Rules (a) and (b) are untouched -- an exact skill
+// token or an exact roster name is never ambiguous the way a bare word
+// fragment is.
+const (
+	// goalSegmentMinLetters: at least this many letters after stripping one
+	// trailing "s", so "capacity", "commitment" and "sustainability" still
+	// reach a skill and "data", "cost" and "step" do not.
+	goalSegmentMinLetters = 6
+	// goalSegmentExcludedFiller is "sprint": six letters on its own, so the
+	// length rule alone would not stop "this sprint" from reaching
+	// sprint-planning, and it is exactly the filler a sprint-planning goal
+	// is written in.
+	goalSegmentExcludedFiller = "sprint"
+)
+
 // resolveFirstSegment is rule (c). Both sides are normalised by stripping
 // at most one trailing "s" before comparing, so "commitment" and
 // "commitments" both reach a segment written singular ("commitment") and
 // would equally reach one written plural, if the taxonomy ever had one.
 func resolveFirstSegment(word string) (skill string, ok bool) {
 	wnorm := strings.TrimSuffix(word, "s")
+	if len(wnorm) < goalSegmentMinLetters || wnorm == goalSegmentExcludedFiller {
+		return "", false
+	}
 	for seg, skills := range skillFirstSegments {
 		if wnorm != strings.TrimSuffix(seg, "s") {
 			continue

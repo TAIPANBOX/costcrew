@@ -224,6 +224,47 @@ func TestAnAmbiguousSegmentIsNotGuessedAt(t *testing.T) {
 	}
 }
 
+// Review of this PR: rule (c) is free prose, not a taxonomy lookup by
+// itself, so a short common word ("data") or ordinary filler ("this
+// sprint") reaching a skill was noise a person would have to strike out of
+// every plan. Red first: before goalSegmentMinLetters and
+// goalSegmentExcludedFiller existed, this goal added two items (one for
+// data-quality-checks via "data", one for sprint-planning via "sprint").
+func TestShortWordsAndTheSprintFillerDoNotReachASegment(t *testing.T) {
+	db := fullRoster(t)
+	p, err := crew.Propose(db, "2026-W99", "2026-09-08", "2026-09-14", "close the data gaps this sprint")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := itemsWhy(p.Items, "the sprint goal names")
+	if len(got) != 0 {
+		t.Errorf("goal items = %d, want 0 (%v)", len(got), got)
+	}
+	if !p.GoalUnmatched {
+		t.Error("a goal matching nothing (short words, filler) did not set GoalUnmatched")
+	}
+}
+
+// A long enough word still reaches its skill: the narrowing above must not
+// have swallowed rule (c) whole.
+func TestALongEnoughWordStillReachesItsSegment(t *testing.T) {
+	db := fullRoster(t)
+	p, err := crew.Propose(db, "2026-W99", "2026-09-08", "2026-09-14", "capacity for the gcp desk")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := itemsWhy(p.Items, "the sprint goal names capacity-estimation")
+	if len(got) != 1 {
+		t.Fatalf("goal items for capacity-estimation = %d, want 1 (%v)", len(got), p.Items)
+	}
+	if got[0].Assignee != "capacity-gcp" {
+		t.Errorf("assignee = %q, want capacity-gcp", got[0].Assignee)
+	}
+	if got[0].Desk != "gcp" {
+		t.Errorf("desk = %q, want gcp", got[0].Desk)
+	}
+}
+
 // ------------------------------------------------------------ red first (2)
 func TestAWeeklyAnalystDueByCadenceGetsOneItem(t *testing.T) {
 	db := planDB(t)
