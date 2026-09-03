@@ -66,7 +66,11 @@ func (s *Server) decisionPage(w http.ResponseWriter, r *http.Request) {
 	for _, o := range opts {
 		taskID, _ := crew.TaskOfArtifact(s.db, o.Artifact)
 		rows = append(rows, decisionOptionView{
-			optionView{o, money.Cents(o.FigureCents), money.Cents(o.SavingCents)}, taskID,
+			// Window is carried through (driverWindow, work.go) so this
+			// struct keeps compiling against optionView's own shape, even
+			// though decision.html does not render it: DRIVER-WINDOW-SPEC.md
+			// section 3 asks for the window on the TASK page alone.
+			optionView{o, money.Cents(o.FigureCents), money.Cents(o.SavingCents), driverWindow(o)}, taskID,
 		})
 	}
 

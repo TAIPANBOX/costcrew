@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 )
 
 // OptionState is where one option of a deliverable has got to.
@@ -51,10 +52,19 @@ type Option struct {
 	Risk        string
 	Needs       string
 	Evidence    []string
-	State       OptionState
-	DecidedBy   string
-	DecidedAt   string
-	Reason      string
+	// Target is a class-specific structured target, carried verbatim as the
+	// raw JSON object the deliverable's options block named -- empty for
+	// every class but driver.recurring and driver.one-time
+	// (DRIVER-WINDOW-SPEC.md section 2; shape and name reused from C2's own
+	// allocation.rule target, costcrew#31, so the two classes' own
+	// validators sit beside each other rather than duplicate this field).
+	// Kept generic here rather than typed ({start, end}) so a second
+	// class-specific type never has to live in this package either.
+	Target    json.RawMessage
+	State     OptionState
+	DecidedBy string
+	DecidedAt string
+	Reason    string
 }
 
 // Recorder used below is guard.go's: this package already declares it, the
@@ -83,13 +93,14 @@ var optionsFence = regexp.MustCompile("(?s)```options[ \\t]*\\r?\\n(.*?)```")
 // a JSON string that merely looked numeric and float64 would have silently
 // rounded 123.6 instead of refusing it.
 type rawOption struct {
-	Class       string      `json:"class"`
-	Summary     string      `json:"summary"`
-	FigureCents json.Number `json:"figure_cents"`
-	SavingCents json.Number `json:"saving_cents"`
-	Risk        string      `json:"risk"`
-	Needs       string      `json:"needs"`
-	Evidence    []string    `json:"evidence"`
+	Class       string          `json:"class"`
+	Summary     string          `json:"summary"`
+	FigureCents json.Number     `json:"figure_cents"`
+	SavingCents json.Number     `json:"saving_cents"`
+	Risk        string          `json:"risk"`
+	Needs       string          `json:"needs"`
+	Evidence    []string        `json:"evidence"`
+	Target      json.RawMessage `json:"target"`
 }
 
 // ParseOptions extracts and structurally validates the trailing options
@@ -152,6 +163,7 @@ func ParseOptions(body string) (opts []Option, found bool, reason string) {
 			Risk:        r.Risk,
 			Needs:       r.Needs,
 			Evidence:    append([]string(nil), r.Evidence...),
+			Target:      normalizedTarget(r.Target),
 			State:       OptionOpen,
 		})
 	}
@@ -171,6 +183,113 @@ func centsOf(n json.Number) (int64, error) {
 		return 0, fmt.Errorf("must be a whole number of cents, not %q", n.String())
 	}
 	return v, nil
+}
+
+// normalizedTarget treats an absent field and a literal JSON null the same
+// way: both mean "no target", and a caller checking len(Target) == 0 should
+// not have to also know that json.RawMessage("null") is non-empty bytes.
+// Reused from C2's own options.go (costcrew#31), unmerged as of this file:
+// same name, same shape, so the rebase after it lands is a duplicate
+// definition to drop rather than a design to reconcile.
+func normalizedTarget(raw json.RawMessage) json.RawMessage {
+	if len(strings.TrimSpace(string(raw))) == 0 || strings.TrimSpace(string(raw)) == "null" {
+		return nil
+	}
+	return raw
+}
+
+// targetMaxBytes bounds a class-specific target sub-object on its own terms,
+// the same way optionsBlockMaxBytes bounds the whole block: a 1 MB target is
+// already refused by that outer cap before it ever reaches a class's own
+// validator (a target cannot exceed the block it sits inside), but this
+// gives the reason its own name rather than a generic "block too large" when
+// the target itself is what bloated it. Reused from C2 (costcrew#31) for the
+// same reason normalizedTarget above is.
+const targetMaxBytes = 4 * 1024
+
+// driverTarget is driver.recurring's and driver.one-time's own structured
+// target (DRIVER-WINDOW-SPEC.md section 2): the window during which a
+// recurring rhythm is expected, or the day a one-time event covers when its
+// own task carries no anomaly to take the day from instead.
+//
+// internal/detect.Driver.Covers has no periodicity column anywhere -- the
+// window IS the extent of the rhythm -- so a fact this shape was not given
+// is refused rather than guessed, the same rule C2's own allocationRuleTarget
+// (internal/finops/apply.go, once #31 merges) already holds for a rule id
+// this store does not have.
+type driverTarget struct {
+	Start string `json:"start"`
+	End   string `json:"end"`
+}
+
+// driverTargetMaxWindowDays is DRIVER-WINDOW-SPEC.md section 2's own bound:
+// "start at most 366 days before end". A recurring driver with no end at all
+// would hide a service from the detector for good, so an open-ended window is
+// refused rather than defaulted; the day bound is what keeps "not literally
+// open-ended" from being satisfied by a window a thousand years long, which
+// would be the same invented number by another shape.
+const driverTargetMaxWindowDays = 366
+
+// validateDriverTarget is DRIVER-WINDOW-SPEC.md section 2's save-time gate
+// for driver.recurring and driver.one-time, beside C2's own
+// validateAllocationRuleTarget (internal/finops/apply.go there; unmerged
+// here) and following its shape: absent target refused with the reason,
+// present and malformed refused with the reason, so the rebase after C2
+// (#31) merges only has to keep two sibling functions rather than reconcile
+// two designs.
+//
+// hasAnomaly is whether the task this option's own artifact belongs to came
+// from an anomaly: driver.one-time on such a task takes the anomaly's own
+// day (section 2, "that day IS the driver, nothing to ask") and may omit the
+// target entirely. driver.recurring always needs one; there is no anomaly
+// day for a rhythm to borrow.
+//
+// `@claude` 2026-09-03: the spec's own hostile-input list names one case as
+// "a target on a class that takes none" without saying which of the two
+// classes that is. Read here as the one state within this function's own
+// scope that never needs a target -- driver.one-time WITH an anomaly -- so a
+// target volunteered there is refused rather than silently dropped: silently
+// accepting JSON this console will never read is the same shape of mistake
+// as inventing a number nobody gave, just in the other direction, and
+// applyDriver (internal/finops/apply.go) enforces the same rule again at
+// apply time for an option that reached it by bypassing this gate.
+func validateDriverTarget(class string, raw json.RawMessage, hasAnomaly bool) (reason string) {
+	if len(raw) > targetMaxBytes {
+		return fmt.Sprintf("%s's target is %d bytes, over the %d byte limit",
+			class, len(raw), targetMaxBytes)
+	}
+	optional := class == "driver.one-time" && hasAnomaly
+	if len(raw) == 0 {
+		if optional {
+			return ""
+		}
+		return fmt.Sprintf(`%s needs a target naming the window `+
+			`("target": {"start": "YYYY-MM-DD", "end": "YYYY-MM-DD"}); none was given`, class)
+	}
+	if optional {
+		return fmt.Sprintf("%s on a task with its own anomaly takes the anomaly's own day; "+
+			"a target here is not needed and is refused rather than silently ignored", class)
+	}
+	var tgt driverTarget
+	if err := json.Unmarshal(raw, &tgt); err != nil {
+		return fmt.Sprintf("%s's target is not a valid JSON object: %s", class, err.Error())
+	}
+	start, err := time.Parse("2006-01-02", tgt.Start)
+	if err != nil {
+		return fmt.Sprintf("%s's target.start %q does not parse as YYYY-MM-DD", class, tgt.Start)
+	}
+	end, err := time.Parse("2006-01-02", tgt.End)
+	if err != nil {
+		return fmt.Sprintf("%s's target.end %q does not parse as YYYY-MM-DD", class, tgt.End)
+	}
+	if end.Before(start) {
+		return fmt.Sprintf("%s's target.end %s is before target.start %s", class, tgt.End, tgt.Start)
+	}
+	if end.Sub(start) > driverTargetMaxWindowDays*24*time.Hour {
+		return fmt.Sprintf("%s's target spans more than %d days (%s to %s)",
+			class, driverTargetMaxWindowDays, tgt.Start, tgt.End)
+	}
+	return ""
 }
 
 // ValidClassesFor is the class vocabulary one role's deliverable may name:
@@ -274,6 +393,8 @@ func ValidateAndSaveOptions(db *sql.DB, artifactID int, roleName, body string, r
 	}
 
 	legal := ValidClassesFor(role)
+	var hasAnomaly bool
+	var hasAnomalyChecked bool
 	for _, o := range opts {
 		if !legal[o.Class] {
 			reason := fmt.Sprintf("%q is not a class %s's job description lists under "+
@@ -293,19 +414,81 @@ func ValidateAndSaveOptions(db *sql.DB, artifactID int, roleName, body string, r
 			journalOptionRefused(rec, roleName, artifactID, reason)
 			return true, reason, nil
 		}
+		// driver.recurring and driver.one-time alone carry a structured
+		// target (DRIVER-WINDOW-SPEC.md section 2), the same
+		// "checked here, inside the same whole-deliverable validation pass"
+		// shape C2's own allocation.rule target check uses: nothing is
+		// written, the reason is journaled once. hasAnomaly is looked up at
+		// most once per artifact, not once per option, since every option in
+		// this deliverable belongs to the same task.
+		if o.Class == "driver.recurring" || o.Class == "driver.one-time" {
+			if !hasAnomalyChecked {
+				var err error
+				hasAnomaly, err = artifactHasAnomaly(db, artifactID)
+				if err != nil {
+					return false, "", err
+				}
+				hasAnomalyChecked = true
+			}
+			if reason := validateDriverTarget(o.Class, o.Target, hasAnomaly); reason != "" {
+				journalOptionRefused(rec, roleName, artifactID, reason)
+				return true, reason, nil
+			}
+		}
 	}
 
 	for _, o := range opts {
 		ev, _ := json.Marshal(o.Evidence)
+		var target any
+		if len(o.Target) > 0 {
+			target = string(o.Target)
+		}
 		if _, err := db.Exec(`INSERT INTO artifact_options
-			(artifact, ordinal, class, summary, figure_cents, saving_cents, risk, needs, evidence, state)
-			VALUES (?,?,?,?,?,?,?,?,?,?)`,
+			(artifact, ordinal, class, summary, figure_cents, saving_cents, risk, needs, evidence, target, state)
+			VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
 			artifactID, o.Ordinal, o.Class, o.Summary, o.FigureCents, o.SavingCents,
-			o.Risk, o.Needs, string(ev), string(OptionOpen)); err != nil {
+			o.Risk, o.Needs, string(ev), target, string(OptionOpen)); err != nil {
 			return false, "", err
 		}
 	}
 	return false, "", nil
+}
+
+// artifactHasAnomaly is whether the task an artifact belongs to came from an
+// anomaly, looked up through TaskOfArtifact and GetTask exactly as
+// DRIVER-WINDOW-SPEC.md section 3 directs: this function already knows the
+// artifact id, so there is no reason to make a caller pass the task in.
+func artifactHasAnomaly(db *sql.DB, artifactID int) (bool, error) {
+	taskID, err := TaskOfArtifact(db, artifactID)
+	if err != nil {
+		return false, err
+	}
+	t, err := GetTask(db, taskID)
+	if err != nil {
+		return false, err
+	}
+	return t.Anomaly != "", nil
+}
+
+// EnsureOptionTarget adds artifact_options.target for an installation
+// migrated from before driver.recurring/driver.one-time (and, once #31
+// merges, allocation.rule) carried a structured target. CREATE TABLE IF NOT
+// EXISTS does nothing to a table that already exists, so a console started
+// before this column existed needs the ALTER too; the duplicate-column error
+// is the normal path on every start after the first, the same convention
+// EnsureOwnershipHistory and connectors.EnsureFocusSchema already hold for
+// their own added columns. Every option saved before this reads back with an
+// absent Target, exactly as before: the column is nullable and the zero
+// value is what "no target" already means.
+func EnsureOptionTarget(db *sql.DB) error {
+	if _, err := db.Exec(Schema); err != nil {
+		return err
+	}
+	if _, err := db.Exec("ALTER TABLE artifact_options ADD COLUMN target TEXT"); err != nil &&
+		!strings.Contains(err.Error(), "duplicate column") {
+		return fmt.Errorf("adding artifact_options.target: %w", err)
+	}
+	return nil
 }
 
 func journalOptionRefused(rec Recorder, roleName string, artifactID int, reason string) {
@@ -323,8 +506,9 @@ func journalOptionRefused(rec Recorder, roleName string, artifactID int, reason 
 func Options(db *sql.DB, artifactID int) ([]Option, error) {
 	rows, err := db.Query(`SELECT artifact, ordinal, class, COALESCE(summary,''),
 		figure_cents, saving_cents, COALESCE(risk,''), COALESCE(needs,''),
-		COALESCE(evidence,''), state, COALESCE(decided_by,''), COALESCE(decided_at,''),
-		COALESCE(reason,'') FROM artifact_options WHERE artifact=? ORDER BY ordinal`, artifactID)
+		COALESCE(evidence,''), COALESCE(target,''), state, COALESCE(decided_by,''),
+		COALESCE(decided_at,''), COALESCE(reason,'')
+		FROM artifact_options WHERE artifact=? ORDER BY ordinal`, artifactID)
 	if err != nil {
 		return nil, err
 	}
@@ -353,8 +537,8 @@ func GetOption(db *sql.DB, artifactID, ordinal int) (Option, error) {
 func OpenOptionsForSprint(db *sql.DB, sprintID int) ([]Option, error) {
 	rows, err := db.Query(`SELECT o.artifact, o.ordinal, o.class, COALESCE(o.summary,''),
 		o.figure_cents, o.saving_cents, COALESCE(o.risk,''), COALESCE(o.needs,''),
-		COALESCE(o.evidence,''), o.state, COALESCE(o.decided_by,''), COALESCE(o.decided_at,''),
-		COALESCE(o.reason,'')
+		COALESCE(o.evidence,''), COALESCE(o.target,''), o.state, COALESCE(o.decided_by,''),
+		COALESCE(o.decided_at,''), COALESCE(o.reason,'')
 		FROM artifact_options o
 		JOIN artifacts a ON a.id = o.artifact
 		JOIN tasks t ON t.id = a.task
@@ -373,8 +557,8 @@ func OpenOptionsForSprint(db *sql.DB, sprintID int) ([]Option, error) {
 func CarriedOptionsFor(db *sql.DB, sprintID int, owner string) ([]Option, error) {
 	rows, err := db.Query(`SELECT o.artifact, o.ordinal, o.class, COALESCE(o.summary,''),
 		o.figure_cents, o.saving_cents, COALESCE(o.risk,''), COALESCE(o.needs,''),
-		COALESCE(o.evidence,''), o.state, COALESCE(o.decided_by,''), COALESCE(o.decided_at,''),
-		COALESCE(o.reason,'')
+		COALESCE(o.evidence,''), COALESCE(o.target,''), o.state, COALESCE(o.decided_by,''),
+		COALESCE(o.decided_at,''), COALESCE(o.reason,'')
 		FROM artifact_options o
 		JOIN artifacts a ON a.id = o.artifact
 		JOIN tasks t ON t.id = a.task
@@ -391,16 +575,19 @@ func scanOptions(rows *sql.Rows) ([]Option, error) {
 	var out []Option
 	for rows.Next() {
 		var o Option
-		var evidence string
+		var evidence, target string
 		var state string
 		if err := rows.Scan(&o.Artifact, &o.Ordinal, &o.Class, &o.Summary,
-			&o.FigureCents, &o.SavingCents, &o.Risk, &o.Needs, &evidence, &state,
+			&o.FigureCents, &o.SavingCents, &o.Risk, &o.Needs, &evidence, &target, &state,
 			&o.DecidedBy, &o.DecidedAt, &o.Reason); err != nil {
 			return nil, err
 		}
 		o.State = OptionState(state)
 		if evidence != "" {
 			_ = json.Unmarshal([]byte(evidence), &o.Evidence)
+		}
+		if target != "" {
+			o.Target = json.RawMessage(target)
 		}
 		out = append(out, o)
 	}
@@ -499,8 +686,8 @@ func LiveRivalsOf(db *sql.DB, opt Option) ([]Option, error) {
 	}
 	rows, err := db.Query(`SELECT o.artifact, o.ordinal, o.class, COALESCE(o.summary,''),
 		o.figure_cents, o.saving_cents, COALESCE(o.risk,''), COALESCE(o.needs,''),
-		COALESCE(o.evidence,''), o.state, COALESCE(o.decided_by,''), COALESCE(o.decided_at,''),
-		COALESCE(o.reason,'')
+		COALESCE(o.evidence,''), COALESCE(o.target,''), o.state, COALESCE(o.decided_by,''),
+		COALESCE(o.decided_at,''), COALESCE(o.reason,'')
 		FROM artifact_options o
 		JOIN artifacts a ON a.id = o.artifact
 		JOIN tasks t2 ON t2.id = a.task

@@ -108,6 +108,18 @@ func optionsBlockInstructions(name, desk string) string {
 	fmt.Fprintf(&b, "class must be one of: %s. figure_cents and saving_cents are whole "+
 		"numbers of cents, never a decimal. This deliverable proposes; it never applies "+
 		"anything itself.\n", strings.Join(classes, ", "))
+	// driver.recurring and driver.one-time's own target (DRIVER-WINDOW-SPEC.md
+	// section 2), stated in one sentence, from the SAME legal map above
+	// (roles.yaml's own vocabulary for this role) that the class list two
+	// lines up already came from -- so a role whose vocabulary carries
+	// neither class is told nothing about a shape it can never legally
+	// propose.
+	if legal["driver.recurring"] || legal["driver.one-time"] {
+		b.WriteString("driver.recurring and driver.one-time also carry a target naming the " +
+			`window: {"target": {"start": "YYYY-MM-DD", "end": "YYYY-MM-DD"}}. ` +
+			"driver.recurring always needs one; driver.one-time needs one only when this " +
+			"task has no anomaly of its own to take its day from.\n")
+	}
 	if crew.AllowsNoOptions(r) {
 		b.WriteString("Zero options is fine here if there is nothing to decide.\n")
 	}

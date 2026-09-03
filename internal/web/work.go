@@ -1,6 +1,7 @@
 package web
 
 import (
+	"encoding/json"
 	"html"
 	"html/template"
 	"net/http"
@@ -242,19 +243,48 @@ type artView struct {
 }
 
 // optionView adds the two figures formatted as money, which the template
-// cannot do for itself from a bare int64 of cents.
+// cannot do for itself from a bare int64 of cents, and, for a driver option,
+// the window its own target names (DRIVER-WINDOW-SPEC.md section 3, "the
+// task page renders the window beside a driver option").
 type optionView struct {
 	crew.Option
 	Figure money.Cents
 	Saving money.Cents
+	Window string
 }
 
 func optionViews(opts []crew.Option) []optionView {
 	out := make([]optionView, 0, len(opts))
 	for _, o := range opts {
-		out = append(out, optionView{o, money.Cents(o.FigureCents), money.Cents(o.SavingCents)})
+		out = append(out, optionView{o, money.Cents(o.FigureCents), money.Cents(o.SavingCents), driverWindow(o)})
 	}
 	return out
+}
+
+// driverWindow renders driver.recurring's and driver.one-time's own target
+// as "2026-08-01 to 2026-08-30", for the two classes alone -- every other
+// class's Target is always empty (nothing else has one carried through
+// crew.ValidateAndSaveOptions yet), and this returns "" for those too
+// rather than assuming, so the option view's own diff stays exactly the two
+// driver classes even if that assumption ever stops holding. Also "" for a
+// driver option saved before DRIVER-WINDOW-SPEC.md landed a target at all,
+// or one applied through Apply's own "recorded only" path with none: an
+// absent or malformed target is nothing to show, not a zero-value date.
+func driverWindow(o crew.Option) string {
+	if o.Class != "driver.recurring" && o.Class != "driver.one-time" {
+		return ""
+	}
+	if len(o.Target) == 0 {
+		return ""
+	}
+	var tgt struct {
+		Start string `json:"start"`
+		End   string `json:"end"`
+	}
+	if err := json.Unmarshal(o.Target, &tgt); err != nil || tgt.Start == "" || tgt.End == "" {
+		return ""
+	}
+	return tgt.Start + " to " + tgt.End
 }
 
 // renderBody turns an analyst's markdown-ish output into something readable

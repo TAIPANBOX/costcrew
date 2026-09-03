@@ -39,6 +39,7 @@
         <dl class="facts">
           <dt>Class</dt><dd>{{.Class}} <span class="chip {{if eq .State "applied"}}accepted{{else if eq .State "refused"}}dismissed{{else if eq .State "not_chosen"}}dismissed{{else if eq .State "carried"}}triaged{{else}}open{{end}}">{{.State}}</span></dd>
           <dt>Summary</dt><dd>{{.Summary}}</dd>
+          {{if .Window}}<dt>Window</dt><dd>{{.Window}}</dd>{{end}}
           <dt>Figure</dt><dd>{{.Figure}}{{if .Saving}} · saving {{.Saving}}{{end}}</dd>
           <dt>Risk</dt><dd>{{.Risk}}</dd>
           <dt>Needs</dt><dd>{{.Needs}}</dd>
