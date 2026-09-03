@@ -56,16 +56,16 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 475 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 63 cases; needs a clean tree; ~90s
-./scripts/features-are-bound.sh      # 99 scenarios, both directions
+go test ./...                        # 488 tests, 20 packages
+./scripts/gates-have-teeth.sh        # 67 cases; needs a clean tree; ~90s
+./scripts/features-are-bound.sh      # 102 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refused PR #19 on two findings the list above never asked for; a staticcheck built for an older Go cannot read this module, so on such a machine CI is the only place it runs
 ```
 
-Counts follow the suite, measured on `feat/the-supervisor-plans-the-sprint-he-describes`
+Counts follow the suite, measured on `feat/an-analyst-remembers-what-it-posted`
 (test count by `go test ./... -list '.*' | grep -c '^Test'` -- test FUNCTIONS, not
 subtests, the convention PR #21, #23 and this file's own `internal/manifest` gate
 already use, not `-v | grep -c '^--- PASS'`, which over-counts anything using
@@ -678,6 +678,51 @@ an absent invariant.
     because CREATE TABLE IF NOT EXISTS adds no row, proven by
     `TestBenchDoesNotDetectAgainstAnExistingStore`: an existing store's own
     anomaly count, before and after a bench run against it, equal.)*
+
+30. **Memory is appended last, and the cap cuts from the end, so memory is
+    always what yields first, never the anomaly, the series, the drivers,
+    the team's month or the last posted explanation that precede it.**
+    B8-SPEC.md section 2. An analyst's packet now also carries its OWN last
+    three posted deliverables on this desk (`ownHistorySection`), newest
+    first, each with the task it answered, the first 240 bytes of its body
+    and the fate of every option it ended in ("applied by X", "refused by X:
+    reason", "not chosen (reason)", "still waiting on X" for a carried
+    option, "open" otherwise); and `driversSection`'s own window widened
+    from 90 days to 180 ("last six months"), capped at 24 rows, newest
+    first, with a trailing "and N more" line when it is cut, so an
+    unbounded registry cannot itself grow past the packet's own bound. The
+    order this is held by is the WHOLE mechanism, and it is one line:
+    `Packet()` appends `ownHistorySection` after every other section, and
+    `BoundBytes` cuts bytes off the END of the joined sections once the 12
+    KiB cap is reached, so whatever is appended last is trimmed first, and
+    everything appended earlier is untouched unless that alone is not
+    enough. Nothing else about the cap changed; making this order explicit,
+    in the one place it is decided, is this invariant. `ownHistorySection`
+    is skipped ENTIRELY, not merely trimmed, when `hideDriver` is true: a
+    past posted deliverable's own option can name the very driver a bench
+    run is hiding (a recurring cause explained before is exactly the case
+    memory exists for), so memory of past answers on the same desk is
+    itself an answer key. Coordinator review of PR #27 found both this and
+    `waitingOwner` (below) reading the wrong table.
+    *(gate: `TestOwnHistoryNeverCrowdsOutTheAnomalyUnderTheCap`
+    (`internal/deliver`), which forces a packet over 12 KiB on a real
+    anomaly and requires the anomaly section whole, the history section's
+    newest entry present, its oldest entry missing, and the packet ending in
+    the truncation note. `TestOwnHistoryShowsTheAnalystsOwnLastPostedDeliverable`,
+    `TestOwnHistoryShowsExactlyThreeNewestFirst`,
+    `TestOwnHistoryHidesAnotherAnalystsDeliverableOnTheSameDesk`,
+    `TestOwnHistoryHidesTheSameAnalystsDeliverableOnAnotherDesk` and
+    `TestOwnHistoryShowsTheFateOfEveryOptionState` hold the section itself;
+    `TestDriversSectionReachesOneHundredTwentyDays` and
+    `TestDriversSectionCapsAtTwentyFourWithAndNMore` hold the widened
+    window; `TestBenchHidingModeOmitsOwnHistoryEntirely` holds the hiding
+    case, planting a past option that names the current anomaly's own
+    driver and requiring it absent from a hidden packet and present in a
+    shown one. `scripts/gates-have-teeth.sh` plants four mutants, named in
+    B8-SPEC.md section 4: own history shown for any author, not scoped to
+    the analyst; an option's fate line dropped; the drivers window kept at
+    90 days; and memory prepended instead of appended, so it is protected
+    rather than trimmed first.)*
 
 ## Decisions that have no gate yet
 
