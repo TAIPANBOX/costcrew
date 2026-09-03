@@ -5,11 +5,14 @@ package web_test
 // against main: there is no /rightsizing route, so GET returns 404.
 
 import (
+	"fmt"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/TAIPANBOX/costcrew/internal/connectors"
 )
 
 // TestTheRightsizingPageReadsARealImport is the end-to-end proof through
@@ -104,5 +107,70 @@ func TestTheRightsizingPageStartsWithNoneImported(t *testing.T) {
 	}
 	if !strings.Contains(body, "none imported") {
 		t.Error("GET /rightsizing on a fresh install does not say \"none imported\"")
+	}
+}
+
+// plantRightsizingRow inserts one recommendation row directly, the same
+// shape internal/deliver's own plantRecommendation uses: saving_cents =
+// 100*i and an identical Current/Recommended pair across every row on the
+// desk, so a comparator that (wrongly) ranks by Current instead of saving
+// degenerates entirely to the resource-name tie-break -- which, for these
+// resource names, produces the exact REVERSE of the correct order, not an
+// order that happens to agree with it by coincidence the way the AWS
+// fixture's own varied Current strings can (internal/deliver/rightsizing_test.go's
+// own comment on TestRecommendationsSectionRanksBySavingFromAFixtureImport).
+func plantRightsizingRow(t *testing.T, h *harness, desk string, i int) {
+	t.Helper()
+	db := h.st.DB()
+	if err := connectors.EnsureRecommendationsSchema(db); err != nil {
+		t.Fatal(err)
+	}
+	id := fmt.Sprintf("%s:res-%d", desk, i)
+	if _, err := db.Exec(`INSERT INTO recommendations
+		(id, provider, desk, resource, action, current, recommended,
+		 monthly_saving_cents, lookback_days, source_file, imported_at)
+		VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+		id, desk, desk, fmt.Sprintf("res-%d", i), "resize", "same-size", "same-size",
+		100*i, 30, "planted.csv", "2026-09-02T00:00:00Z"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestTheRightsizingPageOrdersRowsBySavingNotBySize is the row-order proof
+// this file did not carry before: coordinator review of PR #34, 2026-09-03,
+// found that every existing test here checked substring presence only, so a
+// "rank by current cost" mutant planted directly in the page's own (then
+// separate) copy of the ranking comparator compiled clean and passed this
+// whole package. The page now calls connectors.RankBySaving, the one shared
+// comparator deliver.recommendationsSection also uses, but this test proves
+// the ORDER the page actually renders rather than trusting the refactor by
+// construction.
+func TestTheRightsizingPageOrdersRowsBySavingNotBySize(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "boss", "boss-password-2026")
+	admin := h.as(t, "boss", "boss-password-2026")
+
+	for i := 0; i < 4; i++ {
+		plantRightsizingRow(t, h, "gcp", i)
+	}
+
+	status, body, _ := admin.get(t, "/rightsizing")
+	if status != 200 {
+		t.Fatalf("GET /rightsizing: %d", status)
+	}
+
+	// Saving-descending: res-3 (300), res-2 (200), res-1 (100), res-0 (0).
+	wantOrder := []string{"res-3", "res-2", "res-1", "res-0"}
+	last := -1
+	for _, resource := range wantOrder {
+		at := strings.Index(body, resource)
+		if at < 0 {
+			t.Fatalf("%s is missing from /rightsizing:\n%s", resource, body)
+		}
+		if at < last {
+			t.Errorf("the rows are not in saving-descending order (%s appears out of "+
+				"place): %v", resource, wantOrder)
+		}
+		last = at
 	}
 }

@@ -11,7 +11,6 @@ package deliver
 import (
 	"database/sql"
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/TAIPANBOX/costcrew/internal/connectors"
@@ -42,20 +41,17 @@ func recommendationsSection(db *sql.DB, desk string) string {
 	}
 
 	// Ranked by SAVING, descending -- the mission this whole connector
-	// exists for ("propose the smaller size with the saving attached"),
-	// and the fault gates-have-teeth.sh plants for this invariant: swap
-	// the field this comparator reads from MonthlySavingCents to Current
-	// (a size string, e.g. "m5.2xlarge"), which still compiles -- Go
-	// allows > on strings -- and silently reorders the list
-	// alphabetically by current size instead of by money. Ties broken by
-	// resource, ascending, so the same estate renders the same list every
-	// time (invariant 7), never on map or file order.
-	sort.SliceStable(recs, func(i, j int) bool {
-		if recs[i].MonthlySavingCents != recs[j].MonthlySavingCents {
-			return recs[i].MonthlySavingCents > recs[j].MonthlySavingCents
-		}
-		return recs[i].Resource < recs[j].Resource
-	})
+	// exists for ("propose the smaller size with the saving attached").
+	// connectors.RankBySaving carries the comparator itself, and the
+	// fault gates-have-teeth.sh plants for this invariant (swap the field
+	// it reads from MonthlySavingCents to Current, a size string e.g.
+	// "m5.2xlarge", which still compiles -- Go allows > on strings -- and
+	// silently reorders the list alphabetically by current size instead
+	// of by money) is planted there now, not here: web's /rightsizing
+	// page wants this exact order too and used to carry its own,
+	// separately-mutation-tested copy of this same comparator, which is
+	// the shape PR #34 review found only half-covered.
+	connectors.RankBySaving(recs)
 
 	var b strings.Builder
 	fmt.Fprintf(&b, "Rightsizing recommendations on %s, ranked by saving\n", desk)

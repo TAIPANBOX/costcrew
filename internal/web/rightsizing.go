@@ -5,7 +5,6 @@ package web
 
 import (
 	"net/http"
-	"sort"
 
 	"github.com/TAIPANBOX/costcrew/internal/connectors"
 	"github.com/TAIPANBOX/costcrew/internal/world"
@@ -35,16 +34,17 @@ func (s *Server) rightsizing(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "store unavailable", http.StatusInternalServerError)
 			return
 		}
-		// Ranked by saving, descending, ties broken by resource: the same
-		// order deliver.recommendationsSection ranks its own packet in, so
-		// a person reading this page and an analyst reading its packet see
-		// the same list in the same order.
-		sort.SliceStable(recs, func(i, j int) bool {
-			if recs[i].MonthlySavingCents != recs[j].MonthlySavingCents {
-				return recs[i].MonthlySavingCents > recs[j].MonthlySavingCents
-			}
-			return recs[i].Resource < recs[j].Resource
-		})
+		// connectors.RankBySaving: the same comparator
+		// deliver.recommendationsSection ranks its own packet with, so a
+		// person reading this page and an analyst reading its packet see
+		// the same list in the same order. This page used to carry its
+		// own separate copy of that comparator; PR #34 review found that
+		// only the deliver package's copy was gates-have-teeth.sh-tested,
+		// so a mutation to THIS copy went unnoticed by the whole
+		// internal/web suite. One shared function now, tested directly in
+		// internal/connectors and end-to-end here
+		// (TestTheRightsizingPageOrdersRowsBySavingNotBySize).
+		connectors.RankBySaving(recs)
 		g := rightsizingDesk{Desk: d, Rows: recs}
 		for _, rec := range recs {
 			if rec.ImportedAt > g.LastDate {

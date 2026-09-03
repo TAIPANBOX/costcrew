@@ -30,6 +30,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -99,6 +100,29 @@ func Recommendations(db *sql.DB, desk string) ([]Recommendation, error) {
 		out = append(out, r)
 	}
 	return out, rows.Err()
+}
+
+// RankBySaving sorts recs in place by MonthlySavingCents, descending, with
+// Resource as an ascending tie-break, so the same estate renders the same
+// list every time (invariant 7) rather than on map, slice or file order.
+// Recommendations itself stays order-agnostic on purpose (see its own
+// comment above): a future caller wanting a different order is free to
+// write one. But deliver.recommendationsSection and web's /rightsizing
+// page both want exactly THIS order, and used to each carry their own
+// separately-maintained copy of the comparator -- coordinator review of
+// PR #34, 2026-09-03, found that scripts/gates-have-teeth.sh's own "rank by
+// current cost" case only ever mutated one of the two copies (deliver's),
+// so a mutation to the page's own copy compiled clean and passed the whole
+// internal/web suite: two callers wanting the same order is not a reason
+// for two copies of the comparator, so now there is one, and one gate on
+// it protects both.
+func RankBySaving(recs []Recommendation) {
+	sort.SliceStable(recs, func(i, j int) bool {
+		if recs[i].MonthlySavingCents != recs[j].MonthlySavingCents {
+			return recs[i].MonthlySavingCents > recs[j].MonthlySavingCents
+		}
+		return recs[i].Resource < recs[j].Resource
+	})
 }
 
 // ---------------------------------------------------------------- catalogue

@@ -941,14 +941,32 @@ run_case 'due: skip the switch check' \
 # the resource-name tie-break and cuts the two HIGHEST-saving rows instead
 # of the two lowest. TestRecommendationsSectionRanksBySavingFromAFixtureImport
 # was rewritten to check the full five-row order rather than one pair, so
-# it now catches the same mutant too; both are named here because either
-# one going toothless on its own should still be caught by the other.
+# it now catches the same mutant too.
+#
+# Coordinator review of PR #34, 2026-09-03, found that this case only ever
+# mutated the comparator's copy in internal/deliver, while web's own
+# /rightsizing page carried an identical, separately-maintained copy this
+# case never touched: a mutation planted directly in the page's own copy
+# compiled clean and passed the whole internal/web suite, since nothing
+# there checked row order either. The comparator now lives in exactly one
+# place, connectors.RankBySaving (internal/connectors/rightsizing.go), and
+# both deliver.recommendationsSection and the page call it rather than
+# each carrying their own copy, so this one case protects both callers by
+# construction. Retargeted here at RankBySaving's own direct test, the
+# fastest of the (now three) tests this mutation breaks -- the other two,
+# TestRecommendationsSectionCapsAtTenWithAndNMore /
+# TestRecommendationsSectionRanksBySavingFromAFixtureImport (internal/deliver)
+# and TestTheRightsizingPageOrdersRowsBySavingNotBySize (internal/web),
+# are not wired into their own run_case, the same "either one going
+# toothless should still be caught by the other" reasoning this file
+# already uses elsewhere: all three were @measured 2026-09-03 against this
+# exact mutation by hand (PR report has the transcripts).
 run_case 'rightsizing: rank by current cost instead of saving' \
 	fail \
-	./internal/deliver \
-	$'TestRecommendationsSectionCapsAtTenWithAndNMore' \
-	$'the lowest-saving row was shown instead of cut' \
-	internal/deliver/rightsizing.go \
+	./internal/connectors \
+	$'TestRankBySavingOrdersDescendingWithResourceTiebreak' \
+	$'position 0: got res-0, want res-3' \
+	internal/connectors/rightsizing.go \
 	$'if recs[i].MonthlySavingCents != recs[j].MonthlySavingCents {\n\t\t\treturn recs[i].MonthlySavingCents > recs[j].MonthlySavingCents\n\t\t}' \
 	$'if recs[i].Current != recs[j].Current {\n\t\t\treturn recs[i].Current > recs[j].Current\n\t\t}'
 

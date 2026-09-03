@@ -736,3 +736,54 @@ func TestHostileRightsizingInput(t *testing.T) {
 		}
 	})
 }
+
+// ---------------------------------------------------------- RankBySaving
+
+// TestRankBySavingOrdersDescendingWithResourceTiebreak is RankBySaving's own
+// direct proof, isolated from any DB or HTTP surface: the fastest catch for
+// the "rank by current cost" mutant C5-SPEC.md names, and the case
+// scripts/gates-have-teeth.sh's own "rightsizing: rank by current cost
+// instead of saving" case targets directly now that the comparator lives
+// here rather than duplicated in internal/deliver and internal/web.
+//
+// The four rows share one Current value on purpose: a comparator that
+// wrongly reads Current instead of MonthlySavingCents then degenerates
+// entirely to the resource-name tie-break, which for res-0..res-3 is the
+// exact REVERSE of the correct saving-descending order, not a coincidental
+// match the way a real provider's own varied Current strings can produce
+// (internal/deliver/rightsizing_test.go's own comment on
+// TestRecommendationsSectionRanksBySavingFromAFixtureImport explains the
+// coincidence this sidesteps).
+func TestRankBySavingOrdersDescendingWithResourceTiebreak(t *testing.T) {
+	recs := []Recommendation{
+		{Resource: "res-0", Current: "same-size", MonthlySavingCents: 0},
+		{Resource: "res-1", Current: "same-size", MonthlySavingCents: 100},
+		{Resource: "res-2", Current: "same-size", MonthlySavingCents: 200},
+		{Resource: "res-3", Current: "same-size", MonthlySavingCents: 300},
+	}
+	RankBySaving(recs)
+
+	want := []string{"res-3", "res-2", "res-1", "res-0"}
+	for i, w := range want {
+		if recs[i].Resource != w {
+			got := make([]string, len(recs))
+			for j, r := range recs {
+				got[j] = r.Resource
+			}
+			t.Fatalf("position %d: got %s, want %s (full order: %v)", i, recs[i].Resource, w, got)
+		}
+	}
+
+	// Two rows tied on saving break by resource, ascending -- invariant 7,
+	// so the same estate renders the same list every time rather than on
+	// slice or map order.
+	tied := []Recommendation{
+		{Resource: "z-resource", MonthlySavingCents: 500},
+		{Resource: "a-resource", MonthlySavingCents: 500},
+	}
+	RankBySaving(tied)
+	if tied[0].Resource != "a-resource" || tied[1].Resource != "z-resource" {
+		t.Fatalf("tie-break is not resource-ascending: got [%s, %s]",
+			tied[0].Resource, tied[1].Resource)
+	}
+}
