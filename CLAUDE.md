@@ -6,6 +6,31 @@
 longer does. `docs/stack-connection.md` says what this console writes into the
 estate's shared records and what it deliberately does not.
 
+### The specifications this file names are not in this repository
+
+Invariants below cite documents like `C2-SPEC.md` and `DRIVER-WINDOW-SPEC.md`
+by bare filename, 21 distinct ones, and none of them is here. Each was written
+before its change, in the language of the request rather than of the code, and
+each is the reason an invariant says what it says. **They live in
+`TAIPANBOX/go-to-market-2026-09`, which is private**, so a reader outside the
+organisation cannot open one. That is deliberate: they carry unpublished plans
+and the reasoning behind them.
+
+Nothing here depends on that access. Every invariant below is written to be
+read on its own: what the property is, why it exists, usually the failure that
+made it necessary, and the exact tests and `scripts/gates-have-teeth.sh` cases
+that hold it. The specification adds the intent behind a change, never a fact
+the invariant leaves out. To follow one change end to end without the
+specification, read the invariant, then the tests it names, then the case the
+harness plants against them.
+
+Until 2026-09-03 those documents sat on one machine and were in no repository
+at all, so every one of those citations led nowhere for anybody but their
+author. `TestEveryDocumentThisRepositoryNamesCanBeFound` now holds the rule
+that replaced that silence: a document named in this file or in `README.md` is
+either in this repository, or it is a `*-SPEC.md` covered by this section. A
+third kind, a name that is neither, is the rot this gate exists to catch.
+
 ## What this is
 
 A FinOps analyst console in which a crew of agents does the work, and a person
@@ -64,6 +89,12 @@ go test ./...                        # 852 tests, 20 packages
 gofmt -l . && go vet ./...
 staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refused PR #19 on two findings the list above never asked for; a staticcheck built for an older Go cannot read this module, so on such a machine CI is the only place it runs
 ```
+
+Invariant 48 (this file's own document references) added 2 tests
+(`internal/manifest/documents_test.go`) and one `gates-have-teeth.sh` case,
+and no route, scenario or write route: 852 -> 854 tests, 95 -> 96 cases,
+203 scenarios and 58 GET routes unchanged, all re-measured on this branch
+with the three commands this block already names.
 
 Counts follow the suite, measured on `fix/a-driver-carries-the-window-the-option-named`
 after branching from `origin/main` past #37's own merge
@@ -2420,6 +2451,40 @@ an absent invariant.
     `.Value`/`.PrevValue` fixed, caught by
     `TestTheLeadershipPageShowsASmallCostPerOutcomeWithoutLosingItsDigits`'s
     own delta assertion, `change: -0.0 USD/outcome` in place of "-0.01".)*
+
+48. **A document this repository names is a document a reader can reach.**
+    CLAUDE.md cites 21 distinct `*-SPEC.md` files by bare filename, and until
+    2026-09-03 not one of them was in any repository: they sat in a directory
+    on their author's own machine, so for every other reader those citations
+    led nowhere. Nothing caught it, because a filename in prose is not a link
+    and no gate had ever read prose. Two kinds of name pass now: one that
+    resolves to a file in this tree, and a `*-SPEC.md`, which is exempt from
+    being HERE because those documents live in
+    `TAIPANBOX/go-to-market-2026-09` and are private, as this file's own
+    header section says. A third kind, a name that is neither, is a document
+    renamed, moved or deleted while the sentence pointing at it stayed
+    behind, and that is what this refuses. The gate deliberately does not
+    check that the document says what the sentence claims, which nothing
+    mechanical can.
+    *(gate: `TestEveryDocumentThisRepositoryNamesCanBeFound`, over CLAUDE.md
+    and README.md, and `TestTheSpecificationsAreGivenAnAddress`, which holds
+    the header section itself so the exemption cannot outlive the explanation
+    a reader is sent to. Go comments are not scanned on purpose: they cite the
+    same specifications several hundred times over and would report a
+    filename where the stale thing is a sentence.
+    `scripts/gates-have-teeth.sh`'s `documents: a named document that is
+    neither in the tree nor a specification` case plants the fault that
+    actually happened, in miniature: one letter added to
+    `docs/stack-connection.md` in this file's own first paragraph, so a real
+    citation becomes a name nobody can open. @measured 2026-09-03, both tests
+    run red against their own faults before this gate existed: the first on a
+    planted citation of a Markdown file that is not in the tree, the second on
+    the header section renamed away. That first fault is also the one this
+    gate caught in its own author's prose within a minute of existing: an
+    earlier draft of this very paragraph NAMED the planted file, and naming it
+    is enough to fail, since the gate reads prose and cannot tell a citation
+    from an example. Hence the wording here, and hence the harness case
+    mutating a real citation rather than adding a fictional one.)*
 
 ## Decisions that have no gate yet
 
