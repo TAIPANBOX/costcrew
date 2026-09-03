@@ -23,6 +23,17 @@ func TestWholeNumberThresholdRefusesAMissingThreshold(t *testing.T) {
 	}
 }
 
+// daysBetween is defensive against a date it cannot parse: zero, never a
+// panic and never a negative count that would read as "in the future".
+func TestDaysBetweenIsZeroOnAnUnparseableDate(t *testing.T) {
+	if got := daysBetween("not-a-date", "2026-09-10"); got != 0 {
+		t.Errorf("daysBetween with an unparseable from = %d, want 0", got)
+	}
+	if got := daysBetween("2026-09-01", "also-not-a-date"); got != 0 {
+		t.Errorf("daysBetween with an unparseable to = %d, want 0", got)
+	}
+}
+
 // The real thresholds this measurement depends on must both parse today,
 // against the roles data actually embedded in this build.
 func TestWholeNumberThresholdParsesTStaleAndTUntagged(t *testing.T) {

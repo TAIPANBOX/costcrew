@@ -56,7 +56,7 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 544 tests, 20 packages
+go test ./...                        # 548 tests, 20 packages
 ./scripts/gates-have-teeth.sh        # 69 cases; needs a clean tree; ~90s
 ./scripts/features-are-bound.sh      # 109 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
@@ -853,21 +853,25 @@ an absent invariant.
     `TestASourceWithNoChargeAtAllIsStale`,
     `TestFreshnessIsMeasuredFromTheLastChargeNotFromToday`,
     `TestUntaggedShareAboveTUntaggedIsReported`,
+    `TestUnallocatedShareAboveTUntaggedIsReported`,
     `TestASourceUnderBothThresholdsIsNotCrossed`,
     `TestDataQualityMeasuresEveryDesk`,
-    `TestDataQualityRunsCleanlyAgainstTheSeededEstate` and
-    `TestWholeNumberThresholdRefusesAMissingThreshold`/
-    `TestWholeNumberThresholdParsesTStaleAndTUntagged` (`internal/finops`)
+    `TestDataQualityRunsCleanlyAgainstTheSeededEstate`,
+    `TestWholeNumberThresholdRefusesAMissingThreshold`,
+    `TestWholeNumberThresholdParsesTStaleAndTUntagged` and
+    `TestDaysBetweenIsZeroOnAnUnparseableDate` (`internal/finops`)
     for the measurement; `TestAllowsNoOptionsIsTrueForDataHaltOnly` and
     `TestADataQualityReportWithNoOptionsIsAccepted` (`internal/crew`) for
-    the options exception; `TestApplyDataHaltSuspendsTheDesksAnalystsAndDueSkipsIt`
-    and `TestApplyDataHaltRefusesWhenTheOptionNamesNoDesk` (`internal/finops`)
+    the options exception; `TestApplyDataHaltSuspendsTheDesksAnalystsAndDueSkipsIt`,
+    `TestApplyDataHaltRefusesWhenTheOptionNamesNoDesk` and
+    `TestApplyDataHaltWithNoSummaryUsesAGeneratedReason` (`internal/finops`)
     for applying it; `TestApplyHaltSuspendsEveryActiveAnalystOnTheDeskWithTheReason`,
     `TestApplyHaltOnADeskWithNoAnalystsStillRecordsTheHalt`,
     `TestASecondHaltOnAHaltedDeskDoesNotDoubleSuspend`,
     `TestLiftHaltReturnsTheAnalystsToActiveWithTheReasonJournaled`,
-    `TestLiftHaltRefusesWithNoReason` and `TestHaltsListsEveryHaltedDesk`
-    (`internal/crew`) for the halt itself;
+    `TestLiftHaltRefusesWithNoReason`,
+    `TestLiftHaltOnADeskNotHaltedIsRefused` and
+    `TestHaltsListsEveryHaltedDesk` (`internal/crew`) for the halt itself;
     `TestCadenceDueSkipsAHaltedDeskAndSaysWhy` and
     `TestProposeSkipsAHaltedDeskThroughCadenceDue` (`internal/crew`) for
     the skip; `TestAHaltOlderThanTStaleDaysIsCarriedToTheOwnerBySupervise`

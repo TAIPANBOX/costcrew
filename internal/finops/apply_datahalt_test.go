@@ -131,6 +131,29 @@ func TestApplyDataHaltSuspendsTheDesksAnalystsAndDueSkipsIt(t *testing.T) {
 	}
 }
 
+// An option with no summary still applies: the desk is suspended with a
+// generated reason naming the option, rather than an empty one that would
+// read as though nobody had checked.
+func TestApplyDataHaltWithNoSummaryUsesAGeneratedReason(t *testing.T) {
+	db := applyTestDB(t)
+	hireOnto(t, db, "triage-onprem", "onprem", "y.mercer")
+	opt := plantHaltOption(t, db, "data-quality", "y.mercer", "onprem", "")
+
+	if err := finops.Apply(db, opt, "supervisor", nil); err != nil {
+		t.Fatalf("Apply(data.halt) with no summary: %v", err)
+	}
+	a, err := crew.GetAnalyst(db, "triage-onprem")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.State != "suspended" {
+		t.Errorf("triage-onprem.State = %q, want suspended", a.State)
+	}
+	if a.Reason == "" {
+		t.Error("the analyst was suspended with an empty reason")
+	}
+}
+
 // Hostile: an option naming no desk in Needs is refused rather than
 // suspending nothing and pretending it worked.
 func TestApplyDataHaltRefusesWhenTheOptionNamesNoDesk(t *testing.T) {

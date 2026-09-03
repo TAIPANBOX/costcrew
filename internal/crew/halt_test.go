@@ -238,6 +238,14 @@ func TestLiftHaltRefusesWithNoReason(t *testing.T) {
 	}
 }
 
+// LiftHalt on a desk that was never halted is refused, not a silent no-op.
+func TestLiftHaltOnADeskNotHaltedIsRefused(t *testing.T) {
+	db := planDB(t)
+	if _, err := crew.LiftHalt(db, "aws", "a reason", "yurii", nil); err == nil {
+		t.Fatal("LiftHalt on a desk that was never halted was accepted")
+	}
+}
+
 // ------------------------------------------------------------------ Halts()
 
 func TestHaltsListsEveryHaltedDesk(t *testing.T) {

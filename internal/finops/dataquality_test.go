@@ -11,6 +11,7 @@ package finops_test
 import (
 	"database/sql"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -236,6 +237,33 @@ func TestUntaggedShareAboveTUntaggedIsReported(t *testing.T) {
 	}
 	if f.Reason == "" {
 		t.Error("a crossed finding carries no reason to put in a halt request")
+	}
+}
+
+// The unallocated dimension crosses independently of the untagged one: a
+// pot with no direct-cost team on the same desk to redistribute it onto is
+// left exactly where Allocate finds it ("nothing on this desk to carry
+// it"), so the WHOLE month reads as both untagged and unallocated at once,
+// and reasonFor names the unallocated crossing specifically.
+func TestUnallocatedShareAboveTUntaggedIsReported(t *testing.T) {
+	untaggedPct := mustUntaggedPct(t)
+	db := emptyDQDB(t)
+	today := "2026-09-10"
+	// No direct-cost charge on aws at all: the shared pot below has no team
+	// to redistribute onto, so it stays Unallocated rather than Placed.
+	plantCharge(t, db, "aws", today, "", "Purchase", 5000)
+
+	findings, err := finops.DataQuality(db, today)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := findingFor(t, findings, "aws")
+	if !f.UnallocatedCrossed {
+		t.Errorf("100%% unallocated (no team to place it on) did not cross T.untagged (%d%%): %+v",
+			untaggedPct, f)
+	}
+	if !strings.Contains(f.Reason, "unallocated") {
+		t.Errorf("the reason does not name the unallocated crossing: %q", f.Reason)
 	}
 }
 
