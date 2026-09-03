@@ -56,7 +56,7 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 539 tests, 20 packages
+go test ./...                        # 542 tests, 20 packages
 ./scripts/gates-have-teeth.sh        # 70 cases; needs a clean tree; ~90s
 ./scripts/features-are-bound.sh      # 108 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
@@ -82,7 +82,8 @@ branch last updated them by hand (B1a's own merge left this block at 282/48/59
 while its own PR body reported 301/52/70). Invariants 1, 2 and 5's own route
 counts (48/30/30 -> 50/34/34) were also re-measured while touching this file for
 B5, since the new /cadence routes are directly what moved them. C6 (this file's
-own invariant 32) moved test count 515 -> 539 and gates-have-teeth cases 68 -> 71;
+own invariant 32) moved test count 515 -> 542 and gates-have-teeth cases
+(the script's own measured total, the MINUS ONE two lines up) 67 -> 70;
 the route counts are untouched, C6 adds no route.
 
 The gates in this repo are Go tests rather than shell scripts, so
@@ -842,7 +843,11 @@ an absent invariant.
     `TestRenewalsWithinNinetyDays`, `TestRenewalsWithinIncludesTheExactEdge`,
     `TestRenewalsWithinIncludesToday`, `TestRenewalsWithinAWindowOfZeroOnlyMatchesToday`,
     `TestNoticeDeadlineComputation` and `TestNoticeDeadlineAlreadyPassedIsComputedPlainly`
-    (`internal/finops`) hold the computation.
+    (`internal/finops`) hold the computation, and
+    `TestLicenceNoticeDeadlineIsRenewsMinusNoticeDays`,
+    `TestLicenceNoticeDeadlineOfZeroDaysIsTheRenewalDateItself` and
+    `TestLicenceNoticeDeadlineOnAnUnparseableRenewsIsEmpty` (`internal/world`)
+    hold `Licence.NoticeDeadline` directly, in the package that owns it.
     `TestRenewalsSectionListsTheCalendarWithNoticeDeadlines`,
     `TestRenewalsSectionDoesNotFlagANoticeDeadlineStillAhead`,
     `TestRenewalsSectionSaysNoBenchmark`,

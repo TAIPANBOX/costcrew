@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/TAIPANBOX/costcrew/actions/workflows/ci.yml/badge.svg)](https://github.com/TAIPANBOX/costcrew/actions/workflows/ci.yml)
 ![Go](https://img.shields.io/badge/go-1.27-00ADD8.svg)
-![tests](https://img.shields.io/badge/tests-539-brightgreen.svg)
+![tests](https://img.shields.io/badge/tests-542-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)
 ![Status](https://img.shields.io/badge/enforces-nothing%20by%20design-success.svg)
 
@@ -184,7 +184,7 @@ platform act and a separate decision; neither is done in this repository.
 ## Gates
 
 ```sh
-go test ./...                        # 539 tests, 20 packages
+go test ./...                        # 542 tests, 20 packages
 ./scripts/features-are-bound.sh      # every scenario bound to a named test, both ways
 ./scripts/gates-have-teeth.sh        # 70 cases: each gate is made to fail on purpose
 gofmt -l . && go vet ./...
