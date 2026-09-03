@@ -785,6 +785,51 @@ an absent invariant.
     tests above, the same shape invariant 27's own history already
     describes for this repository.)*
 
+32. **A registered driver moves the projection by its own measured effect,
+    not by being blended into the plain run rate, and a frozen forecast
+    remembers which drivers it already knew about.** C3-SPEC.md.
+    `finops.ProjectWithDrivers` excludes every calendar day any registered
+    driver's own window covers (clipped to the month being projected) from
+    the run-rate side of the arithmetic entirely -- both the sum and the day
+    count -- and gives each driver its own line instead: a one-time
+    driver's window is one day, so this is that day's own measured total
+    added once; a recurring driver's window can span many days, so its own
+    per-day rate repeats across every one of them, "by its window" rather
+    than by a periodicity this registry does not carry. `finops.Freeze`
+    records this per-desk figure and basis; once an option carries its own
+    summary (`internal/finops/apply.go`'s `forecast.freeze` case, via
+    `finops.SetForecastBasis`), the forecaster's own written words replace
+    the generated sentence as the recorded basis. `finops.Missed` and
+    `finops.LargestMiss` read that basis back to name the drivers a freeze
+    did not know about, ranked by the largest scored error, and the KPI
+    grades the FROZEN figure only, never a live recomputation of it.
+    *(gate: `TestProjectWithDriversAddsAOneTimeDriverOnceInsteadOfAveragingItAway`,
+    `TestProjectWithDriversRepeatsARecurringDriverAcrossItsWindow`,
+    `TestProjectWithDriversWithNoDriversEqualsTheNaiveRunRate`,
+    `TestProjectWithDriversIgnoresADriverWhoseWindowEndsBeforeThePeriod`,
+    `TestProjectWithDriversRefusesAMalformedDriverWindow`,
+    `TestProjectWithDriversHandlesADriverEffectInTheBillionsOfCents`,
+    `TestProjectWithDriversRoundsOnceMultiplyingBeforeDividing`,
+    `TestMissedNamesADriverAddedAfterTheBasisWasWritten`,
+    `TestMissedIsEmptyWhenTheBasisAlreadyNamesTheDriver`,
+    `TestLargestMissPicksTheWorstErrorAndNamesItsDriver`,
+    `TestLargestMissGradesTheFrozenFigureNotALiveOne`,
+    `TestSetForecastBasisOverwritesEveryDesksRow`,
+    `TestSetForecastBasisWithEmptyStringChangesNothing`,
+    `TestKPIsForecastAccuracyNamesTheLargestMissesDriver`,
+    `TestApplyForecastFreezeUsesTheOptionsSummaryAsTheBasis` in
+    `internal/finops`; `TestForecastingSectionShowsDriverLines`,
+    `TestForecastingSectionShowsTheMissWithItsMissedDriver`,
+    `TestForecastingSectionShowsAMissOfZero` in `internal/deliver`;
+    `TestTheForecastPageNamesTheDriversThatMovedTheProjection` in
+    `internal/web`. `scripts/gates-have-teeth.sh` plants and catches three
+    mutants, named in C3-SPEC.md section 4: applying a recurring driver's
+    effect once, un-extended across its own window, instead of repeating it;
+    rounding a driver's own per-day rate to a whole cent before multiplying
+    by its window instead of dividing once after; and grading the largest
+    miss's own figure against a freshly recomputed live projection instead
+    of the one that was actually frozen.)*
+
 ## Decisions that have no gate yet
 
 Written here so that "it holds" and "something holds it" stay different
