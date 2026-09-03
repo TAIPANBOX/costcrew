@@ -180,6 +180,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /connectors/{id}/save", s.connectorAction("save"))
 	s.mux.HandleFunc("POST /connectors/{id}/test", s.connectorAction("test"))
 	s.mux.HandleFunc("POST /connectors/{id}/import", s.connectorAction("import"))
+	s.mux.HandleFunc("GET /rightsizing", s.rightsizing)
 	s.mux.HandleFunc("GET /engines", s.engines)
 	s.mux.HandleFunc("GET /accounts", s.accounts)
 	s.mux.HandleFunc("POST /accounts/create", s.accountAction("create"))
@@ -206,6 +207,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /o/{name}", s.owner)
 	s.mux.HandleFunc("GET /service/{name}", s.service)
 	s.mux.HandleFunc("GET /desk/{name}", s.desk)
+	s.mux.HandleFunc("POST /desk/{name}/lift", s.liftHalt)
 
 	s.mux.HandleFunc("GET /forecast", s.forecast)
 	s.mux.HandleFunc("POST /forecast/freeze", s.freezeForecast)

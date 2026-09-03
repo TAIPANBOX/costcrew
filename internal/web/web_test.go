@@ -79,6 +79,18 @@ func startFull(t *testing.T, withHistory bool, eventsPath string) *harness {
 	if err := connectors.EnsureFocusSchema(st.DB()); err != nil {
 		t.Fatal(err)
 	}
+	// recommendations, the same reason: /rightsizing reads it on every
+	// render whether or not any of the three rightsizing readers has ever
+	// been pointed at a folder.
+	if err := connectors.EnsureRecommendationsSchema(st.DB()); err != nil {
+		t.Fatal(err)
+	}
+	// licences: the SaaS page reads it on every render, whether or not
+	// anything has ever imported through the saas-seats reader, the same as
+	// ai_calls above.
+	if err := connectors.EnsureLicenceSchema(st.DB()); err != nil {
+		t.Fatal(err)
+	}
 	if err := estate.SeedBudgets(st.DB()); err != nil {
 		t.Fatal(err)
 	}
@@ -270,6 +282,7 @@ func TestSignedInPagesRender(t *testing.T) {
 		{"/ai", "AI spend"},
 		{"/forecast", "Forecast"},
 		{"/explainers", "Explainers"},
+		{"/rightsizing", "Rightsizing"},
 		{"/teams", "Teams"},
 		{"/desks", "Desks"},
 		{"/team/ml-platform", "ml-platform"},
@@ -1019,6 +1032,30 @@ func TestFreezingAForecastTurnsARefusingKPIIntoAReportingOne(t *testing.T) {
 	_, body, _ = h.get(t, "/kpis")
 	if strings.Contains(body, "no frozen forecast has reached the end of its month") {
 		t.Error("the KPI still refuses after a month was frozen and scored")
+	}
+}
+
+// C3-SPEC.md: the forecast page's own projection is driver-aware. The
+// seeded estate's own registry carries two RECURRING drivers whose window
+// spans the whole estate (N04, onprem; N05, ai), so the open month's own
+// row for one of those desks names a driver without this test having to
+// plant one by hand.
+func TestTheForecastPageNamesTheDriversThatMovedTheProjection(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+
+	_, body, _ := h.get(t, "/forecast")
+	found := false
+	for _, want := range []string{"Month-end batch on the storage array", "Scheduled weekly training window"} {
+		if strings.Contains(body, want) {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("the forecast page does not name either of the seeded estate's own recurring drivers")
+	}
+	if !strings.Contains(body, "one-time") && !strings.Contains(body, "recurring") {
+		t.Error("the forecast page does not say what KIND of driver moved the projection")
 	}
 }
 
@@ -1932,6 +1969,7 @@ func TestEveryTableCanScrollInsideItsOwnBox(t *testing.T) {
 		"/chargeback", "/results", "/kpis", "/utilisation", "/saas", "/ai", "/forecast",
 		"/explainers", "/connectors", "/engines", "/accounts", "/audit", "/teams",
 		"/desks", "/team/ml-platform", "/desk/aws", "/staff/triage-aws", "/sprint/plan",
+		"/rightsizing",
 	} {
 		code, body, _ := h.get(t, path)
 		if code != http.StatusOK {

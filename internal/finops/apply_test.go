@@ -27,6 +27,14 @@ func applyTestDB(t *testing.T) *sql.DB {
 	if err := crew.EnsureArtifactProvenance(db); err != nil {
 		t.Fatal(err)
 	}
+	// analysts, so queueShowbackTasks (period.close's own statement half,
+	// C2-SPEC.md section 2) has a roster to check "reporter-<desk>" against,
+	// matching what main.go always guarantees before Apply can be reached in
+	// production: crew.EnsureOwnershipHistory already creates this table on
+	// every start, ahead of anything that could apply an option.
+	if _, err := db.Exec(crew.RosterSchema); err != nil {
+		t.Fatal(err)
+	}
 	return db
 }
 
@@ -243,6 +251,39 @@ func TestApplyAnomalyExplainSetsItsState(t *testing.T) {
 	}
 }
 
+// C3-SPEC.md section 2: "the option's summary becomes the freeze's recorded
+// basis." The forecaster's own written explanation, not the generated
+// run-rate sentence, ends up in forecasts.basis once a supervisor applies
+// the forecast.freeze option.
+func TestApplyForecastFreezeUsesTheOptionsSummaryAsTheBasis(t *testing.T) {
+	db := applyTestDB(t)
+	period, err := finops.OpenPeriod(db)
+	if err != nil || period == "" {
+		t.Fatalf("no open period: %v %v", period, err)
+	}
+	opt := plantOption(t, db, "aws", "", "forecast.freeze",
+		"the analyst's own written explanation, driver and all")
+
+	if err := finops.Apply(db, opt, "supervisor", nil); err != nil {
+		t.Fatal(err)
+	}
+	frozen, err := finops.IsFrozen(db, period)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !frozen {
+		t.Fatalf("%s is not frozen after applying forecast.freeze", period)
+	}
+	var basis string
+	if err := db.QueryRow(`SELECT basis FROM forecasts WHERE period=? AND source='aws'`,
+		period).Scan(&basis); err != nil {
+		t.Fatal(err)
+	}
+	if basis != opt.Summary {
+		t.Errorf("basis = %q, want the option's own summary %q", basis, opt.Summary)
+	}
+}
+
 // A class with no row in the table -- allocation.rule needs a specific rule
 // id and method the generic option shape does not carry -- is recorded only:
 // no error, the option is marked applied, and nothing it has no data for is
@@ -257,5 +298,148 @@ func TestApplyAnUnwiredClassIsRecordedOnly(t *testing.T) {
 	got := mustGetOption(t, db, opt.Artifact, opt.Ordinal)
 	if got.State != crew.OptionApplied {
 		t.Errorf("option state %q, want applied", got.State)
+	}
+}
+
+// plantExplainerPublishOption is plantOption's shape, for the one class
+// whose side effect reads the ARTIFACT itself (its author and its whole
+// body), not just the option's own summary: explainer.publish, C8-SPEC.md
+// section 2, "the artifact's body as the explainer".
+func plantExplainerPublishOption(t *testing.T, db *sql.DB, author, summary, body string) crew.Option {
+	t.Helper()
+	tres, err := db.Exec(`INSERT INTO tasks
+		(title, goal, assignee, desk, state, budget_cents, spent_cents, created, updated)
+		VALUES ('the fortnightly pack', 'write it', ?, 'management', 'active', 0, 0,
+		        datetime('now'), datetime('now'))`, author)
+	if err != nil {
+		t.Fatal(err)
+	}
+	taskID, err := tres.LastInsertId()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ares, err := db.Exec(`INSERT INTO artifacts
+		(task, author, title, body, state, created)
+		VALUES (?, ?, 'The executive pack', ?, 'posted', datetime('now'))`,
+		taskID, author, body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	artID, err := ares.LastInsertId()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO artifact_options
+		(artifact, ordinal, class, summary, figure_cents, saving_cents, risk, needs, evidence, state)
+		VALUES (?, 1, 'explainer.publish', ?, 0, 0, '', '', '[]', 'open')`,
+		artID, summary); err != nil {
+		t.Fatal(err)
+	}
+	return crew.Option{Artifact: int(artID), Ordinal: 1, Class: "explainer.publish",
+		Summary: summary, State: crew.OptionOpen}
+}
+
+// Red first, against main: applySideEffect has no case for explainer.publish
+// at all, so this class is recorded only -- the option is marked applied and
+// crew.Explainers stays empty. C8-SPEC.md section 4: "applying an
+// explainer.publish option publishes the artifact's body as an explainer
+// (today recorded only)".
+func TestApplyExplainerPublishPublishesTheArtifactsBodyAsAnExplainer(t *testing.T) {
+	db := applyTestDB(t)
+	body := "## The fortnight in four numbers\n\n" +
+		"allocation-coverage: 92.3% (was 91.0%, +1.3)\n" +
+		"cost-per-outcome: refused, the business metric this would divide by is not connected.\n"
+	opt := plantExplainerPublishOption(t, db, "exec-reporter", "The fortnight in four numbers", body)
+
+	before, err := crew.Explainers(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(before) != 0 {
+		t.Fatalf("an explainer exists before Apply ever ran: %d", len(before))
+	}
+
+	if err := finops.Apply(db, opt, "supervisor", nil); err != nil {
+		t.Fatal(err)
+	}
+
+	list, err := crew.Explainers(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("applying one explainer.publish option produced %d explainers, want 1", len(list))
+	}
+	e := list[0]
+	if e.State != "published" {
+		t.Errorf("state = %q, want published: applying the option IS the stamp", e.State)
+	}
+	if e.Publisher != "supervisor" {
+		t.Errorf("publisher = %q, want the actor Apply was called with", e.Publisher)
+	}
+	if e.Body != body {
+		t.Errorf("the explainer's body is not the artifact's own body verbatim:\nGOT:  %q\nWANT: %q", e.Body, body)
+	}
+	if e.Topic != "The fortnight in four numbers" {
+		t.Errorf("topic = %q, want the option's own summary (the pack's title)", e.Topic)
+	}
+	if e.Author != "exec-reporter" {
+		t.Errorf("author = %q, want the artifact's own author", e.Author)
+	}
+	if e.Audience != "leadership" {
+		t.Errorf("audience = %q, want %q, so the explainers page can filter to it", e.Audience, "leadership")
+	}
+
+	got := mustGetOption(t, db, opt.Artifact, opt.Ordinal)
+	if got.State != crew.OptionApplied {
+		t.Errorf("option state %q, want applied", got.State)
+	}
+}
+
+// TestApplyingPurchaseHasNoSideEffect is C4-SPEC.md section 4's own mutant
+// (h), "put purchase into the apply table (must be refused by the class
+// check)": purchase's owner is "nobody" in roles.yaml -- crew.MayDecide
+// refuses it before it ever reaches an Owner field, for EVERY role,
+// TestRolesAreBound's own coverage of classes/roles.yaml already holds that
+// direction -- so applySideEffect's table has no case for it, on purpose,
+// the same "text only" shape TestApplyAnUnwiredClassIsRecordedOnly already
+// proves for allocation.rule. This test is sensitive to the one thing that
+// property does not cover: applySideEffect ITSELF quietly growing a case for
+// "purchase" that DOES do something, which is exactly what
+// gates-have-teeth.sh's own "commitments: purchase in the apply table" case
+// plants (a driver.recurring-shaped case, the cheapest real side effect this
+// table already has an example of) and this test must catch.
+func TestApplyingPurchaseHasNoSideEffect(t *testing.T) {
+	db := applyTestDB(t)
+	opt := plantOption(t, db, "management", "", "purchase",
+		"buy a one-year Committed Use Discount on the ai desk")
+
+	var before int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM drivers`).Scan(&before); err != nil {
+		t.Fatal(err)
+	}
+	if err := finops.Apply(db, opt, "y.mercer", nil); err != nil {
+		t.Fatal(err)
+	}
+	var after int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM drivers`).Scan(&after); err != nil {
+		t.Fatal(err)
+	}
+	if after != before {
+		t.Errorf("drivers went from %d to %d rows: applying a purchase option must never "+
+			"write a real side effect, because the purchase itself never happens in this console",
+			before, after)
+	}
+	got := mustGetOption(t, db, opt.Artifact, opt.Ordinal)
+	if got.State != crew.OptionApplied {
+		t.Errorf("option state %q, want applied (the STAMP is recorded; only the money is not)", got.State)
+	}
+
+	// The class check itself, independent of the apply table: no role, not
+	// even the owner link, may ever decide purchase alone.
+	for _, role := range []string{"owner", "supervisor", "commitments"} {
+		if may, why := crew.MayDecide(role, "purchase"); may {
+			t.Errorf("crew.MayDecide(%q, \"purchase\") = true, want false: %s", role, why)
+		}
 	}
 }

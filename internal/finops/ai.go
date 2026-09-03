@@ -241,3 +241,161 @@ func AttributionCoverage(db *sql.DB, month string) (pct float64, hasData bool, e
 	}
 	return float64(attributed) / float64(total) * 100, true, nil
 }
+
+// ------------------------------------------------------------ C7: the AI desk
+
+// aiCallsTableExists is CostPerOutcome's own guard: a store built before
+// this step, or one estate.Seed alone has touched, has no ai_calls table at
+// all, and KPIs() must report that as a refusal for this one measure rather
+// than an error for the whole library. In production the table always
+// exists by the time any request reaches here (cmd/costcrew/main.go calls
+// connectors.EnsureFocusSchema once, unconditionally, at every start,
+// before anything is served); this guard is for every OTHER caller of
+// CostPerOutcome that builds its own store without repeating that
+// sequence -- KPIs()'s own existing tests among them.
+func aiCallsTableExists(db *sql.DB) (bool, error) {
+	var n int
+	err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='ai_calls'`).Scan(&n)
+	if err != nil {
+		return false, err
+	}
+	return n > 0, nil
+}
+
+// ModelAIRow is AgentAIRow's own shape, grouped by model instead of agent:
+// aiSpendSection (C7-SPEC.md section 2) needs both cuts of the same
+// ai_calls rows, and this codebase's convention is one query per cut
+// (AIByAgent, AIByModel) rather than one row shape trying to serve both.
+type ModelAIRow struct {
+	Model        string
+	Calls        int
+	Tokens       int64
+	Cost         money.Micros
+	BlockedCalls int
+}
+
+// AIByModel is AIByAgent's own query, grouped by model rather than agent,
+// ordered by cost the same way (see AIByAgent's own comment for why
+// BlockedCalls is a count, never an amount).
+func AIByModel(db *sql.DB, month string) ([]ModelAIRow, error) {
+	rows, err := db.Query(`SELECT model, COUNT(*),
+			COALESCE(SUM(tokens_in+tokens_out),0), COALESCE(SUM(billed_microusd),0),
+			SUM(CASE WHEN blocked=1 THEN 1 ELSE 0 END)
+		FROM ai_calls WHERE day LIKE ?
+		GROUP BY model ORDER BY 4 DESC, model ASC`, month+"%")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []ModelAIRow
+	for rows.Next() {
+		var r ModelAIRow
+		var micros int64
+		if err := rows.Scan(&r.Model, &r.Calls, &r.Tokens, &micros, &r.BlockedCalls); err != nil {
+			return nil, err
+		}
+		r.Cost = money.Micros(micros)
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// OutcomeCountsByAgent is how many of an agent's non-blocked calls this
+// month carry an outcome (x_outcome, non-empty): the denominator
+// unitEconomicsSection and CostPerOutcome divide an agent's own cost by. An
+// agent absent from the returned map tagged zero, the same as an agent
+// present with 0 -- callers key it by AgentAIRow.Agent and treat a missing
+// key as zero, never as an error.
+func OutcomeCountsByAgent(db *sql.DB, month string) (map[string]int, error) {
+	rows, err := db.Query(`SELECT agent, COUNT(*) FROM ai_calls
+		WHERE day LIKE ? AND blocked=0 AND outcome IS NOT NULL AND outcome<>''
+		GROUP BY agent`, month+"%")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]int{}
+	for rows.Next() {
+		var agent string
+		var n int
+		if err := rows.Scan(&agent, &n); err != nil {
+			return nil, err
+		}
+		out[agent] = n
+	}
+	return out, rows.Err()
+}
+
+// BasisCounts is the month's ai_calls split by x_cost_basis
+// (settled|estimated|blocked): aiSpendSection's own "estimated share",
+// because an estimated figure is not the same evidentiary strength as a
+// settled one, and the packet says which basis it is reporting on.
+func BasisCounts(db *sql.DB, month string) (settled, estimated, blocked int, err error) {
+	err = db.QueryRow(`SELECT
+			COALESCE(SUM(CASE WHEN basis='settled' THEN 1 ELSE 0 END),0),
+			COALESCE(SUM(CASE WHEN basis='estimated' THEN 1 ELSE 0 END),0),
+			COALESCE(SUM(CASE WHEN basis='blocked' THEN 1 ELSE 0 END),0)
+		FROM ai_calls WHERE day LIKE ?`, month+"%").Scan(&settled, &estimated, &blocked)
+	return
+}
+
+// CostPerOutcome is the AI desk's month-wide cost per outcome (C7-SPEC.md
+// section 2): every agent that spent this month (at least one non-blocked
+// call) contributes its WHOLE cost to the numerator, and every outcome any
+// of them tagged contributes one to the denominator -- an agent whose calls
+// cost money and tagged nothing still counts in the cost, which is the
+// point: a cost per outcome that only ever counted tagged calls would get
+// CHEAPER as an agent tagged less, not more honest. hasVal is false, and
+// agentsWithNone equals agentsTotal, when nothing was tagged at all; the
+// KPI's own refusal names that count, and its Note carries the same count
+// as a caveat even while it reports, when the coverage is only partial.
+//
+// An agent whose only calls this month were blocked spent nothing and is
+// counted in neither agentsTotal nor agentsWithNone: it never had a cost
+// needing a denominator, so it is not an agent that "set none" -- it is an
+// agent that was not asked. Sum stays in Micros throughout, never rounded
+// to Cents until String() renders it for a reader: invariant 25 applied
+// here the same way deriveCharges already applies it to the daily ledger.
+//
+// A store nobody has ever pointed the tokenfuse-focus reader at (or an
+// older one from before this step) has no ai_calls table at all -- checked
+// first, and treated as "nothing to report" rather than a database error,
+// the same principle the anomalies and tasks queries elsewhere in this file
+// already hold with COALESCE for an empty table, extended here to a table
+// that may not exist yet at all. KPIs() must never fail outright because
+// one measure's own table is missing; this file's own header says why.
+func CostPerOutcome(db *sql.DB, month string) (perOutcome money.Micros, hasVal bool, agentsWithNone, agentsTotal int, err error) {
+	has, err := aiCallsTableExists(db)
+	if err != nil {
+		return 0, false, 0, 0, err
+	}
+	if !has {
+		return 0, false, 0, 0, nil
+	}
+	byAgent, err := AIByAgent(db, month)
+	if err != nil {
+		return 0, false, 0, 0, err
+	}
+	counts, err := OutcomeCountsByAgent(db, month)
+	if err != nil {
+		return 0, false, 0, 0, err
+	}
+	var totalCost money.Micros
+	var totalOutcomes int
+	for _, r := range byAgent {
+		if r.Calls-r.BlockedCalls == 0 {
+			continue
+		}
+		agentsTotal++
+		totalCost += r.Cost
+		n := counts[r.Agent]
+		totalOutcomes += n
+		if n == 0 {
+			agentsWithNone++
+		}
+	}
+	if totalOutcomes == 0 {
+		return 0, false, agentsWithNone, agentsTotal, nil
+	}
+	return money.Micros(int64(totalCost) / int64(totalOutcomes)), true, agentsWithNone, agentsTotal, nil
+}

@@ -222,6 +222,18 @@ func run(addr, dir string, scfg stack.Config, gatewayURL string) error {
 	if err := connectors.EnsureFocusSchema(st.DB()); err != nil {
 		return fmt.Errorf("ensuring the FOCUS reader's schema: %w", err)
 	}
+	// recommendations, unconditionally: the optimizer's own packet section
+	// and the /rightsizing page both read it on every render regardless of
+	// whether a rightsizing connector has ever been pointed at a folder.
+	if err := connectors.EnsureRecommendationsSchema(st.DB()); err != nil {
+		return fmt.Errorf("ensuring the rightsizing readers' schema: %w", err)
+	}
+	// licences, unconditionally: the SaaS page and the renewals packet
+	// section read it on every render regardless of whether the saas-seats
+	// connector has ever been pointed at a folder, the same reason above.
+	if err := connectors.EnsureLicenceSchema(st.DB()); err != nil {
+		return fmt.Errorf("ensuring the saas-seats reader's schema: %w", err)
+	}
 	if err := estate.SeedBudgets(st.DB()); err != nil {
 		return fmt.Errorf("setting budgets: %w", err)
 	}
@@ -246,9 +258,10 @@ func run(addr, dir string, scfg stack.Config, gatewayURL string) error {
 	if err := crew.EnsureOwnershipHistory(st.DB()); err != nil {
 		return fmt.Errorf("ownership history: %w", err)
 	}
-	// driver.recurring's and driver.one-time's own structured target
-	// (DRIVER-WINDOW-SPEC.md section 2), for an installation that has never
-	// seen this column before.
+	// allocation.rule's own structured target (C2-SPEC.md section 2) and,
+	// since then, driver.recurring's and driver.one-time's own
+	// (DRIVER-WINDOW-SPEC.md section 2) -- the SAME column, for an
+	// installation that has never seen it before.
 	if err := crew.EnsureOptionTarget(st.DB()); err != nil {
 		return fmt.Errorf("option target column: %w", err)
 	}

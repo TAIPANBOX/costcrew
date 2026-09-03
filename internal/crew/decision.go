@@ -11,6 +11,8 @@ package crew
 
 import (
 	"database/sql"
+
+	"github.com/TAIPANBOX/costcrew/internal/money"
 )
 
 // supervisorTaskTitle names the one task per sprint every decision request
@@ -18,15 +20,20 @@ import (
 // creating a second one.
 const supervisorTaskTitle = "Decision requests"
 
-// EnsureSupervisorTask finds, or creates, the supervisor's own task for a
-// sprint. Every decision request the supervisor's pass writes is a
-// deliverable of this ONE task, never a task per owner: the task is the
-// supervisor's work item ("route what this sprint handed up"), and the
-// owners it writes to are which artifacts hang off it.
-func EnsureSupervisorTask(db *sql.DB, sprintID int) (int, error) {
+// EnsureTask finds, or creates, a task uniquely identified by (sprint,
+// assignee, title), with no anomaly link: the existing task creation path,
+// generalised. EnsureSupervisorTask below is this with its own fixed
+// desk/goal/budget; internal/finops.queueShowbackTasks (C2-SPEC.md section
+// 2, "queued as a task for the desk's reporter") is the other caller,
+// queueing one showback-narration task per team once a period closes. The
+// dedupe key matches EnsureSupervisorTask's own, so running the same close
+// twice (a reopen and a reclose) writes to the same task rather than
+// duplicating it, the same idempotency invariant 11 already holds for every
+// other startup and apply path in this console.
+func EnsureTask(db *sql.DB, sprintID int, title, goal, assignee, desk string, budget money.Cents) (int, error) {
 	var id int
-	err := db.QueryRow(`SELECT id FROM tasks WHERE sprint=? AND assignee='supervisor' AND title=?`,
-		sprintID, supervisorTaskTitle).Scan(&id)
+	err := db.QueryRow(`SELECT id FROM tasks WHERE sprint=? AND assignee=? AND title=?`,
+		sprintID, assignee, title).Scan(&id)
 	if err == nil {
 		return id, nil
 	}
@@ -36,16 +43,26 @@ func EnsureSupervisorTask(db *sql.DB, sprintID int) (int, error) {
 	now := stamp()
 	res, err := db.Exec(`INSERT INTO tasks
 		(sprint, title, goal, assignee, desk, state, budget_cents, spent_cents, created, updated, owner)
-		VALUES (?,?,?,?,?,?,0,0,?,?,?)`,
-		sprintID, supervisorTaskTitle,
-		"Route what this sprint's deliverables handed up: apply what the "+
-			"supervisor's own job description decides, and ask the owner for the rest.",
-		"supervisor", "management", string(Active), now, now, OwnerOf(db, "supervisor"))
+		VALUES (?,?,?,?,?,?,?,0,?,?,?)`,
+		sprintID, title, goal, nullIf(assignee), nullIf(desk),
+		stateFor(assignee), int64(budget), now, now, OwnerOf(db, assignee))
 	if err != nil {
 		return 0, err
 	}
 	lid, err := res.LastInsertId()
 	return int(lid), err
+}
+
+// EnsureSupervisorTask finds, or creates, the supervisor's own task for a
+// sprint. Every decision request the supervisor's pass writes is a
+// deliverable of this ONE task, never a task per owner: the task is the
+// supervisor's work item ("route what this sprint handed up"), and the
+// owners it writes to are which artifacts hang off it.
+func EnsureSupervisorTask(db *sql.DB, sprintID int) (int, error) {
+	return EnsureTask(db, sprintID, supervisorTaskTitle,
+		"Route what this sprint's deliverables handed up: apply what the "+
+			"supervisor's own job description decides, and ask the owner for the rest.",
+		"supervisor", "management", 0)
 }
 
 // DecisionRequestFor finds the decision request artifact already written for

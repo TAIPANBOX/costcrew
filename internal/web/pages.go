@@ -434,9 +434,24 @@ func (s *Server) anomalies(w http.ResponseWriter, r *http.Request) {
 	for _, d := range world.Desks {
 		sources = append(sources, d.Name)
 	}
+
+	// The owner column and the "told" mark, C1-SPEC.md section 2: who to
+	// tell (crew.OwnerOfAnomaly, the same team-then-analyst chain the
+	// posted-time event itself reads) and whether that event has already
+	// gone out (the journal, the way /cadence reads crew_ran). Built AFTER
+	// sorting, over the already-sorted slice, so the sort comparators above
+	// keep operating on plain anomaly.Anomaly values rather than needing a
+	// copy for every added field.
+	told := s.toldAnomalies()
+	viewRows := make([]anomalyRow, 0, len(rows))
+	for _, a := range rows {
+		owner, _ := crew.OwnerOfAnomaly(s.db, a.ID)
+		viewRows = append(viewRows, anomalyRow{Anomaly: a, Owner: owner, Told: told[a.ID]})
+	}
+
 	s.render(w, tplAnomalies, struct {
 		shell
-		Rows      []anomaly.Anomaly
+		Rows      []anomalyRow
 		Counts    []stateTile
 		States    []anomaly.State
 		Sources   []string
@@ -444,7 +459,7 @@ func (s *Server) anomalies(w http.ResponseWriter, r *http.Request) {
 		OpenMoney money.Cents
 		Sort      sortSpec
 	}{
-		s.shellFor(r, "Anomalies", "anomalies"), rows, tiles,
+		s.shellFor(r, "Anomalies", "anomalies"), viewRows, tiles,
 		[]anomaly.State{anomaly.Open, anomaly.Triaged, anomaly.Explained,
 			anomaly.Accepted, anomaly.Dismissed},
 		sources, f, openMoney, srt,
@@ -474,6 +489,7 @@ func (s *Server) anomalyPage(w http.ResponseWriter, r *http.Request) {
 		ZText      string
 		Analysts   []string
 		Actionable bool
+		DaysText   string
 	}{
 		s.shellFor(r, "Anomaly "+a.ID, "anomalies"),
 		a,
@@ -481,6 +497,7 @@ func (s *Server) anomalyPage(w http.ResponseWriter, r *http.Request) {
 		strconv.FormatFloat(a.Z, 'f', 1, 64),
 		s.activeAnalysts(),
 		a.State != anomaly.Accepted && a.State != anomaly.Dismissed,
+		daysText(a, time.Now()),
 	})
 }
 

@@ -19,10 +19,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/TAIPANBOX/costcrew/internal/anomaly"
 	"github.com/TAIPANBOX/costcrew/internal/crew"
 	"github.com/TAIPANBOX/costcrew/internal/estate"
+	"github.com/TAIPANBOX/costcrew/internal/money"
 	"github.com/TAIPANBOX/costcrew/internal/world"
 )
 
@@ -110,17 +112,26 @@ func Apply(db *sql.DB, opt crew.Option, actor string, rec Recorder) error {
 // applySideEffect is the table itself. Every class named here also exists in
 // internal/crew/roles.yaml (scripts/roles-are-bound.sh's property 1 already
 // checks that direction for every "// class:" tag in internal/ and tools/),
-// and the classes with no case below -- allocation.rule, budget.set,
-// explainer.publish among them -- are "text only" deliberately: their
-// existing functions (finops.SetRule, the estate budgets intake,
-// crew.Publish) each need a structured target (a rule id, a team and month,
-// an explainer id) the generic options shape
+// and the classes with no case below -- budget.set among them -- are "text
+// only" deliberately: its existing function (the estate budgets intake)
+// needs a structured target (a team and month) the generic options shape
 // (class/summary/figure_cents/saving_cents/risk/needs/evidence) does not
 // carry and this option's own task does not supply either. Inventing one
 // would be exactly "invent a number it was not given", the rule every job
-// description in ROLES-2026-09.md carries under "Never". Wiring them is
-// follow-up work once a companion field names the target; see this PR's
-// body and the report's NOT PROVEN line.
+// description in ROLES-2026-09.md carries under "Never". Wiring it is
+// follow-up work once a companion field names the target, the same way
+// C2-SPEC.md's own "target" field did for allocation.rule below (invariant
+// 32, CLAUDE.md): once a class carries a real target, applySideEffect's own
+// case reads it rather than staying text-only forever.
+//
+// explainer.publish was a third class in that position until C8-SPEC.md: it
+// needed an explainer id the generic shape does not carry either, but the
+// target turned out to need no companion field at all -- the option's OWN
+// artifact IS the pack, so applyExplainerPublish below reads its author and
+// its whole body rather than inventing anything this option was never
+// given, and publishes through crew.PublishArtifact, which itself finishes
+// by calling crew.Publish, the SAME state transition Commission's own draft
+// already goes through by a person's hand.
 func applySideEffect(db *sql.DB, opt crew.Option, t crew.Task, actor string, rec Recorder) error {
 	switch opt.Class {
 	case "anomaly.explain": // class:anomaly.explain
@@ -147,13 +158,24 @@ func applySideEffect(db *sql.DB, opt crew.Option, t crew.Task, actor string, rec
 		if err != nil || period == "" {
 			return err
 		}
-		return Freeze(db, period, actor)
+		if err := Freeze(db, period, actor); err != nil {
+			return err
+		}
+		// C3-SPEC.md section 2: "the option's summary becomes the freeze's
+		// recorded basis" -- the forecaster's own written explanation of
+		// which drivers moved the number, in place of ProjectWithDrivers's
+		// own generated sentence. A no-op when the option carried no
+		// summary of its own.
+		return SetForecastBasis(db, period, opt.Summary)
 	case "period.close": // class:period.close
 		period, err := OpenPeriod(db)
 		if err != nil || period == "" {
 			return err
 		}
-		return Close(db, period, actor)
+		if err := Close(db, period, actor); err != nil {
+			return err
+		}
+		return queueShowbackTasks(db, period, t.Sprint)
 	case "period.reopen": // class:period.reopen
 		periods, err := ClosedPeriods(db)
 		if err != nil {
@@ -167,9 +189,147 @@ func applySideEffect(db *sql.DB, opt crew.Option, t crew.Task, actor string, rec
 			reason = "reopened by " + actor
 		}
 		return Reopen(db, periods[0], reason)
+	case "allocation.rule": // class:allocation.rule
+		return applyAllocationRule(db, opt)
+	case "explainer.publish": // class:explainer.publish
+		return applyExplainerPublish(db, opt, actor)
+	case "data.halt": // class:data.halt
+		return applyHalt(db, opt, actor, rec)
 	}
-	// allocation.rule, budget.set, explainer.publish, and every class not
-	// named above: recorded only, per this function's own comment.
+	// budget.set, and every other class not named above: recorded only,
+	// per this function's own comment.
+	return nil
+}
+
+// applyHalt is data.halt's side effect: C9-SPEC.md section 2. The desk it
+// targets travels in the option's own Needs field -- the generic option
+// shape (class/summary/figure_cents/saving_cents/risk/needs/evidence) has no
+// dedicated "desk" column, the same gap this file's own header names for
+// allocation.rule/budget.set/explainer.publish, and Needs is the one field
+// already meant to carry "what a person would have to do"; here, which
+// desk. Summary is the reason -- "a halt request naming the desk and the
+// reason" is roles.yaml's own owes line for this role.
+//
+// The owner a stale halt is later carried to (finops.Supervise) is read the
+// SAME way an ordinary carried option's owner already is: tasks.owner of
+// the deliverable that named it, via ownerOfOption (supervise.go), so a
+// data.halt decision request and an ordinary one can never disagree about
+// whose it is.
+func applyHalt(db *sql.DB, opt crew.Option, actor string, rec Recorder) error {
+	desk := strings.TrimSpace(opt.Needs)
+	if desk == "" {
+		return fmt.Errorf("data.halt option %d names no desk in its needs field", opt.Ordinal)
+	}
+	reason := strings.TrimSpace(opt.Summary)
+	if reason == "" {
+		reason = fmt.Sprintf("data.halt applied on option %d, no reason given in the deliverable", opt.Ordinal)
+	}
+	owner, err := ownerOfOption(db, opt)
+	if err != nil {
+		return err
+	}
+	today := time.Now().UTC().Format("2006-01-02")
+	_, _, err = crew.ApplyHalt(db, desk, reason, actor, owner, today, rec)
+	return err
+}
+
+// applyExplainerPublish is C8-SPEC.md section 2: the deliverable's own
+// artifact is the target explainer.publish was missing. topic is the
+// option's own summary ("the pack's title"), falling back to the artifact's
+// own title only for the option shapes ValidateAndSaveOptions already
+// allows through with an empty summary (evidence-only options), so a stamp
+// never publishes an explainer with no title at all. "leadership" is not a
+// roster team -- world.Teams names ten real ones -- which is exactly why
+// explainers.html only links a team's name to /team/{name} when a real one
+// is there: this is the one row on that page that deliberately is not.
+func applyExplainerPublish(db *sql.DB, opt crew.Option, actor string) error {
+	art, err := crew.GetArtifact(db, opt.Artifact)
+	if err != nil {
+		return err
+	}
+	topic := strings.TrimSpace(opt.Summary)
+	if topic == "" {
+		topic = art.Title
+	}
+	_, err = crew.PublishArtifact(db, "leadership", topic, "leadership", art.Author,
+		art.Body, money.Cents(opt.FigureCents), actor)
+	return err
+}
+
+// allocationRuleTarget mirrors internal/crew's own generic decode of the
+// same JSON (unallocationRuleTarget there, typed only enough to validate
+// shape): this is the one place that actually reads it as a rule id and a
+// Method, because internal/crew cannot import this package's Method type
+// without the import cycling back (this package already imports crew).
+type allocationRuleTarget struct {
+	RuleID int64  `json:"rule_id"`
+	Method Method `json:"method"`
+}
+
+// applyAllocationRule is C2-SPEC.md section 2's own wiring: "internal/finops.Apply
+// wires allocation.rule to finops.SetRule with that target", the companion
+// field this class was missing when apply.go's own comment first named it
+// as recorded-only for lack of one. A target that fails to decode, or is
+// simply absent (an option saved before this feature existed, or a caller
+// bypassing crew.ValidateAndSaveOptions the way TestApplyAnUnwiredClassIsRecordedOnly
+// does), is left exactly as "recorded only" always was: no error, nothing
+// invented. Once a target IS present, SetRule's own checks -- a rule id
+// this store does not have, a method string it does not define -- are what
+// refuse it; duplicating either check here would only risk the two
+// disagreeing.
+func applyAllocationRule(db *sql.DB, opt crew.Option) error {
+	if len(opt.Target) == 0 {
+		return nil
+	}
+	var tgt allocationRuleTarget
+	if err := json.Unmarshal(opt.Target, &tgt); err != nil {
+		return nil
+	}
+	if tgt.RuleID <= 0 || tgt.Method == "" {
+		return nil
+	}
+	return SetRule(db, int(tgt.RuleID), tgt.Method)
+}
+
+// queueShowbackTasks is period.close's own statement half (C2-SPEC.md
+// section 2): "one showback narration artifact per team is queued as a
+// task for the desk's reporter (the existing task creation path), never
+// sent by this console." One task per (source, team) row of the period
+// JUST frozen -- FrozenPeriod, not a fresh Allocate, because what is owed
+// is a showback about the numbers actually closed, not whatever the estate
+// has moved to by the time this runs -- assigned to "reporter-"+source
+// only when that analyst is on the roster (reporter-aws, reporter-gcp,
+// reporter-azure, reporter-onprem today; a desk with none, ai and saas
+// today, is skipped rather than queued to nobody). sprintID is the sprint
+// the period.close option's own task belongs to, so the showback tasks land
+// beside the close itself rather than on whatever sprint happens to be
+// "current" days or weeks later.
+func queueShowbackTasks(db *sql.DB, period string, sprintID int) error {
+	frozen, err := FrozenPeriod(db, period)
+	if err != nil {
+		return err
+	}
+	roster, err := crew.Roster(db)
+	if err != nil {
+		return err
+	}
+	onRoster := make(map[string]bool, len(roster))
+	for _, a := range roster {
+		onRoster[a.Name] = true
+	}
+	for _, row := range frozen.Teams {
+		reporter := "reporter-" + row.Source
+		if !onRoster[reporter] {
+			continue
+		}
+		title := fmt.Sprintf("Showback narration: %s on %s, %s", row.Team, row.Source, period)
+		goal := fmt.Sprintf("Write the showback narration for %s's %s spend in %s: "+
+			"%s direct, %s allocated, %s total.",
+			row.Team, row.Source, period, row.Direct, row.Allocated, row.Loaded())
+		if _, err := crew.EnsureTask(db, sprintID, title, goal, reporter, row.Source, 0); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

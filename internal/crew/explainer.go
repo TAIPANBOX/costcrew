@@ -96,19 +96,53 @@ func Commission(db *sql.DB, team, topic, audience, author string, amount money.C
 	if strings.TrimSpace(author) == "" {
 		return 0, fmt.Errorf("an explainer with no author is one nobody can ask about")
 	}
+	return draftExplainer(db, team, topic, audience, author, draftBody(team, topic, amount), amount)
+}
+
+// draftExplainer is the one INSERT, shared by Commission (whose body is
+// always draftBody's own team-story template) and PublishArtifact below
+// (whose body is a deliverable's own text, verbatim) -- extracted so the
+// columns are written in one place rather than agreeing by construction
+// between two copies of the same statement.
+func draftExplainer(db *sql.DB, team, topic, audience, author, body string, amount money.Cents) (int, error) {
 	if _, err := db.Exec(ExplainerSchema); err != nil {
 		return 0, err
 	}
 	res, err := db.Exec(`INSERT INTO explainers
 		(team, topic, audience, author, body, state, amount_cents, created)
 		VALUES (?,?,?,?,?,?,?,?)`,
-		team, topic, audience, author, draftBody(team, topic, amount),
+		team, topic, audience, author, body,
 		"draft", int64(amount), time.Now().UTC().Format("2006-01-02"))
 	if err != nil {
 		return 0, err
 	}
 	id, err := res.LastInsertId()
 	return int(id), err
+}
+
+// PublishArtifact drafts an explainer carrying a deliverable's own body
+// verbatim -- never draftBody's team-story template, since the artifact IS
+// the finished story a stamp already approved -- and publishes it in the
+// same call, C8-SPEC.md section 2: "wire explainer.publish ... to
+// crew.Publish". by is the actor whose stamp already applied the option
+// that asked for this (internal/finops.Apply's own actor), recorded as the
+// PERSON's act exactly the way Publish always has been; the difference from
+// Commission-then-Publish is only that no separate draft is left open for a
+// person to read first, because internal/finops.Apply is reachable only
+// AFTER that read already happened -- the option itself is what a stamp
+// just applied.
+func PublishArtifact(db *sql.DB, team, topic, audience, author, body string, amount money.Cents, by string) (int, error) {
+	if strings.TrimSpace(team) == "" || strings.TrimSpace(topic) == "" {
+		return 0, fmt.Errorf("an explainer needs a team and a topic: it is written FOR somebody")
+	}
+	if strings.TrimSpace(author) == "" {
+		return 0, fmt.Errorf("an explainer with no author is one nobody can ask about")
+	}
+	id, err := draftExplainer(db, team, topic, audience, author, body, amount)
+	if err != nil {
+		return 0, err
+	}
+	return id, Publish(db, id, by)
 }
 
 // draftBody is written the way an explainer should be: plainly, for the team,

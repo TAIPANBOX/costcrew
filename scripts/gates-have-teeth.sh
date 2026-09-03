@@ -801,6 +801,21 @@ run_case $'skills are tools: a CTE naming itself charges is allowed again' \
 	$'if withAnywhereRE.MatchString(trimmed) {' \
 	$'if false {'
 
+# C7: ai_calls_query is charges_query's own shape, scoped to ai_calls, and
+# deliberately its OWN file rather than a shared, parameterised check --
+# see internal/deliver's own comment on why (the three cases above plant
+# their mutant by an exact literal match against charges_query.go, and a
+# shared allow-list check would have broken all three). One teeth case,
+# named in C7-SPEC.md section 4 by these exact words: "drop the allow-list
+# scan on ai_calls_query".
+run_case $'skills are tools: ai_calls_query drops its table allow-list' \
+	fail \
+	./tools/run \
+	$'TestAICallsQueryHostileInputs' \
+	$'want refused' \
+	tools/run/ai_calls_query.go \
+	$'if !aiCallsAllowedTables[tb] {' \
+	$'if false {'
 # PARTNER-BUDGETS-RIGHT-SPEC.md, invariant 34: a role family's own reads
 # line is backed by a right the console actually grants. Two mutants, one
 # per direction: dropping budgets-read off stakeholder-briefing reproduces
@@ -834,15 +849,51 @@ run_case $'reads promise: stakeholder-briefing gains a right nothing asked for' 
 # describes, using only internal/crew (already imported here) rather than
 # internal/finops.Apply, because the property under test is that POSTING
 # must not touch an option's state at all, not that the wrong side effect
-# ran.
+# ran. The anchor moved onto C1's own tellOwnerAnomalyExplained call (C1
+# added the `if err == nil {` guard this needle now lives inside of) without
+# changing what the case proves.
 run_case $'options: an analyst'"'"'s Post applies an option' \
 	fail \
 	./internal/web \
 	$'TestOnlyTheOwnersStampAppliesAKeyDecision' \
 	$'Post must apply nothing' \
 	internal/web/work.go \
-	$'\t\t\terr = crew.Post(s.db, id, u.Username, "owner")\n\t\t} else {' \
-	$'\t\t\terr = crew.Post(s.db, id, u.Username, "owner")\n\t\t\tif err == nil {\n\t\t\t\tif opts, _ := crew.Options(s.db, id); len(opts) > 0 {\n\t\t\t\t\t_ = crew.MarkOptionApplied(s.db, opts[0].Artifact, opts[0].Ordinal, u.Username)\n\t\t\t\t}\n\t\t\t}\n\t\t} else {'
+	$'\t\t\t\ts.tellOwnerAnomalyExplained(id)\n\t\t\t}\n\t\t} else {' \
+	$'\t\t\t\ts.tellOwnerAnomalyExplained(id)\n\t\t\t\tif opts, _ := crew.Options(s.db, id); len(opts) > 0 {\n\t\t\t\t\t_ = crew.MarkOptionApplied(s.db, opts[0].Artifact, opts[0].Ordinal, u.Username)\n\t\t\t\t}\n\t\t\t}\n\t\t} else {'
+
+# C1-SPEC.md section 4's own named mutant, "emit before the post instead of
+# after": anomaly_explained is C1's own notification to the anomaly's
+# owner, and it must be a CONSEQUENCE of the post actually having succeeded,
+# never of the attempt. Moving the call ahead of crew.Post makes it fire
+# unconditionally, including on a refused second post (an artifact already
+# posted, "a stamp is not taken back") -- exactly the case
+# TestARefusedSecondPostTellsNobodyTwice exists to catch: after one real
+# post and one refused one, it insists the journal still names the anomaly
+# exactly once.
+run_case 'anomaly desk: emit before the post instead of after' \
+	fail \
+	./internal/web \
+	$'TestARefusedSecondPostTellsNobodyTwice' \
+	$'want still 1' \
+	internal/web/work.go \
+	$'\t\t\terr = crew.Post(s.db, id, u.Username, "owner")\n\t\t\tif err == nil {\n\t\t\t\t// C1-SPEC.md section 2: AFTER the post has actually\n\t\t\t\t// succeeded, never before -- a refused post (an artifact\n\t\t\t\t// already posted) must tell nobody anything, because it did\n\t\t\t\t// not happen.\n\t\t\t\ts.tellOwnerAnomalyExplained(id)\n\t\t\t}' \
+	$'\t\t\ts.tellOwnerAnomalyExplained(id)\n\t\t\terr = crew.Post(s.db, id, u.Username, "owner")'
+
+# Review of this PR's first version found toldAnomalies matching on the
+# event name "anomaly_explained" alone, a false positive: internal/anomaly's
+# own pre-existing, spec-unchanged state-transition emit fires that same
+# name on every Explain/Dismiss/Accept, including the pre-existing direct
+# POST /anomalies/{id}/explain route, which has no owner to tell at all.
+# Dropping the "owner" field check reintroduces exactly that: a direct
+# explain, with nobody ever told, reads "told" again.
+run_case 'anomaly desk: told matches the event name alone, not its owner field' \
+	fail \
+	./internal/web \
+	$'TestDirectExplainDoesNotFalselyMarkTheQueueTold' \
+	$'even though no owner was ever notified' \
+	internal/web/anomaly_told.go \
+	$'\t\tif rec.Event != "anomaly_explained" {\n\t\t\tcontinue\n\t\t}\n\t\tif stringField(rec.Data, "owner") == "" {\n\t\t\tcontinue\n\t\t}\n\t\tif id := stringField(rec.Data, "anomaly"); id != "" {' \
+	$'\t\tif rec.Event != "anomaly_explained" {\n\t\t\tcontinue\n\t\t}\n\t\tif id := stringField(rec.Data, "anomaly"); id != "" {'
 
 # B7: the bench (tools/bench) scores a named cause against the truth a
 # generated fixture's registry already knows, and it can only prove
@@ -972,6 +1023,23 @@ run_case 'due: skip the switch check' \
 	$'if !enabled {' \
 	$'if !enabled && false {'
 
+# C9-SPEC.md section 4's own named mutant, "skip the -due check for a halted
+# desk": CLAUDE.md invariant 33. CadenceDue is the ONE function both -due
+# and Propose route their cadence-due work through, so disabling the check
+# it makes here disables it for both without a second case. `is && false`
+# is deliberate rather than deleting the `if` outright, the same shape
+# invariant 31's own "skip the switch check" case above uses: it keeps the
+# mutation to a single token so a reader can see exactly what was turned
+# off, and the source still compiles with the branch simply never taken.
+run_case 'due: skip the -due check for a halted desk' \
+	fail \
+	./internal/crew \
+	$'TestCadenceDueSkipsAHaltedDeskAndSaysWhy' \
+	$'on the HALTED' \
+	internal/crew/plan.go \
+	$'if _, is := halted[a.Desk]; is {' \
+	$'if _, is := halted[a.Desk]; is && false {'
+
 # B6B-SPEC.md section 4: "a second net/http import under tools/" -- the
 # whole point of moving call() into internal/deliver is that neither binary
 # can open a second door of its own, and the structural test on each side
@@ -1064,6 +1132,231 @@ run_case 'plan-ask: charge the settled cost to nobody' \
 	internal/crew/plan_ledger.go \
 	$'cents := (micros + 9_999) / 10_000' \
 	$'cents := int64(0)'
+# C2-SPEC.md section 4's own named mutant, "accept a target-less
+# allocation.rule": invariant 33 (CLAUDE.md). allocation.rule alone, of
+# every class an analyst's deliverable may name, carries a structured
+# target (rule_id, method, share), and crew.ValidateAndSaveOptions refuses
+# the class's option whole when that target is absent. Disabling the `if
+# o.Class == "allocation.rule"` guard is exactly the sentence's own fault:
+# the save-time gate stops checking the one class it exists to check, and a
+# target-less allocation.rule option is written to artifact_options
+# unrefused.
+run_case 'C2: accept a target-less allocation.rule' \
+	fail \
+	./internal/crew \
+	$'TestAllocationRuleWithNoTargetIsRefused' \
+	$'allocation.rule with no target was accepted' \
+	internal/crew/options.go \
+	$'\t\tif o.Class == "allocation.rule" {' \
+	$'\t\tif false && o.Class == "allocation.rule" {'
+# C8-SPEC.md section 4's own named mutant: "show a refused KPI as zero".
+# executiveFigureLine's Blocked check is what keeps cost-per-outcome (always
+# refused in this console until C7) from ever falling into the value
+# branches below it; removing it does not merely blank the line, because
+# ExecutiveFigure.Numeric is a real float64 that defaults to Go's own zero
+# value when HasVal is false (internal/finops/kpi.go's own comment on the
+# field explains why on purpose) -- so the mutant does not fail to compile
+# or panic, it prints "Cost per business outcome: 0.0 (previous period:
+# refused, ...)", a refusal wearing a number, which is the exact shape this
+# console's own COALESCE history (invariant 24's SUM bug) has been bitten by
+# twice already. @measured 2026-09-03, planting this exact mutation by hand
+# before adding it here.
+run_case 'the executive pack: show a refused KPI as zero' \
+	fail \
+	./internal/deliver \
+	$'TestExecutiveSectionShowsARefusedKPIAsRefusedNeverZero' \
+	$'does not show cost-per-outcome as refused' \
+	internal/deliver/packet.go \
+	$'func executiveFigureLine(f finops.ExecutiveFigure) string {\n\tif f.Blocked != "" {\n\t\treturn fmt.Sprintf("%s: refused, %s\\n", f.Name, f.Blocked)\n\t}\n\tif !f.HasVal {\n\t\treturn "" // neither a value nor a refusal: nothing here to say, never invented\n\t}\n\tif !f.HasPeriod {' \
+	$'func executiveFigureLine(f finops.ExecutiveFigure) string {\n\tif !f.HasPeriod {'
+# C5-SPEC.md section 4's own named mutant, "rank by current cost": the
+# optimizer's packet section ranks its recommendations by saving, and this
+# swaps the comparator to read Current (the resource's own size string,
+# e.g. "m5.2xlarge") instead of MonthlySavingCents. Go allows > on
+# strings, so this still compiles.
+#
+# @measured 2026-09-03, planting this exact mutation by hand: the golden
+# fixture's own five rows happen to keep i-0a1b... ahead of i-0b2c... under
+# EITHER comparator (their Current strings sort the same way their savings
+# do, by coincidence), so a test that checks only that one pair passes
+# right through the mutant. TestRecommendationsSectionCapsAtTenWithAndNMore
+# does not share that coincidence: its twelve planted rows all carry the
+# SAME Current value, so the mutated comparator degenerates entirely to
+# the resource-name tie-break and cuts the two HIGHEST-saving rows instead
+# of the two lowest. TestRecommendationsSectionRanksBySavingFromAFixtureImport
+# was rewritten to check the full five-row order rather than one pair, so
+# it now catches the same mutant too.
+#
+# Coordinator review of PR #34, 2026-09-03, found that this case only ever
+# mutated the comparator's copy in internal/deliver, while web's own
+# /rightsizing page carried an identical, separately-maintained copy this
+# case never touched: a mutation planted directly in the page's own copy
+# compiled clean and passed the whole internal/web suite, since nothing
+# there checked row order either. The comparator now lives in exactly one
+# place, connectors.RankBySaving (internal/connectors/rightsizing.go), and
+# both deliver.recommendationsSection and the page call it rather than
+# each carrying their own copy, so this one case protects both callers by
+# construction. Retargeted here at RankBySaving's own direct test, the
+# fastest of the (now three) tests this mutation breaks -- the other two,
+# TestRecommendationsSectionCapsAtTenWithAndNMore /
+# TestRecommendationsSectionRanksBySavingFromAFixtureImport (internal/deliver)
+# and TestTheRightsizingPageOrdersRowsBySavingNotBySize (internal/web),
+# are not wired into their own run_case, the same "either one going
+# toothless should still be caught by the other" reasoning this file
+# already uses elsewhere: all three were @measured 2026-09-03 against this
+# exact mutation by hand (PR report has the transcripts).
+run_case 'rightsizing: rank by current cost instead of saving' \
+	fail \
+	./internal/connectors \
+	$'TestRankBySavingOrdersDescendingWithResourceTiebreak' \
+	$'position 0: got res-0, want res-3' \
+	internal/connectors/rightsizing.go \
+	$'if recs[i].MonthlySavingCents != recs[j].MonthlySavingCents {\n\t\t\treturn recs[i].MonthlySavingCents > recs[j].MonthlySavingCents\n\t\t}' \
+	$'if recs[i].Current != recs[j].Current {\n\t\t\treturn recs[i].Current > recs[j].Current\n\t\t}'
+# C6: vendor seat and renewal data from a saas-seats CSV. C6-SPEC.md section
+# 4 names three mutants by their own words; these are them.
+#
+# "compute waste with floats": 29 idle seats at one cent each is 29 cents
+# exact in int64 arithmetic. A dollars-then-back-to-cents float64 round trip
+# (idle*perSeat/100.0*100.0, truncated the way a naive rewrite would do it)
+# lands on 28.999999999999996 and truncates to 28 -- @measured, python3:
+# `29/100*100` is `28.999999999999996`. Most cent amounts survive the same
+# round trip exactly, which is why this needed a specific value rather than
+# any row in the fixture, and why the fixture's own four rows (chosen for
+# the calendar's day-boundary cases below) are round numbers that would not
+# have caught it.
+run_case 'C6: idle-seat waste computed through a float64 round trip' \
+	fail \
+	./internal/connectors \
+	$'TestSaasSeatsWasteIsCentsExactNotFloatRounded' \
+	$'does not say 0.29 wasted' \
+	internal/connectors/saasseats.go \
+	$'s.WasteCents += money.Cents(int64(idle) * row.PerSeatCents)' \
+	$'s.WasteCents += money.Cents(float64(idle) * float64(row.PerSeatCents) / 100.0 * 100.0)'
+
+# "drop the notice deadline": the calendar's own reason for being read by
+# the saas-portfolio-manager (roles.yaml: "the renewal calendar ninety days
+# out") is the deadline, not the renewal date alone -- a renewal date with
+# no notice deadline beside it is a date, not a decision with a deadline.
+run_case 'C6: the notice deadline line is dropped from the renewal calendar' \
+	fail \
+	./internal/deliver \
+	$'TestRenewalsSectionListsTheCalendarWithNoticeDeadlines' \
+	$'notice deadline: 2026-08-19' \
+	internal/deliver/packet.go \
+	$'\t\tdeadline := l.NoticeDeadline()\n\t\tfmt.Fprintf(&b, "  notice deadline: %s%s\\n", deadline, noticeStatus(deadline, today))\n\t\tfmt.Fprintf(&b, "  issued/active:   %d/%d over %d days (idle %d)\\n",' \
+	$'\t\tfmt.Fprintf(&b, "  issued/active:   %d/%d over %d days (idle %d)\\n",'
+
+# "invent a benchmark figure when none exists": there is no benchmark
+# connector anywhere in this practice today (the same honest gap
+# roles.yaml's benchmarking-analyst family names for the estate's own
+# KPIs), so a number here is never a measurement -- C6-SPEC.md section 2:
+# "never a number without a source".
+run_case 'C6: a benchmark figure is invented where none exists' \
+	fail \
+	./internal/deliver \
+	$'TestRenewalsSectionSaysNoBenchmark' \
+	$'want 3 (once per renewal' \
+	internal/deliver/packet.go \
+	$'\t\tb.WriteString("  benchmark:       no benchmark\\n")' \
+	$'\t\tfmt.Fprintf(&b, "  benchmark:       %s (industry average)\\n", l.PerSeat)'
+# C3-SPEC.md section 4's three named mutants. Invariant 32 (CLAUDE.md), "a
+# registered driver moves the projection by its own measured effect ... and
+# a frozen forecast remembers which drivers it already knew about".
+#
+# The first two both target ProjectWithDrivers's own single division line:
+# ONE multiply-then-divide, done once per driver, is the whole of how a
+# recurring driver's rate repeats across a window wider than what has
+# landed AND how that repetition stays cents-exact. Each case mutates the
+# SAME source line to a different fault and is judged against a DIFFERENT
+# test, so the two cases never collide on a shared tree: run_case restores
+# with git between every one.
+# sofar*windowDays/windowDays is sofar, exactly, for any windowDays >= 1 (the
+# only value daysBetween ever returns): a mutation that still COMPILES
+# (windowDays stays referenced, so nothing is left unused) while dividing the
+# window straight back out, which is what "applied once, un-extended across
+# its own window" amounts to in this line.
+run_case 'forecast: a recurring driver applies its effect once, un-extended' \
+	fail \
+	./internal/finops \
+	$'TestProjectWithDriversRepeatsARecurringDriverAcrossItsWindow' \
+	$'want 10.00' \
+	internal/finops/forecast.go \
+	$'effect = money.Cents(int64(sofar) * int64(windowDays) / int64(landed))' \
+	$'effect = money.Cents(int64(sofar) * int64(windowDays) / int64(windowDays))'
+
+run_case 'forecast: a driver rate rounds to the cent before its window multiplies it' \
+	fail \
+	./internal/finops \
+	$'TestProjectWithDriversRoundsOnceMultiplyingBeforeDividing' \
+	$'want 233' \
+	internal/finops/forecast.go \
+	$'effect = money.Cents(int64(sofar) * int64(windowDays) / int64(landed))' \
+	$'effect = money.Cents((int64(sofar) / int64(landed)) * int64(windowDays))'
+
+run_case 'forecast: the largest miss grades a live figure instead of the frozen one' \
+	fail \
+	./internal/finops \
+	$'TestLargestMissGradesTheFrozenFigureNotALiveOne' \
+	$'want the FROZEN 154.00' \
+	internal/finops/forecast.go \
+	$'\treturn Miss{Forecast: top, MissedDrivers: missed}, true, nil\n' \
+	$'\tlive, _, _, _ := ProjectWithDrivers(db, top.Source, top.Period)\n\ttop.Forecast = live\n\treturn Miss{Forecast: top, MissedDrivers: missed}, true, nil\n'
+# C4-SPEC.md section 4's three named mutants.
+
+# (a) "compute coverage with floats": rounding both sides to the nearest
+# whole dollar before dividing, via integer truncation rather than
+# money.Pct's own direct cents ratio. TestCoverageIsCommittedOverEligiblePerDeskAndMonth
+# would NOT catch this on its own -- 150000/200000 are both exact multiples
+# of 100, so truncating to dollars first and the correct cents ratio agree
+# by coincidence -- which is exactly why the dedicated fixture exists.
+run_case 'commitments: coverage rounds through dollars first' \
+	fail \
+	./internal/finops \
+	$'TestCoverageDoesNotRoundThroughDollarsFirst' \
+	$'want close to 33.3' \
+	internal/finops/commitments.go \
+	$'r.Pct, r.OK = money.Pct(r.CommittedCents, r.EligibleCents)' \
+	$'r.Pct = float64(int64(r.CommittedCents)/100) / float64(int64(r.EligibleCents)/100) * 100\n\t\tr.OK = r.EligibleCents != 0'
+
+# (b) "count a Purchase row as usage": the ChargeCategory=Purchase routing
+# check in processFocusFile is disabled, so a commitment's own price falls
+# through to ai_calls and inflates the desk's derived Usage charges.
+run_case 'commitments: a Purchase row counted as usage' \
+	fail \
+	./internal/connectors \
+	$'TestPurchaseRowsAreNeverCountedAsUsage' \
+	$'' \
+	internal/connectors/tokenfusefocus.go \
+	$'if focusField(rec, col, "ChargeCategory") == "Purchase" {' \
+	$'if focusField(rec, col, "ChargeCategory") == "Purchase" && false {'
+
+# (c) "put purchase into the apply table": applySideEffect grows a real case
+# for the one class roles.yaml's own classes: list gives owner "nobody" --
+# never a decision the console applies, only ever an option a person acts on
+# outside it (crew.MayDecide refuses it before Owner is even read). The
+# planted case reuses driver.one-time's own body, the cheapest real side
+# effect this table already has an example of.
+#
+# Needle changed during Phase C integration: DRIVER-WINDOW-SPEC.md's own
+# target guard in applyDriver (internal/finops/apply.go) now refuses a
+# one-time driver with no target and no anomaly BEFORE it would ever reach
+# the drivers-row write, so this mutation is caught one layer earlier than
+# when this case was written -- by applyDriver's own guard, not by
+# TestApplyingPurchaseHasNoSideEffect's row-count assertion. The test still
+# fails (t.Fatal on the returned error) and the underlying property this
+# case exists to prove -- purchase never writes a real side effect -- still
+# holds, now doubly so. Verified by hand: applying this exact mutation prints
+# "driver.one-time was applied with no target naming its window (and no
+# anomaly to take a day from): recorded only, no drivers row written".
+run_case 'commitments: purchase in the apply table' \
+	fail \
+	./internal/finops \
+	$'TestApplyingPurchaseHasNoSideEffect' \
+	$'no drivers row written' \
+	internal/finops/apply.go \
+	$'	case "driver.one-time": // class:driver.one-time' \
+	$'	case "purchase": // planted by gates-have-teeth.sh, must be caught\n\t\treturn applyDriver(db, opt, t, "one-time")\n\tcase "driver.one-time": // class:driver.one-time'
 
 # DRIVER-WINDOW-SPEC.md section 4's own first-named mutant: "write
 # Start = End = day ignoring the target". applyDriver's whole fix was

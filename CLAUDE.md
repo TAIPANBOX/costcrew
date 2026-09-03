@@ -56,9 +56,9 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 602 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 77 cases; needs a clean tree; @measured `time ./scripts/gates-have-teeth.sh` 2026-09-03, 4m54s, 77 passed 0 failed
-./scripts/features-are-bound.sh      # 136 scenarios, both directions
+go test ./...                        # 827 tests, 20 packages
+./scripts/gates-have-teeth.sh        # 93 cases; needs a clean tree; ~6m08s
+./scripts/features-are-bound.sh      # 189 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
@@ -80,9 +80,10 @@ actually true both before and after); `grep -rc Scenario: features/*.feature`;
 2026-09-03); nothing here keeps them current automatically, so they lag whichever
 branch last updated them by hand (B1a's own merge left this block at 282/48/59
 while its own PR body reported 301/52/70). Invariants 1, 2 and 5's own route
-counts (48/30/30 -> 50/34/34) were also re-measured while touching this file for
-B5, since the new /cadence routes are directly what moved them. B6b (this file's
-own invariant 32) moved 515 -> 528 tests (internal/deliver gained 8, 3 of them
+counts (48/30/30 -> 50/34/34 for B5, then 50/35/35 for C9's one new write route,
+`/desk/{name}/lift`) were re-measured while touching this file each time, since
+the routes each PR added are directly what moved them. B6b (this file's own
+invariant 32) moved 515 -> 528 tests (internal/deliver gained 8, 3 of them
 moved from tools/run rather than new; tools/run's own count fell by 2, net of
 one new structural test; tools/bench gained 7, 5 in the first pass and 2 more
 in coordinator review's -stack-host fix) and 67 -> 69 gates-have-teeth.sh
@@ -138,6 +139,29 @@ the dispatch-level reproduction) and 75 -> 77 gates-have-teeth.sh cases
 (2 new). This PR touches no route and adds none; every invariant's own
 route count is unchanged.
 
+C5 re-measured the same way, with the SAME grep bug this file carried until
+today: 515/68/105 was stated at the time as `main`'s own numbers at #28's
+merge, but the true `run_case` count there (corrected grep) is 67, not 68 --
+515/67/105 is what the three commands, run correctly, actually give at
+602fa25. Only invariant 1's own route count had drifted for an unrelated
+reason, 50 stated against 56 actual GET routes in `server.go` at that same
+commit, unnoticed since B5 because nothing that landed between the two
+touched a route AND this file in the same PR. 515/67/105 -> 532/68/114 is
+C5's own original delta (17 tests: 9 in `internal/connectors`, 5 in
+`internal/deliver`, 3 in `internal/web`; one `run_case`, C5-SPEC.md's own
+named mutant; nine scenarios, `features/rightsizing.feature`); 56 -> 57 is
+the one route this branch adds.
+
+Re-measured again 2026-09-03 after coordinator review of PR #34: two more
+tests (10 in `internal/connectors`, 4 in `internal/web`, both up by one),
+without adding a route, a scenario or a `run_case` (the existing
+"rightsizing: rank by current cost" case is retargeted at its new location
+instead of a second one being added -- invariant 38's own gate list says
+where). 532/68/114 -> 534/68/114, and the harness itself, run on the
+resulting clean committed tree, printed `teeth: 68 passed, 0 failed` --
+the one number in this whole block that is `@measured` rather than
+`@claude`'s arithmetic on top of a grep.
+
 The gates in this repo are Go tests rather than shell scripts, so
 `gates-have-teeth.sh` mutates the PRODUCT and requires the test to go red.
 Read its header before adding a case: two of its properties exist because Go
@@ -157,7 +181,7 @@ an absent invariant.
    `/logout`, `/healthz` and `/static/` genuinely answer anybody; `/signup` is
    open only while nobody can administer the installation (invariant 10); and
    `/calendar` and `/stats` are aliases that redirect to a guarded page.
-   *(gate: `TestEveryRouteRequiresASession`, which walks all 50 GET routes
+   *(gate: `TestEveryRouteRequiresASession`, which walks all 57 GET routes
    registered in `server.go`. Its regexp is anchored to the registration and
    not to the string `HandleFunc`, because it once fired on a route named in a
    COMMENT, and a gate that fires on prose gets deleted the first week.)*
@@ -548,11 +572,15 @@ an absent invariant.
     it (`anomaly.Explain/Dismiss/Accept`, `finops.Freeze/Close/Reopen`,
     `estate.InsertDriver`, extracted from `Seed`'s own inline insert so a
     second caller does not copy the column order by hand); three classes
-    (`allocation.rule`, `budget.set`, `explainer.publish`) are recorded only
-    for now, because the generic option shape carries no rule id, team,
-    month or explainer id for them to act on, and inventing one would be
-    exactly `commit money`'s neighbour on the never-list, "invent a number it
-    was not given" -- see the PR body. Applying one option marks every OTHER
+    (`allocation.rule`, `budget.set`, `explainer.publish`) were recorded only
+    at the time this invariant was written, because the generic option shape
+    carried no rule id, team, month or explainer id for them to act on, and
+    inventing one would be exactly `commit money`'s neighbour on the
+    never-list, "invent a number it was not given" -- see the PR body.
+    `allocation.rule` gained the companion field this paragraph describes the
+    lack of (invariant 35, C2-SPEC.md); `budget.set` and `explainer.publish`
+    still have none and are recorded only exactly as this paragraph
+    originally found them. Applying one option marks every OTHER
     live option of the SAME deliverable, and every live rival option of a
     DIFFERENT deliverable answering the same `anomaly.explain` question (next
     paragraph), `not_chosen` (`crew.LiveRivalsOf`, called from inside `Apply`
@@ -763,7 +791,12 @@ an absent invariant.
     KiB cap is reached, so whatever is appended last is trimmed first, and
     everything appended earlier is untouched unless that alone is not
     enough. Nothing else about the cap changed; making this order explicit,
-    in the one place it is decided, is this invariant. `ownHistorySection`
+    in the one place it is decided, is this invariant. C7-SPEC.md extends
+    the list of sections this holds for: `aiSpendSection` and
+    `unitEconomicsSection` (invariant 34) are appended in the same tier as
+    `reportingSection` and `forecastingSection`, after the anomaly and
+    before `ownHistorySection`, so memory still yields first under the cap
+    even on the AI desk. `ownHistorySection`
     is skipped ENTIRELY, not merely trimmed, when `hideDriver` is true: a
     past posted deliverable's own option can name the very driver a bench
     run is hiding (a recurring cause explained before is exactly the case
@@ -774,7 +807,10 @@ an absent invariant.
     (`internal/deliver`), which forces a packet over 12 KiB on a real
     anomaly and requires the anomaly section whole, the history section's
     newest entry present, its oldest entry missing, and the packet ending in
-    the truncation note. `TestOwnHistoryShowsTheAnalystsOwnLastPostedDeliverable`,
+    the truncation note; `TestAISpendAndUnitEconomicsYieldBeforeMemoryUnderTheCap`
+    holds the same property for C7's two additions, forcing the cap with a
+    real AI-desk import and a long run of past posted deliverables and
+    requiring the AI spend section whole. `TestOwnHistoryShowsTheAnalystsOwnLastPostedDeliverable`,
     `TestOwnHistoryShowsExactlyThreeNewestFirst`,
     `TestOwnHistoryHidesAnotherAnalystsDeliverableOnTheSameDesk`,
     `TestOwnHistoryHidesTheSameAnalystsDeliverableOnAnotherDesk` and
@@ -1017,8 +1053,878 @@ an absent invariant.
     B4-STEP-TWO-SPEC.md section 6 names: accepting an item without a ref,
     skipping the headroom check, letting `budget_cents` go up, and charging
     the settled cost to nobody.)*
+34. **The AI desk's own figures are real, not generated, and a query
+    against them reaches only `ai_calls`.** C7-SPEC.md. `ai-spend`'s packet
+    (`aiSpendSection`) and `unit-econ-ai`'s (`unitEconomicsSection`), both in
+    `internal/deliver/packet.go`, read `ai_calls` directly rather than the
+    daily `charges` ledger: this month's calls grouped by agent
+    (`ResourceId`) and by model, cost in Micros summed once and never
+    rounded per call (invariant 25), the blocked count named as the guard's
+    saving rather than folded into cost, the estimated share of
+    `x_cost_basis`, and (for `unit-econ-ai`) a cost per outcome per agent
+    with the denominator named, or, for an agent that spent and tagged
+    nothing, said plainly rather than invented. Neither section takes a desk
+    argument: `ai_calls` has no desk column at all, by construction, and
+    both are omitted entirely -- not a header over nothing -- until real
+    spend has landed, gated by the skills only these two roles hold
+    (`ai-spend-analysis`/`token-economics`/`model-routing-review`,
+    `unit-economics`/`cost-per-outcome`), the same convention every other
+    skill-gated section in that file already follows.
+    `cost-per-outcome` (`internal/finops/kpi.go`, `CostPerOutcome`) is the
+    same figure at the whole-desk grain: every agent that spent this month
+    contributes its WHOLE cost to the numerator and every outcome any of
+    them tagged contributes one to the denominator, so an agent that spent
+    and tagged nothing still counts in the cost rather than being quietly
+    excluded from a ratio that would otherwise look better for having
+    counted less; it reports once any outcome exists and refuses -- naming
+    the count of agents that spent and set none -- only when nothing does,
+    replacing the unconditional refusal this KPI carried before this step.
+    `agent-attribution` is unchanged: it already read this correctly (proven
+    by `TestAgentAttributionKPIBecomesComputedAfterAnImport`, from B0, and,
+    for the half that test leaves untried -- real spend landing on a
+    different desk first -- by `TestAgentAttributionRefusesWithRealAWSSpendAndNoRealAISpend`,
+    which plants a real `aws` charge directly since no connector in this
+    repository writes one today).
+    `ai_calls_query` (`tools/run/ai_calls_query.go`) is `charges_query`'s own
+    shape -- the same identifier allow-list scan against `sqlite_master`,
+    `WITH` banned unconditionally, the same read-only connection and forced
+    `LIMIT` -- scoped to `ai_calls` alone, and granted by `figures-read`
+    rather than `sql-readonly`: both AI desk roles already hold
+    `figures-read` to read `ai_calls` at all (`roles.yaml`'s own `reads`
+    line for each), and `sql-readonly` stays `charges_query`'s own broader
+    right over `charges`, `drivers` and `attribution`, untouched by this
+    step. `charges_query.go` itself is byte-for-byte unchanged: three of its
+    own `gates-have-teeth.sh` cases plant their mutant by an exact literal
+    match against that file's text, and a refactor sharing the allow-list
+    check between the two tools would have silently broken all three (their
+    mutation would find nothing to replace and report BROKEN, not a caught
+    fault) -- so `ai_calls_query.go` calls every table-agnostic helper
+    `charges_query.go` already exports (`tokenizeSQL`, `identifierTokens`,
+    `tablesInSQL`, `realTableNames`, `wrapWithLimit`, `chargesCellString`,
+    `renderChargesTable`, `startsWithSelect`, the banned-keyword and `WITH`
+    regexes) rather than copying them, and writes out only the two checks
+    that actually depend on which table is allowed.
+    *(gate: `TestAISpendSectionNamesTheAgentAndTheModel`,
+    `TestAISpendSectionCountsBlockedCallsAsTheSaving`,
+    `TestUnitEconAIPacketNamesCostPerOutcomeFromTheFixture`,
+    `TestUnitEconAIPacketNamesAgentsWithCostAndNoOutcome`,
+    `TestAISpendSectionWithOneCallThisMonth`,
+    `TestAISpendSectionCapsAtTenWithAndNMore`,
+    `TestAISpendSectionStaysBoundedWithAHugeOutcomeValue`,
+    `TestPacketOmitsAIDeskSectionsWithoutTheSkill` and
+    `TestAISpendSectionEmptyWithoutRealData` (`internal/deliver`) hold the
+    two sections; `TestAIByModelCountsCallsTokensCostAndBlocked`,
+    `TestOutcomeCountsByAgentCountsOnlyNonBlockedTaggedCalls`,
+    `TestBasisCountsSplitsSettledEstimatedBlocked`,
+    `TestCostPerOutcomeReportsOnceAnyOutcomeExists`,
+    `TestCostPerOutcomeCountsAnAgentWithCostAndNoOutcome`,
+    `TestCostPerOutcomeRefusesWithACountWhenNoOutcomeExists`,
+    `TestCostPerOutcomeRefusesOnAnEmptyMonth`,
+    `TestCostPerOutcomeSumsMicrosExactlyNotCentsPerRow`,
+    `TestCostPerOutcomeKPIReportsAfterTheFixtureImport`,
+    `TestCostPerOutcomeKPINotesPartialCoverage` and
+    `TestCostPerOutcomeKPIRefusesWithACountBeforeAnyImport` (`internal/finops`)
+    hold the KPI and its queries -- the last of these is also the regression
+    this step's own red-first pass found: `CostPerOutcome`'s first version
+    queried `ai_calls` unconditionally and turned a store with no `ai_calls`
+    table at all (which `TestAgentAttributionKPIBecomesComputedAfterAnImport`
+    already builds, for its own "before" half) into a hard error for the
+    WHOLE KPI library, exactly the failure mode this file's own header
+    already warns `KPIs()` against; `aiCallsTableExists` fixed it.
+    `TestAICallsQueryHostileInputs` reuses `TestChargesQueryHostileInputs`'
+    own list verbatim, adjusted for the different allow-list (every case
+    naming `charges` as the allowed table now names `ai_calls`; `charges`
+    itself becomes a must-refuse case), plus the two hostile cases this step
+    names by name (a `ResourceId` with a quote in it, reached as a string
+    literal rather than a table reference; a 1 MB `x_outcome` value, refused
+    on size); `TestAICallsQueryAnswersOverAICallsAndRefusesCharges` is the
+    same property end to end through the dispatcher;
+    `TestAICallsQueryIsGrantedByFiguresReadNotSQLReadonly` and
+    `TestAICallsQueryRefusesAnAnalystWithNoRights` hold the right (`tools/run`).
+    `scripts/gates-have-teeth.sh`'s `ai_calls_query: drops its table
+    allow-list` case plants this step's own named mutant (`if
+    !aiCallsAllowedTables[tb] {` -> `if false {`) against
+    `TestAICallsQueryHostileInputs`; the sum-cents-per-row mutant (rounding
+    each agent's cost to its own nearest cent before summing, rather than
+    summing exact Micros once) and the count-blocked-as-cost mutant
+    (dropping `-r.BlockedCalls` from `CostPerOutcome`'s "did this agent
+    spend" gate, so a blocked-only agent is counted as having spent and
+    tagged nothing) were planted by hand and reverted rather than kept as
+    permanent cases, caught by `TestCostPerOutcomeSumsMicrosExactlyNotCentsPerRow`
+    and `TestCostPerOutcomeCountsAnAgentWithCostAndNoOutcome` respectively --
+    the same shape invariants 26, 27 and 31's own history already describes
+    for this repository, named in the PR body with the exact diff and the
+    failing test's output.)*
+35. **A chargeback period's close carries real weight now: the packet the
+    chargeback analyst reads is built from the SAME allocation this console
+    renders on its own pages, `allocation.rule` is refused without a
+    structured target naming which rule and method, and applying
+    `period.close` queues the statements rather than only freezing a
+    number.** C2-SPEC.md. `@yurii 2026-09-02`, the ask this step serves:
+    "більш повною мірою замінити людей на цих посадах" -- a chargeback
+    analyst's last three days of the month: reconcile, allocate, freeze,
+    send the statements, answer the arguments.
 
-34. **A driver written from an option carries the window the option named,
+    `internal/deliver.closePackSection` triggers on the ROLE (the
+    chargeback-analyst family, via `crew.RoleForDesk`) and the task's own
+    TITLE naming a period (`\d{4}-\d{2}`, the same shape `finops.Allocate`'s
+    own period key already uses), because this family's single `cadence`
+    line in `roles.yaml` -- "weekly, and the close pack monthly" -- covers
+    two different kinds of task on the SAME analyst, and only the title
+    tells the packet builder which one it is looking at. It reads
+    `finops.Allocate`, `finops.Rules`, the new `finops.UnallocatedPots`
+    (each unallocated pot with the RULE id, or none, that left it there --
+    `Allocate`'s own inline rule resolution, extracted into `ruleFor` so the
+    two can never disagree about which pot is unallocated or why) and
+    `finops.TrueUpFor`, and the new `finops.InvoiceReconciliation` (grouping
+    a period's `charges` by `invoice_id`, cents-exact, with one sentence --
+    "no invoice column is loaded" -- when not one row carries one). It is
+    appended in `Packet()` after the anomaly-related sections and before
+    `ownHistorySection`: "yields before memory, after the anomaly" is
+    C2-SPEC.md's own words for that exact place, and invariant 30's own
+    ordering (memory appended last, so it is always what yields first once
+    the cap is reached) is otherwise unchanged.
+
+    `allocation.rule` options now carry a `target` object (`{"rule_id",
+    "method", "share"}`, `crew.Option.Target`, a new nullable
+    `artifact_options.target` column -- `crew.EnsureOptionTarget` migrates
+    an installation from before it) and `crew.ValidateAndSaveOptions`
+    refuses the WHOLE deliverable's options, the same way an
+    out-of-vocabulary class already does, when that class's target is
+    absent, malformed, or carries a `share` outside 0 to 1 -- structural and
+    range checks only, because whether `rule_id` actually names a rule, and
+    whether `method` is one `finops.SetRule` accepts, both need
+    `internal/finops`, which already imports this package (`apply.go`), so
+    the reverse import would cycle; those two are refused instead when the
+    option is actually APPLIED, by `finops.SetRule`'s own existing checks,
+    reused rather than duplicated. `internal/finops.Apply`'s `case
+    "allocation.rule"` decodes the target with its own local type and calls
+    `finops.SetRule`; a target that fails to decode, or is simply absent (an
+    option saved before this feature existed, or a direct caller bypassing
+    the save-time gate the way `TestApplyAnUnwiredClassIsRecordedOnly`
+    already does for other classes), is left exactly as "recorded only"
+    always was -- no error, nothing invented. `budget.set` and
+    `explainer.publish` are unchanged, still recorded-only, for the same
+    reason `apply.go`'s own comment already gives.
+
+    Applying `period.close` -- always the OWNER's stamp: its `roles.yaml`
+    owner is `owner`, so the supervisor's own auto-apply pass never reaches
+    it regardless of the figure, and it is always carried into a decision
+    request -- freezes the period (unchanged) and then queues one task per
+    (source, team) row of the period JUST frozen, titled to name the team,
+    its desk and the period, assigned to `"reporter-"+source` when that
+    analyst is on the roster (`reporter-aws`, `reporter-gcp`,
+    `reporter-azure`, `reporter-onprem` today; a desk with none, `ai` and
+    `saas` today, is skipped rather than queued to nobody) so that analyst's
+    own `commentary.showback` duty (`roles.yaml`'s `reporter` family) has a
+    task to answer. `crew.EnsureTask` is `EnsureSupervisorTask`'s own
+    find-or-create shape (dedupe key: sprint, assignee, title), generalised
+    rather than copied a second time, and `EnsureSupervisorTask` itself is
+    now a one-line call through it. No statement is SENT by this console:
+    queuing the task is the whole of what "send the statements" means here,
+    and the reporter's own deliverable, once written and stamped, is what a
+    person actually sends.
+    *(gate: `TestClosePackSectionAppearsOnAChargebackTaskNamingAPeriod`,
+    `TestClosePackSectionAbsentWithoutAPeriodInTheTitle`,
+    `TestClosePackSectionAbsentForANonChargebackRole`,
+    `TestClosePackSectionNamesNoPreviousClose`,
+    `TestClosePackSectionSaysNothingHasMovedSinceTheClose`,
+    `TestClosePackSectionShowsTheTrueUpWhenSomethingMoved`,
+    `TestClosePackSectionSaysNoInvoiceColumnIsLoaded`,
+    `TestClosePackSectionReconcilesInvoicesWhenPresent`,
+    `TestClosePackSectionComesBeforeMemoryInThePacket` for the packet
+    section (the true-up's three branches -- a real delta, a close with
+    nothing since, no previous close at all -- each now own a test, where
+    only the third did before this fix);
+    `TestUnallocatedPotsSumToTheAllocationsOwnUnallocatedTotal`,
+    `TestUnallocatedPotsNameTheRuleThatLeftEachOne`,
+    `TestUnallocatedPotsNameNoRuleWhenNoneCoversTheCategory`,
+    `TestInvoiceReconciliationSaysNoColumnIsLoadedWhenNoneIs`,
+    `TestInvoiceReconciliationGroupsByInvoiceToTheCent`,
+    `TestInvoiceReconciliationIsCentsExactWhereFloatWouldLoseACent` for the
+    two new `internal/finops` readers; `TestAllocationRuleWithNoTargetIsRefused`,
+    `TestAllocationRuleTargetHostileInputs` (a share of 1.5, a negative
+    share, a 1 MB target -- caught by the existing 64 KiB whole-block cap
+    rather than a second one, a missing/zero/negative `rule_id`, no
+    `method`), `TestAllocationRuleTargetIsAcceptedEvenWithAnUnknownRuleId`,
+    `TestAllocationRuleWithAValidTargetIsSaved` for the save-time gate;
+    `TestApplyAllocationRuleWithATargetCallsSetRule`,
+    `TestApplyAllocationRuleWithNoTargetIsANoOp`,
+    `TestApplyAllocationRuleWithAnUnknownRuleIDFails` for the apply-time
+    wiring; `TestSavingAnAllocationRuleOptionNeverAppliesItBeforeAnyStamp`
+    (`tools/run`, where `saveDraft` calls `crew.ValidateAndSaveOptions` and
+    is the one place a save-time wiring mistake could actually reach
+    `internal/finops`, since `tools/run` already imports both) for the
+    ordering between saving a proposal and an owner's stamp applying it;
+    `TestApplyPeriodCloseQueuesOneReporterTaskPerTeam`,
+    `TestApplyPeriodCloseQueuesATaskForATeamWithZeroAllocatedShare`,
+    `TestApplyPeriodCloseSkipsADeskWithNoReporter` for the statements;
+    `TestChargebackPageShowsTheLastCloseBesideTheLive`,
+    `TestChargebackPageSaysNoPreviousCloseWhenNoneExists` for the page;
+    `TestFocusReaderCarriesInvoiceIdWhenTheColumnIsPresent`,
+    `TestFocusReaderLeavesInvoiceIdNullWhenTheColumnIsAbsent`,
+    `TestEnsureFocusSchemaAddsInvoiceIdColumns` for the FOCUS reader's own
+    optional column. `scripts/gates-have-teeth.sh`'s `C2: accept a
+    target-less allocation.rule` case plants exactly the fault its name
+    says: disabling the save-time target check in
+    `crew.ValidateAndSaveOptions` so an `allocation.rule` option with no
+    target is written anyway. The other two mutants C2-SPEC.md section 4
+    names are each named here with the test that catches them, planted by
+    hand and reverted rather than kept as permanent cases, the same shape
+    invariant 27's own history already describes for this file: reconciling
+    a period's invoices through a `float64` dollar accumulator
+    (`sum += float64(cents)/100.0` per row, converted back with no rounding
+    at all) instead of `InvoiceReconciliation`'s own SQL `SUM(billed_cents)`
+    in integer cents, caught by
+    `TestInvoiceReconciliationIsCentsExactWhereFloatWouldLoseACent` -- a
+    fixture chosen BECAUSE it breaks that arithmetic (29 and 57 cents under
+    one invoice: the exact sum is 86, the mutant's is 85), unlike a
+    round-half-up float64 accumulator, which this repository's own
+    `TestCostIsNeverParsedThroughFloat64` (invariant 25) already shows can
+    be exact at everyday amounts and would not have gone red on this same
+    fixture; and applying `allocation.rule`'s target immediately inside
+    `saveDraft`, right after `ValidateAndSaveOptions` reports the option
+    saved rather than refused, instead of waiting for the owner's own POST
+    to `/option/.../apply` (`internal/web/decisions.go`'s `optionAction`,
+    the only production caller of `finops.Apply`), caught by
+    `TestSavingAnAllocationRuleOptionNeverAppliesItBeforeAnyStamp`:
+    `internal/crew` cannot import `internal/finops` at all (`apply.go`
+    already imports `crew`, so the reverse would cycle), so this exact
+    mistake cannot even compile inside `ValidateAndSaveOptions` itself, but
+    `tools/run` imports both, and `saveDraft` is where a wiring mistake
+    written there instead actually would.)*
+36. **A refused KPI in the executive pack reads as a refusal, never as a
+    zero, and explainer.publish is no longer text only.** C8-SPEC.md.
+    `finops.Executive` names the four numbers roles.yaml's own
+    executive-reporter owes (`allocation-coverage`, `unallocated-share` and
+    `agent-attribution`, the only three of the twelve KPIs that vary with a
+    period at all, plus `cost-per-outcome`, which never computes in this
+    console until C7 and is therefore guaranteed to exercise the refusal on
+    any estate) ONCE, so the packet `internal/deliver.executiveSection`
+    builds and any future page reading the same figures cannot disagree
+    about which four. `ExecutiveFigure.Numeric` is a real `float64` that
+    defaults to Go's own zero value when the KPI has none -- deliberately,
+    the same shape this file's own COALESCE history (invariants 24 and 25's
+    own SUM bugs) has already been bitten by twice -- so a renderer that
+    forgets to check `Blocked`/`HasVal` FIRST prints an honest, catchable
+    "0.0" rather than nothing at all. The pack's second half is the last
+    three posted deliverables -- any analyst's, any task's -- on the desk
+    or desks whose total spend moved most between the reported period and
+    the one before it (`estate.Totals` for each, ranked by the size of the
+    move either way, `movedDesksSection`), filling across desks when the
+    top mover has nothing posted on it yet rather than showing nothing.
+    `internal/finops.applySideEffect` wires `explainer.publish` to
+    `crew.PublishArtifact` (which itself finishes with a call to
+    `crew.Publish`, the SAME state transition a person's stamp on a
+    Commission-drafted explainer already goes through), reading the
+    OPTION'S OWN ARTIFACT as the target this class was recorded-only for
+    lack of, per invariant 27's own comment: the artifact's whole body,
+    verbatim, is the explainer's body, and the option's summary is its
+    topic. The explainer's Team and Audience are both the fixed string
+    "leadership", which is not one of `world.Teams`'s ten roster names on
+    purpose -- `internal/web`'s explainers page only links a row's team to
+    `/team/{name}` when `isRealTeam` finds a real one there, and
+    `?audience=leadership` is the leadership page C8-SPEC.md names: the
+    same route, filtered to rows whose Audience matches.
+    *(gate: `TestExecutiveReturnsFourFiguresWithPreviousValuesAndDeltas`,
+    `TestExecutiveNeverGivesARefusedKPIAValue`,
+    `TestExecutiveSaysNoPreviousPeriodForTheFirstPeriod` (`internal/finops`,
+    `Executive` itself, the last one built by hand rather than with
+    `estate.Seed`, which always spans several months, to reach the
+    boundary at all) and `TestExecutiveSectionSaysNoPreviousPeriodForTheFirstPeriod`
+    (`internal/deliver`, the same boundary at the RENDERED line: the first
+    test alone only reached `HasPeriod`, the data-layer flag, and never
+    called `Packet()`, so nothing checked that `executiveFigureLine` ever
+    reaches the branch that prints the words the scenario names);
+    `TestExecutiveSectionCarriesTheFourNumbers`,
+    `TestExecutiveSectionIsAbsentForAPlainDeskReporter` (gated on
+    "decision-framing", exec-reporter's own second skill, never
+    "exec-reporting" alone, which the desk reporters already share and
+    already answer to with `reportingSection`),
+    `TestExecutiveSectionShowsARefusedKPIAsRefusedNeverZero`,
+    `TestExecutiveSectionShowsTheLastExplanationOnTheDeskThatMovedMost`,
+    `TestExecutiveSectionFallsThroughADeskWithNoPostedExplanation`,
+    `TestExecutiveSectionTrimsAOneMegabyteExplanationBody` (`internal/deliver`,
+    the section itself, its own assertions widened to require the
+    explanation's title actually reached the packet and its body cut at
+    exactly 200 bytes -- the original two checks alone held vacuously
+    true on `main`, where the whole section does not exist, so neither
+    caught its own absence); `TestApplyExplainerPublishPublishesTheArtifactsBodyAsAnExplainer`
+    (`internal/finops`, the wiring, actor "supervisor" since explainer.publish
+    is the supervisor's own `decides_alone` class);
+    `TestTheLeadershipPageShowsTheExecutivePackOnlyAfterAStamp`,
+    `TestTheLeadershipPacksTeamIsNotALinkToANonexistentTeamPage`,
+    `TestAScriptTagInThePacksTitleRendersAsTextOnTheLeadershipPage`
+    (`internal/web`, through the console's own read routes).
+    `scripts/gates-have-teeth.sh`'s `the executive pack: show a refused KPI
+    as zero` case plants the mutant C8-SPEC.md section 4 names by its own
+    words, removing `executiveFigureLine`'s Blocked/HasVal guard whole so
+    execution falls into the value branches with `Numeric` at its zero
+    value. Two more mutants were planted by hand and reverted rather than
+    kept as permanent cases: `crew.PublishArtifact` returning before
+    calling `Publish`, caught by
+    `TestApplyExplainerPublishPublishesTheArtifactsBodyAsAnExplainer`'s own
+    state and publisher assertions (the row exists but stays a draft,
+    publisher empty); and `executivePeriod` reading one month further back
+    than the one actually beside `period`, caught by
+    `TestExecutiveReturnsFourFiguresWithPreviousValuesAndDeltas`'s own
+    cross-check against `Allocate` called on the EXACT expected previous
+    month directly, which a merely internally-consistent delta
+    (`Numeric-PrevNumeric`) would not have caught on its own.)*
+37. **The owner of an anomaly's team is told the moment its explanation is
+    posted, never before and never invented, and the queue measures how
+    long that actually takes.** C1-SPEC.md. `@yurii 2026-09-02`: "більш
+    повною мірою замінити людей на цих посадах." The two ends of the desk a
+    person did without thinking, until now: `crew.OwnerOfAnomaly` maps an
+    anomaly to who to tell -- the team's own named owner in `teams` when it
+    has one, and otherwise the analyst's own owner, read off `tasks.owner`
+    of the task this anomaly opened, the same chain `finops.ownerOfOption`
+    and `deliver.waitingOwner` already read for the identical question from
+    an option's own side (B3), never re-derived from the roster the way
+    invariant 6 already refuses to for spend; "unclaimed" when neither has
+    one, with a reason either way, never an error a page has to remember to
+    check. `teams` did not exist before this: `crew.EnsureTeamOwner` adds
+    its `owner` column the way `EnsureArtifactProvenance` adds
+    `artifacts.source`, called from `crew.Seed` beside it.
+
+    `anomaly_explained` already existed on the wire
+    (`internal/stack/types.go`); no new type is added. What is new is a
+    SECOND call site: `internal/web.tellOwnerAnomalyExplained`, reached from
+    `artifactAction("post")` only after `crew.Post` has already succeeded,
+    carrying the owner, the named cause (the first `anomaly.explain`
+    option's own summary, when the deliverable offers one), the option
+    classes offered, and the artifact id. This is deliberately not the same
+    moment `internal/anomaly`'s own `"anomaly_"+state` emit fires (when the
+    anomaly's OWN state moves to Explained, on a later APPLY): one tells the
+    owner a deliverable exists to look at, the other records the decision
+    once somebody has made it, and B3's `Explain`/`Dismiss`/`Accept` and the
+    detector are unchanged by this step, including their own emit.
+
+    The closure KPI, `finops.AnomalyClosureDays`, reports the median days
+    from `detected_at` to `closed_at` per desk over a month, on
+    `anomaly.DaysBetween` -- the ONE basis it shares with the anomaly page's
+    own "open for N days" / "closed after N days" line
+    (`internal/web.daysText`), so a per-desk figure and a per-anomaly one
+    can never silently disagree about what a day means. It refuses, by
+    name, on a desk that has closed nothing in the window, the same shape
+    every KPI in `KPIs()` (`internal/finops/kpi.go`) already refuses rather
+    than inventing a number it has no evidence for; a row whose
+    `detected_at` will not parse is excluded from the median rather than
+    crashing the desk's whole figure, and the result says how many were and
+    why. Not wired into `KPIs()` itself in this step: the parity diff this
+    step owns is exactly the anomalies list and the anomaly page, and a new
+    `/kpis` row would widen it; surfacing it there is named as a follow-up
+    in the PR body.
+
+    The anomalies list gained the owner column and a "told" mark, read from
+    the journal the way `/cadence` reads `crew_ran`
+    (`internal/web.toldAnomalies`): a generous tail, filtered to
+    `anomaly_explained`, keyed by the anomaly id the event itself carries.
+    *(gate: `TestOwnerOfAnomalyReturnsTheTeamsOwnerWhenSet`,
+    `TestOwnerOfAnomalyFallsBackToTheAnalystsOwner`,
+    `TestOwnerOfAnomalyIsUnclaimedWithNeitherOwner`,
+    `TestOwnerOfAnomalyFallsBackWhenTheTeamRowHasNoOwner`,
+    `TestOwnerOfAnomalyHandlesAQuoteInTheOwnersName`,
+    `TestOwnerOfAnomalyWithNoTaskAtAllIsUnclaimed`,
+    `TestOwnerOfAnomalyWithNoTeamAtAllFallsBackToTheAnalyst`,
+    `TestOwnerOfAnomalyWithNoTeamAndNoTaskOwnerIsUnclaimed` (`internal/crew`);
+    `TestDaysBetweenFloorsToWholeDays`,
+    `TestDaysBetweenRefusesUnparseableOrNegative` (`internal/anomaly`);
+    `TestAnomalyClosureDaysReportsTheMedianOfTwoClosedAnomalies`,
+    `TestAnomalyClosureDaysRefusesADeskWithNoClosure`,
+    `TestAnomalyClosureDaysIsZeroWhenClosedTheSameDay`,
+    `TestAnomalyClosureDaysExcludesARowWhoseDetectedAtWontParse`,
+    `TestAnomalyClosureDaysOnlyCountsClosuresWithinTheMonth`
+    (`internal/finops`); `TestPostingAnAnomalyDeliverableTellsTheOwner`,
+    `TestARefusedSecondPostTellsNobodyTwice`,
+    `TestTellingTheOwnerNeverChangesTheAnomalysOwnState`,
+    `TestTheQueuePageShowsTheOwnerAndWhetherItToldThem`,
+    `TestTheAnomalyPageSaysHowLongItHasBeenOpen`,
+    `TestTheAnomalyPageSaysHowLongItTookToClose`,
+    `TestDirectExplainDoesNotFalselyMarkTheQueueTold` (`internal/web`).
+    `scripts/gates-have-teeth.sh`'s `anomaly desk: emit before the post
+    instead of after` case plants exactly that -- moving
+    `tellOwnerAnomalyExplained` ahead of `crew.Post` so it fires
+    unconditionally -- and requires `TestARefusedSecondPostTellsNobodyTwice`
+    to catch it (@measured 2026-09-03: the mutation makes a refused second
+    post journal a SECOND `anomaly_explained` for the same anomaly, red on
+    "after a REFUSED second post: 2 anomaly_explained events, want still
+    1"); the same case's edit to the existing `options: an analyst's Post
+    applies an option` case moved its anchor onto this step's own
+    `tellOwnerAnomalyExplained` call without changing what it proves.
+    `scripts/gates-have-teeth.sh`'s `anomaly desk: told matches the event
+    name alone, not its owner field` case plants a second, real bug found in
+    review of this step's first version: `toldAnomalies` matched
+    `Event=="anomaly_explained"` alone, which `internal/anomaly`'s own
+    pre-existing, spec-unchanged `"anomaly_"+state` emit also fires on every
+    Explain/Dismiss/Accept, including the pre-existing direct
+    `POST /anomalies/{id}/explain` route -- which needs no task, team,
+    deliverable or owner lookup at all, and never carries an `owner` field.
+    A direct explain on an untagged, unassigned anomaly rendered
+    Owner="unclaimed" and Told="told" on the same row at once; requiring the
+    `owner` field non-empty, not the event name alone, fixes it.
+    `TestDirectExplainDoesNotFalselyMarkTheQueueTold` (@measured 2026-09-03:
+    dropping the field check reds on "the queue marks this anomaly \"told\"
+    even though no owner was ever notified") is both the regression test and
+    the gate's own subject. Two more mutants were planted by hand and
+    reverted rather than kept as permanent cases, each caught by one of the
+    tests above, the same shape invariants 27 and 31's own history already
+    describes for this repository: computing the closed side of a day count
+    from the moment of measurement (SQLite's `now`) instead of the stored
+    `closed_at` (@measured 2026-09-03: red on "median days = 54, want 4
+    (median of 2 and 6)" -- 54 being the real elapsed days to the moment the
+    test ran, proving the mutation read the wrong clock rather than the
+    stored fact) -- `@claude` 2026-09-03: this stands in for C1-SPEC.md
+    section 4's own words, "compute closure from `updated` instead of
+    `closed_at`"; no `updated` column exists anywhere on `anomalies` (only
+    `detected_at` and `closed_at`, and nothing ever adds one), so that
+    literal mutant cannot be planted on this schema, and this is a related
+    but different fault (the wrong TIME SOURCE, not the wrong COLUMN) rather
+    than the one the spec names; and dropping the reason from the owner
+    lookup, returning `""` on every path (@measured 2026-09-03: red on "no
+    reason was given for the owner lookup" and "reason \"\" does not say
+    which team decided it").)*
+38. **The optimizer's own packet ranks its recommendations by saving, never
+    by the size string, and names the risk a short lookback carries.**
+    C5-SPEC.md (numbered 33, not 32: B6B-SPEC.md's own invariant landed on
+    `main` as 32 while this branch was in flight, after this branch's fork
+    point -- see the PR body's "Invariant numbering collision" section).
+    The providers already publish their own rightsizing and idle
+    recommendations for free, and this step's whole surface is reading
+    them: three readers (`aws-rightsizing`, Cost Explorer's own Rightsizing
+    Recommendations CSV; `gcp-recommender`, a Recommender export;
+    `azure-advisor`, Advisor's own cost recommendations CSV, which reports
+    its saving as POTENTIAL ANNUAL cost and is divided by twelve, rounded
+    half away from zero, the same convention `money.Parse` already uses)
+    land in one shared `recommendations` table, and `deliver.recommendationsSection`
+    reads it back for the optimizer families' own packet
+    (`optimizer-aws/gcp/azure/onprem`, skill `rightsizing-analysis`). No
+    model is called by this step and `infra.change` never enters the apply
+    table, which invariant 23 already owns to nobody in the crew; this is
+    read-only, all the way through.
+
+    Ranked by `MonthlySavingCents`, descending, ties broken by resource so
+    the same estate renders the same list every time (invariant 7) rather
+    than on map or file order. A row's own lookback carries the sentence
+    `roles.yaml`'s optimizer family already writes for itself in its own
+    `owes` text ("a monthly job looks idle to a fourteen-day window")
+    whenever that lookback is fourteen days or fewer, and stays silent
+    about the risk otherwise. Top ten, with a trailing "and N more".
+
+    The comparator itself is `connectors.RankBySaving`
+    (`internal/connectors/rightsizing.go`), called by BOTH
+    `deliver.recommendationsSection` and web's `/rightsizing` page, which
+    wants the identical order ("a person reading this page and an analyst
+    reading its packet see the same list in the same order"). It did not
+    start that way: coordinator review of PR #34, 2026-09-03, found that
+    the page carried its own separately-maintained copy of this same
+    comparator, and that `scripts/gates-have-teeth.sh`'s "rank by current
+    cost" case (below) only ever mutated the `internal/deliver` copy --
+    proven by planting the identical mutation directly in the page's own
+    copy by hand and running `go test ./internal/web/...`, which passed
+    clean, since no test in that package checked row order at all, only
+    substring presence. `@claude` 2026-09-03: two callers wanting the same
+    order is not a reason for two copies of a comparator, so now there is
+    one, `RankBySaving`, and one gate on it protects both callers by
+    construction rather than by each being separately remembered.
+    *(gate: `TestRankBySavingOrdersDescendingWithResourceTiebreak` in
+    `internal/connectors`, `RankBySaving`'s own direct proof, isolated from
+    any DB or HTTP surface; `TestRecommendationsSectionRanksBySavingFromAFixtureImport`,
+    `TestRecommendationsSectionFlagsShortLookbackNotLong`,
+    `TestRecommendationsSectionCapsAtTenWithAndNMore`,
+    `TestRecommendationsSectionEmptyForADeskWithNoImports`,
+    `TestPacketIncludesRecommendationsOnlyForRightsizingAnalysis` in
+    `internal/deliver`; `TestAWSRightsizingIsRead`, `TestGCPRecommenderIsRead`,
+    `TestAzureAdvisorIsRead`, `TestAzureAnnualToMonthlyRoundsHalfAwayFromZero`,
+    `TestEmptyFileIsZeroRows`, `TestImportIsIdempotentForRightsizing`,
+    `TestTestDescribesRightsizingWithoutWriting`,
+    `TestRecommendationsFiltersByDesk` and `TestHostileRightsizingInput`
+    (an unknown header set; a negative saving; a resource id and a field
+    each carrying an embedded quote or comma; a UTF-8 BOM; CRLF line
+    endings; a 100 MB line, memory measured before and after) in
+    `internal/connectors`; `TestTheRightsizingPageReadsARealImport`,
+    `TestTheRightsizingPageStartsWithNoneImported` and
+    `TestTheRightsizingPageOrdersRowsBySavingNotBySize` (the row-order
+    proof the page's own gap needed) in `internal/web`, the same
+    end-to-end shape `TestTheAIPageReadsARealImport` already holds for
+    `tokenfuse-focus`; `/rightsizing` is also now on
+    `TestPagesRenderTheSameTwice`'s own curated path list
+    (`internal/web/owners_test.go`), which it was missing from before.
+    That a reader earns `Built` only by being registered is invariant 22's
+    own gate, `TestBuiltMeansAReaderExists`, unchanged and already proving
+    it for these three entries too, because `Status` is derived from the
+    `readers` map in exactly the one place invariant 22 describes.
+    `scripts/gates-have-teeth.sh` plants the mutant C5-SPEC.md names by its
+    own words, "rank by current cost": the comparator inside
+    `RankBySaving` swapped from comparing `MonthlySavingCents` to
+    comparing `Current` (the resource's own size string, e.g.
+    "m5.2xlarge") -- Go allows `>` on strings, so this still compiles, and
+    the list silently reorders itself alphabetically by instance type
+    instead of by money; caught now by all three of
+    `TestRankBySavingOrdersDescendingWithResourceTiebreak`,
+    `TestRecommendationsSectionCapsAtTenWithAndNMore` and
+    `TestTheRightsizingPageOrdersRowsBySavingNotBySize` (each
+    `@measured` 2026-09-03 by hand, PR report has the transcripts), any one
+    of which going toothless should still be caught by the other two.)*
+39. **A renewal calendar is read from what a vendor actually said, never
+    guessed, and the negotiation it prepares for stays outside the console.**
+    C6-SPEC.md. `saas-seats` in `internal/connectors` is this practice's
+    second reader (after `tokenfuse-focus`): one documented CSV header
+    (vendor, product, seats issued, seats active, the window "active" was
+    measured over, the per-seat monthly price in cents, the renewal date,
+    the term in months, the notice period in days), refusing a header it
+    does not recognise -- an unknown column or a missing one -- by name, and
+    a row it cannot make sense of the same way, never a file refused by
+    silence. `internal/finops.Licences` reads the table back into
+    `world.Licence`, the SAME type the generated fixture already uses (the
+    AI desk's own `AIUnits`/`world.AIUnit` split is the precedent), so the
+    SaaS page and the renewals packet do not need to know which source
+    produced a row, only whether anything was imported at all: a generated
+    licence never reaches this table, so "any rows" is the whole test.
+    `internal/finops.RenewalsWithin` is the calendar question, the next
+    ninety days from a given day (`world.ExpiringWithin`'s own boundary,
+    restated here because that function reads `world.Commitments` and
+    cannot be reused for a different slice), and
+    `internal/deliver.renewalsSection` is what the SaaS portfolio manager
+    and the renewals analyst are actually handed: every renewal in the
+    window with its own notice deadline, issued against active, the waste
+    sitting in idle seats, and the word "no benchmark" on every one of
+    them, because no benchmark connector exists anywhere in this practice
+    today and a number with no source behind it is exactly `roles.yaml`'s
+    own `never`, "invent a number it was not given." The SaaS page
+    (`internal/web/practice.go`'s `saas`) shows the imported figures when
+    there are any and says so; otherwise it shows the generated fixture and
+    says that instead, the same split the AI page already holds between
+    `finops.AIUnits` and `world.AIUnits()`. `@yurii 2026-09-02`:
+    "переговори з вендером проводити він сам особі не може" --
+    `vendor.negotiate` is owned by `nobody` in `roles.yaml`, the same as
+    `purchase` and `infra.change`, so it never enters
+    `internal/finops/apply.go`'s table and `crew.MayDecide` already refuses
+    it for every link this practice has, owner included; nothing new was
+    built for that half, because nothing needed to be.
+    *(gate: `TestSaasSeatsIsRead`, `TestSaasSeatsReimportConverges`,
+    `TestSaasSeatsWasteIsCentsExactNotFloatRounded` and
+    `TestSaasSeatsHostileInput` (`internal/connectors`, the same shape
+    `tokenfusefocus_test.go`'s own hostile suite already holds: a missing
+    header column, an unknown one, a value that will not parse, a ragged
+    row, a truncated gzip, one good row beside one bad one, plus this
+    format's own two domain refusals -- active greater than issued, a term
+    of zero months) prove the reader; `TestSaasSeatsIssuedEqualsActiveIsZeroWasteNotRefused`
+    holds the boundary the hostile suite's own refusal could otherwise have
+    swallowed by mistake. `TestLicencesEmptyOnAFreshInstallNotAnError`,
+    `TestIdleSeatsAreCountedNotGuessed`, `TestIssuedEqualsActiveIsZeroWaste`,
+    `TestRenewalsWithinNinetyDays`, `TestRenewalsWithinIncludesTheExactEdge`,
+    `TestRenewalsWithinIncludesToday`, `TestRenewalsWithinAWindowOfZeroOnlyMatchesToday`,
+    `TestNoticeDeadlineComputation` and `TestNoticeDeadlineAlreadyPassedIsComputedPlainly`
+    (`internal/finops`) hold the computation, and
+    `TestLicenceNoticeDeadlineIsRenewsMinusNoticeDays`,
+    `TestLicenceNoticeDeadlineOfZeroDaysIsTheRenewalDateItself` and
+    `TestLicenceNoticeDeadlineOnAnUnparseableRenewsIsEmpty` (`internal/world`)
+    hold `Licence.NoticeDeadline` directly, in the package that owns it.
+    `TestRenewalsSectionListsTheCalendarWithNoticeDeadlines`,
+    `TestRenewalsSectionDoesNotFlagANoticeDeadlineStillAhead`,
+    `TestRenewalsSectionSaysNoBenchmark`,
+    `TestRenewalsSectionIsEmptyWithNothingImported`,
+    `TestPacketCarriesTheRenewalsSectionForBothSaasRoles` and
+    `TestPacketDoesNotCarryTheRenewalsSectionForAnUnrelatedRole`
+    (`internal/deliver`) hold the packet section.
+    `TestSaasPageSaysGeneratedWithNothingImported`,
+    `TestSaasPageShowsImportedFiguresWhenLoaded` and
+    `TestSaasPageGuardsTheTeamLinkOnAnImportedRow` (`internal/web`) hold the
+    page. `TestRenewalNegotiationIsNeverDecidedInsideTheConsole`
+    (`internal/crew`) holds the boundary directly, on `crew.MayDecide` and
+    `crew.Escalates` -- this one test does not go red before this step the
+    way every other test here does, because the property it names (an
+    owner-`"nobody"` class is never decided by any link, the owner
+    included) already held generically before C6 existed; named here so a
+    reader of this invariant does not have to take that on faith rather
+    than reading the test. `scripts/gates-have-teeth.sh` plants and catches
+    three mutants, named in C6-SPEC.md section 4: idle-seat waste computed
+    through a float64 dollars-and-back round trip instead of int64 cents
+    throughout, the notice deadline line dropped from the calendar, and a
+    benchmark figure invented where none exists.)*
+40. **A data-quality finding that crosses a threshold can stop a desk's
+    whole crew, and only a person starts it again.** C9-SPEC.md. Three
+    measurements per source and desk, every day, cents-exact throughout:
+    freshness since the last charge against `T.stale`
+    (`internal/finops.DataQuality`), and the share of that source's own
+    month with no team -- twice over, since this console's own vocabulary
+    already holds two different questions under that heading. "Untagged" is
+    `charges.team IS NULL`, exactly what `internal/finops/allocation.go`
+    already calls the Shared pot; "unallocated" is the narrower share a
+    rule still could not place once one ran (`Allocate`'s own
+    `Unallocated`, the same figure the KPI page already names "Cost with no
+    owner", now broken out per source in `Allocation.BySource` rather than
+    only for the whole estate). Both are checked against `T.untagged`,
+    because `roles.yaml`'s own `meaning` field for that threshold says
+    "unallocated share above which data quality reports it" and names no
+    second number for the other reading. Every crossing is an integer
+    comparison over cents (`crossesShare`), never a float division that
+    could cross the same boundary two different ways on two different rows.
+
+    A crossed finding reaches the data-quality analyst's own packet section
+    (`dataQualitySection`) and its deliverable ends in a `data.halt` option
+    naming the desk and the reason -- `AllowsNoOptions` gains `data.halt`
+    as a fourth exception alongside the three commentary/forecast classes,
+    because this one is CONDITIONAL prose: most days nothing crosses and
+    the report is the freshness-and-coverage figures alone, with no options
+    block at all. Applying `data.halt` (`internal/finops/apply.go`,
+    `MayDecide("supervisor", "data.halt")` already true from `roles.yaml`'s
+    own `decides_alone` list, so `finops.Supervise` applies it the same
+    pass it is posted in) suspends every ACTIVE analyst on the named desk
+    through the existing suspension function, journaled as
+    `agent_state_changed` exactly as a hand-suspension already is -- no new
+    wire type. The desk it targets travels in the option's own `Needs`
+    field, the one already meant to carry "what a person would have to do"
+    for a class the generic option shape has no dedicated column for, the
+    same gap this file's own header already names for
+    `allocation.rule`/`budget.set`/`explainer.publish`.
+
+    A small table, `desk_halts` (`crew.DeskHalt`), holds what no
+    per-analyst row can: which desk, since when, and whose decision request
+    a stale halt is carried to. A second `data.halt` on an already-halted
+    desk is a no-op, deliberately -- neither the start day nor the reason
+    moves, because `T.stale_days` counts from when the crew actually
+    stopped, and a start date that reset on every re-report of the same
+    open problem could never reach it. `crew.CadenceDue` -- the one
+    function `-due` and the console's `/cadence` page and `Propose` all
+    already share -- skips a halted desk and says so in `Why`, once per
+    desk regardless of how many of its analysts are already suspended (the
+    ordinary "state != active" rule silently drops every one of them with
+    no explanation on its own). `finops.Supervise` carries a halt that has
+    lasted past `T.stale_days` to its own owner, `roles.yaml`'s own
+    `hands_to_owner_conditions` for the supervisor -- the second condition
+    that list names, alongside "two analysts answered differently," and the
+    same decision-request mechanism `contradictionRouting` already uses for
+    that one. Lifting (`crew.LiftHalt`, the desk page's own POST route)
+    returns exactly the analysts THIS halt suspended, never every analyst
+    the desk happens to show suspended now, because a desk can carry one
+    suspended for an older, unrelated reason (`migration-watch`, kept
+    suspended on `aws` since its own migration finished) that a halt must
+    not silently reactivate.
+    *(gate: `TestASourceWithNoChargeForTStaleDaysIsReportedStale`,
+    `TestASourceWithNoChargeAtAllIsStale`,
+    `TestFreshnessIsMeasuredFromTheLastChargeNotFromToday`,
+    `TestUntaggedShareAboveTUntaggedIsReported`,
+    `TestUnallocatedShareAboveTUntaggedIsReported`,
+    `TestASourceUnderBothThresholdsIsNotCrossed`,
+    `TestDataQualityMeasuresEveryDesk`,
+    `TestDataQualityRunsCleanlyAgainstTheSeededEstate`,
+    `TestWholeNumberThresholdRefusesAMissingThreshold`,
+    `TestWholeNumberThresholdParsesTStaleAndTUntagged` and
+    `TestDaysBetweenIsZeroOnAnUnparseableDate` (`internal/finops`)
+    for the measurement; `TestAllowsNoOptionsIsTrueForDataHaltOnly` and
+    `TestADataQualityReportWithNoOptionsIsAccepted` (`internal/crew`) for
+    the options exception; `TestApplyDataHaltSuspendsTheDesksAnalystsAndDueSkipsIt`,
+    `TestApplyDataHaltRefusesWhenTheOptionNamesNoDesk` and
+    `TestApplyDataHaltWithNoSummaryUsesAGeneratedReason` (`internal/finops`)
+    for applying it; `TestApplyHaltSuspendsEveryActiveAnalystOnTheDeskWithTheReason`,
+    `TestApplyHaltOnADeskWithNoAnalystsStillRecordsTheHalt`,
+    `TestASecondHaltOnAHaltedDeskDoesNotDoubleSuspend`,
+    `TestLiftHaltReturnsTheAnalystsToActiveWithTheReasonJournaled`,
+    `TestLiftHaltRefusesWithNoReason`,
+    `TestLiftHaltOnADeskNotHaltedIsRefused` and
+    `TestHaltsListsEveryHaltedDesk` and
+    `TestADeskNameWithAQuoteIsSuspendedAndReadBackUnmangled` (`internal/crew`,
+    C9-SPEC.md section 4's other hostile case, a desk name carrying a single
+    quote) for the halt itself;
+    `TestCadenceDueSkipsAHaltedDeskAndSaysWhy` and
+    `TestProposeSkipsAHaltedDeskThroughCadenceDue` (`internal/crew`) for
+    the skip; `TestAHaltOlderThanTStaleDaysIsCarriedToTheOwnerBySupervise`
+    and `TestAHaltYoungerThanTStaleDaysIsNotCarried` (`internal/finops`)
+    for the carry; `TestPacketCarriesDataQualityForTheDataQualityRole` and
+    `TestPacketOmitsDataQualityForAnUnrelatedRole` (`internal/deliver`) for
+    the packet section; `TestLiftHaltReactivatesTheDesksAnalysts`,
+    `TestLiftHaltRequiresAReason`,
+    `TestADeskPageShowsTheHaltBannerOnlyWhenHalted` and
+    `TestAViewerCannotLiftAHalt` (`internal/web`) for the console action.
+    `scripts/gates-have-teeth.sh`'s `due: skip the -due check for a halted
+    desk` case plants the mutant C9-SPEC.md section 4 names, on the exact
+    branch `CadenceDue`'s own halted-desk check is; two more named mutants
+    -- measuring freshness from today instead of the last charge, and
+    lifting without a reason -- were planted by hand and reverted rather
+    than kept as permanent cases, caught by
+    `TestFreshnessIsMeasuredFromTheLastChargeNotFromToday` and
+    `TestLiftHaltRefusesWithNoReason` respectively, the same shape
+    invariants 27 and 31 already establish for this repository.)*
+41. **A registered driver moves the projection by its own measured effect,
+    not by being blended into the plain run rate, and a frozen forecast
+    remembers which drivers it already knew about.** C3-SPEC.md.
+    `finops.ProjectWithDrivers` excludes every calendar day any registered
+    driver's own window covers (clipped to the month being projected) from
+    the run-rate side of the arithmetic -- both the sum and the day count
+    for a desk-wide (`"*"`) driver, only that driver's OWN service's own
+    share of each day for a scoped one, leaving every other service on the
+    same desk in the baseline where it belongs -- and gives each driver its
+    own line instead: a one-time driver's window is one day, so this is
+    that day's own measured total added once; a recurring driver's window
+    can span many days, so its own per-day rate repeats across every one of
+    them, "by its window" rather than by a periodicity this registry does
+    not carry. `finops.Freeze` records this per-desk figure and basis; once
+    an option carries its own summary (`internal/finops/apply.go`'s
+    `forecast.freeze` case, via `finops.SetForecastBasis`), the
+    forecaster's own written words replace the generated sentence as the
+    recorded basis. `finops.Missed` and `finops.LargestMiss` read that
+    basis back to name the drivers a freeze did not know about, ranked by
+    the largest scored error, and the KPI grades the FROZEN figure only,
+    never a live recomputation of it.
+
+    The scope-awareness above was not the first version: excluding the
+    whole desk-day for ANY driver regardless of scope was, and it was found
+    by the parity gate against the seeded estate, not by any test, because
+    every hand-built fixture this branch wrote until then happened not to
+    give a service-scoped driver's OWN window any other service's charges
+    to collide with. onprem's own registry carries N04 ("Month-end batch on
+    the storage array"), a RECURRING driver scoped to "Storage array"
+    alone whose window spans the whole 14.5-month estate; with the whole
+    desk-day excluded, onprem's Batch cluster, Virtualisation and Network
+    vanished from the projection for as long as that window covered the
+    month, because the baseline saw nothing left to average and the
+    driver's own line only ever measures its own scope. Forecast accuracy
+    on the seeded `/kpis` page went from 11.7% average error to 98.9%, with
+    a 436% single-desk miss, before the fix.
+    *(gate: `TestProjectWithDriversAddsAOneTimeDriverOnceInsteadOfAveragingItAway`,
+    `TestProjectWithDriversRepeatsARecurringDriverAcrossItsWindow`,
+    `TestProjectWithDriversWithNoDriversEqualsTheNaiveRunRate`,
+    `TestProjectWithDriversIgnoresADriverWhoseWindowEndsBeforeThePeriod`,
+    `TestProjectWithDriversRefusesAMalformedDriverWindow`,
+    `TestProjectWithDriversHandlesADriverEffectInTheBillionsOfCents`,
+    `TestProjectWithDriversRoundsOnceMultiplyingBeforeDividing`,
+    `TestProjectWithDriversExcludesOnlyItsOwnScopeFromTheBaseline`,
+    `TestMissedNamesADriverAddedAfterTheBasisWasWritten`,
+    `TestMissedIsEmptyWhenTheBasisAlreadyNamesTheDriver`,
+    `TestLargestMissPicksTheWorstErrorAndNamesItsDriver`,
+    `TestLargestMissGradesTheFrozenFigureNotALiveOne`,
+    `TestLargestMissBreaksATiedErrorOnTheAbsoluteGap`,
+    `TestWorseMissOrdersByErrorPctFirst`,
+    `TestWorseMissBreaksATiedErrorOnTheAbsoluteGap`,
+    `TestWorseMissBreaksATiedGapOnThePeriod`,
+    `TestWorseMissBreaksAFullTieOnTheSource` (unexported, tested directly
+    against hand-built values rather than through Forecasts' own SQL order,
+    which happens to already agree with the later-period and lower-source
+    tie-breaks and so cannot tell them apart from simply keeping whichever
+    row a query returned first),
+    `TestSetForecastBasisOverwritesEveryDesksRow`,
+    `TestSetForecastBasisWithEmptyStringChangesNothing`,
+    `TestKPIsForecastAccuracyNamesTheLargestMissesDriver`,
+    `TestApplyForecastFreezeUsesTheOptionsSummaryAsTheBasis` in
+    `internal/finops`; `TestForecastingSectionShowsDriverLines`,
+    `TestForecastingSectionShowsTheMissWithItsMissedDriver`,
+    `TestForecastingSectionShowsTheMissOfAClosedPeriodEvenWhenTheOpenOneIsAlsoFrozen`
+    (the open month is frozen too, the normal case a real installation hits
+    every month, and its own unscored freeze is not the same question as
+    "the most recently CLOSED one" -- reusing one variable for both let the
+    miss of a genuinely closed month disappear the moment the open month
+    was frozen as well, found running the packet against the real seeded
+    estate rather than by any test that existed before it),
+    `TestForecastingSectionShowsAMissOfZero` in `internal/deliver`;
+    `TestTheForecastPageNamesTheDriversThatMovedTheProjection` in
+    `internal/web`. `scripts/gates-have-teeth.sh` plants and catches three
+    mutants, named in C3-SPEC.md section 4: applying a recurring driver's
+    effect once, un-extended across its own window, instead of repeating it;
+    rounding a driver's own per-day rate to a whole cent before multiplying
+    by its window instead of dividing once after; and grading the largest
+    miss's own figure against a freshly recomputed live projection instead
+    of the one that was actually frozen.)*
+42. **A Purchase row is never usage, and a commitment's coverage and
+    utilisation are read from the store, never generated, once any real
+    commitment exists.** C4-SPEC.md. `@yurii 2026-09-02`: "більш повною
+    мірою замінити людей на цих посадах" is the ask; "він має сам не
+    купувати" is the boundary this invariant holds for the one class that
+    was always going to test it, `purchase`. The FOCUS reader
+    (`internal/connectors/tokenfusefocus.go`) now routes `ChargeCategory`,
+    when a file's header carries it, before ever calling `parseFocusRow`:
+    a `Purchase` row's own `CommitmentDiscountId`, `CommitmentDiscountType`,
+    `CommitmentDiscountStatus`, `CommitmentDiscountQuantity` and
+    `CommitmentDiscountUnit` are kept in a new `commitments` table
+    (`CommitmentSchema`, upserted by id) and the row never reaches
+    `ai_calls` at all -- the routing IS the guarantee that a commitment's
+    own price cannot inflate a desk's derived Usage charges, not a filter
+    applied after the fact. A file with none of the six optional columns
+    (`ChargeCategory` plus the five above) needs no separate presence
+    check: `focusField` already returns `""` for a column absent from the
+    header, and `""` never equals `"Purchase"`, so every row takes the
+    unchanged `ai_calls` path.
+
+    `internal/finops/commitments.go` reads that table: `Coverage` is
+    committed spend over eligible spend per desk and month (`money.Pct` on
+    two whole-cent integers, never a dollars-first, coarser-rounded
+    intermediate); `CommitmentUtilisation` is used over committed per
+    commitment, over 100% being a real, healthy reading rather than a
+    fault; `ExpiringCommitments` is the 90-day calendar, inclusive of an
+    expiry today; `BreakEvens` ranks every real commitment by its own
+    monthly saving (largest first), an exact integer-cents ceiling
+    division, `OK=false` naming a candidate that never breaks even rather
+    than printing a negative or a divide-by-zero month count. `eligibleCents`
+    is desk-aware: `world.ResourceKind`'s own compute/database/accelerator
+    classification for a cloud desk, every usage charge for the ai desk --
+    the desk this reader's own `deriveCharges` always writes to -- because
+    an LLM API call is not a compute, database or accelerator RESOURCE the
+    way a rightsizing candidate is, but a committed-spend agreement with a
+    model provider can still cover it. `Commitments` is the adapter the
+    SaaS page's own Commitments panel (`internal/web/practice.go`) reads
+    instead of `world.Commitments` directly: real rows, mapped into
+    `world.Commitment`'s own shape so the existing template and its sort
+    comparators need no change, once any exist; the generated waterline
+    otherwise -- the same "real data first" switch `finops.AIUnits` already
+    gives the AI page over `world.AIUnits`. `internal/deliver/packet.go`'s
+    new `commitmentsSection`, gated on `commitment-modelling` or
+    `waterline-tracking` (the commitment analyst's own skills), carries
+    coverage, utilisation, the calendar and break-even into the task
+    packet, top ten candidates ranked by saving with an "and N more" line,
+    omitted entirely -- not a header over nothing -- until a connector has
+    written a real commitment.
+
+    `purchase`'s owner is `"nobody"` in `roles.yaml` (unchanged by this
+    step: the commitment-analyst family already named it under `hands_up`)
+    and `crew.MayDecide` refuses it before an `Owner` field is even read,
+    for every role including the literal `"owner"` link, so
+    `internal/finops/apply.go`'s table has no case for it: applying a
+    `purchase` option marks the STAMP applied (a person recorded a
+    decision) and performs no side effect, the same "text only" shape
+    `allocation.rule` and `budget.set` already have.
+    *(gate: `TestCommitmentColumnsFillTheCommitmentsTable`,
+    `TestAbsentCommitmentColumnsLeaveTheCommitmentsTableAlone`,
+    `TestPurchaseRowsAreNeverCountedAsUsage`, `TestCommitmentBoundaries`
+    (zero quantity accepted, an expiry today kept as today),
+    `TestCommitmentHostileInputs` (a negative quantity refused, a status
+    outside the FOCUS enumeration kept and flagged in the import summary, a
+    1 MB id refused, a Purchase row with no id refused rather than falling
+    through to `ai_calls`), `TestCommitmentCostIsNeverParsedThroughFloat64`
+    in `internal/connectors`; `TestCoverageIsCommittedOverEligiblePerDeskAndMonth`,
+    `TestCoverageOnACloudDeskCountsOnlyComputeDatabaseAndAccelerator`,
+    `TestCoverageRefusesADeskWithNoEligibleSpend`,
+    `TestCoverageDoesNotRoundThroughDollarsFirst`,
+    `TestUtilisationIsUsedOverCommittedPerCommitment`,
+    `TestUtilisationOfAZeroQuantityCommitmentDoesNotCrash`,
+    `TestExpiryCalendarListsWithinNinetyDaysNotBeyond`,
+    `TestBreakEvenMonthsForAKnownFixture`,
+    `TestBreakEvenNeverForACommitmentThatCostsMoreThanOnDemand`,
+    `TestCommitmentsFallsBackToTheGeneratedWaterline`,
+    `TestCommitmentsReadsRealRowsOnceAnyExist`, `TestHasRealCommitmentsIsFalseOnAFreshStoreTrueOnceOneExists`,
+    `TestAsOfDayIsTheLatestChargeDay` in `internal/finops`;
+    `TestCommitmentsSectionAppears`, `TestCommitmentsSectionListsAnExpiryWithinNinetyDays`,
+    `TestCommitmentsSectionCapsCandidatesAtTenWithAndNMore`,
+    `TestCommitmentsSectionIsAbsentWithNoRealData`,
+    `TestCommitmentsSectionIsSkippedForAnalystsWithoutTheSkill` in
+    `internal/deliver`; `TestTheSaaSPageReadsARealCommitment` in
+    `internal/web`, end to end through the actual HTTP surface, the same
+    proof `TestTheAIPageReadsARealImport` already gives the AI page's own
+    switch; `TestApplyingPurchaseHasNoSideEffect` in `internal/finops`,
+    which also checks `crew.MayDecide` directly for `"owner"`,
+    `"supervisor"` and `"commitments"`.
+    `scripts/gates-have-teeth.sh` plants three mutants, named in
+    C4-SPEC.md section 4: computing coverage by rounding both sides to the
+    nearest whole dollar before dividing rather than `money.Pct`'s own
+    direct cents ratio (invisible on round-hundred fixtures, which is why
+    `TestCoverageDoesNotRoundThroughDollarsFirst` uses 333/1000 rather than
+    reusing the coverage test's own 150000/200000); disabling the
+    `ChargeCategory == "Purchase"` routing check, so a commitment's price
+    reaches `ai_calls`; and giving `purchase` a real case in
+    `applySideEffect` (a `driver.one-time`-shaped one, the cheapest real
+    side effect that table already has an example of).)*
+
+43. **A driver written from an option carries the window the option named,
     never the wall clock.** DRIVER-WINDOW-SPEC.md.
     `internal/detect.Driver.Covers` has no periodicity column anywhere -- the
     window IS the extent of the rhythm -- so a recurring driver applied from
@@ -1097,7 +2003,7 @@ an absent invariant.
     no anomaly even when a target is present, caught by
     `TestApplyDriverOneTimeWithNoAnomalyAndATargetWritesItsWindow`.)*
 
-35. **The number a person reads before setting `-ceiling` is the number a
+44. **The number a person reads before setting `-ceiling` is the number a
     live run will actually reserve.** PRICE-DISPLAY-SPEC.md. Found running
     the first real live crew task on a real Anthropic account: the dry-run
     report (no `-live`) printed a worst case of $0.0385 for task 294; the
@@ -1183,7 +2089,7 @@ an absent invariant.
     case plants the same first mutant as a permanent case, expect word
     `fail`.)*
 
-36. **A role family's own reads promise is backed by a right the console
+45. **A role family's own reads promise is backed by a right the console
     actually grants.** `roles.yaml`'s `reads` line is rendered VERBATIM into
     every one of that family's analysts' prompts
     (`deliver.JobDescriptionBlock`'s "Reads: ..." line), so a family whose

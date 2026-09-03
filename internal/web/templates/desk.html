@@ -5,6 +5,28 @@
   <p>{{.D.Kind}} · {{.D.Currency}} · {{.Period}}</p>
 </header>
 
+{{if .Halted}}
+<p class="msg">This desk is <strong>halted</strong>, since {{.Halt.Started}}: {{.Halt.Reason}}
+  The crew's cadence work here is skipped until a person lifts it.</p>
+<div class="panel">
+  <h2>Lift the halt</h2>
+  <p class="note">Only an operator. The suspended analysts return to active.</p>
+  <div class="body">
+    <form class="action" method="post" action="/desk/{{.D.Name}}/lift">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <div class="row">
+        <div>
+          <label for="lift-reason">Reason</label>
+          <input id="lift-reason" type="text" name="reason" autocomplete="off"
+                 placeholder="the tagging feed is current again, confirmed on the connector page">
+        </div>
+        <button type="submit">Lift</button>
+      </div>
+    </form>
+  </div>
+</div>
+{{end -}}
+
 <form class="filters" method="get">
   <select name="period" aria-label="Month">{{range .Months}}<option value="{{.}}" {{if eq . $.Period}}selected{{end}}>{{.}}</option>{{end}}</select>
   <button type="submit">Show</button>

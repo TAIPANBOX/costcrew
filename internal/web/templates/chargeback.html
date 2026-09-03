@@ -12,6 +12,20 @@
   <a class="clear" href="/export/gl.csv?period={{.Period}}">General ledger CSV</a>
 </form>
 
+<div class="panel">
+  <h2>Last close, beside the live figures</h2>
+  <div class="body">
+    {{if .HaveLastClose}}
+    <dl class="facts">
+      <dt>Last closed period</dt><dd><strong>{{.LastClose.Label}}</strong>, {{.LastClose.FrozenAt}} by {{.LastClose.ClosedBy}}: <strong>{{.LastClose.Total}}</strong> across {{len .LastClose.Teams}} team-desk pairs</dd>
+      <dt>{{.Period}}, live right now</dt><dd><strong>{{.LiveTotal}}</strong> across {{len .A.Teams}} team-desk pairs</dd>
+    </dl>
+    {{else}}
+    <p class="note">No period has been closed yet, so there is nothing to compare the live figures against.</p>
+    {{end}}
+  </div>
+</div>
+
 {{if .P.Closed}}
 <div class="panel">
   <h2>{{.Period}} · closed</h2>

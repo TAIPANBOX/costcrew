@@ -27,9 +27,15 @@ var (
 
 // ---------------------------------------------------------------- forecast
 
+// projRow is one desk's own driver-aware projection: C3-SPEC.md's own
+// figure, basis and driver lines, computed per desk because
+// finops.ProjectWithDrivers is a per-desk question (a driver's scope and
+// window belong to one desk, never to the whole estate at once).
 type projRow struct {
-	Source string
-	Amount money.Cents
+	Source  string
+	Amount  money.Cents
+	Basis   string
+	Drivers []finops.DriverLine
 }
 
 func (s *Server) forecast(w http.ResponseWriter, r *http.Request) {
@@ -40,16 +46,17 @@ func (s *Server) forecast(w http.ResponseWriter, r *http.Request) {
 	// The OPEN month, not the last closed one: a forecast is about a month
 	// that has not finished, which is the opposite of every other page here.
 	open := world.LastDay[:7]
-	proj, basis, err := finops.Project(s.db, open)
-	if err != nil {
-		http.Error(w, "store unavailable", http.StatusInternalServerError)
-		return
-	}
 	var rows []projRow
 	for _, d := range world.Desks {
-		if v, ok := proj[d.Name]; ok {
-			rows = append(rows, projRow{d.Name, v})
+		amt, basis, lines, err := finops.ProjectWithDrivers(s.db, d.Name, open)
+		if err != nil {
+			// This desk has nothing landed yet this month: the same
+			// "no row for this desk" a plain map lookup used to produce
+			// silently, kept explicit here rather than treated as a store
+			// failure.
+			continue
 		}
+		rows = append(rows, projRow{d.Name, amt, basis, lines})
 	}
 	psrt := readSortNamed(r, "psort", "amount", true)
 	applySort(rows, psrt, map[string]func(a, b projRow) int{
@@ -77,7 +84,6 @@ func (s *Server) forecast(w http.ResponseWriter, r *http.Request) {
 	s.render(w, tplForecast, struct {
 		shell
 		Period         string
-		Basis          string
 		Projection     []projRow
 		Rows           []finops.Forecast
 		Frozen         bool
@@ -88,7 +94,7 @@ func (s *Server) forecast(w http.ResponseWriter, r *http.Request) {
 		CanAct         bool
 		Sort           sortSpec
 		SortProjection sortSpec
-	}{s.shellFor(r, "Forecast", "forecast"), open, basis, rows, history,
+	}{s.shellFor(r, "Forecast", "forecast"), open, rows, history,
 		frozen, acc, scored, hasAcc, finops.LadderText(), u.May("operator"), spec, psrt})
 }
 
@@ -118,6 +124,22 @@ func (s *Server) freezeForecast(w http.ResponseWriter, r *http.Request) {
 type explainerView struct {
 	crew.Explainer
 	Rendered template.HTML
+	// TeamIsReal guards the page's own team link: C8-SPEC.md's executive
+	// pack publishes with Team "leadership", which is not one of
+	// world.Teams's ten and would otherwise render a dead link to
+	// /team/leadership (drill.go's team() answers 404 for any name that is
+	// not a real one). A row whose Team IS real still links, exactly as
+	// before this field existed.
+	TeamIsReal bool
+}
+
+func isRealTeam(name string) bool {
+	for _, t := range world.Teams {
+		if t.Name == name {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Server) explainers(w http.ResponseWriter, r *http.Request) {
@@ -130,9 +152,19 @@ func (s *Server) explainers(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "store unavailable", http.StatusInternalServerError)
 		return
 	}
+	// ?audience=leadership is C8-SPEC.md section 2's "the leadership page":
+	// the explainers page filtered to the leadership audience. Every OTHER
+	// explainer's Audience is the fixed string "the team" (commissionExplainer
+	// below); the executive pack's own is "leadership"
+	// (internal/finops.applyExplainerPublish). Empty (the ordinary page) shows
+	// every row, unfiltered, exactly as before this parameter existed.
+	audience := r.URL.Query().Get("audience")
 	rows := make([]explainerView, 0, len(list))
 	for _, e := range list {
-		rows = append(rows, explainerView{e, renderBody(e.Body)})
+		if audience != "" && e.Audience != audience {
+			continue
+		}
+		rows = append(rows, explainerView{e, renderBody(e.Body), isRealTeam(e.Team)})
 	}
 	teams := make([]string, 0, len(world.Teams))
 	for _, t := range world.Teams {
@@ -144,8 +176,9 @@ func (s *Server) explainers(w http.ResponseWriter, r *http.Request) {
 		Teams    []string
 		Analysts []string
 		CanAct   bool
+		Audience string
 	}{s.shellFor(r, "Explainers", "explainers"), rows, teams,
-		s.activeAnalysts(), u.May("operator")})
+		s.activeAnalysts(), u.May("operator"), audience})
 }
 
 func (s *Server) commissionExplainer(w http.ResponseWriter, r *http.Request) {

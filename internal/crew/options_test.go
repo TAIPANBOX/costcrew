@@ -163,6 +163,37 @@ func TestAllowsNoOptionsIsFalseForAHandsUpOnlyRole(t *testing.T) {
 	}
 }
 
+// C9-SPEC.md: the data-quality analyst's whole vocabulary is one hands_up
+// class, data.halt, named only when a threshold is crossed (roles.yaml's own
+// owes line: "a halt request ... WHEN a threshold ... is crossed"). Most
+// days nothing crosses, and the deliverable is the freshness-and-coverage
+// report alone -- prose, the same shape a reporter's two commentary classes
+// already establish is allowed to skip the block.
+func TestAllowsNoOptionsIsTrueForDataHaltOnly(t *testing.T) {
+	role := crew.JobDescription{Family: "data-quality-analyst", HandsUp: []string{"data.halt"}}
+	if !crew.AllowsNoOptions(role) {
+		t.Error("a role whose only class is data.halt was refused for naming no options; " +
+			"most days nothing crosses a threshold and the report is prose alone")
+	}
+}
+
+// The same property through the real save path, against the real
+// data-quality role roles.yaml defines (not a synthetic JobDescription):
+// an ordinary day's report, with no options block at all, must be accepted.
+func TestADataQualityReportWithNoOptionsIsAccepted(t *testing.T) {
+	db := optionsTestDB(t)
+	task := plantPlainTask(t, db)
+	report := "## Data quality\naws: fresh, 2.1% untagged, 0.4% unallocated. Nothing crossed today.\n"
+	artID := plantDraftArtifact(t, db, task, report)
+	refused, reason, err := crew.ValidateAndSaveOptions(db, artID, "data-quality", report, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if refused {
+		t.Errorf("an ordinary data-quality report with nothing crossed was refused: %s", reason)
+	}
+}
+
 func optionsTestDB(t *testing.T) *sql.DB {
 	t.Helper()
 	st, err := store.Open(t.TempDir())

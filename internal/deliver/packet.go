@@ -24,6 +24,8 @@ package deliver
 import (
 	"database/sql"
 	"fmt"
+	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -87,6 +89,52 @@ func Packet(db *sql.DB, t crew.Task, a crew.Analyst, hideDriver bool) string {
 			}
 		}
 	}
+	// "decision-framing" only, not "exec-reporting": exec-reporter carries
+	// both (internal/world/world.go), and exec-reporting is ALSO the
+	// desk reporters' own skill (reporter-aws and the rest), which is what
+	// reportingSection just above already answers to. Gating executiveSection
+	// on the skill the desk reporters do NOT have is what keeps the two
+	// sections apart -- one desk's month against four estate-wide numbers
+	// are different questions, and "management" (exec-reporter's own desk in
+	// t.Desk) owns no team's spend for reportingSection to report on anyway.
+	if HasString(a.Skills, "decision-framing") {
+		if s := executiveSection(db); s != "" {
+			sections = append(sections, s)
+		}
+	}
+	// C5-SPEC.md: the optimizer families' own skill. Gated the same way as
+	// every section above, by the skill that earns it (world.go seeds
+	// optimizer-aws/gcp/azure/onprem with "rightsizing-analysis"), not by
+	// role family name, so a re-briefed analyst gains or loses the section
+	// exactly when its skills say so.
+	if HasString(a.Skills, "rightsizing-analysis") {
+		if s := recommendationsSection(db, t.Desk); s != "" {
+			sections = append(sections, s)
+		}
+	}
+	if HasString(a.Skills, "licence-reconciliation", "renewal-calendar",
+		"renewal-negotiation-prep", "vendor-benchmarking") {
+		if s := renewalsSection(db, time.Now().UTC().Format("2006-01-02")); s != "" {
+			sections = append(sections, s)
+		}
+	}
+	if HasString(a.Skills, "commitment-modelling", "waterline-tracking") {
+		if s := commitmentsSection(db); s != "" {
+			sections = append(sections, s)
+		}
+	}
+
+	// C9-SPEC.md section 2: "the three figures per source with the
+	// thresholds and which is crossed." Never scoped to the task's own
+	// desk (t.Desk is "management" for this role, seeded org-wide): the
+	// mission is the whole estate, "freshness per source ... tag coverage
+	// per desk" (roles.yaml's own reads line), so every desk is shown
+	// regardless of which one the analyst happens to sit on.
+	if HasString(a.Skills, "data-quality-checks", "tag-coverage") {
+		if s := dataQualitySection(db); s != "" {
+			sections = append(sections, s)
+		}
+	}
 
 	if HasString(a.Skills, "exec-reporting", "showback-narration", "variance-commentary") {
 		if s := reportingSection(db, t.Desk); s != "" {
@@ -97,6 +145,31 @@ func Packet(db *sql.DB, t crew.Task, a crew.Analyst, hideDriver bool) string {
 		if s := forecastingSection(db, t.Desk); s != "" {
 			sections = append(sections, s)
 		}
+	}
+	// C7-SPEC.md section 2: the AI desk's own two sections, gated by the
+	// skills only ai-spend and unit-econ-ai hold (world.go's roster), the
+	// same convention every skill-gated section above already follows.
+	// Neither takes a desk argument: ai_calls has no desk column at all --
+	// it IS the AI desk's own table, by construction, the way charges.source
+	// is what makes every section above this one desk-general.
+	if HasString(a.Skills, "ai-spend-analysis", "token-economics", "model-routing-review") {
+		if s := aiSpendSection(db); s != "" {
+			sections = append(sections, s)
+		}
+	}
+	if HasString(a.Skills, "unit-economics", "cost-per-outcome") {
+		if s := unitEconomicsSection(db); s != "" {
+			sections = append(sections, s)
+		}
+	}
+	// closePackSection is C2-SPEC.md section 2's own section, appended here
+	// -- after the anomaly-related sections above, before memory below --
+	// deliberately: "yields before memory, after the anomaly" is that spec's
+	// own words for this exact position, and BoundBytes below trims from the
+	// END of the joined sections, so a section's place in this list IS its
+	// place in line to be cut.
+	if s := closePackSection(db, a, t); s != "" {
+		sections = append(sections, s)
 	}
 
 	// ownHistorySection is MEMORY (B8-SPEC.md section 2) and is appended
@@ -473,6 +546,40 @@ func waitingOwner(db *sql.DB, artifactID int) string {
 	return owner
 }
 
+// ---------------------------------------------------------- data quality
+
+// dataQualitySection is the data-quality role's own packet: C9-SPEC.md
+// section 2. finops.DataQuality's own refusal (a threshold row roles.yaml
+// does not carry, section 4's hostile case) is shown rather than hidden --
+// "refuse to measure, say so" is what the analyst's own report is FOR, and
+// a packet that silently omitted the section on that error would be the
+// analyst reporting nothing wrong when the roles data itself is broken.
+func dataQualitySection(db *sql.DB) string {
+	today := time.Now().UTC().Format("2006-01-02")
+	findings, err := finops.DataQuality(db, today)
+	if err != nil {
+		return fmt.Sprintf("\nData quality\ncannot measure: %v\n", err)
+	}
+	if len(findings) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "Data quality (freshness, tag coverage, unallocated share; %s)\n", today)
+	for _, f := range findings {
+		fresh := fmt.Sprintf("%d day(s)", f.FreshnessDays)
+		if !f.HasCharge {
+			fresh = "no charge on record"
+		}
+		fmt.Fprintf(&b, "%-8s freshness %-18s (T.stale %d)  untagged %5.1f%%  unallocated %5.1f%%  (T.untagged %d%%)",
+			f.Source, fresh, f.StaleThreshold, f.UntaggedPct, f.UnallocatedPct, f.UntaggedThresholdPct)
+		if f.Crossed {
+			fmt.Fprintf(&b, "  CROSSED: %s", f.Reason)
+		}
+		b.WriteString("\n")
+	}
+	return b.String()
+}
+
 // ------------------------------------------------------ reporting and forecasting
 
 // reportingSection is the desk's month for a skill whose job is to narrate
@@ -520,9 +627,10 @@ func reportingSection(db *sql.DB, desk string) string {
 	return b.String()
 }
 
-// forecastingSection is the run-rate projection for the desk and the basis
-// it was built from, plus the most recently frozen forecast and its grade
-// when one has been scored.
+// forecastingSection is the driver-aware run-rate projection for the desk
+// and the basis it was built from, plus the most recently frozen forecast
+// and, once its own period has closed, the miss against what happened.
+// C3-SPEC.md sections 1 and 2.
 func forecastingSection(db *sql.DB, desk string) string {
 	if desk == "" {
 		return ""
@@ -531,15 +639,28 @@ func forecastingSection(db *sql.DB, desk string) string {
 	if err != nil || period == "" {
 		return ""
 	}
-	proj, basis, err := finops.Project(db, period)
-	if err != nil {
-		return ""
-	}
-	amt, ok := proj[desk]
+	// A desk with nothing landed yet this period reads as ok=false, the
+	// same graceful "nothing to project" this section has always allowed:
+	// ProjectWithDrivers errors on a desk with no data at all, where the
+	// old map-lookup here simply found no key. Only that ONE desk-scoped
+	// question is folded into ok; every other failure (the store itself
+	// being unavailable) would already have shown up in OpenPeriod above.
+	amt, basis, lines, projErr := finops.ProjectWithDrivers(db, desk, period)
+	ok := projErr == nil
 
+	// "last" is the most recently frozen period, shown whether or not it
+	// has closed yet (the normal case: the OPEN month is frozen too, the
+	// same "including the open one" shape history.go's own seeding uses).
+	// "scored" is the most recent CLOSED, graded one, tracked separately:
+	// once the open month has its own fresh, unscored freeze, it is always
+	// the highest period, and reusing ONE variable for both questions made
+	// the miss of a genuinely closed month disappear the moment the open
+	// month was frozen too -- found running the packet against the real
+	// seeded estate (this PR's own report), not by any test that existed
+	// before TestForecastingSectionShowsTheMissOfAClosedPeriodEvenWhenTheOpenOneIsAlsoFrozen.
 	frozen, ferr := finops.Forecasts(db, period)
-	var last finops.Forecast
-	haveLast := false
+	var last, scored finops.Forecast
+	haveLast, haveScored := false, false
 	if ferr == nil {
 		for _, f := range frozen {
 			if f.Source != desk {
@@ -547,6 +668,9 @@ func forecastingSection(db *sql.DB, desk string) string {
 			}
 			if !haveLast || f.Period > last.Period {
 				last, haveLast = f, true
+			}
+			if f.HasAct && (!haveScored || f.Period > scored.Period) {
+				scored, haveScored = f, true
 			}
 		}
 	}
@@ -559,6 +683,12 @@ func forecastingSection(db *sql.DB, desk string) string {
 	if ok {
 		fmt.Fprintf(&b, "run-rate projection: %s\n", amt)
 		fmt.Fprintf(&b, "basis: %s\n", basis)
+		if len(lines) > 0 {
+			b.WriteString("drivers applied:\n")
+			for _, l := range lines {
+				fmt.Fprintf(&b, "  %s (%s, %s to %s): %s\n", l.Label, l.Kind, l.Start, l.End, l.Effect)
+			}
+		}
 	}
 	if haveLast {
 		fmt.Fprintf(&b, "last frozen forecast: %s for %s", last.Forecast, last.Period)
@@ -568,5 +698,563 @@ func forecastingSection(db *sql.DB, desk string) string {
 			b.WriteString(", not yet scored\n")
 		}
 	}
+	if haveScored {
+		// The next month explains the miss, C3-SPEC.md section 1: the
+		// frozen figure against what happened, and whichever registered
+		// drivers the frozen basis never named -- a driver added to the
+		// registry only after the freeze, naming in hindsight what the
+		// gap turned out to be.
+		diff := scored.Actual - scored.Forecast
+		fmt.Fprintf(&b, "miss (%s): frozen %s, actual %s, difference %s\n",
+			scored.Period, scored.Forecast, scored.Actual, diff)
+		if missed, merr := finops.Missed(db, desk, scored.Period, scored.Basis); merr == nil && len(missed) > 0 {
+			b.WriteString("missed drivers:\n")
+			for _, d := range missed {
+				fmt.Fprintf(&b, "  %s (%s, %s to %s)\n", d.Label, d.Kind, d.Start, d.End)
+			}
+		}
+	}
+	return b.String()
+}
+
+// ------------------------------------------------------------- the AI desk
+
+// aiSpendSectionCap is C7-SPEC.md section 2's own number: top ten by cost,
+// then "and N more" -- driversSection's own convention (driversSectionCap),
+// reused here rather than invented anew.
+const aiSpendSectionCap = 10
+
+// aiSpendSection is ai-spend's own packet: this month's ai_calls grouped by
+// agent (ResourceId) and by model, the blocked count named as the guard's
+// saving rather than folded into cost (a blocked call always settles at
+// zero -- the reader refuses any row that says otherwise), and the
+// estimated share of x_cost_basis. Omitted entirely -- not a header over
+// nothing, the convention every section in this file already holds --
+// until real AI spend has landed on the desk.
+func aiSpendSection(db *sql.DB) string {
+	month, ok, err := finops.LatestRealAIMonth(db)
+	if err != nil || !ok {
+		return ""
+	}
+	byAgent, err := finops.AIByAgent(db, month)
+	if err != nil || len(byAgent) == 0 {
+		return ""
+	}
+	byModel, err := finops.AIByModel(db, month)
+	if err != nil {
+		return ""
+	}
+	settled, estimated, blockedBasis, err := finops.BasisCounts(db, month)
+	if err != nil {
+		return ""
+	}
+
+	var calls, blockedCalls int
+	var total money.Micros
+	for _, r := range byAgent {
+		calls += r.Calls
+		blockedCalls += r.BlockedCalls
+		total += r.Cost
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "The AI desk's month (%s)\n", month)
+	fmt.Fprintf(&b, "total: %s, %d calls, %d blocked (the guard's saving, never a cost: a "+
+		"blocked call always settles at zero)\n", total, calls, blockedCalls)
+	if n := settled + estimated; n > 0 {
+		fmt.Fprintf(&b, "basis: %d settled, %d estimated (%.0f%% of the non-blocked calls), "+
+			"%d blocked\n", settled, estimated, float64(estimated)/float64(n)*100, blockedBasis)
+	}
+
+	b.WriteString("\nBy agent, top ten by cost\n")
+	shown := 0
+	for _, r := range byAgent {
+		if shown >= aiSpendSectionCap {
+			break
+		}
+		fmt.Fprintf(&b, "  %-56s %8s  %d calls, %d blocked\n", r.Agent, r.Cost, r.Calls, r.BlockedCalls)
+		shown++
+	}
+	if len(byAgent) > shown {
+		fmt.Fprintf(&b, "and %d more\n", len(byAgent)-shown)
+	}
+
+	b.WriteString("\nBy model, top ten by cost\n")
+	shown = 0
+	for _, r := range byModel {
+		if shown >= aiSpendSectionCap {
+			break
+		}
+		fmt.Fprintf(&b, "  %-24s %8s  %d calls, %d blocked\n", r.Model, r.Cost, r.Calls, r.BlockedCalls)
+		shown++
+	}
+	if len(byModel) > shown {
+		fmt.Fprintf(&b, "and %d more\n", len(byModel)-shown)
+	}
+
+	return b.String()
+}
+
+// unitEconomicsSection is unit-econ-ai's own packet: cost per outcome per
+// agent, for every agent with at least one x_outcome-tagged call this
+// month, and one sentence naming every agent that spent and tagged none --
+// said plainly rather than a cost per outcome invented for it. Omitted
+// entirely until real AI spend has landed, the same convention as
+// aiSpendSection above.
+func unitEconomicsSection(db *sql.DB) string {
+	month, ok, err := finops.LatestRealAIMonth(db)
+	if err != nil || !ok {
+		return ""
+	}
+	byAgent, err := finops.AIByAgent(db, month)
+	if err != nil || len(byAgent) == 0 {
+		return ""
+	}
+	counts, err := finops.OutcomeCountsByAgent(db, month)
+	if err != nil {
+		return ""
+	}
+
+	var withOutcome []string
+	var noOutcome []string
+	for _, r := range byAgent {
+		if r.Calls-r.BlockedCalls == 0 {
+			continue // nothing spent; not a gap, nothing to divide either
+		}
+		if n := counts[r.Agent]; n > 0 {
+			perOutcome := money.Micros(int64(r.Cost) / int64(n))
+			withOutcome = append(withOutcome, fmt.Sprintf("  %-56s %8s per outcome (n=%d, %s total)\n",
+				r.Agent, perOutcome, n, r.Cost))
+		} else {
+			noOutcome = append(noOutcome, r.Agent)
+		}
+	}
+	if len(withOutcome) == 0 && len(noOutcome) == 0 {
+		return ""
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "Unit economics, cost per outcome (%s)\n", month)
+	if len(withOutcome) == 0 {
+		b.WriteString("  no agent's calls this month carry an outcome\n")
+	}
+	for _, l := range withOutcome {
+		b.WriteString(l)
+	}
+	if len(noOutcome) > 0 {
+		fmt.Fprintf(&b, "cost with no outcome header, said rather than invented, for: %s\n",
+			strings.Join(noOutcome, ", "))
+	}
+	return b.String()
+}
+
+// ------------------------------------------------------------ the close pack
+
+// C2-SPEC.md: a chargeback analyst's last three days of the month.
+// `@yurii 2026-09-02`, the ask this section serves: "більш повною мірою
+// замінити людей на цих посадах" -- a chargeback analyst's own words for the
+// job, "reconcile, allocate, freeze, send the statements, answer the
+// arguments."
+
+// periodInTitle finds a YYYY-MM period inside a task's own title -- the
+// same shape finops.Months and finops.Allocate already use as a period key.
+// The chargeback-analyst family's single roles.yaml cadence line, "weekly,
+// and the close pack monthly", covers two different kinds of task on the
+// SAME analyst, and only the title tells this packet builder which one it
+// is looking at: a period-naming title is the close pack, anything else is
+// the family's own ordinary weekly work.
+var periodInTitle = regexp.MustCompile(`\d{4}-\d{2}`)
+
+// closePackSection is the chargeback-analyst family's own packet section
+// (C2-SPEC.md section 2): allocation by method and team, coverage,
+// unallocated cost with the rule ids that produced it, the true-up since
+// the last close, and the invoice reconciliation once charges.invoice_id
+// carries anything for the period -- one sentence saying it does not,
+// otherwise. Empty, additively, when the role is not chargeback-analyst or
+// the title names no period, the same rule every other section in this
+// file already holds for a condition that does not apply.
+func closePackSection(db *sql.DB, a crew.Analyst, t crew.Task) string {
+	role, ok := crew.RoleForDesk(a.Name, a.Desk)
+	if !ok || role.Family != "chargeback-analyst" {
+		return ""
+	}
+	period := periodInTitle.FindString(t.Title)
+	if period == "" {
+		return ""
+	}
+
+	alloc, err := finops.Allocate(db, period)
+	if err != nil {
+		return ""
+	}
+	rules, err := finops.Rules(db)
+	if err != nil {
+		return ""
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "The close pack, %s\n", period)
+
+	b.WriteString("\nAllocation rules in effect (method by desk and category)\n")
+	for _, r := range rules {
+		fmt.Fprintf(&b, "rule %d: %s / %s -> %s\n", r.ID, r.Source, r.Category, finops.MethodNote(r.Method))
+	}
+
+	b.WriteString("\nBy team: direct, allocated, loaded\n")
+	for _, tc := range alloc.Teams {
+		fmt.Fprintf(&b, "%s / %s: %s direct, %s allocated, %s loaded\n",
+			tc.Source, tc.Team, tc.Direct, tc.Allocated, tc.Loaded())
+	}
+	fmt.Fprintf(&b, "coverage: %.1f%%\n", alloc.Coverage)
+
+	fmt.Fprintf(&b, "\nUnallocated: %s\n", alloc.Unallocated)
+	if pots, perr := finops.UnallocatedPots(db, period); perr == nil {
+		for _, p := range pots {
+			ruleName := "no rule"
+			if p.RuleID != 0 {
+				ruleName = fmt.Sprintf("rule %d", p.RuleID)
+			}
+			fmt.Fprintf(&b, "%s / %s: %s, %s (%s)\n", p.Source, p.Category, p.Amount, ruleName, p.Reason)
+		}
+	}
+
+	b.WriteString("\nTrue-up since the last close\n")
+	if trueUp, _, terr := finops.TrueUpFor(db, period); terr == nil {
+		switch {
+		case len(trueUp) > 0:
+			for _, tu := range trueUp {
+				fmt.Fprintf(&b, "%s / %s: %s then, %s now (%s)\n",
+					tu.Source, tu.Team, tu.Frozen, tu.Now, tu.Delta)
+			}
+		default:
+			if frozen, ferr := finops.FrozenPeriod(db, period); ferr == nil && frozen.Closed {
+				b.WriteString("nothing has moved since the close.\n")
+			} else {
+				b.WriteString("no previous close to true up against.\n")
+			}
+		}
+	}
+
+	b.WriteString("\nInvoice reconciliation\n")
+	if invoices, uncovered, has, ierr := finops.InvoiceReconciliation(db, period); ierr == nil {
+		if !has {
+			b.WriteString("no invoice column is loaded.\n")
+		} else {
+			for _, inv := range invoices {
+				fmt.Fprintf(&b, "invoice %s: %s\n", inv.InvoiceID, inv.Amount)
+			}
+			if uncovered != 0 {
+				fmt.Fprintf(&b, "not tied to any invoice: %s\n", uncovered)
+			}
+		}
+	}
+
+	return b.String()
+}
+
+// -------------------------------------------------------- the executive pack
+
+// executiveSection is C8-SPEC.md section 2's own words: the four KPI
+// figures with last period's value and the delta, and the last three
+// posted explanations on the desks whose spend moved most, so the pack's
+// "why" comes from what a desk actually posted rather than from a
+// template. Empty when the estate has no charges at all, the same
+// "additive, never misleading" rule every other section here holds.
+func executiveSection(db *sql.DB) string {
+	figs, period, previous, err := finops.Executive(db)
+	if err != nil || len(figs) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "The executive pack (%s)\n", period)
+	for _, f := range figs {
+		b.WriteString(executiveFigureLine(f))
+	}
+	if s := movedDesksSection(db, period, previous); s != "" {
+		b.WriteString("\n")
+		b.WriteString(s)
+	}
+	return b.String()
+}
+
+// executiveFigureLine is one KPI's own line. The Blocked check comes FIRST
+// and returns on its own: C8-SPEC.md section 4, "a refused KPI appears as
+// refused in the packet, not as zero", and gates-have-teeth.sh's "show a
+// refused KPI as zero" case plants exactly this guard's removal, which
+// falls through to the value branches below and prints f.Numeric's own Go
+// zero value -- a real 0.0, not an absence, which is what makes the mutant
+// catchable at all.
+func executiveFigureLine(f finops.ExecutiveFigure) string {
+	if f.Blocked != "" {
+		return fmt.Sprintf("%s: refused, %s\n", f.Name, f.Blocked)
+	}
+	if !f.HasVal {
+		return "" // neither a value nor a refusal: nothing here to say, never invented
+	}
+	if !f.HasPeriod {
+		return fmt.Sprintf("%s: %.1f%s (no previous period)\n", f.Name, f.Numeric, f.Unit)
+	}
+	if !f.PrevHasVal {
+		reason := f.PrevBlocked
+		if reason == "" {
+			reason = "no cost in that period"
+		}
+		return fmt.Sprintf("%s: %.1f%s (previous period: refused, %s)\n", f.Name, f.Numeric, f.Unit, reason)
+	}
+	return fmt.Sprintf("%s: %.1f%s (was %.1f%s, %+.1f)\n", f.Name, f.Numeric, f.Unit, f.PrevNumeric, f.Unit, f.Delta)
+}
+
+// movedDesksSection is the last three posted explanations -- any analyst's,
+// any task's -- on the desk or desks whose total spend moved most between
+// previous and period, ranked by the SIZE of the move either way (the
+// overview page's own movers(), internal/web/pages.go, already reads "what
+// changed" the same way, not "what went up"). Filled desk by desk, newest
+// explanation first, stopping at three: a desk that moved the most but has
+// nothing posted on it yet (the boundary C8-SPEC.md section 4 names)
+// contributes nothing, and the next desk in the ranking fills the rest,
+// which is why this reads "desks" and not "the desk".
+func movedDesksSection(db *sql.DB, period, previous string) string {
+	if previous == "" {
+		return "" // nothing to compare a move against yet: the estate's first period
+	}
+	now, err := estate.Totals(db, period)
+	if err != nil {
+		return ""
+	}
+	was, err := estate.Totals(db, previous)
+	if err != nil {
+		return ""
+	}
+
+	type moved struct {
+		desk  string
+		delta money.Cents
+	}
+	var moves []moved
+	for _, d := range world.Desks {
+		delta := now[d.Name] - was[d.Name]
+		if delta == 0 {
+			continue
+		}
+		moves = append(moves, moved{d.Name, delta})
+	}
+	if len(moves) == 0 {
+		return ""
+	}
+	// world.Desks is a fixed order, not a ranked one: sorted here, and
+	// stably, so two desks tied on the size of their move keep world.Desks's
+	// own order rather than whatever order the loop above happened to visit
+	// them in -- the same nondeterminism invariant 7 (CLAUDE.md) already
+	// guards every other ranked list in this console against.
+	sort.SliceStable(moves, func(i, j int) bool {
+		return moves[i].delta.Abs() > moves[j].delta.Abs()
+	})
+
+	var b strings.Builder
+	shown := 0
+	for _, m := range moves {
+		if shown >= 3 {
+			break
+		}
+		rows, err := lastPostedOnDesk(db, m.desk, 3-shown)
+		if err != nil || len(rows) == 0 {
+			continue
+		}
+		if shown == 0 {
+			b.WriteString("The last posted explanations on the desks whose spend moved most\n")
+		}
+		for _, r := range rows {
+			fmt.Fprintf(&b, "\n%s, %s, %s\n", r.title, r.desk, r.when)
+			b.WriteString(trimBytes(r.body, 200))
+			b.WriteString("\n")
+		}
+		shown += len(rows)
+	}
+	return b.String()
+}
+
+type postedRow struct {
+	title, desk, when, body string
+}
+
+// lastPostedOnDesk is the last n posted deliverables on desk, any analyst,
+// newest first -- the same notion of "posted explanation" this file already
+// holds in lastExplanationSection and ownHistorySection, just not scoped to
+// one service (lastExplanationSection) or one author (ownHistorySection):
+// the executive pack cares about what the DESK posted, not who posted it.
+func lastPostedOnDesk(db *sql.DB, desk string, n int) ([]postedRow, error) {
+	if n <= 0 {
+		return nil, nil
+	}
+	rows, err := db.Query(`SELECT t.title, COALESCE(ar.stamped, ar.created, ''), ar.body
+		FROM artifacts ar JOIN tasks t ON t.id = ar.task
+		WHERE t.desk = ? AND ar.state = 'posted'
+		ORDER BY ar.stamped DESC, ar.id DESC LIMIT ?`, desk, n)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []postedRow
+	for rows.Next() {
+		var r postedRow
+		if err := rows.Scan(&r.title, &r.when, &r.body); err != nil {
+			return nil, err
+		}
+		r.desk = desk
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// --------------------------------------------------------- the SaaS renewals
+
+// renewalsSectionWindowDays is the calendar's own horizon. roles.yaml's
+// saas-portfolio-manager family names it in its own words, under owes: "the
+// renewal calendar ninety days out."
+const renewalsSectionWindowDays = 90
+
+// renewalsSection is the SaaS desk's calendar for the two roles that read it
+// (roles.yaml families saas-portfolio-manager and renewals-analyst): every
+// licence the saas-seats connector has imported (internal/finops.Licences)
+// that renews within the next ninety days of today, each with its own
+// notice deadline, issued versus active seats, the waste sitting in idle
+// ones, and the honest word that no benchmark is connected -- never a
+// figure with no source behind it, C6-SPEC.md section 2's own words.
+//
+// `@yurii 2026-09-02`, the boundary this section is written around without
+// crossing: "переговори з вендером проводити він сам особі не може" -- what
+// follows is background FOR the pack a person takes into that conversation
+// (roles.yaml's recommendation.renewal), never the conversation itself, and
+// nothing here proposes dropping a seat or a term; that is the model's own
+// job, working from these facts, inside its own job description.
+//
+// Empty when nothing has been imported: a generated licence never reaches
+// the licences table (world.Licences stays in memory, seeded nowhere near
+// the store), so a fresh install omits this section entirely, the same
+// additive rule every section in this file already holds.
+func renewalsSection(db *sql.DB, today string) string {
+	rows, err := finops.RenewalsWithin(db, renewalsSectionWindowDays, today)
+	if err != nil || len(rows) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "The SaaS renewal calendar, next %d days from %s\n",
+		renewalsSectionWindowDays, today)
+	for _, l := range rows {
+		fmt.Fprintf(&b, "\n%s / %s\n", l.Vendor, l.Product)
+		fmt.Fprintf(&b, "  renews:          %s, a %d-month term\n", l.Renews, l.TermMonths)
+		deadline := l.NoticeDeadline()
+		fmt.Fprintf(&b, "  notice deadline: %s%s\n", deadline, noticeStatus(deadline, today))
+		fmt.Fprintf(&b, "  issued/active:   %d/%d over %d days (idle %d)\n",
+			l.Issued, l.Active30, l.ActiveWindowDays, l.Idle())
+		fmt.Fprintf(&b, "  waste:           %s a month\n", l.Waste())
+		// No benchmark connector exists in this practice today -- the same
+		// honest gap roles.yaml's benchmarking-analyst family names for the
+		// estate's own KPIs ("no fair comparison exists" otherwise). Never a
+		// number invented to fill this line.
+		b.WriteString("  benchmark:       no benchmark\n")
+	}
+	return b.String()
+}
+
+// noticeStatus flags a deadline that has already gone by. "" for an unset
+// deadline (an imported row with no valid Renews, which the reader that
+// writes this table already refuses, so this is unreached in practice) and
+// for one still ahead.
+func noticeStatus(deadline, today string) string {
+	if deadline == "" || deadline >= today {
+		return ""
+	}
+	return " (already passed)"
+}
+
+// ------------------------------------------------------------ commitments
+
+// commitmentsCandidateCap is C4-SPEC.md section 2's own words, "top ten
+// candidates with 'and N more'": the break-even list is bounded the same
+// shape driversSection already bounds an unbounded registry, so a store
+// holding many real commitments cannot itself grow the packet past a
+// reasonable size.
+const commitmentsCandidateCap = 10
+
+// commitmentsSection is real coverage, utilisation, the expiry calendar and
+// break-even for the commitment analyst (C4-SPEC.md), reading only what a
+// connector has actually written to the store's own commitments table.
+// Absent entirely -- not a header over nothing, the rule every other
+// section in this file already holds -- until finops.HasRealCommitments is
+// true: the generated waterline (world.Commitments) is not this analyst's
+// evidence, and a packet that quoted it would be handing the model figures
+// nobody measured.
+func commitmentsSection(db *sql.DB) string {
+	real, err := finops.HasRealCommitments(db)
+	if err != nil || !real {
+		return ""
+	}
+	period, err := finops.OpenPeriod(db)
+	if err != nil || period == "" {
+		return ""
+	}
+	cov, err := finops.Coverage(db, period)
+	if err != nil || len(cov) == 0 {
+		return ""
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "Commitments (%s)\n", period)
+	b.WriteString("coverage: committed spend over eligible spend, per desk\n")
+	for _, c := range cov {
+		if c.OK {
+			fmt.Fprintf(&b, "  %-8s %5.1f%%  (%s committed of %s eligible)\n",
+				c.Source, c.Pct, c.CommittedCents, c.EligibleCents)
+		} else {
+			fmt.Fprintf(&b, "  %-8s refused: no eligible spend to be a percentage of "+
+				"(%s committed)\n", c.Source, c.CommittedCents)
+		}
+	}
+
+	if util, uerr := finops.CommitmentUtilisation(db, period); uerr == nil && len(util) > 0 {
+		b.WriteString("\nutilisation: used over committed, per commitment\n")
+		for _, u := range util {
+			if u.OK {
+				fmt.Fprintf(&b, "  %-16s %6.1f%%  (%s a month, expires %s)\n",
+					u.ID, u.Pct, u.MonthlyCents, u.End)
+			} else {
+				fmt.Fprintf(&b, "  %-16s refused: this commitment costs nothing a month\n", u.ID)
+			}
+		}
+	}
+
+	if asOf, aerr := finops.AsOfDay(db); aerr == nil && asOf != "" {
+		if exp, eerr := finops.ExpiringCommitments(db, 90, asOf); eerr == nil && len(exp) > 0 {
+			fmt.Fprintf(&b, "\nExpiring in the next 90 days (as of %s)\n", asOf)
+			for _, e := range exp {
+				fmt.Fprintf(&b, "  %-16s %s, %s desk, expires %s\n", e.ID, e.Kind, e.Source, e.End)
+			}
+		}
+	}
+
+	if be, berr := finops.BreakEvens(db, period); berr == nil && len(be) > 0 {
+		b.WriteString("\nBuy or wait: each candidate's own price against the on-demand run rate " +
+			"it would cover, largest saving first\n")
+		shown := 0
+		for _, r := range be {
+			if shown >= commitmentsCandidateCap {
+				break
+			}
+			if r.OK {
+				fmt.Fprintf(&b, "  %-16s buy: %s a month saved, %d month(s) to break even "+
+					"(%s committed vs %s on-demand)\n",
+					r.ID, r.MonthlySavingCents, r.Months, r.MonthlyCents, r.OnDemandCents)
+			} else {
+				fmt.Fprintf(&b, "  %-16s wait: on-demand (%s) does not exceed the committed "+
+					"price (%s); never breaks even\n", r.ID, r.OnDemandCents, r.MonthlyCents)
+			}
+			shown++
+		}
+		if len(be) > shown {
+			fmt.Fprintf(&b, "and %d more\n", len(be)-shown)
+		}
+	}
+
 	return b.String()
 }

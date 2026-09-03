@@ -142,6 +142,122 @@ type Allocation struct {
 	Placed      money.Cents
 	Unallocated money.Cents
 	Coverage    float64 // direct + placed, over the whole bill
+
+	// BySource is the same four totals, broken down per desk. Added for
+	// C9 (internal/finops/dataquality.go), which measures a DESK's own
+	// untagged and unallocated share against T.untagged, never the whole
+	// estate's: the KPI page's "unallocated-share" already reads Direct,
+	// Shared and Unallocated above for the practice as a whole, and this is
+	// the same arithmetic run once more, per source, from inside the SAME
+	// pass rather than a second query that could disagree with it.
+	BySource map[string]SourceAllocation
+}
+
+// SourceAllocation is one desk's own share of a month's Direct, Shared,
+// Placed and Unallocated cost -- the same four fields Allocation carries for
+// the whole estate.
+type SourceAllocation struct {
+	Direct, Shared, Placed, Unallocated money.Cents
+}
+
+// addSource folds one source's contribution into the per-source map. Go will
+// not let a caller take the address of a map value directly
+// (`&m[k]`), so this is the get-copy-modify-set every call site below shares
+// rather than four copies of the same three lines.
+func addSource(m map[string]SourceAllocation, source string, direct, shared, placed, unallocated money.Cents) {
+	e := m[source]
+	e.Direct += direct
+	e.Shared += shared
+	e.Placed += placed
+	e.Unallocated += unallocated
+	m[source] = e
+}
+
+// sharedCostPot is one row of shared cost with no team: a source, a
+// category and an amount, before any rule has been applied to it.
+type sharedCostPot struct {
+	Source, Category string
+	Amount           money.Cents
+}
+
+// directCosts reads the rows that already have a team: source -> team ->
+// cents, and the grand total. Factored out of Allocate so UnallocatedPots
+// (below) can walk the exact same rows -- "len(teams) == 0, nothing on this
+// desk to carry it" is a property of THIS map, and a second, separately
+// written copy of the query is how the two functions would end up
+// disagreeing about it.
+func directCosts(db *sql.DB, period string) (map[string]map[string]money.Cents, money.Cents, error) {
+	direct := map[string]map[string]money.Cents{}
+	var total money.Cents
+	rows, err := db.Query(`SELECT source, team, SUM(billed_cents) FROM charges
+		WHERE substr(day,1,7)=? AND team IS NOT NULL AND team <> ''
+		GROUP BY 1,2 ORDER BY 1,2`, period)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var src, team string
+		var v int64
+		if err := rows.Scan(&src, &team, &v); err != nil {
+			return nil, 0, err
+		}
+		if direct[src] == nil {
+			direct[src] = map[string]money.Cents{}
+		}
+		direct[src][team] += money.Cents(v)
+		total += money.Cents(v)
+	}
+	return direct, total, rows.Err()
+}
+
+// sharedCostPots reads the rows that have no team: one pot per (source,
+// category), and the grand total.
+func sharedCostPots(db *sql.DB, period string) ([]sharedCostPot, money.Cents, error) {
+	var pots []sharedCostPot
+	var total money.Cents
+	rows, err := db.Query(`SELECT source, category, SUM(billed_cents) FROM charges
+		WHERE substr(day,1,7)=? AND (team IS NULL OR team='')
+		GROUP BY 1,2 ORDER BY 1,2`, period)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var p sharedCostPot
+		var v int64
+		if err := rows.Scan(&p.Source, &p.Category, &v); err != nil {
+			return nil, 0, err
+		}
+		p.Amount = money.Cents(v)
+		total += p.Amount
+		pots = append(pots, p)
+	}
+	return pots, total, rows.Err()
+}
+
+// ruleFor is the rule that applies to one (source, category) pot: the
+// source-specific rule when one exists, else the wildcard ("*") rule, else
+// ok=false when neither does. Allocate's own inline resolution before this
+// refactor, extracted so UnallocatedPots can report the SAME rule's id, not
+// only the method it resolves to -- "unallocated with the rule ids that
+// produced it" (C2-SPEC.md section 2) needs the id, and a second copy of
+// this loop is exactly how it would drift from what Allocate itself applies.
+func ruleFor(rules []Rule, source, category string) (Rule, bool) {
+	var wildcard Rule
+	haveWildcard := false
+	for _, r := range rules {
+		if r.Category != category {
+			continue
+		}
+		if r.Source == source {
+			return r, true
+		}
+		if r.Source == "*" {
+			wildcard, haveWildcard = r, true
+		}
+	}
+	return wildcard, haveWildcard
 }
 
 // Allocate splits a month's shared cost across the teams that spent directly.
@@ -151,80 +267,33 @@ type Allocation struct {
 // rounding, and a chargeback that does not add up to the invoice is one the
 // finance team sends straight back.
 func Allocate(db *sql.DB, period string) (Allocation, error) {
-	out := Allocation{Period: period}
+	out := Allocation{Period: period, BySource: map[string]SourceAllocation{}}
 
 	rules, err := Rules(db)
 	if err != nil {
 		return out, err
 	}
-	method := func(source, category string) Method {
-		best := Unallocated
-		for _, r := range rules {
-			if r.Category != category {
-				continue
-			}
-			if r.Source == source {
-				return r.Method
-			}
-			if r.Source == "*" {
-				best = r.Method
-			}
-		}
-		return best
-	}
 
-	// Direct cost: the rows that already have a team.
-	direct := map[string]map[string]money.Cents{} // source -> team -> cents
-	rows, err := db.Query(`SELECT source, team, SUM(billed_cents) FROM charges
-		WHERE substr(day,1,7)=? AND team IS NOT NULL AND team <> ''
-		GROUP BY 1,2 ORDER BY 1,2`, period)
+	direct, directTotal, err := directCosts(db, period)
 	if err != nil {
 		return out, err
 	}
-	for rows.Next() {
-		var src, team string
-		var v int64
-		if err := rows.Scan(&src, &team, &v); err != nil {
-			rows.Close()
-			return out, err
+	out.Direct = directTotal
+	for src, teams := range direct {
+		var srcDirect money.Cents
+		for _, amt := range teams {
+			srcDirect += amt
 		}
-		if direct[src] == nil {
-			direct[src] = map[string]money.Cents{}
-		}
-		direct[src][team] += money.Cents(v)
-		out.Direct += money.Cents(v)
-	}
-	rows.Close()
-	if err := rows.Err(); err != nil {
-		return out, err
+		addSource(out.BySource, src, srcDirect, 0, 0, 0)
 	}
 
-	// Shared cost: the rows that have none.
-	type pot struct {
-		source, category string
-		amount           money.Cents
-	}
-	var pots []pot
-	prows, err := db.Query(`SELECT source, category, SUM(billed_cents) FROM charges
-		WHERE substr(day,1,7)=? AND (team IS NULL OR team='')
-		GROUP BY 1,2 ORDER BY 1,2`, period)
+	pots, sharedTotal, err := sharedCostPots(db, period)
 	if err != nil {
 		return out, err
 	}
-	for prows.Next() {
-		var p pot
-		var v int64
-		if err := prows.Scan(&p.source, &p.category, &v); err != nil {
-			prows.Close()
-			return out, err
-		}
-		p.amount = money.Cents(v)
-		out.Shared += p.amount
-		pots = append(pots, p)
-	}
-	prows.Close()
-	if err := prows.Err(); err != nil {
-		return out, err
+	out.Shared = sharedTotal
+	for _, p := range pots {
+		addSource(out.BySource, p.Source, 0, p.Amount, 0, 0)
 	}
 
 	alloc := map[string]map[string]TeamCost{}
@@ -248,16 +317,22 @@ func Allocate(db *sql.DB, period string) (Allocation, error) {
 	}
 
 	for _, p := range pots {
-		m := method(p.source, p.category)
+		r, ok := ruleFor(rules, p.Source, p.Category)
+		m := Unallocated
+		if ok {
+			m = r.Method
+		}
 		if m == Unallocated {
-			out.Unallocated += p.amount
+			out.Unallocated += p.Amount
+			addSource(out.BySource, p.Source, 0, 0, 0, p.Amount)
 			continue
 		}
-		teams := direct[p.source]
+		teams := direct[p.Source]
 		if len(teams) == 0 {
 			// Nothing on this desk to carry it. Left where it is and counted,
 			// rather than quietly spread onto teams that never touched it.
-			out.Unallocated += p.amount
+			out.Unallocated += p.Amount
+			addSource(out.BySource, p.Source, 0, 0, 0, p.Amount)
 			continue
 		}
 		names := make([]string, 0, len(teams))
@@ -275,7 +350,8 @@ func Allocate(db *sql.DB, period string) (Allocation, error) {
 			}
 		}
 		if basis == 0 {
-			out.Unallocated += p.amount
+			out.Unallocated += p.Amount
+			addSource(out.BySource, p.Source, 0, 0, 0, p.Amount)
 			continue
 		}
 
@@ -284,14 +360,14 @@ func Allocate(db *sql.DB, period string) (Allocation, error) {
 		for _, t := range names {
 			var share money.Cents
 			if m == Even {
-				share = money.Cents(int64(p.amount) / int64(len(names)))
+				share = money.Cents(int64(p.Amount) / int64(len(names)))
 			} else {
-				share = money.Cents(int64(p.amount) * int64(teams[t]) / int64(basis))
+				share = money.Cents(int64(p.Amount) * int64(teams[t]) / int64(basis))
 			}
-			tc := get(p.source, t)
+			tc := get(p.Source, t)
 			tc.Allocated += share
-			tc.Shares[p.category] += share
-			alloc[p.source][t] = tc
+			tc.Shares[p.Category] += share
+			alloc[p.Source][t] = tc
 			placed += share
 			if teams[t] > biggestAmt {
 				biggest, biggestAmt = t, teams[t]
@@ -299,14 +375,15 @@ func Allocate(db *sql.DB, period string) (Allocation, error) {
 		}
 		// The remainder goes somewhere rather than nowhere. A chargeback that
 		// does not add up to the invoice is one finance sends back.
-		if rem := p.amount - placed; rem != 0 {
-			tc := get(p.source, biggest)
+		if rem := p.Amount - placed; rem != 0 {
+			tc := get(p.Source, biggest)
 			tc.Allocated += rem
-			tc.Shares[p.category] += rem
-			alloc[p.source][biggest] = tc
+			tc.Shares[p.Category] += rem
+			alloc[p.Source][biggest] = tc
 			placed += rem
 		}
 		out.Placed += placed
+		addSource(out.BySource, p.Source, 0, 0, placed, 0)
 	}
 
 	for _, teams := range alloc {
@@ -324,6 +401,88 @@ func Allocate(db *sql.DB, period string) (Allocation, error) {
 	total := out.Direct + out.Shared
 	if total != 0 {
 		out.Coverage = float64(out.Direct+out.Placed) / float64(total) * 100
+	}
+	return out, nil
+}
+
+// UnallocatedPot is one pot of shared cost that stayed unplaced this period,
+// individually, and why: the rule (by id) that left it there, when one
+// exists, or the data reason none could. RuleID is 0 exactly when no rule,
+// source-specific or wildcard, names this category at all -- Method is then
+// "" too, since there is nothing to report.
+type UnallocatedPot struct {
+	Source, Category string
+	Amount           money.Cents
+	RuleID           int
+	Method           Method
+	Reason           string
+}
+
+// UnallocatedPots is Allocate's own unallocated pots, individually, each
+// with the rule that produced it: C2-SPEC.md section 2, "unallocated with
+// the rule ids that produced it". It walks the exact same rows and the exact
+// same rule resolution Allocate itself uses (directCosts, sharedCostPots,
+// ruleFor), so the two can never disagree about which pots ended up
+// unallocated or why; TestUnallocatedPotsSumToTheAllocationsOwnUnallocatedTotal
+// holds that agreement as a test rather than only as a comment.
+func UnallocatedPots(db *sql.DB, period string) ([]UnallocatedPot, error) {
+	rules, err := Rules(db)
+	if err != nil {
+		return nil, err
+	}
+	direct, _, err := directCosts(db, period)
+	if err != nil {
+		return nil, err
+	}
+	pots, _, err := sharedCostPots(db, period)
+	if err != nil {
+		return nil, err
+	}
+
+	var out []UnallocatedPot
+	for _, p := range pots {
+		r, ok := ruleFor(rules, p.Source, p.Category)
+		if !ok {
+			out = append(out, UnallocatedPot{
+				Source: p.Source, Category: p.Category, Amount: p.Amount,
+				Reason: "no allocation rule names this category, on this desk or on any",
+			})
+			continue
+		}
+		if r.Method == Unallocated {
+			out = append(out, UnallocatedPot{
+				Source: p.Source, Category: p.Category, Amount: p.Amount,
+				RuleID: r.ID, Method: r.Method,
+				Reason: fmt.Sprintf("rule %d leaves it unallocated: %s", r.ID, r.Note),
+			})
+			continue
+		}
+		teams := direct[p.Source]
+		if len(teams) == 0 {
+			out = append(out, UnallocatedPot{
+				Source: p.Source, Category: p.Category, Amount: p.Amount,
+				RuleID: r.ID, Method: r.Method,
+				Reason: fmt.Sprintf("rule %d splits by %s, but nothing on this desk to carry it",
+					r.ID, MethodNote(r.Method)),
+			})
+			continue
+		}
+		var basis money.Cents
+		for _, amt := range teams {
+			if r.Method == Even {
+				basis += 1
+			} else {
+				basis += amt
+			}
+		}
+		if basis == 0 {
+			out = append(out, UnallocatedPot{
+				Source: p.Source, Category: p.Category, Amount: p.Amount,
+				RuleID: r.ID, Method: r.Method,
+				Reason: fmt.Sprintf("rule %d splits proportionally, but every team's usage "+
+					"nets to zero this period, so there is nothing to split by", r.ID),
+			})
+		}
 	}
 	return out, nil
 }

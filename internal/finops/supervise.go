@@ -60,9 +60,10 @@ type RequestWritten struct {
 // Pass is what one run of Supervise did, so a caller can print or journal it
 // without re-deriving anything from the database.
 type Pass struct {
-	Applied  []crew.Option
-	Carried  []crew.Option
-	Requests []RequestWritten
+	Applied    []crew.Option
+	Carried    []crew.Option
+	Requests   []RequestWritten
+	StaleHalts []crew.DeskHalt // C9-SPEC.md: halts carried for lasting past T.stale_days
 }
 
 // Supervise runs the deterministic pass over one sprint's posted
@@ -135,6 +136,40 @@ func Supervise(db *sql.DB, sprintID int, rec Recorder) (Pass, error) {
 		}
 		byOwner[owner] = append(byOwner[owner], group...)
 	}
+
+	// roles.yaml's own hands_to_owner_conditions for the supervisor names
+	// two things, and contradictionRouting above is one; this is the other:
+	// "a data.halt that has lasted past T.stale_days" (C9-SPEC.md section
+	// 2). Independent of whatever this sprint's options carry -- a halt is
+	// carried whether or not the owner it belongs to has anything else
+	// waiting -- and NEVER dropped: wholeNumberThreshold's own error (a
+	// threshold row roles.yaml does not carry, C9-SPEC.md section 4's
+	// hostile case) is the conservative direction here too, measuring
+	// nothing rather than guessing a number nobody gave.
+	staleHaltsByOwner := map[string][]crew.DeskHalt{}
+	if tStaleDays, terr := wholeNumberThreshold("T.stale_days", false); terr == nil {
+		halts, herr := crew.Halts(db)
+		if herr != nil {
+			return pass, herr
+		}
+		today := time.Now().UTC().Format("2006-01-02")
+		for _, h := range halts {
+			if daysBetween(h.Started, today) < int(tStaleDays) {
+				continue
+			}
+			owner := h.Owner
+			if owner == "" {
+				owner = "unclaimed"
+			}
+			_, inOptions := byOwner[owner]
+			_, inStale := staleHaltsByOwner[owner]
+			if !inOptions && !inStale {
+				ownerOrder = append(ownerOrder, owner)
+			}
+			staleHaltsByOwner[owner] = append(staleHaltsByOwner[owner], h)
+			pass.StaleHalts = append(pass.StaleHalts, h)
+		}
+	}
 	sort.Strings(ownerOrder) // a stable, deterministic order independent of map iteration
 
 	defaultLapses := time.Now().UTC().AddDate(0, 0, decisionLapseDays).Format("2006-01-02")
@@ -153,7 +188,7 @@ func Supervise(db *sql.DB, sprintID int, rec Recorder) (Pass, error) {
 			lapses = existing
 		}
 
-		body, err := decisionRequestBody(db, sprintID, ownerOpts, notes, lapses)
+		body, err := decisionRequestBody(db, sprintID, ownerOpts, notes, lapses, staleHaltsByOwner[owner])
 		if err != nil {
 			return pass, err
 		}
@@ -337,7 +372,13 @@ func ownerOfOption(db *sql.DB, o crew.Option) (string, error) {
 // carried option overall): B4 step two replaces this paragraph with one a
 // model writes from the same list, and this report's NOT PROVEN line says
 // so.
-func decisionRequestBody(db *sql.DB, sprintID int, opts []crew.Option, notes map[string]string, lapses string) (string, error) {
+//
+// staleHalts is C9-SPEC.md's own addition: every halt on file that has
+// lasted past T.stale_days and belongs to THIS owner, rendered as its own
+// section regardless of whether opts carries anything at all -- a stale
+// halt is carried on its own account, not only alongside an ordinary
+// carried option.
+func decisionRequestBody(db *sql.DB, sprintID int, opts []crew.Option, notes map[string]string, lapses string, staleHalts []crew.DeskHalt) (string, error) {
 	label := sprintLabel(db, sprintID)
 	var b strings.Builder
 	fmt.Fprintf(&b, "## Decision needed: %d option(s) from %s\n\n", len(opts), label)
@@ -369,6 +410,14 @@ func decisionRequestBody(db *sql.DB, sprintID int, opts []crew.Option, notes map
 			if n, is := notes[optionKey(o)]; is {
 				fmt.Fprintf(&b, "  %s\n", n)
 			}
+		}
+		b.WriteString("\n")
+	}
+
+	if len(staleHalts) > 0 {
+		b.WriteString("### Data quality: halted past T.stale_days\n")
+		for _, h := range staleHalts {
+			fmt.Fprintf(&b, "- **%s** halted since %s: %s\n", h.Desk, h.Started, h.Reason)
 		}
 		b.WriteString("\n")
 	}

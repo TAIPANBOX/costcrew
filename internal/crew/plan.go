@@ -326,8 +326,38 @@ func CadenceDue(db *sql.DB, roster []Analyst, start string, spent map[string]mon
 	if perr != nil {
 		return nil, nil // no parseable date: nothing is measured due against it
 	}
+
+	// C9-SPEC.md section 2: "-due and Propose skip a halted desk and say so
+	// in Why." One line per halted desk, unconditionally -- not gated on
+	// finding some particular analyst still due there -- because
+	// data.halt's own side effect already suspends every analyst it finds,
+	// and this function's own "state != active" rule below would otherwise
+	// silently skip every one of them with no explanation at all: a desk
+	// whose whole crew is already suspended must still say WHY its cadence
+	// work stopped, the same "skip it, but say so" shape this loop already
+	// keeps for a due analyst with no headroom left this month.
+	halted := map[string]DeskHalt{}
+	halts, herr := Halts(db)
+	if herr != nil {
+		return nil, herr
+	}
+	for _, h := range halts {
+		halted[h.Desk] = h
+		items = append(items, PlanItem{
+			Title: "Cadence skipped: " + h.Desk + " is halted", Goal: h.Reason,
+			Assignee: "supervisor", Desk: "management", Budget: 0,
+			Why: fmt.Sprintf("data.halt on %s since %s: %s", h.Desk, h.Started, h.Reason),
+		})
+	}
+
 	for _, a := range roster {
 		if a.State != "active" {
+			continue
+		}
+		if _, is := halted[a.Desk]; is {
+			// Already explained once above, per desk: an analyst hired (or
+			// reactivated) onto an already-halted desk is skipped without a
+			// second, per-analyst note.
 			continue
 		}
 		fields := strings.Fields(a.Cadence)

@@ -276,3 +276,25 @@ func TestRoleForOnANameNothingMatches(t *testing.T) {
 		t.Error(`RoleForDesk("a-name-from-nowhere", "aws") found a role family`)
 	}
 }
+
+// C6-SPEC.md, the Gherkin scenario "the negotiation is a person's"
+// (features/renewals.feature). `@yurii 2026-09-02`: "переговори з вендером
+// проводити він сам особі не може". vendor.negotiate is owned by "nobody"
+// in roles.yaml, the same as purchase and infra.change, so MayDecide already
+// refuses it for every link this practice has, including the owner's own --
+// this test names that refusal for the two SaaS roles specifically, rather
+// than trusting the generic property to have been checked on their behalf.
+func TestRenewalNegotiationIsNeverDecidedInsideTheConsole(t *testing.T) {
+	for _, role := range []string{"saas-portfolio-manager", "renewals-analyst", "supervisor", "owner"} {
+		if may, reason := crew.MayDecide(role, "vendor.negotiate"); may {
+			t.Errorf("MayDecide(%q, \"vendor.negotiate\") = true, want false (%s)", role, reason)
+		}
+	}
+	// Escalates is false too: vendor.negotiate is not something a role hands
+	// UP to a decider either, because "nobody" is not a decider -- it is
+	// recorded as an option and stops there (roles.go's own MayDecide
+	// comment: "it is only ever recorded as an option").
+	if to, ok := crew.Escalates("renewals-analyst", "vendor.negotiate"); ok {
+		t.Errorf(`Escalates("renewals-analyst", "vendor.negotiate") = (%q, true), want ok=false`, to)
+	}
+}

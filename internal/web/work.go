@@ -718,6 +718,13 @@ func (s *Server) artifactAction(kind string) http.HandlerFunc {
 			// session is always a person, and B1A-SPEC.md section 2 says the
 			// owner link decides everything that exists today.
 			err = crew.Post(s.db, id, u.Username, "owner")
+			if err == nil {
+				// C1-SPEC.md section 2: AFTER the post has actually
+				// succeeded, never before -- a refused post (an artifact
+				// already posted) must tell nobody anything, because it did
+				// not happen.
+				s.tellOwnerAnomalyExplained(id)
+			}
 		} else {
 			err = crew.Return(s.db, id, r.PostFormValue("reason"), "owner")
 		}

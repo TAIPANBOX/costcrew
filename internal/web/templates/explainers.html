@@ -27,7 +27,7 @@
 
 {{range .Rows}}
 <div class="panel">
-  <h2>{{.Topic}} · <a href="/team/{{.Team}}">{{.Team}}</a> · <span class="chip {{if eq .State "published"}}accepted{{else if eq .State "returned"}}open{{else}}explained{{end}}">{{.State}}</span></h2>
+  <h2>{{.Topic}} · {{if .TeamIsReal}}<a href="/team/{{.Team}}">{{.Team}}</a>{{else}}{{.Team}}{{end}} · <span class="chip {{if eq .State "published"}}accepted{{else if eq .State "returned"}}open{{else}}explained{{end}}">{{.State}}</span></h2>
   <div class="body">
     {{if .Reason}}<p class="msg">Returned: {{.Reason}}</p>{{end}}
     <div class="doc">{{.Rendered}}</div>

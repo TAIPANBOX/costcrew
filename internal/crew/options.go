@@ -54,12 +54,15 @@ type Option struct {
 	Evidence    []string
 	// Target is a class-specific structured target, carried verbatim as the
 	// raw JSON object the deliverable's options block named -- empty for
-	// every class but driver.recurring and driver.one-time
-	// (DRIVER-WINDOW-SPEC.md section 2; shape and name reused from C2's own
-	// allocation.rule target, costcrew#31, so the two classes' own
-	// validators sit beside each other rather than duplicate this field).
-	// Kept generic here rather than typed ({start, end}) so a second
-	// class-specific type never has to live in this package either.
+	// every class but allocation.rule (C2-SPEC.md section 2) and
+	// driver.recurring and driver.one-time (DRIVER-WINDOW-SPEC.md section 2;
+	// shape and name reused from allocation.rule's own target so the
+	// classes' own validators sit beside each other rather than duplicate
+	// this field). Kept generic here rather than typed ({rule_id, method,
+	// share} or {start, end}) because those types belong to internal/finops,
+	// which already imports this package: the reverse import would cycle.
+	// internal/finops.applySideEffect decodes each with its own local type
+	// when it actually calls SetRule or applies a driver.
 	Target    json.RawMessage
 	State     OptionState
 	DecidedBy string
@@ -188,9 +191,6 @@ func centsOf(n json.Number) (int64, error) {
 // normalizedTarget treats an absent field and a literal JSON null the same
 // way: both mean "no target", and a caller checking len(Target) == 0 should
 // not have to also know that json.RawMessage("null") is non-empty bytes.
-// Reused from C2's own options.go (costcrew#31), unmerged as of this file:
-// same name, same shape, so the rebase after it lands is a duplicate
-// definition to drop rather than a design to reconcile.
 func normalizedTarget(raw json.RawMessage) json.RawMessage {
 	if len(strings.TrimSpace(string(raw))) == 0 || strings.TrimSpace(string(raw)) == "null" {
 		return nil
@@ -198,14 +198,63 @@ func normalizedTarget(raw json.RawMessage) json.RawMessage {
 	return raw
 }
 
+// allocationRuleTarget is allocation.rule's own structured target
+// (C2-SPEC.md section 2), decoded generically here rather than with
+// internal/finops's Method type: internal/finops already imports this
+// package (apply.go), so the reverse import would cycle. Method is checked
+// here only for being present at all; the specific set of valid method
+// strings is finops.SetRule's own switch, checked when the option is
+// actually applied, the same way an unknown rule id is (see this file's
+// validateAllocationRuleTarget comment).
+type allocationRuleTarget struct {
+	RuleID json.Number `json:"rule_id"`
+	Method string      `json:"method"`
+	Share  *float64    `json:"share"`
+}
+
 // targetMaxBytes bounds a class-specific target sub-object on its own terms,
 // the same way optionsBlockMaxBytes bounds the whole block: a 1 MB target is
 // already refused by that outer cap before it ever reaches a class's own
 // validator (a target cannot exceed the block it sits inside), but this
 // gives the reason its own name rather than a generic "block too large" when
-// the target itself is what bloated it. Reused from C2 (costcrew#31) for the
-// same reason normalizedTarget above is.
+// the target itself is what bloated it.
 const targetMaxBytes = 4 * 1024
+
+// validateAllocationRuleTarget is C2-SPEC.md section 2's save-time gate for
+// allocation.rule alone: "absent target refused with the reason". Only
+// structural and range checks live here -- whether rule_id actually names a
+// rule this practice has, and whether method is one finops.SetRule accepts,
+// both need internal/finops and are refused there instead, when the option
+// is actually applied (the class already degrades gracefully to a no-op
+// when it has nothing to act on, the same "recorded only" shape every other
+// unwired class has, so a target this function passed but finops later
+// cannot use fails loudly at apply time rather than silently at save time).
+func validateAllocationRuleTarget(raw json.RawMessage) (reason string) {
+	if len(raw) > targetMaxBytes {
+		return fmt.Sprintf("allocation.rule's target is %d bytes, over the %d byte limit",
+			len(raw), targetMaxBytes)
+	}
+	if len(raw) == 0 {
+		return "allocation.rule needs a target naming the rule and the method " +
+			`("target": {"rule_id": ..., "method": ..., "share": ...}); none was given`
+	}
+	var tgt allocationRuleTarget
+	if err := json.Unmarshal(raw, &tgt); err != nil {
+		return "allocation.rule's target is not a valid JSON object: " + err.Error()
+	}
+	id, err := tgt.RuleID.Int64()
+	if err != nil || id <= 0 {
+		return fmt.Sprintf("allocation.rule's target.rule_id %q is not a positive whole number",
+			tgt.RuleID.String())
+	}
+	if strings.TrimSpace(tgt.Method) == "" {
+		return "allocation.rule's target names no method"
+	}
+	if tgt.Share != nil && (*tgt.Share < 0 || *tgt.Share > 1) {
+		return fmt.Sprintf("allocation.rule's target.share %v is not between 0 and 1", *tgt.Share)
+	}
+	return ""
+}
 
 // driverTarget is driver.recurring's and driver.one-time's own structured
 // target (DRIVER-WINDOW-SPEC.md section 2): the window during which a
@@ -214,9 +263,8 @@ const targetMaxBytes = 4 * 1024
 //
 // internal/detect.Driver.Covers has no periodicity column anywhere -- the
 // window IS the extent of the rhythm -- so a fact this shape was not given
-// is refused rather than guessed, the same rule C2's own allocationRuleTarget
-// (internal/finops/apply.go, once #31 merges) already holds for a rule id
-// this store does not have.
+// is refused rather than guessed, the same rule allocationRuleTarget above
+// already holds for a rule id this store does not have.
 type driverTarget struct {
 	Start string `json:"start"`
 	End   string `json:"end"`
@@ -231,12 +279,9 @@ type driverTarget struct {
 const driverTargetMaxWindowDays = 366
 
 // validateDriverTarget is DRIVER-WINDOW-SPEC.md section 2's save-time gate
-// for driver.recurring and driver.one-time, beside C2's own
-// validateAllocationRuleTarget (internal/finops/apply.go there; unmerged
-// here) and following its shape: absent target refused with the reason,
-// present and malformed refused with the reason, so the rebase after C2
-// (#31) merges only has to keep two sibling functions rather than reconcile
-// two designs.
+// for driver.recurring and driver.one-time, beside validateAllocationRuleTarget
+// above and following its shape: absent target refused with the reason,
+// present and malformed refused with the reason.
 //
 // hasAnomaly is whether the task this option's own artifact belongs to came
 // from an anomaly: driver.one-time on such a task takes the anomaly's own
@@ -326,6 +371,15 @@ func AllowsNoOptions(role JobDescription) bool {
 	for c := range ValidClassesFor(role) {
 		switch c {
 		case "commentary.variance", "commentary.showback", "forecast.project":
+		// data.halt is CONDITIONAL prose, unlike the three above, which are
+		// always prose: the data-quality analyst's own owes line names a
+		// halt request only "when a threshold (T.stale, T.untagged) is
+		// crossed" (C9-SPEC.md section 1), and most days nothing is. Its
+		// whole vocabulary is this one hands_up class, so on an ordinary
+		// day the deliverable is the freshness-and-coverage report alone,
+		// naming no options at all -- the same shape the three prose
+		// classes above already establish is allowed to skip the block.
+		case "data.halt":
 		default:
 			return false
 		}
@@ -414,10 +468,22 @@ func ValidateAndSaveOptions(db *sql.DB, artifactID int, roleName, body string, r
 			journalOptionRefused(rec, roleName, artifactID, reason)
 			return true, reason, nil
 		}
+		// allocation.rule alone carries a structured target (C2-SPEC.md
+		// section 2): "the one class the B3 review left recorded-only for
+		// lack of a target gains one". Checked here, inside the same
+		// whole-deliverable validation pass, so a bad target refuses the
+		// deliverable's options exactly the way an out-of-vocabulary class
+		// already does -- nothing is written, the reason is journaled once.
+		if o.Class == "allocation.rule" {
+			if reason := validateAllocationRuleTarget(o.Target); reason != "" {
+				journalOptionRefused(rec, roleName, artifactID, reason)
+				return true, reason, nil
+			}
+		}
 		// driver.recurring and driver.one-time alone carry a structured
 		// target (DRIVER-WINDOW-SPEC.md section 2), the same
 		// "checked here, inside the same whole-deliverable validation pass"
-		// shape C2's own allocation.rule target check uses: nothing is
+		// shape allocation.rule's own target check above uses: nothing is
 		// written, the reason is journaled once. hasAnomaly is looked up at
 		// most once per artifact, not once per option, since every option in
 		// this deliverable belongs to the same task.
@@ -471,15 +537,17 @@ func artifactHasAnomaly(db *sql.DB, artifactID int) (bool, error) {
 }
 
 // EnsureOptionTarget adds artifact_options.target for an installation
-// migrated from before driver.recurring/driver.one-time (and, once #31
-// merges, allocation.rule) carried a structured target. CREATE TABLE IF NOT
-// EXISTS does nothing to a table that already exists, so a console started
-// before this column existed needs the ALTER too; the duplicate-column error
-// is the normal path on every start after the first, the same convention
-// EnsureOwnershipHistory and connectors.EnsureFocusSchema already hold for
-// their own added columns. Every option saved before this reads back with an
-// absent Target, exactly as before: the column is nullable and the zero
-// value is what "no target" already means.
+// migrated from before allocation.rule (C2-SPEC.md section 2) and
+// driver.recurring/driver.one-time (DRIVER-WINDOW-SPEC.md section 2) carried
+// a structured target. CREATE TABLE IF NOT EXISTS does nothing to a table
+// that already exists (Schema's own header comment, roster.go's
+// ensureRoster), so a console started before this column existed needs the
+// ALTER too; the duplicate-column error is the normal path on every start
+// after the first, the same convention EnsureOwnershipHistory and
+// connectors.EnsureFocusSchema already hold for their own added columns.
+// Every option saved before this reads back with an absent Target, exactly
+// as before: the column is nullable and the zero value is what "no target"
+// already means.
 func EnsureOptionTarget(db *sql.DB) error {
 	if _, err := db.Exec(Schema); err != nil {
 		return err

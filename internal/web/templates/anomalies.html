@@ -49,6 +49,8 @@
       {{.Sort.Header "z" "Deviations" "num" true}}
       {{.Sort.Header "caused" "Caused by" "" false}}
       {{.Sort.Header "handled" "Handled by" "" false}}
+      <th>Owner</th>
+      <th class="tight">Told</th>
       {{.Sort.Header "state" "State" "tight" false}}
     </tr></thead>
     <tbody>
@@ -71,10 +73,12 @@
           <span class="sub"><span class="chip grain">{{.CausedByKind}}</span></span>
         </td>
         <td>{{if .HandledBy}}<a href="/staff/{{.HandledBy}}">{{.HandledBy}}</a>{{else}}<span class="note">nobody yet</span>{{end}}</td>
+        <td>{{if eq .Owner "unclaimed"}}<span class="note">unclaimed</span>{{else}}{{.Owner}}{{end}}</td>
+        <td class="tight">{{if .Told}}told{{else}}<span class="note">not yet</span>{{end}}</td>
         <td class="tight"><span class="chip {{.State}}">{{.State}}</span></td>
       </tr>
     {{else}}
-      <tr><td colspan="9" class="empty">Nothing matches. That is either good news or a filter.</td></tr>
+      <tr><td colspan="11" class="empty">Nothing matches. That is either good news or a filter.</td></tr>
     {{end}}
     </tbody>
   </table>

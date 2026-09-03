@@ -79,6 +79,10 @@ type Recorder interface {
 // tokenFuseFocusReader is defined in.
 var readers = map[string]Reader{
 	"tokenfuse-focus": tokenFuseFocusReader,
+	"aws-rightsizing": awsRightsizingReader,
+	"gcp-recommender": gcpRecommenderReader,
+	"azure-advisor":   azureAdvisorReader,
+	"saas-seats":      saasSeatsReader,
 }
 
 type Kind string
@@ -259,8 +263,58 @@ var Catalogue = []Connector{
 		Cannot:   "It sees fourteen days. A monthly batch job looks idle to it.",
 	},
 	{
+		ID: "aws-rightsizing", Name: "AWS Cost Explorer rightsizing recommendations", Provider: "aws",
+		Kind: ExportDrop, Feeds: "recommendations", Metered: false,
+		Auth: "none for the reader: it reads a CSV already exported from Cost Explorer's " +
+			"Rightsizing Recommendations report",
+		CostNote: "No charge for the export itself, or for reading it.",
+		Note: "Cost Explorer's own Rightsizing Recommendations report, downloaded as CSV " +
+			"(Cost Explorer console, Recommendations, Rightsizing recommendations, Download " +
+			"CSV). Distinct from the Compute Optimizer connector above: that one is the " +
+			"live API, this one is an export somebody already generated. The lookback is " +
+			"whatever the report was generated with, carried as its own column, not a " +
+			"fixed default this reader assumes.",
+		Doc: "https://docs.aws.amazon.com/cost-management/latest/userguide/ce-rightsizing.html",
+		Inputs: []Input{{Name: "path", Label: "Folder the rightsizing CSV export lands in",
+			Hint: "the local path, or drop the file on this page"}},
+		Cannot: "It only ever sees what the report was generated with. A monthly job " +
+			"looks idle to a fourteen-day lookback, and this reader has no way to tell " +
+			"the two apart from the file alone.",
+	},
+	{
+		ID: "gcp-recommender", Name: "GCP Recommender cost recommendations", Provider: "gcp",
+		Kind: ExportDrop, Feeds: "recommendations", Metered: false,
+		Auth:     "none for the reader: it reads a CSV already exported from the Recommender API",
+		CostNote: "No charge for the export itself, or for reading it.",
+		Note: "google.compute.instance.MachineTypeRecommender and its neighbours " +
+			"(an idle-VM recommender among them), exported to CSV rather than read live " +
+			"through the API.",
+		Doc: "https://cloud.google.com/recommender/docs/machine-type-recommendations",
+		Inputs: []Input{{Name: "path", Label: "Folder the recommender CSV export lands in",
+			Hint: "the local path, or drop the file on this page"}},
+		Cannot: "Same limit as the AWS reader: it only ever sees the observation period " +
+			"the export was generated with.",
+	},
+	{
+		ID: "azure-advisor", Name: "Azure Advisor cost recommendations", Provider: "azure",
+		Kind: ExportDrop, Feeds: "recommendations", Metered: false,
+		Auth:     "none for the reader: it reads a CSV already exported from Advisor",
+		CostNote: "No charge for the export itself, or for reading it.",
+		Note: "Advisor's own CSV export reports a recommendation's saving as POTENTIAL " +
+			"ANNUAL cost, never monthly; this reader divides by twelve, rounded half " +
+			"away from zero, because every other row in this console's recommendations " +
+			"table is a monthly figure.",
+		Doc: "https://learn.microsoft.com/en-us/azure/advisor/advisor-cost-recommendations",
+		Inputs: []Input{{Name: "path", Label: "Folder the Advisor CSV export lands in",
+			Hint: "the local path, or drop the file on this page"}},
+		Cannot: "Advisor does not publish its own analysis window as a documented figure; " +
+			"this reader reads whatever the export's own column says and nothing more.",
+	},
+	{
 		ID: "saas-seats", Name: "SaaS seat reconciliation", Provider: "saas",
-		Kind: Local, Feeds: "saas_licences", Metered: false,
+		// Feeds is the real table now that a reader exists: "licences", not
+		// the "saas_licences" this entry guessed while still Documented.
+		Kind: Local, Feeds: "licences", Metered: false,
 		Auth:     "an export from each vendor's admin console",
 		CostNote: "Free, and manual, which is the honest description.",
 		Note:     "There is no standard here. Every vendor exports something different.",
