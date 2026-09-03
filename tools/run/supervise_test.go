@@ -92,9 +92,15 @@ func superviseRunTestDB(t *testing.T) (*sql.DB, int) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// target is driver.recurring's own structured window
+	// (DRIVER-WINDOW-SPEC.md section 2): required since that spec landed, or
+	// internal/finops.applyDriver returns an error for want of one, which
+	// Supervise propagates and TestSuperviseRunReportsAnOrdinaryPass's own
+	// "must not error on an ordinary sprint" check then fails on.
 	if _, err := db.Exec(`INSERT INTO artifact_options
-		(artifact, ordinal, class, summary, figure_cents, saving_cents, risk, needs, evidence, state)
-		VALUES (?, 1, 'driver.recurring', 'a weekly batch job', 10000, 0, 'low', 'nothing', '[]', 'open')`,
+		(artifact, ordinal, class, summary, figure_cents, saving_cents, risk, needs, evidence, target, state)
+		VALUES (?, 1, 'driver.recurring', 'a weekly batch job', 10000, 0, 'low', 'nothing', '[]',
+		        '{"start": "2026-08-01", "end": "2026-08-30"}', 'open')`,
 		artID); err != nil {
 		t.Fatal(err)
 	}

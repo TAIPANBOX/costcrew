@@ -7,6 +7,7 @@ package finops_test
 
 import (
 	"database/sql"
+	"encoding/json"
 	"testing"
 
 	"github.com/TAIPANBOX/costcrew/internal/anomaly"
@@ -73,6 +74,54 @@ func plantOption(t *testing.T, db *sql.DB, desk, anomalyID, class, summary strin
 		FigureCents: 50000, State: crew.OptionOpen}
 }
 
+// plantOptionWithTarget is plantOption plus a target (DRIVER-WINDOW-SPEC.md
+// section 2's {"start", "end"} window, raw JSON or "" for none): a second
+// function rather than a plantOption parameter every one of this package's
+// other call sites would have to grow to match.
+func plantOptionWithTarget(t *testing.T, db *sql.DB, desk, anomalyID, class, summary, target string) crew.Option {
+	t.Helper()
+	tres, err := db.Exec(`INSERT INTO tasks
+		(title, goal, assignee, desk, state, budget_cents, spent_cents, anomaly, created, updated)
+		VALUES ('a task', 'a goal', 'investigator-`+desk+`', ?, 'active', 0, 0, ?,
+		        datetime('now'), datetime('now'))`, desk, nullableString(anomalyID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	taskID, err := tres.LastInsertId()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ares, err := db.Exec(`INSERT INTO artifacts
+		(task, author, title, body, state, created)
+		VALUES (?, 'investigator-`+desk+`', 'a deliverable', 'body', 'posted', datetime('now'))`,
+		taskID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	artID, err := ares.LastInsertId()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO artifact_options
+		(artifact, ordinal, class, summary, figure_cents, saving_cents, risk, needs, evidence, target, state)
+		VALUES (?, 1, ?, ?, 50000, 0, 'low', 'nothing', '[]', ?, 'open')`,
+		artID, class, summary, nullableString(target)); err != nil {
+		t.Fatal(err)
+	}
+	// finops.Apply reads opt.Target from the struct it is CALLED with, never
+	// re-reading the row it was just written to (Apply's own signature takes
+	// an already-loaded crew.Option) -- so the target just inserted above
+	// has to be set here too, or every caller of this helper would see the
+	// same "no target" refusal apply_test.go's own red-first run once caught
+	// from a first draft of this helper that forgot exactly this line.
+	var rawTarget json.RawMessage
+	if target != "" {
+		rawTarget = json.RawMessage(target)
+	}
+	return crew.Option{Artifact: int(artID), Ordinal: 1, Class: class, Summary: summary,
+		FigureCents: 50000, Target: rawTarget, State: crew.OptionOpen}
+}
+
 func nullableString(s string) any {
 	if s == "" {
 		return nil
@@ -89,9 +138,17 @@ func mustGetOption(t *testing.T, db *sql.DB, artifact, ordinal int) crew.Option 
 	return o
 }
 
+// DRIVER-WINDOW-SPEC.md section 2: a driver written from an option carries
+// the window the option's own target named, never Start == End == the day
+// Apply happened to run on. Red against unchanged code: applyDriver ignored
+// opt.Target entirely and always wrote time.Now().UTC() for both ends, so
+// this test's own window assertion failed with
+// "drivers window is 2026-09-03 to 2026-09-03, want 2026-08-01 to
+// 2026-08-30" -- today's real date, not the target's -- before the fix.
 func TestApplyDriverRecurringWritesADriversRow(t *testing.T) {
 	db := applyTestDB(t)
-	opt := plantOption(t, db, "aws", "", "driver.recurring", "a weekly batch job")
+	opt := plantOptionWithTarget(t, db, "aws", "", "driver.recurring", "a weekly batch job",
+		`{"start": "2026-08-01", "end": "2026-08-30"}`)
 
 	var before int
 	if err := db.QueryRow(`SELECT COUNT(*) FROM drivers`).Scan(&before); err != nil {
@@ -107,13 +164,22 @@ func TestApplyDriverRecurringWritesADriversRow(t *testing.T) {
 	if after != before+1 {
 		t.Fatalf("drivers went from %d to %d rows, want +1", before, after)
 	}
-	var kind, label string
-	if err := db.QueryRow(`SELECT kind, label FROM drivers ORDER BY rowid DESC LIMIT 1`).
-		Scan(&kind, &label); err != nil {
+	var kind, label, start, end string
+	if err := db.QueryRow(`SELECT kind, label, date_start, date_end FROM drivers ORDER BY rowid DESC LIMIT 1`).
+		Scan(&kind, &label, &start, &end); err != nil {
 		t.Fatal(err)
 	}
 	if kind != "recurring" || label != "a weekly batch job" {
 		t.Errorf("drivers row is (%q, %q), want (recurring, %q)", kind, label, "a weekly batch job")
+	}
+	// The whole point of DRIVER-WINDOW-SPEC.md: the window is the target's
+	// own thirty days, and every day of it is what a driver-aware forecast
+	// (internal/finops.ProjectWithDrivers, unmerged as of this file on
+	// feat/c3-the-forecast-that-is-scored) and the detector
+	// (internal/detect.Driver.Covers, already in this repo) both read.
+	if start != "2026-08-01" || end != "2026-08-30" {
+		t.Errorf("drivers window is %s to %s, want 2026-08-01 to 2026-08-30 "+
+			"(the target's own window, not today's date)", start, end)
 	}
 
 	got := mustGetOption(t, db, opt.Artifact, opt.Ordinal)

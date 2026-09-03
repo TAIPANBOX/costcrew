@@ -46,17 +46,25 @@ import (
 
 // maxToolRounds bounds the loop: on the LAST round (round == maxToolRounds)
 // no tools are offered, so the model cannot ask for one and has to answer.
-const maxToolRounds = 6
+//
+// Moved to internal/deliver as MaxToolRounds (PRICE-DISPLAY-SPEC.md,
+// 2026-09-03): the /cadence page's own preview (internal/web/cadence.go,
+// through deliver.EstimateWorstCase) needs the identical figure this file's
+// own execute() reserves before the first round, and internal/web cannot
+// import this "package main" to read it here directly -- the same
+// restriction B7-SPEC.md already documents for Packet/Prompt/Tokens. This
+// keeps the old unexported name so every use in this file needed no change.
+const maxToolRounds = deliver.MaxToolRounds
 
 // loopsFor is how many model calls one execute() of this task can make: the
 // loop's ceiling for the two engines it covers, one call for every other
 // engine, exactly as before this file existed.
+//
+// Moved to internal/deliver as LoopsFor, for the same reason maxToolRounds
+// was, immediately above: this wrapper keeps the old unexported name so
+// every call site and test in this package needed no change.
 func loopsFor(engine string) int {
-	switch engine {
-	case "anthropic", "openrouter":
-		return maxToolRounds
-	}
-	return 1
+	return deliver.LoopsFor(engine)
 }
 
 // requestedCall is one tool call a model asked for, in a provider-neutral

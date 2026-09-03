@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 )
 
 // OptionState is where one option of a deliverable has got to.
@@ -53,11 +54,15 @@ type Option struct {
 	Evidence    []string
 	// Target is a class-specific structured target, carried verbatim as the
 	// raw JSON object the deliverable's options block named -- empty for
-	// every class but allocation.rule (C2-SPEC.md section 2). Kept generic
-	// here rather than typed ({rule_id, method, share}) because that type
-	// belongs to internal/finops, which already imports this package: the
-	// reverse import would cycle. internal/finops.applySideEffect decodes it
-	// with its own local type when it actually calls SetRule.
+	// every class but allocation.rule (C2-SPEC.md section 2) and
+	// driver.recurring and driver.one-time (DRIVER-WINDOW-SPEC.md section 2;
+	// shape and name reused from allocation.rule's own target so the
+	// classes' own validators sit beside each other rather than duplicate
+	// this field). Kept generic here rather than typed ({rule_id, method,
+	// share} or {start, end}) because those types belong to internal/finops,
+	// which already imports this package: the reverse import would cycle.
+	// internal/finops.applySideEffect decodes each with its own local type
+	// when it actually calls SetRule or applies a driver.
 	Target    json.RawMessage
 	State     OptionState
 	DecidedBy string
@@ -207,11 +212,12 @@ type allocationRuleTarget struct {
 	Share  *float64    `json:"share"`
 }
 
-// targetMaxBytes bounds the target sub-object on its own terms, the same way
-// optionsBlockMaxBytes bounds the whole block: a 1 MB target is already
-// refused by that outer cap (a target cannot exceed the block it sits
-// inside), but this gives the reason its own name rather than a generic
-// "block too large" when the target itself is what bloated it.
+// targetMaxBytes bounds a class-specific target sub-object on its own terms,
+// the same way optionsBlockMaxBytes bounds the whole block: a 1 MB target is
+// already refused by that outer cap before it ever reaches a class's own
+// validator (a target cannot exceed the block it sits inside), but this
+// gives the reason its own name rather than a generic "block too large" when
+// the target itself is what bloated it.
 const targetMaxBytes = 4 * 1024
 
 // validateAllocationRuleTarget is C2-SPEC.md section 2's save-time gate for
@@ -246,6 +252,87 @@ func validateAllocationRuleTarget(raw json.RawMessage) (reason string) {
 	}
 	if tgt.Share != nil && (*tgt.Share < 0 || *tgt.Share > 1) {
 		return fmt.Sprintf("allocation.rule's target.share %v is not between 0 and 1", *tgt.Share)
+	}
+	return ""
+}
+
+// driverTarget is driver.recurring's and driver.one-time's own structured
+// target (DRIVER-WINDOW-SPEC.md section 2): the window during which a
+// recurring rhythm is expected, or the day a one-time event covers when its
+// own task carries no anomaly to take the day from instead.
+//
+// internal/detect.Driver.Covers has no periodicity column anywhere -- the
+// window IS the extent of the rhythm -- so a fact this shape was not given
+// is refused rather than guessed, the same rule allocationRuleTarget above
+// already holds for a rule id this store does not have.
+type driverTarget struct {
+	Start string `json:"start"`
+	End   string `json:"end"`
+}
+
+// driverTargetMaxWindowDays is DRIVER-WINDOW-SPEC.md section 2's own bound:
+// "start at most 366 days before end". A recurring driver with no end at all
+// would hide a service from the detector for good, so an open-ended window is
+// refused rather than defaulted; the day bound is what keeps "not literally
+// open-ended" from being satisfied by a window a thousand years long, which
+// would be the same invented number by another shape.
+const driverTargetMaxWindowDays = 366
+
+// validateDriverTarget is DRIVER-WINDOW-SPEC.md section 2's save-time gate
+// for driver.recurring and driver.one-time, beside validateAllocationRuleTarget
+// above and following its shape: absent target refused with the reason,
+// present and malformed refused with the reason.
+//
+// hasAnomaly is whether the task this option's own artifact belongs to came
+// from an anomaly: driver.one-time on such a task takes the anomaly's own
+// day (section 2, "that day IS the driver, nothing to ask") and may omit the
+// target entirely. driver.recurring always needs one; there is no anomaly
+// day for a rhythm to borrow.
+//
+// `@claude` 2026-09-03: the spec's own hostile-input list names one case as
+// "a target on a class that takes none" without saying which of the two
+// classes that is. Read here as the one state within this function's own
+// scope that never needs a target -- driver.one-time WITH an anomaly -- so a
+// target volunteered there is refused rather than silently dropped: silently
+// accepting JSON this console will never read is the same shape of mistake
+// as inventing a number nobody gave, just in the other direction, and
+// applyDriver (internal/finops/apply.go) enforces the same rule again at
+// apply time for an option that reached it by bypassing this gate.
+func validateDriverTarget(class string, raw json.RawMessage, hasAnomaly bool) (reason string) {
+	if len(raw) > targetMaxBytes {
+		return fmt.Sprintf("%s's target is %d bytes, over the %d byte limit",
+			class, len(raw), targetMaxBytes)
+	}
+	optional := class == "driver.one-time" && hasAnomaly
+	if len(raw) == 0 {
+		if optional {
+			return ""
+		}
+		return fmt.Sprintf(`%s needs a target naming the window `+
+			`("target": {"start": "YYYY-MM-DD", "end": "YYYY-MM-DD"}); none was given`, class)
+	}
+	if optional {
+		return fmt.Sprintf("%s on a task with its own anomaly takes the anomaly's own day; "+
+			"a target here is not needed and is refused rather than silently ignored", class)
+	}
+	var tgt driverTarget
+	if err := json.Unmarshal(raw, &tgt); err != nil {
+		return fmt.Sprintf("%s's target is not a valid JSON object: %s", class, err.Error())
+	}
+	start, err := time.Parse("2006-01-02", tgt.Start)
+	if err != nil {
+		return fmt.Sprintf("%s's target.start %q does not parse as YYYY-MM-DD", class, tgt.Start)
+	}
+	end, err := time.Parse("2006-01-02", tgt.End)
+	if err != nil {
+		return fmt.Sprintf("%s's target.end %q does not parse as YYYY-MM-DD", class, tgt.End)
+	}
+	if end.Before(start) {
+		return fmt.Sprintf("%s's target.end %s is before target.start %s", class, tgt.End, tgt.Start)
+	}
+	if end.Sub(start) > driverTargetMaxWindowDays*24*time.Hour {
+		return fmt.Sprintf("%s's target spans more than %d days (%s to %s)",
+			class, driverTargetMaxWindowDays, tgt.Start, tgt.End)
 	}
 	return ""
 }
@@ -360,6 +447,8 @@ func ValidateAndSaveOptions(db *sql.DB, artifactID int, roleName, body string, r
 	}
 
 	legal := ValidClassesFor(role)
+	var hasAnomaly bool
+	var hasAnomalyChecked bool
 	for _, o := range opts {
 		if !legal[o.Class] {
 			reason := fmt.Sprintf("%q is not a class %s's job description lists under "+
@@ -391,6 +480,27 @@ func ValidateAndSaveOptions(db *sql.DB, artifactID int, roleName, body string, r
 				return true, reason, nil
 			}
 		}
+		// driver.recurring and driver.one-time alone carry a structured
+		// target (DRIVER-WINDOW-SPEC.md section 2), the same
+		// "checked here, inside the same whole-deliverable validation pass"
+		// shape allocation.rule's own target check above uses: nothing is
+		// written, the reason is journaled once. hasAnomaly is looked up at
+		// most once per artifact, not once per option, since every option in
+		// this deliverable belongs to the same task.
+		if o.Class == "driver.recurring" || o.Class == "driver.one-time" {
+			if !hasAnomalyChecked {
+				var err error
+				hasAnomaly, err = artifactHasAnomaly(db, artifactID)
+				if err != nil {
+					return false, "", err
+				}
+				hasAnomalyChecked = true
+			}
+			if reason := validateDriverTarget(o.Class, o.Target, hasAnomaly); reason != "" {
+				journalOptionRefused(rec, roleName, artifactID, reason)
+				return true, reason, nil
+			}
+		}
 	}
 
 	for _, o := range opts {
@@ -410,10 +520,27 @@ func ValidateAndSaveOptions(db *sql.DB, artifactID int, roleName, body string, r
 	return false, "", nil
 }
 
+// artifactHasAnomaly is whether the task an artifact belongs to came from an
+// anomaly, looked up through TaskOfArtifact and GetTask exactly as
+// DRIVER-WINDOW-SPEC.md section 3 directs: this function already knows the
+// artifact id, so there is no reason to make a caller pass the task in.
+func artifactHasAnomaly(db *sql.DB, artifactID int) (bool, error) {
+	taskID, err := TaskOfArtifact(db, artifactID)
+	if err != nil {
+		return false, err
+	}
+	t, err := GetTask(db, taskID)
+	if err != nil {
+		return false, err
+	}
+	return t.Anomaly != "", nil
+}
+
 // EnsureOptionTarget adds artifact_options.target for an installation
-// migrated from before allocation.rule carried a structured target
-// (C2-SPEC.md section 2). CREATE TABLE IF NOT EXISTS does nothing to a
-// table that already exists (Schema's own header comment, roster.go's
+// migrated from before allocation.rule (C2-SPEC.md section 2) and
+// driver.recurring/driver.one-time (DRIVER-WINDOW-SPEC.md section 2) carried
+// a structured target. CREATE TABLE IF NOT EXISTS does nothing to a table
+// that already exists (Schema's own header comment, roster.go's
 // ensureRoster), so a console started before this column existed needs the
 // ALTER too; the duplicate-column error is the normal path on every start
 // after the first, the same convention EnsureOwnershipHistory and

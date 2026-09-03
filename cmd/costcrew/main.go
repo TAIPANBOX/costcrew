@@ -258,8 +258,10 @@ func run(addr, dir string, scfg stack.Config, gatewayURL string) error {
 	if err := crew.EnsureOwnershipHistory(st.DB()); err != nil {
 		return fmt.Errorf("ownership history: %w", err)
 	}
-	// allocation.rule's own structured target (C2-SPEC.md section 2), for an
-	// installation that has never seen this column before.
+	// allocation.rule's own structured target (C2-SPEC.md section 2) and,
+	// since then, driver.recurring's and driver.one-time's own
+	// (DRIVER-WINDOW-SPEC.md section 2) -- the SAME column, for an
+	// installation that has never seen it before.
 	if err := crew.EnsureOptionTarget(st.DB()); err != nil {
 		return fmt.Errorf("option target column: %w", err)
 	}

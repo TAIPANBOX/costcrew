@@ -65,8 +65,8 @@ gofmt -l . && go vet ./...
 staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refused PR #19 on two findings the list above never asked for; a staticcheck built for an older Go cannot read this module, so on such a machine CI is the only place it runs
 ```
 
-Counts follow the suite, measured on `feat/the-supervisor-plans-with-a-model`
-after rebasing onto main past #29's own merge
+Counts follow the suite, measured on `fix/a-driver-carries-the-window-the-option-named`
+after branching from `origin/main` past #37's own merge
 (test count by `go test ./... -list '.*' | grep -c '^Test'` -- test FUNCTIONS, not
 subtests, the convention PR #21, #23 and this file's own `internal/manifest` gate
 already use, not `-v | grep -c '^--- PASS'`, which over-counts anything using
@@ -97,6 +97,37 @@ planner-isolation check) and 69 -> 73 gates-have-teeth.sh cases (the four
 named mutants). Feature scenarios 115 -> 126 (11 new). Write routes
 (invariants 2 and 5) moved 34 -> 36 with the two new POST routes;
 invariant 1's GET count (50) is unchanged, since neither new route is one.
+This file's own invariant 34 (DRIVER-WINDOW-SPEC.md) moved 567 -> 590 tests
+(internal/crew gained 10, `options_driverwindow_test.go` (8 in the first
+pass, 2 closing coverage gaps found while reconciling this step: the save-
+time gate's own byte cap, and `EnsureOptionTarget`'s migration); internal/finops
+gained 7, `apply_driverwindow_test.go` (5 in the first pass, 2 for a
+bypassed target that fails to decode), plus `TestApplyDriverRecurringWritesADriversRow`
+in `apply_test.go` rewritten in place rather than counted as new;
+internal/deliver gained 3, `prompt_test.go`; internal/web gained 3, appended
+to the existing `options_test.go` (2 in the first pass, 1 for a bypassed,
+malformed target)) and 73 -> 74 gates-have-teeth.sh cases
+(the one named mutant this invariant's own gate case plants; the other
+three it names were planted by hand and reverted rather than kept
+permanent, the same shape invariant 27's own history already describes).
+Feature scenarios 126 -> 129 (the three scenarios in
+`features/driver-window.feature`). No route moved: the task page's own
+`/task/{id}` route is unchanged, and the new Window row is conditional
+markup inside it, so invariants 1, 2 and 5's own counts are untouched.
+This file's own invariant 35 (PRICE-DISPLAY-SPEC.md) moved 590 -> 598 tests
+(`tools/run` gained 6, a new file `reserved_worst_case_test.go`, plus 1 in
+`due_test.go`; `internal/deliver` gained 2, `estimate_test.go`) and
+74 -> 75 gates-have-teeth.sh cases (the one named mutant this invariant's
+own gate case plants; the other two its own report names -- a hardcoded
+multiplier, and the multiplier on one figure but not the other -- were
+planted by hand and reverted rather than kept permanent, the same shape
+invariant 27's own history already describes). Feature scenarios 129 -> 134
+(the five scenarios in `features/priced-what-it-reserves.feature`). No
+route moved: this fix touches `tools/run`, `tools/bench` and
+`internal/deliver`'s own arithmetic, and the one `internal/web` file it
+touches (`cadence.go`) changes what number an existing route's existing
+template prints, not the route table itself, so invariants 1, 2 and 5's own
+counts are untouched.
 
 C5 re-measured the same way, with the SAME grep bug this file carried until
 today: 515/68/105 was stated at the time as `main`'s own numbers at #28's
@@ -256,7 +287,10 @@ an absent invariant.
     *(gate: `scripts/gates-have-teeth.sh` itself, checked by hand on
     2026-08-23: gutting an assertion reports TOOTHLESS, a dirty tree is
     refused, an already-red gate is UNJUDGEABLE rather than judged, and a kill
-    restores the tree.)*
+    restores the tree. @measured 2026-09-03: an expect word `run_case` does
+    not define is refused as UNKNOWN EXPECT rather than counted a pass, found
+    because twenty cases had silently carried `caught` instead of `fail` and
+    printed `ok` whatever their mutation did.)*
 
 16. **A deliverable says whether a person's money bought it.** The estate
     ships 279 generated drafts; a live run adds real ones to the same table,
@@ -1879,6 +1913,171 @@ an absent invariant.
     reaches `ai_calls`; and giving `purchase` a real case in
     `applySideEffect` (a `driver.one-time`-shaped one, the cheapest real
     side effect that table already has an example of).)*
+
+43. **A driver written from an option carries the window the option named,
+    never the wall clock.** DRIVER-WINDOW-SPEC.md.
+    `internal/detect.Driver.Covers` has no periodicity column anywhere -- the
+    window IS the extent of the rhythm -- so a recurring driver applied from
+    an option used to get a one-day window (`Start = End =` the day `Apply`
+    happened to run) and behave, in every number the forecast and the
+    detector produce, exactly like a one-time one while the word "recurring"
+    stayed beside it. Found by Yurii reading `internal/finops/apply.go`
+    while C3 (costcrew#38) landed `ProjectWithDrivers` ("recurring ones
+    repeat by their window").
+
+    `driver.recurring` and `driver.one-time` alone, of every class an
+    analyst's or the supervisor's own deliverable may name, carry a
+    structured `target` (`{"start", "end"}`, `crew.Option.Target
+    json.RawMessage`, the same nullable `artifact_options.target` column
+    C2's own `allocation.rule` target uses, costcrew#31 --
+    `crew.EnsureOptionTarget` migrates an installation from before either
+    existed). `crew.ValidateAndSaveOptions` refuses the WHOLE deliverable's
+    options, the same way an out-of-vocabulary class already does, when
+    `driver.recurring`'s target is absent, malformed, or spans more than 366
+    days end from start; `driver.one-time` needs one only when its own task
+    carries no anomaly ("that day IS the driver, nothing to ask") -- and is
+    refused for carrying one anyway when it does, so a model cannot silently
+    attach JSON this console will never read. `internal/finops.applyDriver`
+    reads the target when the anomaly does not supply the day instead; a
+    `driver.recurring` option, or a `driver.one-time` one with neither an
+    anomaly nor a target, that reaches `Apply` anyway (an option saved
+    before this change, or a caller bypassing the save-time gate) writes no
+    drivers row and `Apply` returns a descriptive error instead of a guess --
+    the same "real error, no side effect" shape this function already held
+    for a task with no desk to write against.
+
+    *(gate: `TestApplyDriverRecurringWritesADriversRow`,
+    `TestApplyDriverOneTimeOnAnAnomalyKeepsTheAnomalysDay`,
+    `TestApplyDriverOneTimeOnAnAnomalyIgnoresAnyTarget`,
+    `TestApplyDriverOneTimeWithNoAnomalyAndATargetWritesItsWindow` for
+    `applyDriver`'s own window rules; `TestApplyDriverRecurringWithNoTargetWritesNoDriversRow`
+    and `TestApplyDriverOneTimeWithNoAnomalyAndNoTargetWritesNoDriversRow`
+    for the "no target reaches Apply, real error, no row" path;
+    `TestApplyDriverRecurringWithAMalformedTargetReturnsADecodeError` and
+    `TestApplyDriverRecurringWithAnEmptyTargetObjectReturnsAnError` for a
+    target that reached `Apply` by bypassing the save-time gate but does not
+    decode, or decodes with nothing in it (`internal/finops`);
+    `TestDriverRecurringWithNoTargetIsRefused`,
+    `TestDriverRecurringWithAValidTargetIsSaved`,
+    `TestDriverOneTimeOnAnAnomalyTaskNeedsNoTarget`,
+    `TestDriverOneTimeWithNoAnomalyAndNoTargetIsRefused`,
+    `TestDriverOneTimeWithNoAnomalyAndAValidTargetIsSaved`,
+    `TestDriverTargetBoundariesAreAccepted` (start equals end, exactly 366
+    days, a window entirely in the past), `TestDriverTargetHostileInputs`
+    (end before start, a five-year window, dates that do not parse, a
+    target on driver.one-time when its own task already has an anomaly,
+    start and end written as numbers rather than strings),
+    `TestDriverTargetOversizeIsCaughtByTheWholeBlockCap` (the pre-existing
+    64 KiB whole-block cap) and `TestDriverTargetOverTargetMaxBytesIsRefusedByItsOwnCap`
+    (this gate's own smaller 4 KiB cap, between the two) for the save-time
+    gate; `TestEnsureOptionTargetAddsTheColumn` for the migration
+    (`internal/crew`); `TestPromptNamesTheDriverTargetShapeForASupervisor`,
+    `TestPromptNamesTheDriverTargetShapeForAnInvestigator`,
+    `TestPromptOmitsTheDriverTargetShapeForARoleWithNeitherDriverClass` for
+    the prompt sentence (`internal/deliver`);
+    `TestTheTaskPageShowsADriverOptionsWindow`,
+    `TestTheTaskPageOmitsTheWindowRowForAnOptionWithNoTarget` and
+    `TestTheTaskPageOmitsTheWindowRowForAMalformedTarget` for the task page
+    (`internal/web`). `scripts/gates-have-teeth.sh`'s
+    `driver-window: write Start = End = day ignoring the target` case
+    plants exactly the fault DRIVER-WINDOW-SPEC.md section 4 names first:
+    reverting `applyDriver` to `time.Now().UTC()` for both ends of the
+    window regardless of what the option's own target says. Three more
+    mutants that same section names were planted by hand and reverted
+    rather than kept as permanent cases, the same shape invariant 27's own
+    history already describes for this file: accepting a `driver.recurring`
+    option with no target at save time, caught by
+    `TestDriverRecurringWithNoTargetIsRefused`; dropping the 366-day bound,
+    caught by `TestDriverTargetHostileInputs`'s "a five-year window" case;
+    and taking today's date for a `driver.one-time` option on a task with
+    no anomaly even when a target is present, caught by
+    `TestApplyDriverOneTimeWithNoAnomalyAndATargetWritesItsWindow`.)*
+
+44. **The number a person reads before setting `-ceiling` is the number a
+    live run will actually reserve.** PRICE-DISPLAY-SPEC.md. Found running
+    the first real live crew task on a real Anthropic account: the dry-run
+    report (no `-live`) printed a worst case of $0.0385 for task 294; the
+    live run's own pre-call reserve refused it, saying "this call could cost
+    $0.2312" -- exactly `loopsFor("anthropic")` (6) times more. One
+    `execute()` of a task on the anthropic or openrouter engine can make up
+    to `loopsFor(e.Engine)` model calls through the tool-calling loop
+    (`tools/run/loop.go`), each one reserved before the first round is ever
+    sent (`execute()`'s own `reserve()` call, `tools/run/live.go`); every
+    OTHER place a worst case was compared against a ceiling or a guard --
+    `report()`'s own printed table and summary line, `price()`'s own
+    per-task Verdict against the guard, `spend()`'s own whole-run preflight
+    ("the worst case of the whole run is checked... before the first call",
+    this file's own package comment, point 3) and `-due`'s own
+    `dueWorstMicros` -- summed or compared the RAW, single-call
+    `e.WorstMicros` instead, so a task or a whole run could read as fitting
+    and then be refused for real once `reserve()` applied a multiplier
+    nothing else had ever been checked against. Only `report()` and
+    `price()`'s Verdict are named by the incident itself; `spend()`'s
+    preflight and `-due`'s were found reading this file and due.go while
+    fixing those two, the identical gap in two more places.
+
+    `reservedWorstCase(e estimate) int64` (`tools/run/main.go`) is now the
+    one function every one of those five call sites reads --
+    `e.WorstMicros * loopsFor(e.Engine)`, the same arithmetic `reserve()`
+    always did -- so none of them can diverge from `reserve()` again the way
+    this pair just had. `internal/deliver.LoopsFor` and `MaxToolRounds`
+    mirror `tools/run/loop.go`'s own `loopsFor`/`maxToolRounds` (which are
+    now one-line wrappers of these two, the same "moved here, old name kept
+    as a wrapper" shape every other shared formula in that file already
+    uses), because `internal/deliver.EstimateWorstCase` -- the `/cadence`
+    page's own preview -- cannot import `tools/run`'s "package main" to read
+    the multiplier there directly, and a cadence-due task on a looping
+    engine is run by `tools/run -due -live` through the identical
+    `execute()` and tool loop an ordinary sprint task is, so its preview
+    carried the same gap. `tools/bench` needed no change: a bench case never
+    enters the tool-calling loop for any engine, on `-live` or off it --
+    `scoreLive` (`tools/bench/gateway.go`) calls `internal/deliver.Call`
+    exactly once per case, the same single-shot path `tools/run`'s own
+    `call()` uses for an engine OUTSIDE the loop (Bedrock), never
+    `tools/run/loop.go`'s `anthropicToolLoop` or `openRouterToolLoop` --
+    confirmed by reading every call site under `tools/bench` rather than
+    assumed.
+    *(gate: `TestReportsWorstCaseIsWhatTheLiveRunWouldActuallyReserve`
+    (`tools/run`, this incident replayed: report()'s own printed figure
+    against the exact boundary `execute()`'s `reserve()` requires, found by
+    probing `runBudget` directly rather than duplicating live.go's own
+    arithmetic in the test);
+    `TestPriceRefusesATaskTheMultipliedWorstCaseCannotAffordEvenWhenTheSingleCallCanAffordIt`
+    and `TestReportAndPriceVerdictNeverDisagreeOnWhichFigureIsMultiplied`
+    for `price()`'s own Verdict, the second isolating both directions of the
+    "multiplier on one figure, not the other" mutant at an exact one-cent
+    boundary;
+    `TestSpendRefusesTheWholeRunBeforeTheFirstCallWhenTheMultipliedWorstExceedsTheCeiling`
+    for `spend()`'s own preflight (a ceiling between the single-call and the
+    multiplied sum must refuse `spend()` itself, not reach `execute()`'s
+    `reserve()` only to fail there silently, which `spend()`'s own refusal
+    handling prints and swallows into a nil return);
+    `TestDueRefusesBeforeAnyCallWhenTheMultipliedWorstExceedsTheCeilingButNotTheSingleCallWorst`
+    (`tools/run`, `due_test.go`) for `dueWorstMicros`, the same boundary
+    `TestDueRunsWhenTheCeilingExactlyEqualsTheWorstCase` already sat at and
+    never checked, by its own comment's admission;
+    `TestEstimateWorstCaseReturnsTheReservedFigureNotOneCallsOwnBound` and
+    `TestEstimateWorstCaseIsUnchangedForASingleCallEngine`
+    (`internal/deliver`) for the `/cadence` preview, computed independently
+    of `EstimateWorstCase`'s own internals so the test does not merely agree
+    with itself; `TestReservedWorstCaseMultipliesOnlyTheLoopingEngines` for
+    the boundary itself -- `openrouter` gets the same 6x as `anthropic`,
+    `bedrock` and an unknown engine are exactly 1x, unchanged. Three named
+    mutants, each planted by hand and reverted rather than kept as a
+    permanent case (`scripts/gates-have-teeth.sh` carries the fourth,
+    below): reverting `report()`'s own sum while leaving `reserve()`'s,
+    caught by `TestReportsWorstCaseIsWhatTheLiveRunWouldActuallyReserve`;
+    hardcoding the multiplier to a fixed 6 rather than reading
+    `loopsFor(e.Engine)`, caught by
+    `TestReservedWorstCaseMultipliesOnlyTheLoopingEngines`'s own bedrock and
+    unknown-engine cases; and applying the multiplier to `price()`'s own
+    Verdict while reverting `report()`'s total (or the reverse), caught by
+    `TestPriceRefusesATaskTheMultipliedWorstCaseCannotAffordEvenWhenTheSingleCallCanAffordIt`
+    and `TestReportAndPriceVerdictNeverDisagreeOnWhichFigureIsMultiplied`.
+    `scripts/gates-have-teeth.sh`'s own
+    `price display: report a task's worst case without the loop multiplier`
+    case plants the same first mutant as a permanent case, expect word
+    `fail`.)*
 
 ## Decisions that have no gate yet
 

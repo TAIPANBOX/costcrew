@@ -334,20 +334,104 @@ func queueShowbackTasks(db *sql.DB, period string, sprintID int) error {
 }
 
 // applyDriver derives the drivers row's scope, source and window from the
-// option's own task: the anomaly it came from when it has one (the service
-// as scope, the desk as source, the anomaly's own day as both ends of the
-// window), or the task's desk with a wide scope and today's date otherwise.
+// option's own task and, since DRIVER-WINDOW-SPEC.md, from the option's own
+// target: the anomaly it came from when it has one (the service as scope,
+// the desk as source), or the task's desk with a wide scope otherwise.
+//
+// The window itself never comes from the wall clock any more.
+// internal/detect.Driver.Covers has no periodicity column anywhere -- the
+// window IS the extent of the rhythm -- so a recurring driver with a
+// one-day window is a contradiction the store cannot see: expected on one
+// day, repeating nowhere (DRIVER-WINDOW-SPEC.md section 1, found by Yurii
+// reading this function while C3 landed ProjectWithDrivers). For
+// driver.one-time on a task WITH an anomaly, that anomaly's own day is the
+// window's only source, target or none ("that day IS the driver, nothing to
+// ask", section 2) -- crew.ValidateAndSaveOptions already refuses a target
+// volunteered there at save time, and this is the same rule held again here
+// for an option that reached Apply by bypassing it. Every other case reads
+// the window from opt.Target; a driver.recurring option, or a
+// driver.one-time one with no anomaly, that reaches here with no target (an
+// option saved before this change, or a caller bypassing validation) writes
+// no drivers row and returns a descriptive error instead -- the same
+// "real error, no side effect, nothing invented" shape this function
+// already held one line below for a task with no desk.
 func applyDriver(db *sql.DB, opt crew.Option, t crew.Task, kind string) error {
-	scope, source, day := "*", t.Desk, time.Now().UTC().Format("2006-01-02")
+	scope, source := "*", t.Desk
+	var an anomaly.Anomaly
+	var hasAnomaly bool
 	if t.Anomaly != "" {
-		if an, err := anomaly.Get(db, t.Anomaly); err == nil {
-			scope, source, day = an.Service, an.Source, an.Day
-		}
+		var err error
+		an, err = anomaly.Get(db, t.Anomaly)
+		hasAnomaly = err == nil
+	}
+	if hasAnomaly {
+		scope, source = an.Service, an.Source
 	}
 	if source == "" {
 		return fmt.Errorf("driver.%s was applied on a task with no desk to write it against", kind)
 	}
+
+	var start, end string
+	if kind == "one-time" && hasAnomaly {
+		start, end = an.Day, an.Day
+	} else {
+		tgt, ok, err := decodeDriverTarget(opt.Target)
+		if err != nil {
+			return fmt.Errorf("driver.%s's target %w", kind, err)
+		}
+		if !ok {
+			// The "and no anomaly" clause is appended as a plain string, not
+			// folded into the Errorf format string itself: staticcheck (CI,
+			// pinned 2026.2.1) refuses a dynamic format string in a
+			// printf-style call, and building the sentence in two Errorf
+			// verbs keeps this one a constant.
+			why := ""
+			if kind == "one-time" && !hasAnomaly {
+				why = " (and no anomaly to take a day from)"
+			}
+			return fmt.Errorf("driver.%s was applied with no target naming its window%s: "+
+				"recorded only, no drivers row written (option %d on artifact %d)",
+				kind, why, opt.Ordinal, opt.Artifact)
+		}
+		start, end = tgt.Start, tgt.End
+	}
+
 	return estate.InsertDriver(db, world.Driver{
-		Start: day, End: day, Scope: scope, Label: opt.Summary, Kind: kind, Source: source,
+		Start: start, End: end, Scope: scope, Label: opt.Summary, Kind: kind, Source: source,
 	})
+}
+
+// driverTarget mirrors internal/crew's own generic decode of the same JSON
+// (crew.driverTarget there, unexported and checked only for shape at save
+// time): this is the one place that turns it into the two date strings
+// InsertDriver writes. A local, unexported type here rather than an import
+// from internal/crew, the same reason this file's own allocationRuleTarget
+// (once #31 merges) is local rather than shared: nothing about the decode
+// needs internal/crew's own package, and a second four-line type costs less
+// than an export neither side otherwise wants.
+type driverTarget struct {
+	Start string `json:"start"`
+	End   string `json:"end"`
+}
+
+// decodeDriverTarget reads opt.Target as {start, end}. ok is false, with no
+// error, for a target that is simply absent -- the caller's own "no target"
+// path, not a fault. crew.ValidateAndSaveOptions already enforces the full
+// shape (parses as dates, end not before start, at most 366 days) at save
+// time, so a target that IS present here should already be well-formed; a
+// malformed one still gets a real error rather than a silently empty
+// window, because a window this function cannot read is not one it should
+// guess at either -- the same argument that removed time.Now() from this
+// file in the first place.
+func decodeDriverTarget(raw json.RawMessage) (tgt driverTarget, ok bool, err error) {
+	if len(raw) == 0 {
+		return driverTarget{}, false, nil
+	}
+	if err := json.Unmarshal(raw, &tgt); err != nil {
+		return driverTarget{}, false, fmt.Errorf("does not decode: %w", err)
+	}
+	if strings.TrimSpace(tgt.Start) == "" || strings.TrimSpace(tgt.End) == "" {
+		return driverTarget{}, false, fmt.Errorf("carries an empty start or end")
+	}
+	return tgt, true, nil
 }

@@ -15,9 +15,9 @@ import (
 	"github.com/TAIPANBOX/costcrew/internal/finops"
 )
 
-// plantOptionWithTarget is plantOption (apply_test.go) plus a target column,
+// plantAllocationRuleOption is plantOption (apply_test.go) plus a target column,
 // for allocation.rule's own structured target.
-func plantOptionWithTarget(t *testing.T, db *sql.DB, desk, class, summary string, target any) crew.Option {
+func plantAllocationRuleOption(t *testing.T, db *sql.DB, desk, class, summary string, target any) crew.Option {
 	t.Helper()
 	tres, err := db.Exec(`INSERT INTO tasks
 		(title, goal, assignee, desk, state, budget_cents, spent_cents, created, updated)
@@ -73,7 +73,7 @@ func TestApplyAllocationRuleWithATargetCallsSetRule(t *testing.T) {
 		t.Fatal("the fixture already uses even-split; this test needs a different starting method")
 	}
 
-	opt := plantOptionWithTarget(t, db, "management", "allocation.rule",
+	opt := plantAllocationRuleOption(t, db, "management", "allocation.rule",
 		"split Purchase evenly instead of by usage",
 		map[string]any{"rule_id": purchase.ID, "method": "even-split", "share": 1.0})
 
@@ -127,7 +127,7 @@ func TestApplyAllocationRuleWithNoTargetIsANoOp(t *testing.T) {
 // nothing real.
 func TestApplyAllocationRuleWithAnUnknownRuleIDFails(t *testing.T) {
 	db := applyTestDB(t)
-	opt := plantOptionWithTarget(t, db, "management", "allocation.rule",
+	opt := plantAllocationRuleOption(t, db, "management", "allocation.rule",
 		"split a rule that does not exist",
 		map[string]any{"rule_id": 999999, "method": "even-split", "share": 1.0})
 
