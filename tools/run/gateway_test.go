@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -155,65 +156,16 @@ func TestA402WithANonJSONBodyStillProducesAReadableRefusal(t *testing.T) {
 	}
 }
 
-// With no -gateway, nothing changes: the request is built for the real
-// upstream host. Asserted on the request the client would send, never by
-// actually sending it, so this test spends nothing and reaches nothing.
-func TestWithNoGatewayTheRequestGoesToAnthropicDirectly(t *testing.T) {
-	req, err := anthropicRequest(context.Background(), "a-key", "claude-x", "hello", 100, gatewayHeaders{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := req.URL.String(); got != "https://api.anthropic.com/v1/messages" {
-		t.Errorf("URL %q, want the direct Anthropic endpoint unchanged", got)
-	}
-	for _, h := range []string{"x-fuse-run-id", "x-fuse-agent-id", "x-fuse-budget-usd", "x-fuse-outcome"} {
-		if v := req.Header.Get(h); v != "" {
-			t.Errorf("with no gateway configured, header %s carries %q; it must not be set at all", h, v)
-		}
-	}
-}
-
-// Every gateway request carries all three required headers, never
-// x-fuse-outcome (not built yet, and said so in a comment rather than sent as
-// an empty lie), and x-fuse-parent-run-id only when the caller actually gave
-// one: a runner with no notion of a parent run must not invent one.
-func TestAGatewayRequestCarriesTheThreeHeadersAndNeverInventsAParent(t *testing.T) {
-	gw := gatewayHeaders{
-		URL: "http://127.0.0.1:1", RunID: "crew-9", AgentID: "agent://x/y.mercer", BudgetUSD: "1.00",
-	}
-	req, err := anthropicRequest(context.Background(), "a-key", "claude-x", "hello", 100, gw)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := req.URL.String(); got != "http://127.0.0.1:1/v1/messages" {
-		t.Errorf("URL %q, want the gateway's own /v1/messages", got)
-	}
-	for h, want := range map[string]string{
-		"x-fuse-run-id":     "crew-9",
-		"x-fuse-agent-id":   "agent://x/y.mercer",
-		"x-fuse-budget-usd": "1.00",
-	} {
-		if got := req.Header.Get(h); got != want {
-			t.Errorf("%s = %q, want %q", h, got, want)
-		}
-	}
-	if v := req.Header.Get("x-fuse-outcome"); v != "" {
-		t.Errorf("x-fuse-outcome carries %q; this step never sets it", v)
-	}
-	if v := req.Header.Get("x-fuse-parent-run-id"); v != "" {
-		t.Errorf("x-fuse-parent-run-id carries %q with no parent given; a "+
-			"parent must never be invented", v)
-	}
-
-	gw.ParentRunID = "crew-8"
-	req2, err := anthropicRequest(context.Background(), "a-key", "claude-x", "hello", 100, gw)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := req2.Header.Get("x-fuse-parent-run-id"); got != "crew-8" {
-		t.Errorf("x-fuse-parent-run-id %q, want crew-8 once the caller actually gave one", got)
-	}
-}
+// TestWithNoGatewayTheRequestGoesToAnthropicDirectly and
+// TestAGatewayRequestCarriesTheThreeHeadersAndNeverInventsAParent moved to
+// internal/deliver/gateway_test.go (B6B-SPEC.md): both tested
+// anthropicRequest directly, which moved there with call() and no longer
+// exists in this package. Content unchanged there but for the type name,
+// gatewayHeaders -> Gateway ("one gateway type" replacing two). Every other
+// test in this file stays here unedited: gatewayHeaders is now a type alias
+// of deliver.Gateway, so execute(), gatewayConfig, estimate, normalizeGateway,
+// directCallsNotice, gatewayBudgetUSD and gatewayEnvDefault all still
+// resolve locally exactly as they did before this move.
 
 // -gateway accepts only http(s), and refuses before any call rather than
 // surfacing as a confusing dial error on the first one.
@@ -290,5 +242,36 @@ func TestGatewayEnvDefaultReadsCOSTCREW_GATEWAY(t *testing.T) {
 	t.Setenv("COSTCREW_GATEWAY", "")
 	if got := gatewayEnvDefault(); got != "" {
 		t.Errorf("gatewayEnvDefault() with nothing set = %q, want empty", got)
+	}
+}
+
+// B6B-SPEC.md section 2's fourth bullet: "the same structural test is added
+// for tools/run (which today legitimately imports net/http in live.go;
+// after the move it must not)". Scoped to live.go alone, not the whole
+// package: loop.go legitimately keeps its own net/http import and its own
+// ANTHROPIC_API_KEY/OPENROUTER_API_KEY reads for the tool loop's round
+// functions (anthropicRound, openRouterRound), a separate, pre-existing
+// implementation this step does not touch (production reaches call() only
+// for bedrock and any engine outside the loop; anthropic and openrouter
+// traffic already goes through loop.go's own request-building, not
+// live.go's). bedrock.go, dispatch.go and the rest of the package are out of
+// scope for the same reason. This is the tools/run half of the property
+// tools/bench's TestNoFileInThisPackageCanMakeAnHTTPRequest already holds
+// for its own package; the mutant gates-have-teeth.sh plants for it drops a
+// second net/http import under tools/ and requires this test to catch it.
+func TestLiveDotGoHoldsNoWayToMakeAnHTTPRequestAnyMore(t *testing.T) {
+	src, err := os.ReadFile("live.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, forbidden := range []string{
+		"net/http", "http.Client", "http.Get", "http.Post", "http.NewRequest",
+		"ANTHROPIC_API_KEY", "OPENROUTER_API_KEY",
+	} {
+		if strings.Contains(string(src), forbidden) {
+			t.Errorf("live.go contains %q: the call path moved to internal/deliver, "+
+				"and live.go is supposed to hold no way to make an HTTP request or "+
+				"read a model credential any more", forbidden)
+		}
 	}
 }
