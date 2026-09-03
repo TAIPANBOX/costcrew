@@ -56,16 +56,16 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 436 tests, 20 packages
+go test ./...                        # 475 tests, 20 packages
 ./scripts/gates-have-teeth.sh        # 63 cases; needs a clean tree; ~90s
-./scripts/features-are-bound.sh      # 92 scenarios, both directions
+./scripts/features-are-bound.sh      # 99 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refused PR #19 on two findings the list above never asked for; a staticcheck built for an older Go cannot read this module, so on such a machine CI is the only place it runs
 ```
 
-Counts follow the suite, measured on `feat/the-bench-scores-a-named-cause-against-the-truth`
+Counts follow the suite, measured on `feat/the-supervisor-plans-the-sprint-he-describes`
 (test count by `go test ./... -list '.*' | grep -c '^Test'` -- test FUNCTIONS, not
 subtests, the convention PR #21, #23 and this file's own `internal/manifest` gate
 already use, not `-v | grep -c '^--- PASS'`, which over-counts anything using
