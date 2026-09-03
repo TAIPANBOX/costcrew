@@ -158,7 +158,15 @@ func applySideEffect(db *sql.DB, opt crew.Option, t crew.Task, actor string, rec
 		if err != nil || period == "" {
 			return err
 		}
-		return Freeze(db, period, actor)
+		if err := Freeze(db, period, actor); err != nil {
+			return err
+		}
+		// C3-SPEC.md section 2: "the option's summary becomes the freeze's
+		// recorded basis" -- the forecaster's own written explanation of
+		// which drivers moved the number, in place of ProjectWithDrivers's
+		// own generated sentence. A no-op when the option carried no
+		// summary of its own.
+		return SetForecastBasis(db, period, opt.Summary)
 	case "period.close": // class:period.close
 		period, err := OpenPeriod(db)
 		if err != nil || period == "" {

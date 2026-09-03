@@ -1220,6 +1220,48 @@ run_case 'C6: a benchmark figure is invented where none exists' \
 	internal/deliver/packet.go \
 	$'\t\tb.WriteString("  benchmark:       no benchmark\\n")' \
 	$'\t\tfmt.Fprintf(&b, "  benchmark:       %s (industry average)\\n", l.PerSeat)'
+# C3-SPEC.md section 4's three named mutants. Invariant 32 (CLAUDE.md), "a
+# registered driver moves the projection by its own measured effect ... and
+# a frozen forecast remembers which drivers it already knew about".
+#
+# The first two both target ProjectWithDrivers's own single division line:
+# ONE multiply-then-divide, done once per driver, is the whole of how a
+# recurring driver's rate repeats across a window wider than what has
+# landed AND how that repetition stays cents-exact. Each case mutates the
+# SAME source line to a different fault and is judged against a DIFFERENT
+# test, so the two cases never collide on a shared tree: run_case restores
+# with git between every one.
+# sofar*windowDays/windowDays is sofar, exactly, for any windowDays >= 1 (the
+# only value daysBetween ever returns): a mutation that still COMPILES
+# (windowDays stays referenced, so nothing is left unused) while dividing the
+# window straight back out, which is what "applied once, un-extended across
+# its own window" amounts to in this line.
+run_case 'forecast: a recurring driver applies its effect once, un-extended' \
+	fail \
+	./internal/finops \
+	$'TestProjectWithDriversRepeatsARecurringDriverAcrossItsWindow' \
+	$'want 10.00' \
+	internal/finops/forecast.go \
+	$'effect = money.Cents(int64(sofar) * int64(windowDays) / int64(landed))' \
+	$'effect = money.Cents(int64(sofar) * int64(windowDays) / int64(windowDays))'
+
+run_case 'forecast: a driver rate rounds to the cent before its window multiplies it' \
+	fail \
+	./internal/finops \
+	$'TestProjectWithDriversRoundsOnceMultiplyingBeforeDividing' \
+	$'want 233' \
+	internal/finops/forecast.go \
+	$'effect = money.Cents(int64(sofar) * int64(windowDays) / int64(landed))' \
+	$'effect = money.Cents((int64(sofar) / int64(landed)) * int64(windowDays))'
+
+run_case 'forecast: the largest miss grades a live figure instead of the frozen one' \
+	fail \
+	./internal/finops \
+	$'TestLargestMissGradesTheFrozenFigureNotALiveOne' \
+	$'want the FROZEN 154.00' \
+	internal/finops/forecast.go \
+	$'\treturn Miss{Forecast: top, MissedDrivers: missed}, true, nil\n' \
+	$'\tlive, _, _, _ := ProjectWithDrivers(db, top.Source, top.Period)\n\ttop.Forecast = live\n\treturn Miss{Forecast: top, MissedDrivers: missed}, true, nil\n'
 
 echo
 if [ -n "$(git status --porcelain)" ]; then

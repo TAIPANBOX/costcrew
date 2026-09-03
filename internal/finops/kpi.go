@@ -196,12 +196,28 @@ func KPIs(db *sql.DB, period string) ([]KPI, error) {
 	if err != nil {
 		return nil, err
 	}
+	// C3-SPEC.md section 2: the KPI names the largest miss's driver when one
+	// exists. LargestMiss grades Forecasts' own FROZEN figure, never a live
+	// recomputation -- see its own comment for why that distinction is the
+	// whole point.
+	largest, hasLargest, err := LargestMiss(db, openMonth)
+	if err != nil {
+		return nil, err
+	}
+	note := fmt.Sprintf("Across %d scored month-desks. %s.", scored, LadderText())
+	if hasLargest {
+		note += fmt.Sprintf(" The largest miss: %s in %s, frozen %s vs actual %s (%.1f%% error).",
+			largest.Source, largest.Period, largest.Forecast.Forecast, largest.Actual, largest.ErrorPct)
+		if len(largest.MissedDrivers) > 0 {
+			note += fmt.Sprintf(" Missed: %s.", largest.MissedDrivers[0].Label)
+		}
+	}
 	add(KPI{
 		ID: "forecast-accuracy", Name: "Forecast accuracy", Group: "Forecasting",
 		Value: fmt.Sprintf("%.1f", acc), Unit: "% average error",
 		Target: fmt.Sprintf("within %.0f%%", LadderTrusted),
 		HasVal: hasAcc, Meets: hasAcc && acc <= LadderTrusted,
-		Note: fmt.Sprintf("Across %d scored month-desks. %s.", scored, LadderText()),
+		Note: note,
 		Blocked: blockedIf(!hasAcc,
 			"no frozen forecast has reached the end of its month yet, so there is "+
 				"nothing to compare an actual against. Accuracy against an unfrozen "+

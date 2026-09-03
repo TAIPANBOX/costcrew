@@ -54,7 +54,7 @@ func emptyDQDB(t *testing.T) *sql.DB {
 	return db
 }
 
-func plantCharge(t *testing.T, db *sql.DB, source, day, team, category string, cents int64) {
+func plantTaggedCharge(t *testing.T, db *sql.DB, source, day, team, category string, cents int64) {
 	t.Helper()
 	var teamVal any
 	if team != "" {
@@ -137,7 +137,7 @@ func TestASourceWithNoChargeForTStaleDaysIsReportedStale(t *testing.T) {
 	today := "2026-09-10"
 
 	dbStale := emptyDQDB(t)
-	plantCharge(t, dbStale, "aws", addDays(today, -staleDays), "team-x", "Usage", 5000)
+	plantTaggedCharge(t, dbStale, "aws", addDays(today, -staleDays), "team-x", "Usage", 5000)
 	findings, err := finops.DataQuality(dbStale, today)
 	if err != nil {
 		t.Fatal(err)
@@ -157,7 +157,7 @@ func TestASourceWithNoChargeForTStaleDaysIsReportedStale(t *testing.T) {
 	}
 
 	dbFresh := emptyDQDB(t)
-	plantCharge(t, dbFresh, "aws", addDays(today, -(staleDays-1)), "team-x", "Usage", 5000)
+	plantTaggedCharge(t, dbFresh, "aws", addDays(today, -(staleDays-1)), "team-x", "Usage", 5000)
 	findings2, err := finops.DataQuality(dbFresh, today)
 	if err != nil {
 		t.Fatal(err)
@@ -191,7 +191,7 @@ func TestASourceWithNoChargeAtAllIsStale(t *testing.T) {
 func TestFreshnessIsMeasuredFromTheLastChargeNotFromToday(t *testing.T) {
 	db := emptyDQDB(t)
 	today := "2026-09-10"
-	plantCharge(t, db, "aws", "2026-08-11", "team-x", "Usage", 5000) // 30 days before today
+	plantTaggedCharge(t, db, "aws", "2026-08-11", "team-x", "Usage", 5000) // 30 days before today
 
 	findings, err := finops.DataQuality(db, today)
 	if err != nil {
@@ -217,8 +217,8 @@ func TestUntaggedShareAboveTUntaggedIsReported(t *testing.T) {
 	untaggedPct := mustUntaggedPct(t)
 	db := emptyDQDB(t)
 	today := "2026-09-10"
-	plantCharge(t, db, "aws", today, "team-x", "Purchase", 8000) // direct, tagged
-	plantCharge(t, db, "aws", today, "", "Purchase", 2000)       // 20% of the month, no team
+	plantTaggedCharge(t, db, "aws", today, "team-x", "Purchase", 8000) // direct, tagged
+	plantTaggedCharge(t, db, "aws", today, "", "Purchase", 2000)       // 20% of the month, no team
 
 	findings, err := finops.DataQuality(db, today)
 	if err != nil {
@@ -251,7 +251,7 @@ func TestUnallocatedShareAboveTUntaggedIsReported(t *testing.T) {
 	today := "2026-09-10"
 	// No direct-cost charge on aws at all: the shared pot below has no team
 	// to redistribute onto, so it stays Unallocated rather than Placed.
-	plantCharge(t, db, "aws", today, "", "Purchase", 5000)
+	plantTaggedCharge(t, db, "aws", today, "", "Purchase", 5000)
 
 	findings, err := finops.DataQuality(db, today)
 	if err != nil {
@@ -271,8 +271,8 @@ func TestUnallocatedShareAboveTUntaggedIsReported(t *testing.T) {
 func TestASourceUnderBothThresholdsIsNotCrossed(t *testing.T) {
 	db := emptyDQDB(t)
 	today := "2026-09-10"
-	plantCharge(t, db, "aws", today, "team-x", "Purchase", 9900)
-	plantCharge(t, db, "aws", today, "", "Purchase", 100) // 1%, comfortably under T.untagged
+	plantTaggedCharge(t, db, "aws", today, "team-x", "Purchase", 9900)
+	plantTaggedCharge(t, db, "aws", today, "", "Purchase", 100) // 1%, comfortably under T.untagged
 
 	findings, err := finops.DataQuality(db, today)
 	if err != nil {
@@ -288,7 +288,7 @@ func TestASourceUnderBothThresholdsIsNotCrossed(t *testing.T) {
 // estate has charged all of them.
 func TestDataQualityMeasuresEveryDesk(t *testing.T) {
 	db := emptyDQDB(t)
-	plantCharge(t, db, "aws", "2026-09-10", "team-x", "Usage", 1000)
+	plantTaggedCharge(t, db, "aws", "2026-09-10", "team-x", "Usage", 1000)
 	findings, err := finops.DataQuality(db, "2026-09-10")
 	if err != nil {
 		t.Fatal(err)
