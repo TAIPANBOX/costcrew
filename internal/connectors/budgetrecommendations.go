@@ -214,7 +214,7 @@ func parseAWSBudgetsRecommendedRow(rec []string, col map[string]int) (budgetRecR
 	}
 	month := field("Month")
 	if !validBudgetRecMonth(month) {
-		return budgetRecRow{}, fmt.Errorf("Month %q is not a month; write it as 2026-09", month)
+		return budgetRecRow{}, fmt.Errorf("the Month column %q is not a month; write it as 2026-09", month)
 	}
 	return budgetRecRow{Team: team, Month: month, RecommendedCents: amount}, nil
 }
@@ -275,7 +275,7 @@ func parseAzureAdvisorBudgetRow(rec []string, col map[string]int) (budgetRecRow,
 	}
 	month := field("Month")
 	if !validBudgetRecMonth(month) {
-		return budgetRecRow{}, fmt.Errorf("Month %q is not a month; write it as 2026-09", month)
+		return budgetRecRow{}, fmt.Errorf("the Month column %q is not a month; write it as 2026-09", month)
 	}
 	return budgetRecRow{Team: team, Month: month, RecommendedCents: amount}, nil
 }
