@@ -844,6 +844,55 @@ run_case 'bench: cost summed after rounding each case to cents' \
 	$'totalMicros += r.Score.CostMicros' \
 	$'totalMicros += (r.Score.CostMicros / 10_000) * 10_000'
 
+# B8: memory, in the store first. An analyst's packet now also carries its
+# OWN last three posted deliverables on this desk, each with the fate of
+# every option it ended in, and drivers reach back six months instead of
+# ninety days, capped at 24 rows with "and N more". B8-SPEC.md section 4
+# names four mutants by their own words; these are them.
+run_case 'memory: own history is not scoped to the one analyst' \
+	fail \
+	./internal/deliver \
+	$'TestOwnHistoryHidesAnotherAnalystsDeliverableOnTheSameDesk' \
+	$'another analyst'"'"'s deliverable on the same desk was shown' \
+	internal/deliver/packet.go \
+	$'\t\tWHERE ar.author = ? AND ar.state = \'posted\' AND t.desk = ?' \
+	$'\t\tWHERE ar.state = \'posted\' AND t.desk = ?' \
+	internal/deliver/packet.go \
+	$'\t\tLIMIT 3`, a.Name, desk)' \
+	$'\t\tLIMIT 3`, desk)'
+
+run_case 'memory: own history drops the fate line' \
+	fail \
+	./internal/deliver \
+	$'TestOwnHistoryShowsTheFateOfEveryOptionState' \
+	$'not found for state' \
+	internal/deliver/packet.go \
+	$'\t\t\tfmt.Fprintf(&b, "  - %s: %s (%s)\\n", o.Class, trimBytes(o.Summary, 80), fateOf(db, o))' \
+	$'\t\t\tfmt.Fprintf(&b, "  - %s: %s\\n", o.Class, trimBytes(o.Summary, 80))'
+
+run_case 'memory: drivers keep the old ninety-day window' \
+	fail \
+	./internal/deliver \
+	$'TestDriversSectionReachesOneHundredTwentyDays' \
+	$'is missing from driversSection' \
+	internal/deliver/packet.go \
+	$'\tdriversSectionWindowDays = 180' \
+	$'\tdriversSectionWindowDays = 90'
+
+# B8-SPEC.md section 4's fourth named mutant: "trim the anomaly section
+# instead of the history section". Prepending ownHistorySection's own
+# content to the front of sections, rather than appending it to the end,
+# makes memory the thing BoundBytes protects and something else (here,
+# whatever was last before this section existed) the thing it cuts instead.
+run_case 'memory: history is prepended instead of appended, so it no longer yields first' \
+	fail \
+	./internal/deliver \
+	$'TestOwnHistoryNeverCrowdsOutTheAnomalyUnderTheCap' \
+	$'survived intact' \
+	internal/deliver/packet.go \
+	$'if s := ownHistorySection(db, a, t.Desk); s != "" {\n\t\tsections = append(sections, s)\n\t}' \
+	$'if s := ownHistorySection(db, a, t.Desk); s != "" {\n\t\tsections = append([]string{s}, sections...)\n\t}'
+
 echo
 if [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'

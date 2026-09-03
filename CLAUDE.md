@@ -679,6 +679,42 @@ an absent invariant.
     `TestBenchDoesNotDetectAgainstAnExistingStore`: an existing store's own
     anomaly count, before and after a bench run against it, equal.)*
 
+30. **Memory is appended last, and the cap cuts from the end, so memory is
+    always what yields first, never the anomaly, the series, the drivers,
+    the team's month or the last posted explanation that precede it.**
+    B8-SPEC.md section 2. An analyst's packet now also carries its OWN last
+    three posted deliverables on this desk (`ownHistorySection`), newest
+    first, each with the task it answered, the first 240 bytes of its body
+    and the fate of every option it ended in ("applied by X", "refused by X:
+    reason", "not chosen (reason)", "still waiting on X" for a carried
+    option, "open" otherwise); and `driversSection`'s own window widened
+    from 90 days to 180 ("last six months"), capped at 24 rows, newest
+    first, with a trailing "and N more" line when it is cut, so an
+    unbounded registry cannot itself grow past the packet's own bound. The
+    order this is held by is the WHOLE mechanism, and it is one line:
+    `Packet()` appends `ownHistorySection` after every other section, and
+    `BoundBytes` cuts bytes off the END of the joined sections once the 12
+    KiB cap is reached, so whatever is appended last is trimmed first, and
+    everything appended earlier is untouched unless that alone is not
+    enough. Nothing else about the cap changed; making this order explicit,
+    in the one place it is decided, is this invariant.
+    *(gate: `TestOwnHistoryNeverCrowdsOutTheAnomalyUnderTheCap`
+    (`internal/deliver`), which forces a packet over 12 KiB on a real
+    anomaly and requires the anomaly section whole, the history section's
+    newest entry present, its oldest entry missing, and the packet ending in
+    the truncation note. `TestOwnHistoryShowsTheAnalystsOwnLastPostedDeliverable`,
+    `TestOwnHistoryShowsExactlyThreeNewestFirst`,
+    `TestOwnHistoryHidesAnotherAnalystsDeliverableOnTheSameDesk`,
+    `TestOwnHistoryHidesTheSameAnalystsDeliverableOnAnotherDesk` and
+    `TestOwnHistoryShowsTheFateOfEveryOptionState` hold the section itself;
+    `TestDriversSectionReachesOneHundredTwentyDays` and
+    `TestDriversSectionCapsAtTwentyFourWithAndNMore` hold the widened
+    window. `scripts/gates-have-teeth.sh` plants four mutants, named in
+    B8-SPEC.md section 4: own history shown for any author, not scoped to
+    the analyst; an option's fate line dropped; the drivers window kept at
+    90 days; and memory prepended instead of appended, so it is protected
+    rather than trimmed first.)*
+
 ## Decisions that have no gate yet
 
 Written here so that "it holds" and "something holds it" stay different

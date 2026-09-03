@@ -32,6 +32,7 @@ import (
 	"github.com/TAIPANBOX/costcrew/internal/estate"
 	"github.com/TAIPANBOX/costcrew/internal/finops"
 	"github.com/TAIPANBOX/costcrew/internal/money"
+	"github.com/TAIPANBOX/costcrew/internal/world"
 )
 
 // packetMaxBytes bounds the packet the same way every other fixed block in
@@ -96,6 +97,18 @@ func Packet(db *sql.DB, t crew.Task, a crew.Analyst, hideDriver bool) string {
 		if s := forecastingSection(db, t.Desk); s != "" {
 			sections = append(sections, s)
 		}
+	}
+
+	// ownHistorySection is MEMORY (B8-SPEC.md section 2) and is appended
+	// LAST, deliberately, and this is the one place that order is decided:
+	// BoundBytes below trims from the END of the joined sections, so
+	// whatever is appended last is what yields first once the 12 KiB cap is
+	// reached. Every section above -- the anomaly, the series, the drivers,
+	// the team's month, the last posted explanation, reporting, forecasting
+	// -- is never trimmed to make room for memory, because memory is the
+	// only thing ever appended after them.
+	if s := ownHistorySection(db, a, t.Desk); s != "" {
+		sections = append(sections, s)
 	}
 
 	if len(sections) == 0 {
@@ -223,34 +236,61 @@ func weekdayOf(day string) string {
 
 // ------------------------------------------------------------- the drivers
 
+// driversSectionWindowDays and driversSectionCap are B8-SPEC.md section 2's
+// own numbers: the window that was 90 days is now 180 ("last six months"),
+// and the list -- unbounded before -- is now capped, newest first, with a
+// final "and N more" line when it is cut. Named constants because
+// gates-have-teeth.sh's "keep 90 days" mutant case names this exact line.
+const (
+	driversSectionWindowDays = 180
+	driversSectionCap        = 24
+)
+
 // driversSection lists registry rows on the anomaly's own service and desk,
-// covering the 90 days ending on the anomaly's day: a row counts when its
+// covering the six months ending on the anomaly's day: a row counts when its
 // range reaches into that window and it started on or before the anomaly.
 func driversSection(db *sql.DB, an anomaly.Anomaly, desk string) string {
 	all, err := estate.Drivers(db)
 	if err != nil || len(all) == 0 {
 		return ""
 	}
-	since := dayBefore(an.Day, 90)
-
-	var b strings.Builder
-	b.WriteString("Drivers on this service and desk, last 90 days\n")
-	n := 0
-	for _, d := range all {
+	since := dayBefore(an.Day, driversSectionWindowDays)
+	matches := func(d world.Driver) bool {
 		if d.Source != desk {
-			continue
+			return false
 		}
 		if d.Scope != "*" && d.Scope != an.Service {
-			continue
+			return false
 		}
-		if d.End < since || d.Start > an.Day {
+		return d.End >= since && d.Start <= an.Day
+	}
+
+	total := 0
+	for _, d := range all {
+		if matches(d) {
+			total++
+		}
+	}
+	if total == 0 {
+		return ""
+	}
+
+	var b strings.Builder
+	b.WriteString("Drivers on this service and desk, last six months\n")
+	shown := 0
+	// estate.Drivers orders oldest first (date_start, label ASC), for the
+	// drivers page's own sake; reversed here, rather than at the shared
+	// reader, so this section alone reads newest first.
+	for i := len(all) - 1; i >= 0 && shown < driversSectionCap; i-- {
+		d := all[i]
+		if !matches(d) {
 			continue
 		}
 		fmt.Fprintf(&b, "%s to %s  %s (%s)\n", d.Start, d.End, d.Label, d.Kind)
-		n++
+		shown++
 	}
-	if n == 0 {
-		return ""
+	if total > shown {
+		fmt.Fprintf(&b, "and %d more\n", total-shown)
 	}
 	return b.String()
 }
@@ -323,6 +363,102 @@ func trimBytes(s string, n int) string {
 		cut--
 	}
 	return s[:cut] + "…"
+}
+
+// --------------------------------------------------- the analyst's own history
+
+// A person on this job remembers two things between tasks: what they said
+// last time, and what happened to it. `@yurii 2026-09-02`, the ask this
+// section serves: analysts that "більш повною мірою замінити людей на цих
+// посадах" -- B8-SPEC.md section 1.
+
+// ownHistorySection is the last three artifacts THIS analyst posted on THIS
+// desk, newest first, each with the task title, the date it was posted, the
+// first 240 bytes of the body, and the fate of every option it ended in.
+// Empty when the analyst has never posted here: the section is absent, not a
+// header over nothing, the same rule every other section in this file
+// already holds.
+func ownHistorySection(db *sql.DB, a crew.Analyst, desk string) string {
+	if a.Name == "" || desk == "" {
+		return ""
+	}
+	rows, err := db.Query(`
+		SELECT ar.id, t.title, COALESCE(ar.stamped, ar.created, ''), ar.body
+		FROM artifacts ar
+		JOIN tasks t ON t.id = ar.task
+		WHERE ar.author = ? AND ar.state = 'posted' AND t.desk = ?
+		ORDER BY ar.stamped DESC, ar.id DESC
+		LIMIT 3`, a.Name, desk)
+	if err != nil {
+		return ""
+	}
+	defer rows.Close()
+
+	type ownArtifact struct {
+		id    int
+		title string
+		when  string
+		body  string
+	}
+	var got []ownArtifact
+	for rows.Next() {
+		var r ownArtifact
+		if err := rows.Scan(&r.id, &r.title, &r.when, &r.body); err != nil {
+			return ""
+		}
+		got = append(got, r)
+	}
+	if err := rows.Err(); err != nil || len(got) == 0 {
+		return ""
+	}
+
+	var b strings.Builder
+	b.WriteString("What you posted on this desk before, and what happened to it\n")
+	for _, r := range got {
+		fmt.Fprintf(&b, "\n%s, posted %s\n", r.title, r.when)
+		b.WriteString(trimBytes(r.body, 240))
+		b.WriteString("\n")
+		opts, err := crew.Options(db, r.id)
+		if err != nil {
+			continue
+		}
+		for _, o := range opts {
+			fmt.Fprintf(&b, "  - %s: %s (%s)\n", o.Class, trimBytes(o.Summary, 80), fateOf(db, o))
+		}
+	}
+	return b.String()
+}
+
+// fateOf is one option's fate in words: what a person on this job would
+// remember happened to what it proposed last time. The four fates
+// artifact_options.state and decided_by can carry, plus "open" for one
+// nobody has looked at yet.
+func fateOf(db *sql.DB, o crew.Option) string {
+	switch o.State {
+	case crew.OptionApplied:
+		return "applied by " + o.DecidedBy
+	case crew.OptionRefused:
+		return "refused by " + o.DecidedBy + ": " + trimBytes(o.Reason, 80)
+	case crew.OptionNotChosen:
+		return "not chosen (" + o.Reason + ")"
+	case crew.OptionCarried:
+		return "still waiting on " + waitingOwner(db, o.Artifact)
+	default:
+		return "open"
+	}
+}
+
+// waitingOwner is who a carried option is waiting on. decision_requests is
+// keyed by artifact -- one request per deliverable, B3-SPEC.md section 4 --
+// so every carried option of one artifact waits on the same owner; a missing
+// row (an option marked carried outside the supervisor's own pass) falls
+// back to a generic phrase rather than an empty name.
+func waitingOwner(db *sql.DB, artifactID int) string {
+	var owner string
+	if err := db.QueryRow(`SELECT owner FROM decision_requests WHERE artifact=?`, artifactID).Scan(&owner); err != nil {
+		return "the owner"
+	}
+	return owner
 }
 
 // ------------------------------------------------------ reporting and forecasting
