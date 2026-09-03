@@ -100,6 +100,7 @@ func TestPagesRenderTheSameTwice(t *testing.T) {
 		"/budgets", "/allocation", "/kpis", "/utilisation",
 		"/chargeback", "/engines", "/accounts", "/connectors",
 		"/rightsizing", // PR #34 review: was groups-by-desk and not on this list
+		"/leadership",  // C8-LEADERSHIP-SPEC.md: groups packs by Published
 	}
 	for _, p := range paths {
 		code, first, _ := h.get(t, p)
