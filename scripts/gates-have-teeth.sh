@@ -888,7 +888,7 @@ run_case 'memory: history is prepended instead of appended, so it no longer yiel
 	fail \
 	./internal/deliver \
 	$'TestOwnHistoryNeverCrowdsOutTheAnomalyUnderTheCap' \
-	$'survived intact' \
+	$'the anomaly section is not intact' \
 	internal/deliver/packet.go \
 	$'if s := ownHistorySection(db, a, t.Desk); s != "" {\n\t\tsections = append(sections, s)\n\t}' \
 	$'if s := ownHistorySection(db, a, t.Desk); s != "" {\n\t\tsections = append([]string{s}, sections...)\n\t}'
