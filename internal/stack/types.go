@@ -77,4 +77,26 @@ var wireTypes = []string{
 	// deciding a fixture is done and removing it, so this keeps its own name
 	// for the same reason agent_hired does.
 	"generated_estate_replaced",
+
+	// B5-SPEC.md section 2: the /cadence console page's own switch, changed
+	// by a person (its ceiling with it), the only writer of the settings row
+	// `tools/run -due` reads. Own name, own kind: "a budget was set" and "a
+	// clock-driven run may now spend" are not the same fact, so this does
+	// not borrow budgets_set's name for a different action. `@claude`
+	// 2026-09-03: not named in B5-SPEC.md's own text, which only calls out
+	// crew_ran below; adding it follows the section's own instruction to
+	// journal the switch "as the existing settings events are", which for
+	// every other setting in this console means its own kind on the wire.
+	"cadence_set",
+	// B5-SPEC.md section 6: what one `-due -live` run did and cost -- run
+	// id, sprint label, tasks run and refused, cost in micro-dollars,
+	// ceiling, who switched the cadence on. Emitted only from
+	// tools/run/bus.go (see wiretypes_test.go's own comment on this entry:
+	// that file is a second "package main" this test cannot walk into).
+	// FOURTH new wire type this week counting crew_ran alone (after
+	// option_refused, option_applied and decision_requested); cadence_set
+	// above makes it a fifth. Both need a registry-chain row
+	// (agent-passport 6.2, trailryx, heraldyx), named as a follow-up in the
+	// PR body and not done here.
+	"crew_ran",
 }

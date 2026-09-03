@@ -15,6 +15,7 @@ package main
 
 import (
 	"database/sql"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -43,6 +44,13 @@ func main() {
 	// is a pass nobody chose.
 	supervise := flag.Bool("supervise", false,
 		"run the supervisor's deterministic pass over -sprint's posted deliverables; needs -sprint")
+	// B5-SPEC.md section 3: only cadence-due work, under the ceiling, and
+	// only while a person has switched the console's cadence.enabled on.
+	// Needs -ceiling for the same reason -live's does: a run that can spend
+	// has to be bounded by a figure somebody typed, and here it is the
+	// smaller of that figure and the console's own cadence.ceiling_cents.
+	due := flag.Bool("due", false,
+		"run only cadence-due work, under the console's cadence switch and ceiling; needs -ceiling")
 	// The estate integration, off unless pointed somewhere, exactly as the
 	// console's own is. The file NAME is the integration: genaryx keys each
 	// source's read offset off the stem, so this has to be costcrew.ndjson and
@@ -67,10 +75,25 @@ func main() {
 		return
 	}
 
-	if err := run(*dir, *ceiling, *maxTok, *sprint, *live, *supervise, *only, *engine, *events, *host, *gateway); err != nil {
+	if err := run(*dir, *ceiling, *maxTok, *sprint, *live, *supervise, *due, *only, *engine, *events, *host, *gateway); err != nil {
 		fmt.Fprintln(os.Stderr, "run:", err)
-		os.Exit(1)
+		os.Exit(dueExitCode(err))
 	}
+}
+
+// dueExitCode is main()'s exit-code mapping, pulled out so it is directly
+// testable without spawning the binary: errCadenceOff is exit 2, distinct
+// from an ordinary failure (1), so a cron wrapper or an operator can tell
+// "nothing to do, by design" (the console's switch is off) from "broke".
+// B5-SPEC.md section 3 point 1: "exit 2, nothing else touched".
+func dueExitCode(err error) int {
+	if err == nil {
+		return 0
+	}
+	if errors.Is(err, errCadenceOff) {
+		return 2
+	}
+	return 1
 }
 
 // estimate is one task, priced.
@@ -107,7 +130,7 @@ type estimate struct {
 	Refused bool
 }
 
-func run(dir, ceiling string, maxTok, sprint int, live, supervise bool, only int, engine, events, host, gateway string) error {
+func run(dir, ceiling string, maxTok, sprint int, live, supervise, due bool, only int, engine, events, host, gateway string) error {
 	// Validated before the store or the bus are even opened. A bad -gateway
 	// value is a configuration mistake, not a spending one, and the sooner it
 	// is reported the less of the run has already happened around it.
@@ -164,6 +187,10 @@ func run(dir, ceiling string, maxTok, sprint int, live, supervise bool, only int
 			return fmt.Errorf("the ceiling must look like 25.00: %w", err)
 		}
 		hasCap = true
+	}
+
+	if due {
+		return runDue(db, roDB, cap, hasCap, maxTok, live, b, gatewayConfig{URL: gatewayURL, Host: host, CeilingUSD: cap})
 	}
 
 	all, err := crew.Tasks(db, crew.TaskFilter{OpenOnly: true, Sprint: sprint})
@@ -266,9 +293,11 @@ func price(db *sql.DB, t crew.Task, a crew.Analyst, maxTok int) estimate {
 	}
 	e.Price, e.Priced = p, true
 
-	in := float64(e.PromptTokens) / 1e6 * p.InPerM
-	out := float64(maxTok) / 1e6 * p.OutPerM
-	e.WorstMicros = int64((in + out) * 1e6)
+	// B5-SPEC.md section 3 point 3: this arithmetic now lives in
+	// internal/deliver, shared with the /cadence console page, which cannot
+	// import this "package main" to call it here directly. Behaviour is
+	// unchanged; only the formula's one home moved.
+	e.WorstMicros = deliver.WorstCaseMicros(e.PromptTokens, maxTok, p)
 
 	// The guard is in cents and the estimate is in micros, so the comparison
 	// happens in micros. Converting the other way would floor the estimate to

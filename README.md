@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/TAIPANBOX/costcrew/actions/workflows/ci.yml/badge.svg)](https://github.com/TAIPANBOX/costcrew/actions/workflows/ci.yml)
 ![Go](https://img.shields.io/badge/go-1.27-00ADD8.svg)
-![tests](https://img.shields.io/badge/tests-488-brightgreen.svg)
+![tests](https://img.shields.io/badge/tests-515-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)
 ![Status](https://img.shields.io/badge/enforces-nothing%20by%20design-success.svg)
 
@@ -153,12 +153,39 @@ shared bus. Two flags carry the whole integration: `-stack-events` names the
 NDJSON file, and the name IS the integration because genaryx keys a read offset
 off the stem; `-stack-host` sets the `agent://` authority.
 
+## Cadence
+
+`tools/run -due` takes only cadence-due work, under a ceiling, and refuses
+unless a person has turned it on at `/cadence` in the console: the routine
+runs when the platform's operator un-suspends it AND the console's switch is
+on; either alone spends nothing.
+
+`stack-k8s/manifests/49-costcrew.yaml` ships `costcrew-crew` as a CronJob
+with `suspend: true`, and its command line already carries `-live -ceiling
+$(COSTCREW_CEILING)`. Once a platform operator un-suspends it, that line
+needs `-due` added:
+
+```sh
+costcrew-run -data /var/lib/costcrew -due -live -ceiling "$(COSTCREW_CEILING)" \
+  -stack-events /var/lib/stack/events/costcrew.ndjson -stack-host "$(TRAILRYX_TRUST_DOMAIN)"
+```
+
+stack-single has no routine for the crew today (`@claude` 2026-09-03, read
+looking for one per B5-SPEC.md's own instruction: `compose.yaml` names
+`costcrew-crew` only as the precedent `idryx-detect`'s own manual-profile
+shape was built from, not as a service that exists there). Whenever one is
+added, its command line needs the same `-due` addition to whatever args it
+otherwise passes `costcrew-run`.
+
+Flipping stack-k8s's `suspend`, or adding a stack-single routine, is a
+platform act and a separate decision; neither is done in this repository.
+
 ## Gates
 
 ```sh
-go test ./...                        # 488 tests, 20 packages
+go test ./...                        # 515 tests, 20 packages
 ./scripts/features-are-bound.sh      # every scenario bound to a named test, both ways
-./scripts/gates-have-teeth.sh        # 67 cases: each gate is made to fail on purpose
+./scripts/gates-have-teeth.sh        # 68 cases: each gate is made to fail on purpose
 gofmt -l . && go vet ./...
 ```
 

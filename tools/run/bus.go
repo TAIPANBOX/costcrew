@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/TAIPANBOX/costcrew/internal/crew"
+	"github.com/TAIPANBOX/costcrew/internal/money"
 	"github.com/TAIPANBOX/costcrew/internal/stack"
 )
 
@@ -80,6 +81,38 @@ func (b bus) decisionRequested(sprint int, owner string, options int) error {
 	return b.em.Emit("decision_requested", "supervisor", "info", map[string]any{
 		"run": b.run, "sprint": sprint, "owner": owner, "options": options,
 	}, nil)
+}
+
+// crewRan says what one `-due -live` run did and cost, B5-SPEC.md section 6.
+//
+// Unlike toolCall and decisionRequested above, which are shared-bus-only,
+// this writes BOTH surfaces the spec names: the shared bus (b.em, when
+// configured) and this installation's own hash-chained journal (b.rec,
+// always -- every run opens a store, so every run can write to it, exactly
+// the reason bus.rec exists). The two stay separate calls rather than going
+// through store.Tee the way internal/web's s.rec does for its own write
+// routes (see bus.rec's own comment): em and rec are different surfaces
+// here, and this is the one event this file writes to both, deliberately,
+// once each.
+func (b bus) crewRan(label string, tasksRun, tasksRefused int, costMicros int64, ceiling money.Cents, switchedOnBy string) error {
+	data := map[string]any{
+		"run": b.run, "sprint": label,
+		"tasks_run": tasksRun, "tasks_refused": tasksRefused,
+		"cost_micros": costMicros, "ceiling_cents": int64(ceiling),
+		"switched_on_by": switchedOnBy,
+	}
+	var firstErr error
+	if b.rec != nil {
+		if err := b.rec.Emit("crew_ran", "supervisor", "info", data, nil); err != nil {
+			firstErr = err
+		}
+	}
+	if b.em != nil && b.em.On() {
+		if err := b.em.Emit("crew_ran", "supervisor", "info", data, nil); err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	return firstErr
 }
 
 // openBus prepares this run's reporting, and refuses BEFORE anything is spent.

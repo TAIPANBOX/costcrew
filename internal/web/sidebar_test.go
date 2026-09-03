@@ -29,7 +29,16 @@ import (
 // on a window under about 940px tall. That is the honest limit of this fix; the
 // structural answer is fewer than 26 destinations, which is not my call.
 //
-// The test holds the INPUTS that produced 936, because Go cannot lay out CSS.
+// B5-SPEC.md added one link, Cadence, between Sprints and Crew.
+// @measured, Chrome at 1440x1020, 2026-09-03 (a real running console,
+// signed up fresh, `nav.scrollHeight` read against `nav.clientHeight` and a
+// direct read of the last link's `getBoundingClientRect()`): 27 links, 952px
+// of content against a 1020px box, 68px of slack, `nav.scrollHeight >
+// nav.clientHeight` false (no scrollbar). The sub-940px limit above is
+// unchanged in kind and gets slightly worse in degree, which was already
+// true before this page existed and is not re-measured again here.
+//
+// The test holds the INPUTS that produced 952, because Go cannot lay out CSS.
 // It is therefore a budget, not a rendering: it catches the regression that
 // actually happens, which is a link being added or a padding growing back.
 func TestTheSidebarFitsAWindow(t *testing.T) {
@@ -47,7 +56,7 @@ func TestTheSidebarFitsAWindow(t *testing.T) {
 		got   int
 		limit int
 	}{
-		{"links in the sidebar", links, 26},
+		{"links in the sidebar", links, 27},
 		{"group labels", groups, 6},
 		{"nav a padding-top", pxIn(t, css, `nav a \{[^}]*padding: (\d+)px`), 3},
 		{"nav .group padding-top", pxIn(t, css, `nav \.group \{[^}]*padding: (\d+)px`), 9},
