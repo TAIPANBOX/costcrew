@@ -110,18 +110,38 @@ func (s *Server) saas(w http.ResponseWriter, r *http.Request) {
 	if s.guard(w, r) == nil {
 		return
 	}
+	// The store first, the generated world only when nothing has been
+	// imported: the same rule the AI page holds between finops.AIUnits and
+	// world.AIUnits(), reused here rather than reinvented. A generated
+	// licence never reaches this table (world.Licences stays in memory), so
+	// "any rows at all" is the whole test for which one is showing.
+	imported, err := finops.Licences(s.db)
+	if err != nil {
+		http.Error(w, "store unavailable", http.StatusInternalServerError)
+		return
+	}
+	real := len(imported) > 0
+	licences := world.Licences
+	if real {
+		licences = imported
+	}
+
 	var idle, issued int
 	var waste money.Cents
-	for _, l := range world.Licences {
+	for _, l := range licences {
 		idle += l.Idle()
 		issued += l.Issued
 		waste += l.Waste()
 	}
 	// Ninety days from the estate's own last day, not from today: the fixture
 	// is dated, and a renewal calendar measured against the wall clock would
-	// quietly empty as time passed.
+	// quietly empty as time passed. This tile is about cloud COMMITMENTS
+	// specifically (world.Commitments has no imported counterpart), left
+	// untouched by the licence swap above; the newly-imported SaaS SEAT
+	// renewals have their own ninety-day view in the analyst packet
+	// (internal/deliver's renewalsSection), not folded into this tile.
 	soon := len(world.ExpiringWithin(90, world.LastDay))
-	rows := copyOf(world.Licences)
+	rows := copyOf(licences)
 	sp := readSort(r, "waste", true)
 	applySort(rows, sp, map[string]func(x, y world.Licence) int{
 		"vendor":  func(x, y world.Licence) int { return cmpString(x.Vendor, y.Vendor) },
@@ -153,10 +173,11 @@ func (s *Server) saas(w http.ResponseWriter, r *http.Request) {
 		Idle            int
 		Issued          int
 		Soon            int
+		Real            bool
 		Sort            sortSpec
 		SortCommitments sortSpec
 	}{s.shellFor(r, "SaaS", "saas"), rows, comms,
-		world.Waterline, waste, idle, issued, soon, sp, cp})
+		world.Waterline, waste, idle, issued, soon, real, sp, cp})
 }
 
 func (s *Server) ai(w http.ResponseWriter, r *http.Request) {

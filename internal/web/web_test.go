@@ -85,6 +85,12 @@ func startFull(t *testing.T, withHistory bool, eventsPath string) *harness {
 	if err := connectors.EnsureRecommendationsSchema(st.DB()); err != nil {
 		t.Fatal(err)
 	}
+	// licences: the SaaS page reads it on every render, whether or not
+	// anything has ever imported through the saas-seats reader, the same as
+	// ai_calls above.
+	if err := connectors.EnsureLicenceSchema(st.DB()); err != nil {
+		t.Fatal(err)
+	}
 	if err := estate.SeedBudgets(st.DB()); err != nil {
 		t.Fatal(err)
 	}

@@ -10,6 +10,12 @@
   <div class="tile"><div class="k">Renewing in 90 days</div><div class="v {{if .Soon}}up{{end}}">{{.Soon}}</div><div class="s">decisions with a deadline</div></div>
 </div>
 
+{{if .Real}}
+<p class="note">Imported from a vendor's own seat export, through the saas-seats connector.</p>
+{{else}}
+<p class="note">This is the generated fixture, not a live import. <a href="/connectors/saas-seats">Connect a vendor export</a> to replace it.</p>
+{{end}}
+
 <div class="panel">
   <div class="scroll">
   <table>
@@ -18,7 +24,7 @@
     {{range .Rows}}
       <tr>
         <td><strong>{{.Vendor}}</strong><span class="sub">{{.Product}}{{if .Note}} · {{.Note}}{{end}}</span></td>
-        <td class="tight"><a href="/team/{{.Team}}">{{.Team}}</a></td>
+        <td class="tight">{{if .Team}}<a href="/team/{{.Team}}">{{.Team}}</a>{{else}}<span class="note">not tagged</span>{{end}}</td>
         <td class="num">{{.Issued}}</td>
         <td class="num">{{.Active30}}</td>
         <td class="num {{if .Idle}}up{{end}}">{{.Idle}}</td>

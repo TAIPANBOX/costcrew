@@ -1521,6 +1521,83 @@ an absent invariant.
     `TestTheRightsizingPageOrdersRowsBySavingNotBySize` (each
     `@measured` 2026-09-03 by hand, PR report has the transcripts), any one
     of which going toothless should still be caught by the other two.)*
+33. **A renewal calendar is read from what a vendor actually said, never
+    guessed, and the negotiation it prepares for stays outside the console.**
+    C6-SPEC.md. `saas-seats` in `internal/connectors` is this practice's
+    second reader (after `tokenfuse-focus`): one documented CSV header
+    (vendor, product, seats issued, seats active, the window "active" was
+    measured over, the per-seat monthly price in cents, the renewal date,
+    the term in months, the notice period in days), refusing a header it
+    does not recognise -- an unknown column or a missing one -- by name, and
+    a row it cannot make sense of the same way, never a file refused by
+    silence. `internal/finops.Licences` reads the table back into
+    `world.Licence`, the SAME type the generated fixture already uses (the
+    AI desk's own `AIUnits`/`world.AIUnit` split is the precedent), so the
+    SaaS page and the renewals packet do not need to know which source
+    produced a row, only whether anything was imported at all: a generated
+    licence never reaches this table, so "any rows" is the whole test.
+    `internal/finops.RenewalsWithin` is the calendar question, the next
+    ninety days from a given day (`world.ExpiringWithin`'s own boundary,
+    restated here because that function reads `world.Commitments` and
+    cannot be reused for a different slice), and
+    `internal/deliver.renewalsSection` is what the SaaS portfolio manager
+    and the renewals analyst are actually handed: every renewal in the
+    window with its own notice deadline, issued against active, the waste
+    sitting in idle seats, and the word "no benchmark" on every one of
+    them, because no benchmark connector exists anywhere in this practice
+    today and a number with no source behind it is exactly `roles.yaml`'s
+    own `never`, "invent a number it was not given." The SaaS page
+    (`internal/web/practice.go`'s `saas`) shows the imported figures when
+    there are any and says so; otherwise it shows the generated fixture and
+    says that instead, the same split the AI page already holds between
+    `finops.AIUnits` and `world.AIUnits()`. `@yurii 2026-09-02`:
+    "переговори з вендером проводити він сам особі не може" --
+    `vendor.negotiate` is owned by `nobody` in `roles.yaml`, the same as
+    `purchase` and `infra.change`, so it never enters
+    `internal/finops/apply.go`'s table and `crew.MayDecide` already refuses
+    it for every link this practice has, owner included; nothing new was
+    built for that half, because nothing needed to be.
+    *(gate: `TestSaasSeatsIsRead`, `TestSaasSeatsReimportConverges`,
+    `TestSaasSeatsWasteIsCentsExactNotFloatRounded` and
+    `TestSaasSeatsHostileInput` (`internal/connectors`, the same shape
+    `tokenfusefocus_test.go`'s own hostile suite already holds: a missing
+    header column, an unknown one, a value that will not parse, a ragged
+    row, a truncated gzip, one good row beside one bad one, plus this
+    format's own two domain refusals -- active greater than issued, a term
+    of zero months) prove the reader; `TestSaasSeatsIssuedEqualsActiveIsZeroWasteNotRefused`
+    holds the boundary the hostile suite's own refusal could otherwise have
+    swallowed by mistake. `TestLicencesEmptyOnAFreshInstallNotAnError`,
+    `TestIdleSeatsAreCountedNotGuessed`, `TestIssuedEqualsActiveIsZeroWaste`,
+    `TestRenewalsWithinNinetyDays`, `TestRenewalsWithinIncludesTheExactEdge`,
+    `TestRenewalsWithinIncludesToday`, `TestRenewalsWithinAWindowOfZeroOnlyMatchesToday`,
+    `TestNoticeDeadlineComputation` and `TestNoticeDeadlineAlreadyPassedIsComputedPlainly`
+    (`internal/finops`) hold the computation, and
+    `TestLicenceNoticeDeadlineIsRenewsMinusNoticeDays`,
+    `TestLicenceNoticeDeadlineOfZeroDaysIsTheRenewalDateItself` and
+    `TestLicenceNoticeDeadlineOnAnUnparseableRenewsIsEmpty` (`internal/world`)
+    hold `Licence.NoticeDeadline` directly, in the package that owns it.
+    `TestRenewalsSectionListsTheCalendarWithNoticeDeadlines`,
+    `TestRenewalsSectionDoesNotFlagANoticeDeadlineStillAhead`,
+    `TestRenewalsSectionSaysNoBenchmark`,
+    `TestRenewalsSectionIsEmptyWithNothingImported`,
+    `TestPacketCarriesTheRenewalsSectionForBothSaasRoles` and
+    `TestPacketDoesNotCarryTheRenewalsSectionForAnUnrelatedRole`
+    (`internal/deliver`) hold the packet section.
+    `TestSaasPageSaysGeneratedWithNothingImported`,
+    `TestSaasPageShowsImportedFiguresWhenLoaded` and
+    `TestSaasPageGuardsTheTeamLinkOnAnImportedRow` (`internal/web`) hold the
+    page. `TestRenewalNegotiationIsNeverDecidedInsideTheConsole`
+    (`internal/crew`) holds the boundary directly, on `crew.MayDecide` and
+    `crew.Escalates` -- this one test does not go red before this step the
+    way every other test here does, because the property it names (an
+    owner-`"nobody"` class is never decided by any link, the owner
+    included) already held generically before C6 existed; named here so a
+    reader of this invariant does not have to take that on faith rather
+    than reading the test. `scripts/gates-have-teeth.sh` plants and catches
+    three mutants, named in C6-SPEC.md section 4: idle-seat waste computed
+    through a float64 dollars-and-back round trip instead of int64 cents
+    throughout, the notice deadline line dropped from the calendar, and a
+    benchmark figure invented where none exists.)*
 
 ## Decisions that have no gate yet
 

@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/TAIPANBOX/costcrew/internal/anomaly"
+	"github.com/TAIPANBOX/costcrew/internal/connectors"
 	"github.com/TAIPANBOX/costcrew/internal/crew"
 	"github.com/TAIPANBOX/costcrew/internal/estate"
 	"github.com/TAIPANBOX/costcrew/internal/finops"
@@ -150,6 +151,12 @@ func deliverTestDB(t *testing.T) *sql.DB {
 		t.Fatal(err)
 	}
 	if err := crew.EnsureLiveSpendLedger(db); err != nil {
+		t.Fatal(err)
+	}
+	// licences: renewalsSection queries it on every Packet() call for a SaaS
+	// analyst, the same reason every other test store here needs
+	// EnsureFocusSchema's ai_calls table before the AI page can run.
+	if err := connectors.EnsureLicenceSchema(db); err != nil {
 		t.Fatal(err)
 	}
 	return db

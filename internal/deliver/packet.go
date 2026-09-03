@@ -112,6 +112,12 @@ func Packet(db *sql.DB, t crew.Task, a crew.Analyst, hideDriver bool) string {
 			sections = append(sections, s)
 		}
 	}
+	if HasString(a.Skills, "licence-reconciliation", "renewal-calendar",
+		"renewal-negotiation-prep", "vendor-benchmarking") {
+		if s := renewalsSection(db, time.Now().UTC().Format("2006-01-02")); s != "" {
+			sections = append(sections, s)
+		}
+	}
 
 	if HasString(a.Skills, "exec-reporting", "showback-narration", "variance-commentary") {
 		if s := reportingSection(db, t.Desk); s != "" {
@@ -1008,4 +1014,66 @@ func lastPostedOnDesk(db *sql.DB, desk string, n int) ([]postedRow, error) {
 		out = append(out, r)
 	}
 	return out, rows.Err()
+}
+
+// --------------------------------------------------------- the SaaS renewals
+
+// renewalsSectionWindowDays is the calendar's own horizon. roles.yaml's
+// saas-portfolio-manager family names it in its own words, under owes: "the
+// renewal calendar ninety days out."
+const renewalsSectionWindowDays = 90
+
+// renewalsSection is the SaaS desk's calendar for the two roles that read it
+// (roles.yaml families saas-portfolio-manager and renewals-analyst): every
+// licence the saas-seats connector has imported (internal/finops.Licences)
+// that renews within the next ninety days of today, each with its own
+// notice deadline, issued versus active seats, the waste sitting in idle
+// ones, and the honest word that no benchmark is connected -- never a
+// figure with no source behind it, C6-SPEC.md section 2's own words.
+//
+// `@yurii 2026-09-02`, the boundary this section is written around without
+// crossing: "переговори з вендером проводити він сам особі не може" -- what
+// follows is background FOR the pack a person takes into that conversation
+// (roles.yaml's recommendation.renewal), never the conversation itself, and
+// nothing here proposes dropping a seat or a term; that is the model's own
+// job, working from these facts, inside its own job description.
+//
+// Empty when nothing has been imported: a generated licence never reaches
+// the licences table (world.Licences stays in memory, seeded nowhere near
+// the store), so a fresh install omits this section entirely, the same
+// additive rule every section in this file already holds.
+func renewalsSection(db *sql.DB, today string) string {
+	rows, err := finops.RenewalsWithin(db, renewalsSectionWindowDays, today)
+	if err != nil || len(rows) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "The SaaS renewal calendar, next %d days from %s\n",
+		renewalsSectionWindowDays, today)
+	for _, l := range rows {
+		fmt.Fprintf(&b, "\n%s / %s\n", l.Vendor, l.Product)
+		fmt.Fprintf(&b, "  renews:          %s, a %d-month term\n", l.Renews, l.TermMonths)
+		deadline := l.NoticeDeadline()
+		fmt.Fprintf(&b, "  notice deadline: %s%s\n", deadline, noticeStatus(deadline, today))
+		fmt.Fprintf(&b, "  issued/active:   %d/%d over %d days (idle %d)\n",
+			l.Issued, l.Active30, l.ActiveWindowDays, l.Idle())
+		fmt.Fprintf(&b, "  waste:           %s a month\n", l.Waste())
+		// No benchmark connector exists in this practice today -- the same
+		// honest gap roles.yaml's benchmarking-analyst family names for the
+		// estate's own KPIs ("no fair comparison exists" otherwise). Never a
+		// number invented to fill this line.
+		b.WriteString("  benchmark:       no benchmark\n")
+	}
+	return b.String()
+}
+
+// noticeStatus flags a deadline that has already gone by. "" for an unset
+// deadline (an imported row with no valid Renews, which the reader that
+// writes this table already refuses, so this is unreached in practice) and
+// for one still ahead.
+func noticeStatus(deadline, today string) string {
+	if deadline == "" || deadline >= today {
+		return ""
+	}
+	return " (already passed)"
 }

@@ -82,6 +82,7 @@ var readers = map[string]Reader{
 	"aws-rightsizing": awsRightsizingReader,
 	"gcp-recommender": gcpRecommenderReader,
 	"azure-advisor":   azureAdvisorReader,
+	"saas-seats":      saasSeatsReader,
 }
 
 type Kind string
@@ -311,7 +312,9 @@ var Catalogue = []Connector{
 	},
 	{
 		ID: "saas-seats", Name: "SaaS seat reconciliation", Provider: "saas",
-		Kind: Local, Feeds: "saas_licences", Metered: false,
+		// Feeds is the real table now that a reader exists: "licences", not
+		// the "saas_licences" this entry guessed while still Documented.
+		Kind: Local, Feeds: "licences", Metered: false,
 		Auth:     "an export from each vendor's admin console",
 		CostNote: "Free, and manual, which is the honest description.",
 		Note:     "There is no standard here. Every vendor exports something different.",

@@ -1,0 +1,5 @@
+Vendor,Product,SeatsIssued,SeatsActive,ActiveWindowDays,MonthlyCents,RenewalDate,TermMonths,NoticeDays
+Zendesk,Suite Professional,60,42,30,11500,2026-09-03,12,15
+Figma,Organization,80,39,30,4500,2026-12-02,12,30
+GitHub,Enterprise,150,150,30,2100,2026-10-01,12,45
+NetSuite,ERP,25,24,30,13200,2026-12-03,36,90

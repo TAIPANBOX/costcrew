@@ -100,10 +100,11 @@ flowchart TB
 ```
 
 - **Consumes**: billing exports and vendor usage APIs, never another service's
-  store. Ten connectors: AWS Data Exports (FOCUS 1.2), Cost Explorer, GCP
-  BigQuery billing export, Azure Cost Management, Kubecost, OpenCost, Anthropic
-  and OpenRouter usage, Compute Optimizer, SaaS seats. Seven built, three
-  documented, and every entry declares whether running it is metered per call.
+  store. Eleven connectors: AWS Data Exports (FOCUS 1.2), Cost Explorer, GCP
+  BigQuery billing export, Azure Cost Management, Kubecost, OpenCost, TokenFuse
+  FOCUS export, Anthropic and OpenRouter usage, Compute Optimizer, SaaS seats.
+  Two built (TokenFuse FOCUS, SaaS seats), nine documented, and every entry
+  declares whether running it is metered per call.
 - **Produces**: fifteen event types on the shared agent-event bus, registered in
   `agent-passport` SPEC 6.2 under the source `costcrew`, schema v0.2.
 - **Enforces**: nothing. `enforced: false` is stamped on every event, the console
