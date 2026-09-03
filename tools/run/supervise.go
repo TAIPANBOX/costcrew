@@ -19,10 +19,13 @@ func superviseRun(db *sql.DB, sprintID int, b bus) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("SUPERVISE. sprint %d: %d applied, %d carried, %d decision request(s). Nothing is dropped.\n\n",
-		sprintID, len(pass.Applied), len(pass.Carried), len(pass.Requests))
+	fmt.Printf("SUPERVISE. sprint %d: %d applied, %d carried, %d stale halt(s), %d decision request(s). Nothing is dropped.\n\n",
+		sprintID, len(pass.Applied), len(pass.Carried), len(pass.StaleHalts), len(pass.Requests))
 	for _, o := range pass.Applied {
 		fmt.Printf("  applied  %-22s artifact %d option %d\n", o.Class, o.Artifact, o.Ordinal)
+	}
+	for _, h := range pass.StaleHalts {
+		fmt.Printf("  stale halt  %-10s halted since %s, owner %s: %s\n", h.Desk, h.Started, h.Owner, h.Reason)
 	}
 	for _, r := range pass.Requests {
 		fmt.Printf("  decision request for %-14s %d option(s)\n", r.Owner, r.Options)

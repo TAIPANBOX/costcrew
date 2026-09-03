@@ -142,6 +142,35 @@ type Allocation struct {
 	Placed      money.Cents
 	Unallocated money.Cents
 	Coverage    float64 // direct + placed, over the whole bill
+
+	// BySource is the same four totals, broken down per desk. Added for
+	// C9 (internal/finops/dataquality.go), which measures a DESK's own
+	// untagged and unallocated share against T.untagged, never the whole
+	// estate's: the KPI page's "unallocated-share" already reads Direct,
+	// Shared and Unallocated above for the practice as a whole, and this is
+	// the same arithmetic run once more, per source, from inside the SAME
+	// pass rather than a second query that could disagree with it.
+	BySource map[string]SourceAllocation
+}
+
+// SourceAllocation is one desk's own share of a month's Direct, Shared,
+// Placed and Unallocated cost -- the same four fields Allocation carries for
+// the whole estate.
+type SourceAllocation struct {
+	Direct, Shared, Placed, Unallocated money.Cents
+}
+
+// addSource folds one source's contribution into the per-source map. Go will
+// not let a caller take the address of a map value directly
+// (`&m[k]`), so this is the get-copy-modify-set every call site below shares
+// rather than four copies of the same three lines.
+func addSource(m map[string]SourceAllocation, source string, direct, shared, placed, unallocated money.Cents) {
+	e := m[source]
+	e.Direct += direct
+	e.Shared += shared
+	e.Placed += placed
+	e.Unallocated += unallocated
+	m[source] = e
 }
 
 // sharedCostPot is one row of shared cost with no team: a source, a
@@ -238,7 +267,7 @@ func ruleFor(rules []Rule, source, category string) (Rule, bool) {
 // rounding, and a chargeback that does not add up to the invoice is one the
 // finance team sends straight back.
 func Allocate(db *sql.DB, period string) (Allocation, error) {
-	out := Allocation{Period: period}
+	out := Allocation{Period: period, BySource: map[string]SourceAllocation{}}
 
 	rules, err := Rules(db)
 	if err != nil {
@@ -250,12 +279,22 @@ func Allocate(db *sql.DB, period string) (Allocation, error) {
 		return out, err
 	}
 	out.Direct = directTotal
+	for src, teams := range direct {
+		var srcDirect money.Cents
+		for _, amt := range teams {
+			srcDirect += amt
+		}
+		addSource(out.BySource, src, srcDirect, 0, 0, 0)
+	}
 
 	pots, sharedTotal, err := sharedCostPots(db, period)
 	if err != nil {
 		return out, err
 	}
 	out.Shared = sharedTotal
+	for _, p := range pots {
+		addSource(out.BySource, p.Source, 0, p.Amount, 0, 0)
+	}
 
 	alloc := map[string]map[string]TeamCost{}
 	get := func(src, team string) TeamCost {
@@ -285,6 +324,7 @@ func Allocate(db *sql.DB, period string) (Allocation, error) {
 		}
 		if m == Unallocated {
 			out.Unallocated += p.Amount
+			addSource(out.BySource, p.Source, 0, 0, 0, p.Amount)
 			continue
 		}
 		teams := direct[p.Source]
@@ -292,6 +332,7 @@ func Allocate(db *sql.DB, period string) (Allocation, error) {
 			// Nothing on this desk to carry it. Left where it is and counted,
 			// rather than quietly spread onto teams that never touched it.
 			out.Unallocated += p.Amount
+			addSource(out.BySource, p.Source, 0, 0, 0, p.Amount)
 			continue
 		}
 		names := make([]string, 0, len(teams))
@@ -310,6 +351,7 @@ func Allocate(db *sql.DB, period string) (Allocation, error) {
 		}
 		if basis == 0 {
 			out.Unallocated += p.Amount
+			addSource(out.BySource, p.Source, 0, 0, 0, p.Amount)
 			continue
 		}
 
@@ -341,6 +383,7 @@ func Allocate(db *sql.DB, period string) (Allocation, error) {
 			placed += rem
 		}
 		out.Placed += placed
+		addSource(out.BySource, p.Source, 0, 0, placed, 0)
 	}
 
 	for _, teams := range alloc {

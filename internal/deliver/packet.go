@@ -119,6 +119,18 @@ func Packet(db *sql.DB, t crew.Task, a crew.Analyst, hideDriver bool) string {
 		}
 	}
 
+	// C9-SPEC.md section 2: "the three figures per source with the
+	// thresholds and which is crossed." Never scoped to the task's own
+	// desk (t.Desk is "management" for this role, seeded org-wide): the
+	// mission is the whole estate, "freshness per source ... tag coverage
+	// per desk" (roles.yaml's own reads line), so every desk is shown
+	// regardless of which one the analyst happens to sit on.
+	if HasString(a.Skills, "data-quality-checks", "tag-coverage") {
+		if s := dataQualitySection(db); s != "" {
+			sections = append(sections, s)
+		}
+	}
+
 	if HasString(a.Skills, "exec-reporting", "showback-narration", "variance-commentary") {
 		if s := reportingSection(db, t.Desk); s != "" {
 			sections = append(sections, s)
@@ -527,6 +539,40 @@ func waitingOwner(db *sql.DB, artifactID int) string {
 		return "unclaimed"
 	}
 	return owner
+}
+
+// ---------------------------------------------------------- data quality
+
+// dataQualitySection is the data-quality role's own packet: C9-SPEC.md
+// section 2. finops.DataQuality's own refusal (a threshold row roles.yaml
+// does not carry, section 4's hostile case) is shown rather than hidden --
+// "refuse to measure, say so" is what the analyst's own report is FOR, and
+// a packet that silently omitted the section on that error would be the
+// analyst reporting nothing wrong when the roles data itself is broken.
+func dataQualitySection(db *sql.DB) string {
+	today := time.Now().UTC().Format("2006-01-02")
+	findings, err := finops.DataQuality(db, today)
+	if err != nil {
+		return fmt.Sprintf("\nData quality\ncannot measure: %v\n", err)
+	}
+	if len(findings) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "Data quality (freshness, tag coverage, unallocated share; %s)\n", today)
+	for _, f := range findings {
+		fresh := fmt.Sprintf("%d day(s)", f.FreshnessDays)
+		if !f.HasCharge {
+			fresh = "no charge on record"
+		}
+		fmt.Fprintf(&b, "%-8s freshness %-18s (T.stale %d)  untagged %5.1f%%  unallocated %5.1f%%  (T.untagged %d%%)",
+			f.Source, fresh, f.StaleThreshold, f.UntaggedPct, f.UnallocatedPct, f.UntaggedThresholdPct)
+		if f.Crossed {
+			fmt.Fprintf(&b, "  CROSSED: %s", f.Reason)
+		}
+		b.WriteString("\n")
+	}
+	return b.String()
 }
 
 // ------------------------------------------------------ reporting and forecasting

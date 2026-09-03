@@ -80,9 +80,10 @@ actually true both before and after); `grep -rc Scenario: features/*.feature`;
 2026-09-03); nothing here keeps them current automatically, so they lag whichever
 branch last updated them by hand (B1a's own merge left this block at 282/48/59
 while its own PR body reported 301/52/70). Invariants 1, 2 and 5's own route
-counts (48/30/30 -> 50/34/34) were also re-measured while touching this file for
-B5, since the new /cadence routes are directly what moved them. B6b (this file's
-own invariant 32) moved 515 -> 528 tests (internal/deliver gained 8, 3 of them
+counts (48/30/30 -> 50/34/34 for B5, then 50/35/35 for C9's one new write route,
+`/desk/{name}/lift`) were re-measured while touching this file each time, since
+the routes each PR added are directly what moved them. B6b (this file's own
+invariant 32) moved 515 -> 528 tests (internal/deliver gained 8, 3 of them
 moved from tools/run rather than new; tools/run's own count fell by 2, net of
 one new structural test; tools/bench gained 7, 5 in the first pass and 2 more
 in coordinator review's -stack-host fix) and 67 -> 69 gates-have-teeth.sh
@@ -1598,6 +1599,110 @@ an absent invariant.
     through a float64 dollars-and-back round trip instead of int64 cents
     throughout, the notice deadline line dropped from the calendar, and a
     benchmark figure invented where none exists.)*
+33. **A data-quality finding that crosses a threshold can stop a desk's
+    whole crew, and only a person starts it again.** C9-SPEC.md. Three
+    measurements per source and desk, every day, cents-exact throughout:
+    freshness since the last charge against `T.stale`
+    (`internal/finops.DataQuality`), and the share of that source's own
+    month with no team -- twice over, since this console's own vocabulary
+    already holds two different questions under that heading. "Untagged" is
+    `charges.team IS NULL`, exactly what `internal/finops/allocation.go`
+    already calls the Shared pot; "unallocated" is the narrower share a
+    rule still could not place once one ran (`Allocate`'s own
+    `Unallocated`, the same figure the KPI page already names "Cost with no
+    owner", now broken out per source in `Allocation.BySource` rather than
+    only for the whole estate). Both are checked against `T.untagged`,
+    because `roles.yaml`'s own `meaning` field for that threshold says
+    "unallocated share above which data quality reports it" and names no
+    second number for the other reading. Every crossing is an integer
+    comparison over cents (`crossesShare`), never a float division that
+    could cross the same boundary two different ways on two different rows.
+
+    A crossed finding reaches the data-quality analyst's own packet section
+    (`dataQualitySection`) and its deliverable ends in a `data.halt` option
+    naming the desk and the reason -- `AllowsNoOptions` gains `data.halt`
+    as a fourth exception alongside the three commentary/forecast classes,
+    because this one is CONDITIONAL prose: most days nothing crosses and
+    the report is the freshness-and-coverage figures alone, with no options
+    block at all. Applying `data.halt` (`internal/finops/apply.go`,
+    `MayDecide("supervisor", "data.halt")` already true from `roles.yaml`'s
+    own `decides_alone` list, so `finops.Supervise` applies it the same
+    pass it is posted in) suspends every ACTIVE analyst on the named desk
+    through the existing suspension function, journaled as
+    `agent_state_changed` exactly as a hand-suspension already is -- no new
+    wire type. The desk it targets travels in the option's own `Needs`
+    field, the one already meant to carry "what a person would have to do"
+    for a class the generic option shape has no dedicated column for, the
+    same gap this file's own header already names for
+    `allocation.rule`/`budget.set`/`explainer.publish`.
+
+    A small table, `desk_halts` (`crew.DeskHalt`), holds what no
+    per-analyst row can: which desk, since when, and whose decision request
+    a stale halt is carried to. A second `data.halt` on an already-halted
+    desk is a no-op, deliberately -- neither the start day nor the reason
+    moves, because `T.stale_days` counts from when the crew actually
+    stopped, and a start date that reset on every re-report of the same
+    open problem could never reach it. `crew.CadenceDue` -- the one
+    function `-due` and the console's `/cadence` page and `Propose` all
+    already share -- skips a halted desk and says so in `Why`, once per
+    desk regardless of how many of its analysts are already suspended (the
+    ordinary "state != active" rule silently drops every one of them with
+    no explanation on its own). `finops.Supervise` carries a halt that has
+    lasted past `T.stale_days` to its own owner, `roles.yaml`'s own
+    `hands_to_owner_conditions` for the supervisor -- the second condition
+    that list names, alongside "two analysts answered differently," and the
+    same decision-request mechanism `contradictionRouting` already uses for
+    that one. Lifting (`crew.LiftHalt`, the desk page's own POST route)
+    returns exactly the analysts THIS halt suspended, never every analyst
+    the desk happens to show suspended now, because a desk can carry one
+    suspended for an older, unrelated reason (`migration-watch`, kept
+    suspended on `aws` since its own migration finished) that a halt must
+    not silently reactivate.
+    *(gate: `TestASourceWithNoChargeForTStaleDaysIsReportedStale`,
+    `TestASourceWithNoChargeAtAllIsStale`,
+    `TestFreshnessIsMeasuredFromTheLastChargeNotFromToday`,
+    `TestUntaggedShareAboveTUntaggedIsReported`,
+    `TestUnallocatedShareAboveTUntaggedIsReported`,
+    `TestASourceUnderBothThresholdsIsNotCrossed`,
+    `TestDataQualityMeasuresEveryDesk`,
+    `TestDataQualityRunsCleanlyAgainstTheSeededEstate`,
+    `TestWholeNumberThresholdRefusesAMissingThreshold`,
+    `TestWholeNumberThresholdParsesTStaleAndTUntagged` and
+    `TestDaysBetweenIsZeroOnAnUnparseableDate` (`internal/finops`)
+    for the measurement; `TestAllowsNoOptionsIsTrueForDataHaltOnly` and
+    `TestADataQualityReportWithNoOptionsIsAccepted` (`internal/crew`) for
+    the options exception; `TestApplyDataHaltSuspendsTheDesksAnalystsAndDueSkipsIt`,
+    `TestApplyDataHaltRefusesWhenTheOptionNamesNoDesk` and
+    `TestApplyDataHaltWithNoSummaryUsesAGeneratedReason` (`internal/finops`)
+    for applying it; `TestApplyHaltSuspendsEveryActiveAnalystOnTheDeskWithTheReason`,
+    `TestApplyHaltOnADeskWithNoAnalystsStillRecordsTheHalt`,
+    `TestASecondHaltOnAHaltedDeskDoesNotDoubleSuspend`,
+    `TestLiftHaltReturnsTheAnalystsToActiveWithTheReasonJournaled`,
+    `TestLiftHaltRefusesWithNoReason`,
+    `TestLiftHaltOnADeskNotHaltedIsRefused` and
+    `TestHaltsListsEveryHaltedDesk` and
+    `TestADeskNameWithAQuoteIsSuspendedAndReadBackUnmangled` (`internal/crew`,
+    C9-SPEC.md section 4's other hostile case, a desk name carrying a single
+    quote) for the halt itself;
+    `TestCadenceDueSkipsAHaltedDeskAndSaysWhy` and
+    `TestProposeSkipsAHaltedDeskThroughCadenceDue` (`internal/crew`) for
+    the skip; `TestAHaltOlderThanTStaleDaysIsCarriedToTheOwnerBySupervise`
+    and `TestAHaltYoungerThanTStaleDaysIsNotCarried` (`internal/finops`)
+    for the carry; `TestPacketCarriesDataQualityForTheDataQualityRole` and
+    `TestPacketOmitsDataQualityForAnUnrelatedRole` (`internal/deliver`) for
+    the packet section; `TestLiftHaltReactivatesTheDesksAnalysts`,
+    `TestLiftHaltRequiresAReason`,
+    `TestADeskPageShowsTheHaltBannerOnlyWhenHalted` and
+    `TestAViewerCannotLiftAHalt` (`internal/web`) for the console action.
+    `scripts/gates-have-teeth.sh`'s `due: skip the -due check for a halted
+    desk` case plants the mutant C9-SPEC.md section 4 names, on the exact
+    branch `CadenceDue`'s own halted-desk check is; two more named mutants
+    -- measuring freshness from today instead of the last charge, and
+    lifting without a reason -- were planted by hand and reverted rather
+    than kept as permanent cases, caught by
+    `TestFreshnessIsMeasuredFromTheLastChargeNotFromToday` and
+    `TestLiftHaltRefusesWithNoReason` respectively, the same shape
+    invariants 27 and 31 already establish for this repository.)*
 
 ## Decisions that have no gate yet
 
