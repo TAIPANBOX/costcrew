@@ -56,7 +56,7 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 540 tests, 20 packages
+go test ./...                        # 541 tests, 20 packages
 ./scripts/gates-have-teeth.sh        # 69 cases; needs a clean tree; ~90s
 ./scripts/features-are-bound.sh      # 113 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
@@ -820,7 +820,11 @@ an absent invariant.
     the count of agents that spent and set none -- only when nothing does,
     replacing the unconditional refusal this KPI carried before this step.
     `agent-attribution` is unchanged: it already read this correctly (proven
-    by `TestAgentAttributionKPIBecomesComputedAfterAnImport`, from B0).
+    by `TestAgentAttributionKPIBecomesComputedAfterAnImport`, from B0, and,
+    for the half that test leaves untried -- real spend landing on a
+    different desk first -- by `TestAgentAttributionRefusesWithRealAWSSpendAndNoRealAISpend`,
+    which plants a real `aws` charge directly since no connector in this
+    repository writes one today).
     `ai_calls_query` (`tools/run/ai_calls_query.go`) is `charges_query`'s own
     shape -- the same identifier allow-list scan against `sqlite_master`,
     `WITH` banned unconditionally, the same read-only connection and forced

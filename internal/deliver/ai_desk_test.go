@@ -90,9 +90,12 @@ func TestUnitEconAIPacketNamesCostPerOutcomeFromTheFixture(t *testing.T) {
 	if !strings.Contains(p, "cost per outcome") {
 		t.Errorf("packet does not carry the unit-economics header:\n%s", p)
 	}
-	if !strings.Contains(p, "per outcome") {
-		t.Errorf("packet does not name a per-outcome figure for any agent:\n%s", p)
-	}
+	// The per-agent figure itself is TestUnitEconAIPacketNamesAgentsWithCostAndNoOutcome's
+	// own property (strings.Count(p, " per outcome (n=")): a plain
+	// strings.Contains(p, "per outcome") here would pass on the section
+	// header alone ("Unit economics, cost per outcome (%s)") even if no
+	// agent line ever rendered, so it is not repeated as a no-op check.
+	//
 	// Both real agents tag exactly one outcome each in the fixture, so
 	// neither should be named as having set none.
 	if strings.Contains(p, "cost with no outcome header") {

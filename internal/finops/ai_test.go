@@ -325,3 +325,43 @@ func TestAgentAttributionKPIBecomesComputedAfterAnImport(t *testing.T) {
 		t.Error("agent-attribution does not meet its own >= 90 target at 100%")
 	}
 }
+
+// TestAgentAttributionRefusesWithRealAWSSpendAndNoRealAISpend is
+// C7-SPEC.md section 4's other half of the same line: "agent-attribution
+// reports a percentage on the AI desk and refuses on aws". The test above
+// proves refuse-before-import and report-after; neither half of it ever
+// puts real spend on a DIFFERENT desk in front of the KPI, so nothing
+// exercises the specific claim that seeing real money elsewhere does not
+// leak into the AI desk's own figure. AttributionCoverage's own query
+// (internal/finops/ai.go) hardcodes `source='ai'`, so this cannot fail by
+// construction; running it anyway turns "cannot fail by construction" from
+// a claim about the query's text into one proven by executing it. No
+// connector in this repository writes a real (provenance-set) charge for
+// any desk but ai today, so the aws row is planted directly.
+func TestAgentAttributionRefusesWithRealAWSSpendAndNoRealAISpend(t *testing.T) {
+	db := kpiDB(t)
+	if _, err := db.Exec(`INSERT INTO charges
+		(source, day, service, team, category, billed_cents, quantity, unit, meter, model, provenance)
+		VALUES ('aws','2026-09-10','Amazon EC2','ml-platform','Usage',500000,NULL,NULL,NULL,NULL,'test-real-aws')`); err != nil {
+		t.Fatal(err)
+	}
+
+	list, err := finops.KPIs(db, "2026-09")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var attribution finops.KPI
+	for _, k := range list {
+		if k.ID == "agent-attribution" {
+			attribution = k
+		}
+	}
+	if attribution.Blocked == "" {
+		t.Errorf("agent-attribution reports %q%% with real spend only on aws, want it "+
+			"still refusing: real money on another desk must never attribute the AI desk",
+			attribution.Value)
+	}
+	if attribution.HasVal {
+		t.Errorf("agent-attribution has a value (%q) with no real ai spend at all", attribution.Value)
+	}
+}
