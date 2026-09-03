@@ -57,7 +57,7 @@ health path passed.
 
 ```sh
 go test ./...                        # 526 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 70 cases; needs a clean tree; ~90s
+./scripts/gates-have-teeth.sh        # 69 cases; needs a clean tree; ~3m40s, up from ~90s at 67
 ./scripts/features-are-bound.sh      # 113 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
@@ -71,15 +71,20 @@ onto main past #28's own merge
 subtests, the convention PR #21, #23 and this file's own `internal/manifest` gate
 already use, not `-v | grep -c '^--- PASS'`, which over-counts anything using
 `t.Run`; packages by `go list -f '{{if or .TestGoFiles .XTestGoFiles}}...'`;
-`grep -c '^run_case' scripts/gates-have-teeth.sh`; `grep -rc Scenario: features/*.feature`;
+`grep -c '^run_case ' scripts/gates-have-teeth.sh` -- the trailing space matters:
+without it the pattern also matches the function's own `run_case() {`, one line
+above every real invocation, and over-counts by one, which is what the "68" this
+block carried before B6b already was (found while reconciling counts for this
+step; the script's own summary line, "N passed, N failed", is the count that was
+actually true both before and after); `grep -rc Scenario: features/*.feature`;
 2026-09-03); nothing here keeps them current automatically, so they lag whichever
 branch last updated them by hand (B1a's own merge left this block at 282/48/59
 while its own PR body reported 301/52/70). Invariants 1, 2 and 5's own route
 counts (48/30/30 -> 50/34/34) were also re-measured while touching this file for
 B5, since the new /cadence routes are directly what moved them. B6b (this file's
-own invariant 32) moved 515 -> 526 (internal/deliver gained 8 tests, 3 of them
+own invariant 32) moved 515 -> 526 tests (internal/deliver gained 8, 3 of them
 moved from tools/run rather than new; tools/run's own count fell by 2, net of
-one new structural test; tools/bench gained 5) and 68 -> 70 gates-have-teeth.sh
+one new structural test; tools/bench gained 5) and 67 -> 69 gates-have-teeth.sh
 cases (the second-door mutant, one case per binary).
 
 The gates in this repo are Go tests rather than shell scripts, so
