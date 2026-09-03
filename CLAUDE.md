@@ -57,7 +57,7 @@ health path passed.
 
 ```sh
 go test ./...                        # 534 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 69 cases; needs a clean tree; ~90s
+./scripts/gates-have-teeth.sh        # 68 cases; needs a clean tree; ~90s (6m39s @measured 2026-09-03 under this session's own heavy concurrent load, several other agents' builds and parity crawls running throughout)
 ./scripts/features-are-bound.sh      # 114 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
@@ -71,27 +71,45 @@ branched from `main` at #28's own merge (602fa25), no rebase since
 subtests, the convention PR #21, #23 and this file's own `internal/manifest` gate
 already use, not `-v | grep -c '^--- PASS'`, which over-counts anything using
 `t.Run`; packages by `go list -f '{{if or .TestGoFiles .XTestGoFiles}}...'`;
-`grep -c '^run_case' scripts/gates-have-teeth.sh`; `grep -rc Scenario: features/*.feature`;
+`grep -c '^run_case ' scripts/gates-have-teeth.sh` -- the trailing space
+matters: without it the pattern also matches the function's own
+`run_case() {`, one line above every real invocation, and over-counts by
+one, which is what every "N cases" figure in this block was doing until
+coordinator review of PR #34 caught it here 2026-09-03. Independently the
+same bug, and the same fix: B6B-SPEC.md's own invariant 32 on `main`
+already found it for `feat/one-metered-call-path`, and its own words are
+that the script's own summary line, `teeth: N passed, N failed`, "is the
+count that was actually true both before and after" -- that line comes
+from an actual run, not a grep against the source, and is the one number
+in this whole block that was never wrong; `grep -rc Scenario: features/*.feature`;
 2026-09-03); nothing here keeps them current automatically, so they lag whichever
 branch last updated them by hand (B1a's own merge left this block at 282/48/59
 while its own PR body reported 301/52/70). Invariants 1, 2 and 5's own route
 counts (48/30/30 -> 50/34/34) were also re-measured while touching this file for
 B5, since the new /cadence routes are directly what moved them.
 
-C5 re-measured the same way. 515/68/105, this block's own numbers, were
-still exactly right on `main` at #28's merge (measured directly against that
-commit, not assumed): the same three commands there give 515, 68, 105. Only
-invariant 1's own route count had drifted, 50 stated against 56 actual GET
-routes in `server.go` at that same commit, unnoticed since B5 because nothing
-that landed between the two touched a route AND this file in the same PR.
-515/68/105 -> 534/69/114 is this branch's own delta (19 tests: 10 in
-`internal/connectors`, 5 in `internal/deliver`, 4 in `internal/web`; one
-`run_case`, C5-SPEC.md's own named mutant; nine scenarios,
-`features/rightsizing.feature`); 56 -> 57 is the one route this branch adds.
-Re-measured again 2026-09-03 after coordinator review of PR #34 added two
-more tests without adding a route, a scenario or a `run_case` (it retargets
-an existing one instead, invariant 33's own gate list says where): 532/69/114
--> 534/69/114.
+C5 re-measured the same way, with the SAME grep bug this file carried until
+today: 515/68/105 was stated at the time as `main`'s own numbers at #28's
+merge, but the true `run_case` count there (corrected grep) is 67, not 68 --
+515/67/105 is what the three commands, run correctly, actually give at
+602fa25. Only invariant 1's own route count had drifted for an unrelated
+reason, 50 stated against 56 actual GET routes in `server.go` at that same
+commit, unnoticed since B5 because nothing that landed between the two
+touched a route AND this file in the same PR. 515/67/105 -> 532/68/114 is
+C5's own original delta (17 tests: 9 in `internal/connectors`, 5 in
+`internal/deliver`, 3 in `internal/web`; one `run_case`, C5-SPEC.md's own
+named mutant; nine scenarios, `features/rightsizing.feature`); 56 -> 57 is
+the one route this branch adds.
+
+Re-measured again 2026-09-03 after coordinator review of PR #34: two more
+tests (10 in `internal/connectors`, 4 in `internal/web`, both up by one),
+without adding a route, a scenario or a `run_case` (the existing
+"rightsizing: rank by current cost" case is retargeted at its new location
+instead of a second one being added -- invariant 33's own gate list says
+where). 532/68/114 -> 534/68/114, and the harness itself, run on the
+resulting clean committed tree, printed `teeth: 68 passed, 0 failed` --
+the one number in this whole block that is `@measured` rather than
+`@claude`'s arithmetic on top of a grep.
 
 The gates in this repo are Go tests rather than shell scripts, so
 `gates-have-teeth.sh` mutates the PRODUCT and requires the test to go red.
