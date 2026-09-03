@@ -3,12 +3,19 @@ package main
 // Coordinator review of PR #25, 2026-09-03: B6 put the TokenFuse gateway in
 // tools/run's own call path so every crew call is metered per agent, and a
 // bench with its own private Anthropic caller (a key read straight from the
-// environment, no gateway) reopens exactly the hole B6 closed. Until the
-// shared caller exists (one call path for tools/run and tools/bench, in
-// internal/deliver -- not done tonight), -live with any real engine refuses
-// outright, and this package holds no way to make an HTTP request at all:
+// environment, no gateway) reopened exactly the hole B6 closed. -live with
+// any real engine refused outright until the shared caller existed.
+//
+// B6B-SPEC.md: the shared caller now exists (internal/deliver.Call, one call
+// path for tools/run and tools/bench), and this file's own refusal moves
+// with it -- from "the bench is not wired through the TokenFuse gateway yet"
+// (unconditional) to "-live needs -gateway" (conditional on the flag, the
+// same shape -live needs -ceiling in tools/run). This package still holds no
+// way to make an HTTP request or read a model credential of its own at all:
 // the same property tools/run/main_test.go's TestThisBinaryCannotSpend
-// proves about tools/run/main.go, checked here the same way.
+// proves about tools/run/main.go, checked here the same way, and gateway.go
+// (this step's own new file) reaches every model call through deliver.Call,
+// never through a request it builds itself.
 
 import (
 	"os"
@@ -17,13 +24,18 @@ import (
 	"testing"
 )
 
-func TestLiveWithARealEngineRefusesUntilTheSharedCallerExists(t *testing.T) {
+// -live with a real engine and no -gateway at all refuses before the store
+// opens: the bench's spend must be metered exactly like the crew's, so
+// "no gateway" is refused the same class of way "-live with no -ceiling" is
+// refused in tools/run, one sentence naming the flag, never a call attempt
+// that then fails on a missing key.
+func TestLiveWithARealEngineAndNoGatewayRefuses(t *testing.T) {
 	dir := t.TempDir()
 	code, _, errOut := runArgs(t, "-dir", dir, "-live", "-engine", "anthropic")
 	if code != 1 {
 		t.Fatalf("exit code = %d, want 1; stderr: %s", code, errOut)
 	}
-	want := "the bench is not wired through the TokenFuse gateway yet"
+	want := "-live needs -gateway"
 	if !strings.Contains(errOut, want) {
 		t.Errorf("refusal does not say %q: %s", want, errOut)
 	}

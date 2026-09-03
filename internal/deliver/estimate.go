@@ -25,6 +25,19 @@ func WorstCaseMicros(promptTokens, maxOutputTokens int, p engines.Price) int64 {
 	return int64((in + out) * 1e6)
 }
 
+// ActualMicros is one call's REAL cost, in micro-dollars, from the token
+// counts a call actually reports rather than the worst case a call was
+// bounded by. The same formula tools/run/loop.go's own roundCostMicros has
+// always used (moved here, B6B-SPEC.md, so tools/bench's live path can
+// price what a call actually cost the same way the runner's tool loop
+// does, rather than a second copy that only looks like it); loop.go keeps
+// a one-line wrapper of its old unexported name.
+func ActualMicros(inTokens, outTokens int, p engines.Price) int64 {
+	in := float64(inTokens) / 1e6 * p.InPerM
+	out := float64(outTokens) / 1e6 * p.OutPerM
+	return int64((in + out) * 1e6)
+}
+
 // estimateDate is the fixed, non-moving date tools/run's own price() sends
 // its estimate-only prompt with: the estimate must not change because the
 // clock did, and every date is the same ten bytes. Shared so the console's

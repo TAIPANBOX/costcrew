@@ -56,29 +56,47 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 542 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 69 cases; needs a clean tree; ~90s
-./scripts/features-are-bound.sh      # 109 scenarios, both directions
+go test ./...                        # PLACEHOLDER_TESTS tests, 20 packages
+./scripts/gates-have-teeth.sh        # PLACEHOLDER_GATES cases; needs a clean tree; ~3m40s, up from ~90s at 67
+./scripts/features-are-bound.sh      # 119 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refused PR #19 on two findings the list above never asked for; a staticcheck built for an older Go cannot read this module, so on such a machine CI is the only place it runs
 ```
 
-Counts follow the suite, measured on `feat/c2-month-end-close`, rebased onto
-main at 602fa25 (#28's own merge)
+Counts follow the suite, measured on `feat/c2-month-end-close`, merged with
+main at 7c18b88 (#29's own merge)
 (test count by `go test ./... -list '.*' | grep -c '^Test'` -- test FUNCTIONS, not
 subtests, the convention PR #21, #23 and this file's own `internal/manifest` gate
 already use, not `-v | grep -c '^--- PASS'`, which over-counts anything using
 `t.Run`; packages by `go list -f '{{if or .TestGoFiles .XTestGoFiles}}...'`;
-`grep -c '^run_case' scripts/gates-have-teeth.sh`; `grep -rc Scenario: features/*.feature`;
+`grep -c '^run_case ' scripts/gates-have-teeth.sh` -- the trailing space matters:
+without it the pattern also matches the function's own `run_case() {`, one line
+above every real invocation, and over-counts by one, which is what the "68" this
+block carried before B6b already was (found while reconciling counts for this
+step; the script's own summary line, "N passed, N failed", is the count that was
+actually true both before and after); `grep -rc Scenario: features/*.feature`;
 2026-09-03); nothing here keeps them current automatically, so they lag whichever
 branch last updated them by hand (B1a's own merge left this block at 282/48/59
 while its own PR body reported 301/52/70). Invariants 1, 2 and 5's own route
 counts (48/30/30 -> 50/34/34) were also re-measured while touching this file for
-B5, since the new /cadence routes are directly what moved them. C2 added 27
-tests (515 -> 542) and one gates-have-teeth case (68 -> 69); package count is
+B5, since the new /cadence routes are directly what moved them. B6b (this file's
+own invariant 32) moved 515 -> 528 tests (internal/deliver gained 8, 3 of them
+moved from tools/run rather than new; tools/run's own count fell by 2, net of
+one new structural test; tools/bench gained 7, 5 in the first pass and 2 more
+in coordinator review's -stack-host fix) and 67 -> 69 gates-have-teeth.sh
+cases (the second-door mutant, one case per binary). Feature scenarios
+105 -> 115 (8 in the first pass, 2 in the -stack-host fix). C2 (this file's
+own invariant 33) moved 528 -> PLACEHOLDER_TESTS tests and 69 -> PLACEHOLDER_GATES
+gates-have-teeth.sh cases (one case, the target-less allocation.rule mutant;
+the other two named mutants in section 4 -- float arithmetic, applying before
+the stamp -- are each named with the test that catches it below, planted by
+hand and reverted rather than kept as permanent cases, the same shape
+invariant 27's own history already describes for this file); package count is
 unchanged (20), since every new test file landed in an existing package.
+Feature scenarios 115 -> 119 (the four scenarios in
+`features/month-end-close.feature`).
 
 The gates in this repo are Go tests rather than shell scripts, so
 `gates-have-teeth.sh` mutates the PRODUCT and requires the test to go red.
@@ -493,7 +511,7 @@ an absent invariant.
     inventing one would be exactly `commit money`'s neighbour on the
     never-list, "invent a number it was not given" -- see the PR body.
     `allocation.rule` gained the companion field this paragraph describes the
-    lack of (invariant 32, C2-SPEC.md); `budget.set` and `explainer.publish`
+    lack of (invariant 33, C2-SPEC.md); `budget.set` and `explainer.publish`
     still have none and are recorded only exactly as this paragraph
     originally found them. Applying one option marks every OTHER
     live option of the SAME deliverable, and every live rival option of a
@@ -791,15 +809,107 @@ an absent invariant.
     tests above, the same shape invariant 27's own history already
     describes for this repository.)*
 
-32. **A chargeback period's close carries real weight now: the packet the
+32. **A live model call, from either binary, goes through exactly one door.**
+    B6B-SPEC.md. Invariant 29 named the hole this closes: `tools/bench` had
+    briefly grown its own private Anthropic caller (a key read from the
+    environment, no gateway), the second money path B6 had already closed
+    once by putting TokenFuse in `tools/run`'s own call path, and coordinator
+    review of PR #25 removed it rather than gate it, leaving `-live` refused
+    outright until "the shared caller exists". It now does:
+    `internal/deliver.Call` (`internal/deliver/call.go`), one exported
+    function over one exported `Gateway` type, holding everything that used
+    to spend money in `tools/run/live.go` -- the three engine bodies, the
+    Anthropic request builder and its `x-fuse-*` headers, the 402 refusal
+    parse. `tools/run`'s own `call()` is now a one-line wrapper over it (the
+    same move `packet()` and `prompt()` made in B7); `gatewayHeaders` and
+    `callResult` are now type ALIASES of `Gateway` and `Result`
+    (`type gatewayHeaders = deliver.Gateway`), not new types, so every
+    existing `gatewayHeaders{...}` literal in this package's own tests
+    needed no change at all. `tools/bench` gains the identical `-gateway`
+    flag, the identical validation (`deliver.NormalizeGateway`, before the
+    store opens, same wording as the runner's own boundary), and a new file,
+    `tools/bench/gateway.go`, whose `scoreLive` calls `deliver.Call` once
+    per selected case, carrying one run id (minted once per bench
+    invocation, `bench-<unix>`, the same shape `bus.go`'s own `newRunID`
+    mints for a crew run) and one budget (the whole run's own worst case,
+    the same "no per-task guard, use the run figure" fallback
+    `GatewayBudgetUSD` already gives), with a distinct agent id per case
+    (`stack.AgentURI(host, analystName)`). `-live` with a real engine and no
+    `-gateway` refuses before the store opens, naming the flag; `Call`
+    itself refuses before any request when the gateway is on but the run id
+    or the agent id would be empty, which covers both binaries at the one
+    place that actually builds the request, rather than a duplicated
+    preflight check in each.
+
+    Coordinator review of PR #29, 2026-09-03, found one more: the first
+    version minted `host` as `""`, `stack.AgentURI`'s own default
+    (`costcrew.local`) regardless of what trust domain the console this
+    bench stands in for actually runs under, so TokenFuse would have filed a
+    live bench run's spend under an agent id the installation's own bus
+    would not recognise as itself. Fixed by transplanting the runner's own
+    pairing: `-stack-host` (`tools/bench/main.go`, same help text as
+    `tools/run`'s), required whenever `-gateway` is set -- refused before
+    the store opens, naming both flags -- the identical shape `openBus`
+    already holds between `-stack-events` and `-stack-host` in `tools/run`.
+    `gatewayFor` and `scoreLive` both take `host` as a real argument now.
+
+    What did NOT move, on purpose: `execute()`, `runBudget`,
+    `gatewayHeadersFor` and the bus all stay in `tools/run` -- a run's own
+    orchestration, not part of making one call. Nor did `loop.go`'s own
+    `anthropicRound`/`openRouterRound`: a separate, pre-existing
+    implementation from B2 that already duplicated the Anthropic wire
+    independently of `call()` (its own package comment has said so since
+    then), and the ONLY place production reaches `call()`/`Call` for
+    is `bedrock` or an engine outside the tool loop -- anthropic and
+    openrouter traffic in `tools/run` goes through `loop.go`'s own
+    request-building, untouched by this move, which is also why
+    `gateway_test.go`'s three `execute()`-based tests
+    (`TestAGatewayCallCarriesTheAnalystsIdentity` and its two neighbours)
+    stayed in `tools/run` unedited: they exercise that path, not `call()`'s.
+    *(gate: `TestNoFileInThisPackageCanMakeAnHTTPRequest` (`tools/bench`,
+    unchanged in substance, now proven against a package that actually has
+    something to call) and `TestLiveDotGoHoldsNoWayToMakeAnHTTPRequestAnyMore`
+    (`tools/run`, new: `live.go` alone, not the whole package, since
+    `loop.go` legitimately keeps its own `net/http` import for the reason
+    above); `TestLiveWithGatewaySendsTheThreeFuseHeaders` (`tools/bench`,
+    against a fake gateway, both of the fixture's two known cases, proving
+    one run id shared and one agent id each); `TestAnEmptyRunIDRefusesBeforeTheCall`
+    and `TestAnEmptyAgentIDRefusesBeforeTheCall` (`internal/deliver`);
+    `TestGatewayForBuildsThePerCaseGateway` and its empty-URL neighbour
+    isolate the bench's own per-case builder directly, the same
+    "isolate the layer" reasoning invariant 26 already gives.
+    `TestLiveRefusesWithNoStackHost` and `TestLiveWithStackHostMintsTheAgentIdUnderIt`
+    (`tools/bench`) hold the `-stack-host` fix: the fake gateway is never
+    dialled with no `-stack-host`, and with one given the agent id is minted
+    under it, checked by exact string (`agent://example.test/investigator-gcp`)
+    rather than only by prefix.
+    `scripts/gates-have-teeth.sh` plants a second `net/http` import (as a
+    comment -- a real, unused import would not compile, and would be judged
+    BROKEN rather than CAUGHT) under each binary and requires its own
+    structural test to catch it. Two mutants named in B6B-SPEC.md section 4
+    were planted by hand and reverted rather than kept as permanent cases:
+    dropping one `x-fuse-*` header from `anthropicRequest`, caught by
+    `TestAGatewayRequestCarriesTheThreeHeadersAndNeverInventsAParent` and,
+    end to end, by the bench's own header test; and `gatewayFor` returning
+    an empty URL regardless of what it was given, caught by
+    `TestGatewayForBuildsThePerCaseGateway` directly and, end to end, by the
+    bench's own header test failing on an attempted call to the real
+    Anthropic API (a 401, no key being real) rather than the fake server --
+    proof of exactly the unmetered-call failure mode this invariant
+    exists to prevent. A third mutant B6B-SPEC.md names conditionally,
+    "parse usage with a cap and no truncation flag", does not apply: no
+    such cap exists anywhere in this call path, before or after the move,
+    checked by reading `live.go` and grepping the module for one.)*
+
+33. **A chargeback period's close carries real weight now: the packet the
     chargeback analyst reads is built from the SAME allocation this console
     renders on its own pages, `allocation.rule` is refused without a
     structured target naming which rule and method, and applying
     `period.close` queues the statements rather than only freezing a
     number.** C2-SPEC.md. `@yurii 2026-09-02`, the ask this step serves:
     "більш повною мірою замінити людей на цих посадах" -- a chargeback
-    analyst's last three days of the month, "reconcile, allocate, freeze,
-    send the statements, answer the arguments."
+    analyst's last three days of the month: reconcile, allocate, freeze,
+    send the statements, answer the arguments.
 
     `internal/deliver.closePackSection` triggers on the ROLE (the
     chargeback-analyst family, via `crew.RoleForDesk`) and the task's own
@@ -864,15 +974,21 @@ an absent invariant.
     `TestClosePackSectionAbsentWithoutAPeriodInTheTitle`,
     `TestClosePackSectionAbsentForANonChargebackRole`,
     `TestClosePackSectionNamesNoPreviousClose`,
+    `TestClosePackSectionSaysNothingHasMovedSinceTheClose`,
+    `TestClosePackSectionShowsTheTrueUpWhenSomethingMoved`,
     `TestClosePackSectionSaysNoInvoiceColumnIsLoaded`,
     `TestClosePackSectionReconcilesInvoicesWhenPresent`,
     `TestClosePackSectionComesBeforeMemoryInThePacket` for the packet
-    section; `TestUnallocatedPotsSumToTheAllocationsOwnUnallocatedTotal`,
+    section (the true-up's three branches -- a real delta, a close with
+    nothing since, no previous close at all -- each now own a test, where
+    only the third did before this fix);
+    `TestUnallocatedPotsSumToTheAllocationsOwnUnallocatedTotal`,
     `TestUnallocatedPotsNameTheRuleThatLeftEachOne`,
     `TestUnallocatedPotsNameNoRuleWhenNoneCoversTheCategory`,
     `TestInvoiceReconciliationSaysNoColumnIsLoadedWhenNoneIs`,
-    `TestInvoiceReconciliationGroupsByInvoiceToTheCent` for the two new
-    `internal/finops` readers; `TestAllocationRuleWithNoTargetIsRefused`,
+    `TestInvoiceReconciliationGroupsByInvoiceToTheCent`,
+    `TestInvoiceReconciliationIsCentsExactWhereFloatWouldLoseACent` for the
+    two new `internal/finops` readers; `TestAllocationRuleWithNoTargetIsRefused`,
     `TestAllocationRuleTargetHostileInputs` (a share of 1.5, a negative
     share, a 1 MB target -- caught by the existing 64 KiB whole-block cap
     rather than a second one, a missing/zero/negative `rule_id`, no
@@ -881,7 +997,12 @@ an absent invariant.
     `TestApplyAllocationRuleWithATargetCallsSetRule`,
     `TestApplyAllocationRuleWithNoTargetIsANoOp`,
     `TestApplyAllocationRuleWithAnUnknownRuleIDFails` for the apply-time
-    wiring; `TestApplyPeriodCloseQueuesOneReporterTaskPerTeam`,
+    wiring; `TestSavingAnAllocationRuleOptionNeverAppliesItBeforeAnyStamp`
+    (`tools/run`, where `saveDraft` calls `crew.ValidateAndSaveOptions` and
+    is the one place a save-time wiring mistake could actually reach
+    `internal/finops`, since `tools/run` already imports both) for the
+    ordering between saving a proposal and an owner's stamp applying it;
+    `TestApplyPeriodCloseQueuesOneReporterTaskPerTeam`,
     `TestApplyPeriodCloseQueuesATaskForATeamWithZeroAllocatedShare`,
     `TestApplyPeriodCloseSkipsADeskWithNoReporter` for the statements;
     `TestChargebackPageShowsTheLastCloseBesideTheLive`,
@@ -893,7 +1014,31 @@ an absent invariant.
     target-less allocation.rule` case plants exactly the fault its name
     says: disabling the save-time target check in
     `crew.ValidateAndSaveOptions` so an `allocation.rule` option with no
-    target is written anyway.)*
+    target is written anyway. The other two mutants C2-SPEC.md section 4
+    names are each named here with the test that catches them, planted by
+    hand and reverted rather than kept as permanent cases, the same shape
+    invariant 27's own history already describes for this file: reconciling
+    a period's invoices through a `float64` dollar accumulator
+    (`sum += float64(cents)/100.0` per row, converted back with no rounding
+    at all) instead of `InvoiceReconciliation`'s own SQL `SUM(billed_cents)`
+    in integer cents, caught by
+    `TestInvoiceReconciliationIsCentsExactWhereFloatWouldLoseACent` -- a
+    fixture chosen BECAUSE it breaks that arithmetic (29 and 57 cents under
+    one invoice: the exact sum is 86, the mutant's is 85), unlike a
+    round-half-up float64 accumulator, which this repository's own
+    `TestCostIsNeverParsedThroughFloat64` (invariant 25) already shows can
+    be exact at everyday amounts and would not have gone red on this same
+    fixture; and applying `allocation.rule`'s target immediately inside
+    `saveDraft`, right after `ValidateAndSaveOptions` reports the option
+    saved rather than refused, instead of waiting for the owner's own POST
+    to `/option/.../apply` (`internal/web/decisions.go`'s `optionAction`,
+    the only production caller of `finops.Apply`), caught by
+    `TestSavingAnAllocationRuleOptionNeverAppliesItBeforeAnyStamp`:
+    `internal/crew` cannot import `internal/finops` at all (`apply.go`
+    already imports `crew`, so the reverse would cycle), so this exact
+    mistake cannot even compile inside `ValidateAndSaveOptions` itself, but
+    `tools/run` imports both, and `saveDraft` is where a wiring mistake
+    written there instead actually would.)*
 
 ## Decisions that have no gate yet
 
