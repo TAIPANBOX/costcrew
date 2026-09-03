@@ -46,6 +46,7 @@
       <dd>{{if .A.HandledBy}}<strong><a href="/staff/{{.A.HandledBy}}">{{.A.HandledBy}}</a></strong>{{else}}Nobody has taken this on.{{end}}</dd>
       <dt>Detected</dt><dd>{{.A.DetectedAt}}</dd>
       {{if .A.ClosedAt}}<dt>Closed</dt><dd>{{.A.ClosedAt}}</dd>{{end}}
+      <dt>Queue time</dt><dd>{{.DaysText}}</dd>
       {{if .A.Reason}}<dt>Reason given</dt><dd>{{.A.Reason}}</dd>{{end}}
     </dl>
   </div>

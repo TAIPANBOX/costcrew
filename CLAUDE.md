@@ -1303,6 +1303,119 @@ an absent invariant.
     cross-check against `Allocate` called on the EXACT expected previous
     month directly, which a merely internally-consistent delta
     (`Numeric-PrevNumeric`) would not have caught on its own.)*
+32. **The owner of an anomaly's team is told the moment its explanation is
+    posted, never before and never invented, and the queue measures how
+    long that actually takes.** C1-SPEC.md. `@yurii 2026-09-02`: "більш
+    повною мірою замінити людей на цих посадах." The two ends of the desk a
+    person did without thinking, until now: `crew.OwnerOfAnomaly` maps an
+    anomaly to who to tell -- the team's own named owner in `teams` when it
+    has one, and otherwise the analyst's own owner, read off `tasks.owner`
+    of the task this anomaly opened, the same chain `finops.ownerOfOption`
+    and `deliver.waitingOwner` already read for the identical question from
+    an option's own side (B3), never re-derived from the roster the way
+    invariant 6 already refuses to for spend; "unclaimed" when neither has
+    one, with a reason either way, never an error a page has to remember to
+    check. `teams` did not exist before this: `crew.EnsureTeamOwner` adds
+    its `owner` column the way `EnsureArtifactProvenance` adds
+    `artifacts.source`, called from `crew.Seed` beside it.
+
+    `anomaly_explained` already existed on the wire
+    (`internal/stack/types.go`); no new type is added. What is new is a
+    SECOND call site: `internal/web.tellOwnerAnomalyExplained`, reached from
+    `artifactAction("post")` only after `crew.Post` has already succeeded,
+    carrying the owner, the named cause (the first `anomaly.explain`
+    option's own summary, when the deliverable offers one), the option
+    classes offered, and the artifact id. This is deliberately not the same
+    moment `internal/anomaly`'s own `"anomaly_"+state` emit fires (when the
+    anomaly's OWN state moves to Explained, on a later APPLY): one tells the
+    owner a deliverable exists to look at, the other records the decision
+    once somebody has made it, and B3's `Explain`/`Dismiss`/`Accept` and the
+    detector are unchanged by this step, including their own emit.
+
+    The closure KPI, `finops.AnomalyClosureDays`, reports the median days
+    from `detected_at` to `closed_at` per desk over a month, on
+    `anomaly.DaysBetween` -- the ONE basis it shares with the anomaly page's
+    own "open for N days" / "closed after N days" line
+    (`internal/web.daysText`), so a per-desk figure and a per-anomaly one
+    can never silently disagree about what a day means. It refuses, by
+    name, on a desk that has closed nothing in the window, the same shape
+    every KPI in `KPIs()` (`internal/finops/kpi.go`) already refuses rather
+    than inventing a number it has no evidence for; a row whose
+    `detected_at` will not parse is excluded from the median rather than
+    crashing the desk's whole figure, and the result says how many were and
+    why. Not wired into `KPIs()` itself in this step: the parity diff this
+    step owns is exactly the anomalies list and the anomaly page, and a new
+    `/kpis` row would widen it; surfacing it there is named as a follow-up
+    in the PR body.
+
+    The anomalies list gained the owner column and a "told" mark, read from
+    the journal the way `/cadence` reads `crew_ran`
+    (`internal/web.toldAnomalies`): a generous tail, filtered to
+    `anomaly_explained`, keyed by the anomaly id the event itself carries.
+    *(gate: `TestOwnerOfAnomalyReturnsTheTeamsOwnerWhenSet`,
+    `TestOwnerOfAnomalyFallsBackToTheAnalystsOwner`,
+    `TestOwnerOfAnomalyIsUnclaimedWithNeitherOwner`,
+    `TestOwnerOfAnomalyFallsBackWhenTheTeamRowHasNoOwner`,
+    `TestOwnerOfAnomalyHandlesAQuoteInTheOwnersName`,
+    `TestOwnerOfAnomalyWithNoTaskAtAllIsUnclaimed`,
+    `TestOwnerOfAnomalyWithNoTeamAtAllFallsBackToTheAnalyst`,
+    `TestOwnerOfAnomalyWithNoTeamAndNoTaskOwnerIsUnclaimed` (`internal/crew`);
+    `TestDaysBetweenFloorsToWholeDays`,
+    `TestDaysBetweenRefusesUnparseableOrNegative` (`internal/anomaly`);
+    `TestAnomalyClosureDaysReportsTheMedianOfTwoClosedAnomalies`,
+    `TestAnomalyClosureDaysRefusesADeskWithNoClosure`,
+    `TestAnomalyClosureDaysIsZeroWhenClosedTheSameDay`,
+    `TestAnomalyClosureDaysExcludesARowWhoseDetectedAtWontParse`,
+    `TestAnomalyClosureDaysOnlyCountsClosuresWithinTheMonth`
+    (`internal/finops`); `TestPostingAnAnomalyDeliverableTellsTheOwner`,
+    `TestARefusedSecondPostTellsNobodyTwice`,
+    `TestTellingTheOwnerNeverChangesTheAnomalysOwnState`,
+    `TestTheQueuePageShowsTheOwnerAndWhetherItToldThem`,
+    `TestTheAnomalyPageSaysHowLongItHasBeenOpen`,
+    `TestTheAnomalyPageSaysHowLongItTookToClose`,
+    `TestDirectExplainDoesNotFalselyMarkTheQueueTold` (`internal/web`).
+    `scripts/gates-have-teeth.sh`'s `anomaly desk: emit before the post
+    instead of after` case plants exactly that -- moving
+    `tellOwnerAnomalyExplained` ahead of `crew.Post` so it fires
+    unconditionally -- and requires `TestARefusedSecondPostTellsNobodyTwice`
+    to catch it (@measured 2026-09-03: the mutation makes a refused second
+    post journal a SECOND `anomaly_explained` for the same anomaly, red on
+    "after a REFUSED second post: 2 anomaly_explained events, want still
+    1"); the same case's edit to the existing `options: an analyst's Post
+    applies an option` case moved its anchor onto this step's own
+    `tellOwnerAnomalyExplained` call without changing what it proves.
+    `scripts/gates-have-teeth.sh`'s `anomaly desk: told matches the event
+    name alone, not its owner field` case plants a second, real bug found in
+    review of this step's first version: `toldAnomalies` matched
+    `Event=="anomaly_explained"` alone, which `internal/anomaly`'s own
+    pre-existing, spec-unchanged `"anomaly_"+state` emit also fires on every
+    Explain/Dismiss/Accept, including the pre-existing direct
+    `POST /anomalies/{id}/explain` route -- which needs no task, team,
+    deliverable or owner lookup at all, and never carries an `owner` field.
+    A direct explain on an untagged, unassigned anomaly rendered
+    Owner="unclaimed" and Told="told" on the same row at once; requiring the
+    `owner` field non-empty, not the event name alone, fixes it.
+    `TestDirectExplainDoesNotFalselyMarkTheQueueTold` (@measured 2026-09-03:
+    dropping the field check reds on "the queue marks this anomaly \"told\"
+    even though no owner was ever notified") is both the regression test and
+    the gate's own subject. Two more mutants were planted by hand and
+    reverted rather than kept as permanent cases, each caught by one of the
+    tests above, the same shape invariants 27 and 31's own history already
+    describes for this repository: computing the closed side of a day count
+    from the moment of measurement (SQLite's `now`) instead of the stored
+    `closed_at` (@measured 2026-09-03: red on "median days = 54, want 4
+    (median of 2 and 6)" -- 54 being the real elapsed days to the moment the
+    test ran, proving the mutation read the wrong clock rather than the
+    stored fact) -- `@claude` 2026-09-03: this stands in for C1-SPEC.md
+    section 4's own words, "compute closure from `updated` instead of
+    `closed_at`"; no `updated` column exists anywhere on `anomalies` (only
+    `detected_at` and `closed_at`, and nothing ever adds one), so that
+    literal mutant cannot be planted on this schema, and this is a related
+    but different fault (the wrong TIME SOURCE, not the wrong COLUMN) rather
+    than the one the spec names; and dropping the reason from the owner
+    lookup, returning `""` on every path (@measured 2026-09-03: red on "no
+    reason was given for the owner lookup" and "reason \"\" does not say
+    which team decided it").)*
 
 ## Decisions that have no gate yet
 
