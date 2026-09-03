@@ -99,4 +99,13 @@ var wireTypes = []string{
 	// (agent-passport 6.2, trailryx, heraldyx), named as a follow-up in the
 	// PR body and not done here.
 	"crew_ran",
+	// B4-STEP-TWO-SPEC.md section 4: the supervisor's one planning call per
+	// sprint, cost and outcome (accepted, refused with reason), emitted from
+	// internal/web/planning.go's own POST /sprint/plan/ask handler --
+	// "sprint_planned-style", the same shape sprint_planned already carries
+	// for an approved plan. Sixth new wire type in this run; also needs a
+	// registry-chain row (agent-passport 6.2, trailryx, heraldyx), named as
+	// a follow-up in the PR body and not done here, per the spec's own
+	// instruction not to do that chain in this step.
+	"plan_asked",
 }

@@ -29,6 +29,9 @@
           },
           "COSTCREW_SIGNUP_CODE": {
             "required": false
+          },
+          "COSTCREW_GATEWAY": {
+            "required": false
           }
         },
         "flags": {
@@ -36,6 +39,9 @@
             "required": false
           },
           "data": {
+            "required": false
+          },
+          "gateway": {
             "required": false
           },
           "stack-events": {

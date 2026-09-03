@@ -56,17 +56,17 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 528 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 69 cases; needs a clean tree; ~3m40s, up from ~90s at 67
-./scripts/features-are-bound.sh      # 115 scenarios, both directions
+go test ./...                        # 566 tests, 20 packages
+./scripts/gates-have-teeth.sh        # 73 cases; needs a clean tree; ~3m50s, up from ~3m40s at 69
+./scripts/features-are-bound.sh      # 126 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refused PR #19 on two findings the list above never asked for; a staticcheck built for an older Go cannot read this module, so on such a machine CI is the only place it runs
 ```
 
-Counts follow the suite, measured on `feat/one-metered-call-path` after rebasing
-onto main past #28's own merge
+Counts follow the suite, measured on `feat/the-supervisor-plans-with-a-model`
+after rebasing onto main past #29's own merge
 (test count by `go test ./... -list '.*' | grep -c '^Test'` -- test FUNCTIONS, not
 subtests, the convention PR #21, #23 and this file's own `internal/manifest` gate
 already use, not `-v | grep -c '^--- PASS'`, which over-counts anything using
@@ -87,7 +87,15 @@ moved from tools/run rather than new; tools/run's own count fell by 2, net of
 one new structural test; tools/bench gained 7, 5 in the first pass and 2 more
 in coordinator review's -stack-host fix) and 67 -> 69 gates-have-teeth.sh
 cases (the second-door mutant, one case per binary). Feature scenarios
-105 -> 115 (8 in the first pass, 2 in the -stack-host fix).
+105 -> 115 (8 in the first pass, 2 in the -stack-host fix). B4 step two
+(this file's own invariant 33) moved 528 -> 566 tests (internal/crew
+gained 22 across two new files, `plan_ask_test.go` and
+`plan_ledger_test.go`; internal/deliver gained 8, `plan_packet_test.go`;
+internal/web gained 7, `planning_ask_test.go`; tools/run gained 1, the
+planner-isolation check) and 69 -> 73 gates-have-teeth.sh cases (the four
+named mutants). Feature scenarios 115 -> 126 (11 new). Write routes
+(invariants 2 and 5) moved 34 -> 36 with the two new POST routes;
+invariant 1's GET count (50) is unchanged, since neither new route is one.
 
 The gates in this repo are Go tests rather than shell scripts, so
 `gates-have-teeth.sh` mutates the PRODUCT and requires the test to go red.
@@ -114,7 +122,7 @@ an absent invariant.
    COMMENT, and a gate that fires on prose gets deleted the first week.)*
 
 2. **A viewer may read and export, and may write nothing.**
-   *(gate: `TestAViewerCannotWrite`, all 34 write routes against a real viewer
+   *(gate: `TestAViewerCannotWrite`, all 36 write routes against a real viewer
    session with a real CSRF token. It requires THE role refusal by its wording,
    not any refusal: accepting any message made it pass on 26 of 27 routes whose
    handlers happened to complain about something else first.)*
@@ -138,7 +146,7 @@ an absent invariant.
 5. **Every write route refuses a request without a valid CSRF token.** The
    check is in five places, not one: `s.checked` and four handlers with their
    own copy.
-   *(gate: `TestEveryWriteRouteChecksCSRF`, 34 routes with an empty token and
+   *(gate: `TestEveryWriteRouteChecksCSRF`, 36 routes with an empty token and
    with a wrong one, requiring the CSRF wording specifically. Until
    2026-08-23 this was one route of thirty-three.)*
 
@@ -888,16 +896,99 @@ an absent invariant.
     such cap exists anywhere in this call path, before or after the move,
     checked by reading `live.go` and grepping the module for one.)*
 
+33. **The supervisor's own model answer is validated against the
+    deterministic plan and the roster before it is ever shown, and a refused
+    answer is shown WHOLE with the reason, never partially applied.**
+    B4-STEP-TWO-SPEC.md. `POST /sprint/plan/ask` prices the one call
+    (`deliver.PlanWorstCase`, the packet actually being sent, not
+    `EstimateWorstCase`'s own task packet -- see that function's own comment
+    for why the literal cross-reference in the spec is not what this calls)
+    against the supervisor's own `PerTask` and refuses before making it when
+    the worst case is over; refuses with one sentence when no TokenFuse
+    gateway is configured, tools/bench's own `-live` rule ("the bench's
+    spend must be metered exactly like the crew's") rather than tools/run's
+    more permissive one, because a browser click that can spend real money
+    must never fall back to an unmetered direct call; makes the call through
+    `deliver.Call`; and validates the answer (`crew.ValidatePlanAnswer`)
+    against the deterministic plan's own items and the roster: a `ref` in
+    range and named at most once, an `assignee` active, holding the item's
+    own `Skill` (set only where routing genuinely chose among skill
+    candidates -- `crew.PlanItem.Skill`, new on this step, empty for every
+    item routed by identity rather than skill, which is why an item with no
+    `Skill` can never be reassigned to somebody else at all) on the item's
+    own desk, with headroom this month, `budget_cents` at most that
+    analyst's own `PerTask` and at most the deterministic item's own budget,
+    a `why` non-empty and at most 240 bytes. The cost -- real for a call
+    that was made, zero for a refusal before one -- is rounded up once
+    (`crew.SettlePlanAsk`, "up, never down", the same rule `SettleLiveSpend`
+    already holds) into a small dedicated ledger (`plan_asks`) keyed by
+    calendar month rather than a task, because this call is made BEFORE the
+    sprint it plans is ever approved and so has no `sprints` row for
+    `SpendInMonth`'s existing tasks-JOIN-sprints query to find; `SpendInMonth`
+    adds that ledger in, additively, so the supervisor's own plan-ask spend
+    reads through the SAME function every other headroom check already
+    calls. The person approves either plan through the SAME, unchanged
+    `crew.Approve`: the model's plan is never persisted server-side across
+    the ask/approve round trip -- its own raw answer text travels in a
+    hidden form field, escaped by `html/template` on the way out, and
+    `POST /sprint/plan/approve-model` re-validates it from scratch against a
+    freshly computed deterministic plan and roster before building the
+    `crew.Plan` `Approve` receives, the same two-step preview/apply shape
+    `internal/web/intake.go` already uses, rather than trusting a stored
+    copy of what an earlier moment accepted.
+    *(gate: `TestARerouteToAnActiveHolderOfTheSameSkillIsAccepted`,
+    `TestAnItemWithNoRefIsRefusedWhole`, `TestARouteToASuspendedAnalystIsRefused`,
+    `TestABudgetRaisedAboveTheDeterministicItemIsRefused`,
+    `TestARouteToAnAnalystWithNoHeadroomIsRefused`,
+    `TestARouteToAnAnalystWithoutTheItemsSkillIsRefused`,
+    `TestARouteOffTheItemsDeskIsRefused`, `TestAnUnroutableItemCannotBeReassigned`,
+    `TestAnUnroutableItemKeepingTheSameAssigneeIsAccepted`,
+    `TestZeroItemsIsALegalAnswer`, `TestEveryDeterministicItemCanBeDropped`,
+    `TestTheSameRefTwiceIsRefused`, `TestAWhyOfExactly240BytesIsAcceptedAnd241IsRefused`,
+    `TestPlanAnswerHostileInputs` (not JSON, 1 MB, a string where ref's or
+    budget_cents' integer goes, more items than the deterministic plan has),
+    `TestAScriptTagInWhySurvivesUnchanged`, `TestNoPlanBlockAtAllIsNotFound`
+    in `internal/crew`; `TestPlanPacketCarriesTheGoalVerbatim`,
+    `TestPlanPacketNumbersItemsFromOne`,
+    `TestPlanPacketRosterLineListsOnlyActiveAnalysts`,
+    `TestPlanPacketCarriesTheSupervisorsJobDescription`,
+    `TestPlanPacketNeverTrimsTheJobDescriptionEvenWhenOverflowing`,
+    `TestPlanPromptAsksForAFencedPlanBlock`, `TestPlanWorstCaseGrowsWithTheRealPacket`,
+    `TestPlanWorstCaseOnAnUnknownEngineIsNotPriced` in `internal/deliver`;
+    `TestSettlePlanAskLandsInSpendInMonthForSupervisor`,
+    `TestSettlePlanAskRefusedStillSettlesWhateverItCost`,
+    `TestSettlePlanAskWithZeroMicrosAddsNothingMeasurable`,
+    `TestSpendInMonthStillSumsOrdinaryTaskSpend`, `TestTwoPlanAsksInOneMonthAccumulate`,
+    `TestAPlanAskInADifferentMonthDoesNotLeak` in `internal/crew`;
+    `TestAskPlanAcceptsAValidRerouteAndShowsBothPlans`,
+    `TestAskPlanShowsARefusedAnswerWhole`, `TestAskPlanRendersAScriptTagAsText`,
+    `TestAskPlanRefusesWithNoGatewayConfigured`,
+    `TestAskPlanRefusesBeforeAnyCallWhenWorstExceedsPerTask`,
+    `TestAskPlanRefusesAViewerAndAMissingCSRFToken`,
+    `TestApproveModelPlanCreatesATaskWithTheModelsOwnBudget` in `internal/web`;
+    `TestDueNeverCallsThePlanner` in `tools/run`, reading this package's own
+    source for the four symbols this step added the way
+    `TestThisBinaryCannotSpend` already reads `main.go` for a credential.
+    `scripts/gates-have-teeth.sh` plants and catches the four mutants
+    B4-STEP-TWO-SPEC.md section 6 names: accepting an item without a ref,
+    skipping the headroom check, letting `budget_cents` go up, and charging
+    the settled cost to nobody.)*
+
 ## Decisions that have no gate yet
 
 Written here so that "it holds" and "something holds it" stay different
 sentences.
 
-- **The console never reaches the network.** True today and checked by reading:
-  the only outbound HTTP client in the repo is `internal/enforce`, which is a
-  separate binary the console never calls, and the stack integrations are all
-  behind flags that default to off. *(not enforced: nothing would catch a
-  handler that grew a client.)*
+- **The console never reaches the network, unless `-gateway` is configured for
+  the supervisor's own planning calls.** True by default, and true unqualified
+  before this step: the only outbound HTTP client in the repo used to be
+  `internal/enforce`, a separate binary the console never calls, with every
+  stack integration behind a flag that defaults to off. Invariant 33 adds the
+  one exception, itself gated: `internal/web/planning.go`'s `askPlan` reaches
+  `deliver.Call` only when `-gateway` is set, refusing with one sentence
+  otherwise, so an installation that never passes the flag keeps the old
+  property exactly. *(not enforced: nothing would catch a handler that grew a
+  client outside that one gated path.)*
 
 - **Money is integer cents.** `money.Cents` is an `int64` and `Float()` exists
   only for presentation. *(not enforced: nothing stops a new float from being
