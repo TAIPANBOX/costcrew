@@ -186,9 +186,9 @@ platform act and a separate decision; neither is done in this repository.
 ## Gates
 
 ```sh
-go test ./...                        # 852 tests, 20 packages
+go test ./...                        # 854 tests, 20 packages
 ./scripts/features-are-bound.sh      # every scenario bound to a named test, both ways
-./scripts/gates-have-teeth.sh        # 95 cases: each gate is made to fail on purpose
+./scripts/gates-have-teeth.sh        # 96 cases: each gate is made to fail on purpose
 gofmt -l . && go vet ./...
 ```
 

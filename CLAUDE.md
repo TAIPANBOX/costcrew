@@ -81,8 +81,8 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 852 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 95 cases; needs a clean tree; @measured 2026-09-03, 95 passed 0 failed on four separate runs (5m50s, 6m23s and 6m33s), the last after the Value/PrevValue fix retargeted one case
+go test ./...                        # 854 tests, 20 packages
+./scripts/gates-have-teeth.sh        # 96 cases; needs a clean tree; @measured 2026-09-03, 96 passed 0 failed after #52 added the 96th case; the earlier 95-case harness passed on four separate runs (5m50s, 6m23s and 6m33s)
 ./scripts/features-are-bound.sh      # 203 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
