@@ -57,7 +57,7 @@ health path passed.
 
 ```sh
 go test ./...                        # 539 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 71 cases; needs a clean tree; ~90s
+./scripts/gates-have-teeth.sh        # 70 cases; needs a clean tree; ~90s
 ./scripts/features-are-bound.sh      # 108 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
@@ -71,7 +71,12 @@ rebasing onto main past #28's own merge
 subtests, the convention PR #21, #23 and this file's own `internal/manifest` gate
 already use, not `-v | grep -c '^--- PASS'`, which over-counts anything using
 `t.Run`; packages by `go list -f '{{if or .TestGoFiles .XTestGoFiles}}...'`;
-`grep -c '^run_case' scripts/gates-have-teeth.sh`; `grep -rc Scenario: features/*.feature`;
+`grep -c '^run_case' scripts/gates-have-teeth.sh` MINUS ONE -- that pattern also
+matches the function's own definition line, `run_case() {`, which C6 is the
+first branch to have noticed: the raw grep gives 71 today and the script's
+own summary line (`teeth: N passed`) says 70, and the summary is the one
+`@measured` covers, since it is what a real run reports rather than what a
+pattern happens to match; `grep -rc Scenario: features/*.feature`;
 2026-09-03); nothing here keeps them current automatically, so they lag whichever
 branch last updated them by hand (B1a's own merge left this block at 282/48/59
 while its own PR body reported 301/52/70). Invariants 1, 2 and 5's own route
