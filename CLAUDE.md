@@ -56,9 +56,9 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 567 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 73 cases; needs a clean tree; ~5m13s, up from ~3m40s at 69
-./scripts/features-are-bound.sh      # 126 scenarios, both directions
+go test ./...                        # 792 tests, 20 packages
+./scripts/gates-have-teeth.sh        # 89 cases; needs a clean tree; ~6m24s
+./scripts/features-are-bound.sh      # 179 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
@@ -115,7 +115,7 @@ Re-measured again 2026-09-03 after coordinator review of PR #34: two more
 tests (10 in `internal/connectors`, 4 in `internal/web`, both up by one),
 without adding a route, a scenario or a `run_case` (the existing
 "rightsizing: rank by current cost" case is retargeted at its new location
-instead of a second one being added -- invariant 33's own gate list says
+instead of a second one being added -- invariant 38's own gate list says
 where). 532/68/114 -> 534/68/114, and the harness itself, run on the
 resulting clean committed tree, printed `teeth: 68 passed, 0 failed` --
 the one number in this whole block that is `@measured` rather than
@@ -534,7 +534,7 @@ an absent invariant.
     inventing one would be exactly `commit money`'s neighbour on the
     never-list, "invent a number it was not given" -- see the PR body.
     `allocation.rule` gained the companion field this paragraph describes the
-    lack of (invariant 33, C2-SPEC.md); `budget.set` and `explainer.publish`
+    lack of (invariant 35, C2-SPEC.md); `budget.set` and `explainer.publish`
     still have none and are recorded only exactly as this paragraph
     originally found them. Applying one option marks every OTHER
     live option of the SAME deliverable, and every live rival option of a
@@ -749,7 +749,7 @@ an absent invariant.
     enough. Nothing else about the cap changed; making this order explicit,
     in the one place it is decided, is this invariant. C7-SPEC.md extends
     the list of sections this holds for: `aiSpendSection` and
-    `unitEconomicsSection` (invariant 32) are appended in the same tier as
+    `unitEconomicsSection` (invariant 34) are appended in the same tier as
     `reportingSection` and `forecastingSection`, after the anomaly and
     before `ownHistorySection`, so memory still yields first under the cap
     even on the AI desk. `ownHistorySection`
@@ -1009,8 +1009,7 @@ an absent invariant.
     B4-STEP-TWO-SPEC.md section 6 names: accepting an item without a ref,
     skipping the headroom check, letting `budget_cents` go up, and charging
     the settled cost to nobody.)*
-32. **The AI desk's own figures are real, not generated, and a query
-    against them reaches only `ai_calls`.** C7-SPEC.md. `ai-spend`'s packet
+34. **The AI desk's own figures are real, not generated, and a query    against them reaches only `ai_calls`.** C7-SPEC.md. `ai-spend`'s packet
     (`aiSpendSection`) and `unit-econ-ai`'s (`unitEconomicsSection`), both in
     `internal/deliver/packet.go`, read `ai_calls` directly rather than the
     daily `charges` ledger: this month's calls grouped by agent
@@ -1111,8 +1110,7 @@ an absent invariant.
     the same shape invariants 26, 27 and 31's own history already describes
     for this repository, named in the PR body with the exact diff and the
     failing test's output.)*
-33. **A chargeback period's close carries real weight now: the packet the
-    chargeback analyst reads is built from the SAME allocation this console
+35. **A chargeback period's close carries real weight now: the packet the    chargeback analyst reads is built from the SAME allocation this console
     renders on its own pages, `allocation.rule` is refused without a
     structured target naming which rule and method, and applying
     `period.close` queues the statements rather than only freezing a
@@ -1249,8 +1247,7 @@ an absent invariant.
     mistake cannot even compile inside `ValidateAndSaveOptions` itself, but
     `tools/run` imports both, and `saveDraft` is where a wiring mistake
     written there instead actually would.)*
-33. **A refused KPI in the executive pack reads as a refusal, never as a
-    zero, and explainer.publish is no longer text only.** C8-SPEC.md.
+36. **A refused KPI in the executive pack reads as a refusal, never as a    zero, and explainer.publish is no longer text only.** C8-SPEC.md.
     `finops.Executive` names the four numbers roles.yaml's own
     executive-reporter owes (`allocation-coverage`, `unallocated-share` and
     `agent-attribution`, the only three of the twelve KPIs that vary with a
@@ -1327,8 +1324,7 @@ an absent invariant.
     cross-check against `Allocate` called on the EXACT expected previous
     month directly, which a merely internally-consistent delta
     (`Numeric-PrevNumeric`) would not have caught on its own.)*
-32. **The owner of an anomaly's team is told the moment its explanation is
-    posted, never before and never invented, and the queue measures how
+37. **The owner of an anomaly's team is told the moment its explanation is    posted, never before and never invented, and the queue measures how
     long that actually takes.** C1-SPEC.md. `@yurii 2026-09-02`: "більш
     повною мірою замінити людей на цих посадах." The two ends of the desk a
     person did without thinking, until now: `crew.OwnerOfAnomaly` maps an
@@ -1440,8 +1436,7 @@ an absent invariant.
     lookup, returning `""` on every path (@measured 2026-09-03: red on "no
     reason was given for the owner lookup" and "reason \"\" does not say
     which team decided it").)*
-33. **The optimizer's own packet ranks its recommendations by saving, never
-    by the size string, and names the risk a short lookback carries.**
+38. **The optimizer's own packet ranks its recommendations by saving, never    by the size string, and names the risk a short lookback carries.**
     C5-SPEC.md (numbered 33, not 32: B6B-SPEC.md's own invariant landed on
     `main` as 32 while this branch was in flight, after this branch's fork
     point -- see the PR body's "Invariant numbering collision" section).
@@ -1522,8 +1517,7 @@ an absent invariant.
     `TestTheRightsizingPageOrdersRowsBySavingNotBySize` (each
     `@measured` 2026-09-03 by hand, PR report has the transcripts), any one
     of which going toothless should still be caught by the other two.)*
-33. **A renewal calendar is read from what a vendor actually said, never
-    guessed, and the negotiation it prepares for stays outside the console.**
+39. **A renewal calendar is read from what a vendor actually said, never    guessed, and the negotiation it prepares for stays outside the console.**
     C6-SPEC.md. `saas-seats` in `internal/connectors` is this practice's
     second reader (after `tokenfuse-focus`): one documented CSV header
     (vendor, product, seats issued, seats active, the window "active" was
@@ -1599,8 +1593,7 @@ an absent invariant.
     through a float64 dollars-and-back round trip instead of int64 cents
     throughout, the notice deadline line dropped from the calendar, and a
     benchmark figure invented where none exists.)*
-33. **A data-quality finding that crosses a threshold can stop a desk's
-    whole crew, and only a person starts it again.** C9-SPEC.md. Three
+40. **A data-quality finding that crosses a threshold can stop a desk's    whole crew, and only a person starts it again.** C9-SPEC.md. Three
     measurements per source and desk, every day, cents-exact throughout:
     freshness since the last charge against `T.stale`
     (`internal/finops.DataQuality`), and the share of that source's own
@@ -1703,8 +1696,7 @@ an absent invariant.
     `TestFreshnessIsMeasuredFromTheLastChargeNotFromToday` and
     `TestLiftHaltRefusesWithNoReason` respectively, the same shape
     invariants 27 and 31 already establish for this repository.)*
-32. **A registered driver moves the projection by its own measured effect,
-    not by being blended into the plain run rate, and a frozen forecast
+41. **A registered driver moves the projection by its own measured effect,    not by being blended into the plain run rate, and a frozen forecast
     remembers which drivers it already knew about.** C3-SPEC.md.
     `finops.ProjectWithDrivers` excludes every calendar day any registered
     driver's own window covers (clipped to the month being projected) from
@@ -1782,8 +1774,7 @@ an absent invariant.
     by its window instead of dividing once after; and grading the largest
     miss's own figure against a freshly recomputed live projection instead
     of the one that was actually frozen.)*
-33. **A Purchase row is never usage, and a commitment's coverage and
-    utilisation are read from the store, never generated, once any real
+42. **A Purchase row is never usage, and a commitment's coverage and    utilisation are read from the store, never generated, once any real
     commitment exists.** C4-SPEC.md. `@yurii 2026-09-02`: "більш повною
     мірою замінити людей на цих посадах" is the ask; "він має сам не
     купувати" is the boundary this invariant holds for the one class that
