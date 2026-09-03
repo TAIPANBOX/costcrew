@@ -56,9 +56,9 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 844 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 94 cases; needs a clean tree; @measured 2026-09-03, 6m17s, 94 passed 0 failed, up from 6m08s at 93
-./scripts/features-are-bound.sh      # 195 scenarios, both directions
+go test ./...                        # 851 tests, 20 packages
+./scripts/gates-have-teeth.sh        # 95 cases; needs a clean tree; ~6m
+./scripts/features-are-bound.sh      # 202 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
@@ -186,6 +186,21 @@ resulting clean committed tree, printed `teeth: 68 passed, 0 failed` --
 the one number in this whole block that is `@measured` rather than
 `@claude`'s arithmetic on top of a grep.
 
+Invariant 47 (C8-LEADERSHIP-SPEC.md): this branch forked from `origin/main`
+before costcrew#45's own invariant landed; once fetched, it had taken 46, so
+this one is 47 rather than colliding with it, the exact contingency the spec
+itself named before either PR existed. Moved 844 -> 851 tests (`internal/web`
+gained 7, `leadership_test.go`) and 94 -> 95 gates-have-teeth.sh cases (the
+one named mutant this invariant's own gate case plants -- the template's
+value slot printing `Numeric` unconditionally; the other two the spec names
+-- a draft leadership pack listed alongside the published ones, and a
+publish control rendered inside the per-pack loop -- were planted by hand
+and reverted rather than kept as permanent cases, the same shape invariant 27's
+own history already describes). Feature scenarios 195 -> 202 (the seven
+scenarios in `features/leadership.feature`). GET routes 57 -> 58 (the one
+route this branch adds, `/leadership`); no write route anywhere in it, so
+invariants 2 and 5's own route counts are unchanged.
+
 The gates in this repo are Go tests rather than shell scripts, so
 `gates-have-teeth.sh` mutates the PRODUCT and requires the test to go red.
 Read its header before adding a case: two of its properties exist because Go
@@ -205,7 +220,7 @@ an absent invariant.
    `/logout`, `/healthz` and `/static/` genuinely answer anybody; `/signup` is
    open only while nobody can administer the installation (invariant 10); and
    `/calendar` and `/stats` are aliases that redirect to a guarded page.
-   *(gate: `TestEveryRouteRequiresASession`, which walks all 57 GET routes
+   *(gate: `TestEveryRouteRequiresASession`, which walks all 58 GET routes
    registered in `server.go`. Its regexp is anchored to the registration and
    not to the string `HandleFunc`, because it once fired on a route named in a
    COMMENT, and a gate that fires on prose gets deleted the first week.)*
@@ -2246,6 +2261,100 @@ an absent invariant.
     що ми говоримо, треба протестувати і зробити як варіант використання."
     `features/partner-budget-recommendations.feature` opens with both
     quotes verbatim.
+
+47. **A refused KPI on the leadership page reads as a refusal, never as a
+    zero, and the page carries no control.** C8-LEADERSHIP-SPEC.md
+    (numbered 47, not 46: costcrew#45's own invariant landed on `main` as 46
+    while this branch was in flight, after this branch's fork point). C8
+    (costcrew#36, invariant 36) published the executive pack as an explainer
+    whose Team and Audience are both the fixed string "leadership" and called
+    `/explainers?audience=leadership` "the leadership page": nothing linked
+    to it, the template still said "Explainers" with the team-facing intro
+    and the Commission form, and the pack's own four numbers existed only as
+    prose inside the body. `@yurii 2026-09-03`, the ask this step serves:
+    "Можливо, треба ще подивитись по інтерфейсу самого CostCrew. Можливо,
+    там якісь нові речі, які можна було б додати з тих, що ми
+    імплементували." And C8's own `@yurii 2026-09-02`: "більш повною мірою
+    замінити людей на цих посадах."
+
+    A new GET route, `/leadership` (`internal/web/leadership.go`), its own
+    template (`templates/leadership.html`), reuses `finops.Executive`,
+    `crew.Explainers` and `renderBody` rather than copying any of them. No
+    sidebar entry: `TestTheSidebarFitsAWindow` budgets 27 links and the
+    sidebar was already at 27 (invariant 19 is Yurii's call to grow it, not
+    mine, and a first attempt to add `/rightsizing` there went red on exactly
+    that gate on 2026-09-03). Reached instead from two in-page links, always
+    shown: `/kpis`'s own header ("The four figures a leader is owed each
+    period, beside the pack written about them: Leadership") and
+    `/explainers`'s own header ("Packs written for leadership are on their
+    own page: Leadership"), the latter unconditional so the page is
+    reachable on a fresh installation with nothing published yet.
+    `?audience=leadership` on `/explainers` keeps working exactly as C8 left
+    it, its own tests untouched.
+
+    The page shows the four `ExecutiveFigure`s as real tiles, in
+    `executiveKPIIDs` order, each one's own value slot holding
+    `{{if .HasVal}}` the KPI's `Numeric` and `Unit` `{{else}}` its `Blocked`
+    sentence `{{end}}` -- the same Blocked-before-HasVal guard invariant 36
+    already holds for the packet's own `executiveFigureLine`, now at the
+    page, with `Numeric` and `PrevNumeric` never printed unless `HasVal` /
+    `PrevHasVal` is true. The period line reads "Period P, beside PREV." or,
+    on the estate's very first period, "Period P; no previous period." Below
+    the tiles, one sentence names the tiles and the packs as two different
+    questions (invariant 13, figures reconcile), so a leader who sees a tile
+    disagree with an older pack is not misled. Published leadership packs
+    only (`crew.Explainers` filtered to `Audience == "leadership" AND State
+    == "published"`), newest published first (a stable sort on `Published`,
+    which keeps `crew.Explainers`' own id-DESC order as the tiebreak for two
+    packs published in the same second, rather than map or query order --
+    invariant 7). **This page has no form, no CSRF field, no button**: a
+    leader reads, and a viewer sees exactly what an operator sees.
+    *(gate: `TestTheLeadershipPageShowsTheFourFiguresForTheLatestPeriod`
+    (a real AI-attributed charge is planted inside the seeded estate's own
+    existing period so agent-attribution joins allocation-coverage and
+    unallocated-share as a real value, without adding a new month that
+    would move which period `Executive()` reports on),
+    `TestTheLeadershipPageShowsARefusedKPIAsRefusedNeverZero` (cost-per-outcome
+    refuses on the seeded estate before any AI import; the assertion is
+    scoped to that one tile's own markup, since a page-wide search for "0.0"
+    would also match an ordinary number like "90.0"),
+    `TestTheLeadershipPageSaysNoPreviousPeriodForTheFirstPeriod`
+    (`startSingleMonth`, the same four-schema, one-row shape
+    `internal/finops/executive_test.go`'s own `estateSchemaOnlyDB` and
+    `singleMonthDB` already build, reused at the web layer because
+    `finops.KPIs()` -- which `Executive()` calls internally before filtering
+    to its own four -- needs every one of those four schemas to run at all,
+    not merely the ones the four executive figures touch),
+    `TestTheLeadershipPageListsOnlyPublishedLeadershipPacks` (two published
+    leadership packs stamped in REVERSE creation order -- the one created
+    first is given the later `published` timestamp by a direct `UPDATE` --
+    so a sort that silently used id or insertion order instead of
+    `Published` would fail this the same way a correct one would),
+    `TestTheLeadershipPageHasNoControlsEvenForAnOperator` (a published pack
+    is planted FIRST, not an empty page: found by hand while planting this
+    invariant's own gates-have-teeth.sh mutant, a control added inside the
+    `{{range .Packs}}` block passed this test outright the first time, since
+    the fixture it ran against had no packs for the loop to ever render),
+    `TestAScriptTagInAPacksTopicRendersAsTextOnTheLeadershipPage`,
+    `TestTheKPIsAndExplainersPagesLinkToTheLeadershipPage` (`internal/web`,
+    all in `leadership_test.go`). `TestPagesRenderTheSameTwice`
+    (`internal/web/owners_test.go`) gained `/leadership` on its own path
+    list.
+    `scripts/gates-have-teeth.sh`'s "leadership page: show a refused KPI as
+    zero" case plants this step's own named mutant: the template's value
+    slot mutated to print `Numeric` unconditionally, dropping the `HasVal`
+    branch that guards it -- `@measured` 2026-09-03, caught by
+    `TestTheLeadershipPageShowsARefusedKPIAsRefusedNeverZero`, whose scoped
+    tile shows `<div class="v refused">0.0</div>` in place of the refusal
+    sentence. Two more mutants were planted by hand and reverted rather than
+    kept as permanent cases: `leadership.go`'s pack filter dropping its
+    `State != "published"` half, so a draft leadership pack is listed
+    alongside the published ones, caught by
+    `TestTheLeadershipPageListsOnlyPublishedLeadershipPacks`; and a publish
+    form added inside `leadership.html`'s own `{{range .Packs}}` block,
+    caught by `TestTheLeadershipPageHasNoControlsEvenForAnOperator` only
+    after that test was strengthened to plant a pack first, per that test's
+    own comment above.)*
 
 ## Decisions that have no gate yet
 

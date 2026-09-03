@@ -1413,6 +1413,23 @@ run_case 'guardrail: read budget_recommendations into CurrentBudgets result' \
 	$'rows, err := db.Query(`SELECT source, team, month, budget_cents FROM budgets`)' \
 	$'rows, err := db.Query(`SELECT source, team, month, budget_cents FROM budgets UNION SELECT provider, team, month, recommended_cents FROM budget_recommendations`)'
 
+# C8-LEADERSHIP-SPEC.md section 4's own named mutant: the leadership page's
+# value slot mutated to print Numeric unconditionally, dropping the HasVal
+# branch that guards it. Invariant 47's own property, the same shape
+# invariant 36 already holds for the packet ("the executive pack: show a
+# refused KPI as zero", above): cost-per-outcome refuses on the seeded
+# estate before any AI import, so ExecutiveFigure.Numeric is Go's own zero
+# value there, and this mutation prints it -- "0.0" -- in place of the
+# refusal sentence.
+run_case 'leadership page: show a refused KPI as zero' \
+	fail \
+	./internal/web \
+	$'TestTheLeadershipPageShowsARefusedKPIAsRefusedNeverZero' \
+	$'read as a real reading of zero' \
+	internal/web/templates/leadership.html \
+	$'{{if .HasVal}}{{printf "%.1f" .Numeric}}{{if .Unit}} {{.Unit}}{{end}}{{else}}{{.Blocked}}{{end}}' \
+	$'{{printf "%.1f" .Numeric}}{{if .Unit}} {{.Unit}}{{end}}'
+
 echo
 if [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'
