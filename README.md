@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/TAIPANBOX/costcrew/actions/workflows/ci.yml/badge.svg)](https://github.com/TAIPANBOX/costcrew/actions/workflows/ci.yml)
 ![Go](https://img.shields.io/badge/go-1.27-00ADD8.svg)
-![tests](https://img.shields.io/badge/tests-827-brightgreen.svg)
+![tests](https://img.shields.io/badge/tests-844-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)
 ![Status](https://img.shields.io/badge/enforces-nothing%20by%20design-success.svg)
 
@@ -100,11 +100,13 @@ flowchart TB
 ```
 
 - **Consumes**: billing exports and vendor usage APIs, never another service's
-  store. Eleven connectors: AWS Data Exports (FOCUS 1.2), Cost Explorer, GCP
+  store. Seventeen connectors: AWS Data Exports (FOCUS 1.2), Cost Explorer, GCP
   BigQuery billing export, Azure Cost Management, Kubecost, OpenCost, TokenFuse
-  FOCUS export, Anthropic and OpenRouter usage, Compute Optimizer, SaaS seats.
-  Two built (TokenFuse FOCUS, SaaS seats), nine documented, and every entry
-  declares whether running it is metered per call.
+  FOCUS export, Anthropic and OpenRouter usage, Compute Optimizer, AWS Cost
+  Explorer and GCP Recommender and Azure Advisor rightsizing recommendations,
+  AWS Budgets recommended threshold, GCP Cost Recommender and Azure Advisor
+  budget-shaped recommendations, SaaS seats. Eight built, nine documented, and
+  every entry declares whether running it is metered per call.
 - **Produces**: fifteen event types on the shared agent-event bus, registered in
   `agent-passport` SPEC 6.2 under the source `costcrew`, schema v0.2.
 - **Enforces**: nothing. `enforced: false` is stamped on every event, the console
@@ -184,9 +186,9 @@ platform act and a separate decision; neither is done in this repository.
 ## Gates
 
 ```sh
-go test ./...                        # 827 tests, 20 packages
+go test ./...                        # 844 tests, 20 packages
 ./scripts/features-are-bound.sh      # every scenario bound to a named test, both ways
-./scripts/gates-have-teeth.sh        # 93 cases: each gate is made to fail on purpose
+./scripts/gates-have-teeth.sh        # 94 cases: each gate is made to fail on purpose
 gofmt -l . && go vet ./...
 ```
 

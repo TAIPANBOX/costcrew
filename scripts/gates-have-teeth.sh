@@ -1394,6 +1394,25 @@ run_case 'price display: report a task'"'"'s worst case without the loop multipl
 	$'\t\t\tworstMicros += reservedWorstCase(e)' \
 	$'\t\t\tworstMicros += e.WorstMicros'
 
+# PARTNER-BUDGET-RECOMMENDATIONS-SPEC.md / CLAUDE.md invariant 46's own
+# guardrail: a provider's suggested budget must never become this console's
+# own budget figure. This is the mutant the spec names literally, "read
+# budget_recommendations into CurrentBudgets's own result": CurrentBudgets'
+# query is UNIONed with a select against budget_recommendations, so its
+# returned map would silently gain a provider's own unverified suggestion
+# alongside every finance-set budget. The structural guardrail test reads
+# CurrentBudgets' own source and refuses any mention of
+# budget_recommendations inside it, so it catches this before the mutated
+# query is ever run.
+run_case 'guardrail: read budget_recommendations into CurrentBudgets result' \
+	fail \
+	./internal/deliver \
+	$'TestCurrentBudgetsAndSpendInMonthSourceNeverMentionsBudgetRecommendations' \
+	$'must never flow into' \
+	internal/estate/intake.go \
+	$'rows, err := db.Query(`SELECT source, team, month, budget_cents FROM budgets`)' \
+	$'rows, err := db.Query(`SELECT source, team, month, budget_cents FROM budgets UNION SELECT provider, team, month, recommended_cents FROM budget_recommendations`)'
+
 echo
 if [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'

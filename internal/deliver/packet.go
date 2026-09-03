@@ -162,6 +162,19 @@ func Packet(db *sql.DB, t crew.Task, a crew.Analyst, hideDriver bool) string {
 			sections = append(sections, s)
 		}
 	}
+	// partnerBudgetSection (PARTNER-BUDGET-RECOMMENDATIONS-SPEC.md, CLAUDE.md
+	// invariant 46): a provider's own budget recommendation, cited beside the
+	// team's real one. Placed here, among aiSpendSection/renewalsSection/
+	// commitmentsSection (the spec's own words for where this belongs) and
+	// before closePackSection, which reserves the slot immediately before
+	// memory for itself (its own comment below) -- see partnerBudgetSection's
+	// own comment for why "stakeholder-briefing" is the right skill to gate
+	// it on.
+	if HasString(a.Skills, "stakeholder-briefing") {
+		if s := partnerBudgetSection(db, t.Desk); s != "" {
+			sections = append(sections, s)
+		}
+	}
 	// closePackSection is C2-SPEC.md section 2's own section, appended here
 	// -- after the anomaly-related sections above, before memory below --
 	// deliberately: "yields before memory, after the anomaly" is that spec's
