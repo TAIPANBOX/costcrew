@@ -56,9 +56,9 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 515 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 68 cases; needs a clean tree; ~90s
-./scripts/features-are-bound.sh      # 105 scenarios, both directions
+go test ./...                        # 540 tests, 20 packages
+./scripts/gates-have-teeth.sh        # 69 cases; needs a clean tree; ~90s
+./scripts/features-are-bound.sh      # 113 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
@@ -700,7 +700,12 @@ an absent invariant.
     KiB cap is reached, so whatever is appended last is trimmed first, and
     everything appended earlier is untouched unless that alone is not
     enough. Nothing else about the cap changed; making this order explicit,
-    in the one place it is decided, is this invariant. `ownHistorySection`
+    in the one place it is decided, is this invariant. C7-SPEC.md extends
+    the list of sections this holds for: `aiSpendSection` and
+    `unitEconomicsSection` (invariant 32) are appended in the same tier as
+    `reportingSection` and `forecastingSection`, after the anomaly and
+    before `ownHistorySection`, so memory still yields first under the cap
+    even on the AI desk. `ownHistorySection`
     is skipped ENTIRELY, not merely trimmed, when `hideDriver` is true: a
     past posted deliverable's own option can name the very driver a bench
     run is hiding (a recurring cause explained before is exactly the case
@@ -711,7 +716,10 @@ an absent invariant.
     (`internal/deliver`), which forces a packet over 12 KiB on a real
     anomaly and requires the anomaly section whole, the history section's
     newest entry present, its oldest entry missing, and the packet ending in
-    the truncation note. `TestOwnHistoryShowsTheAnalystsOwnLastPostedDeliverable`,
+    the truncation note; `TestAISpendAndUnitEconomicsYieldBeforeMemoryUnderTheCap`
+    holds the same property for C7's two additions, forcing the cap with a
+    real AI-desk import and a long run of past posted deliverables and
+    requiring the AI spend section whole. `TestOwnHistoryShowsTheAnalystsOwnLastPostedDeliverable`,
     `TestOwnHistoryShowsExactlyThreeNewestFirst`,
     `TestOwnHistoryHidesAnotherAnalystsDeliverableOnTheSameDesk`,
     `TestOwnHistoryHidesTheSameAnalystsDeliverableOnAnotherDesk` and
@@ -784,6 +792,105 @@ an absent invariant.
     reverted rather than kept as permanent cases, each caught by one of the
     tests above, the same shape invariant 27's own history already
     describes for this repository.)*
+
+32. **The AI desk's own figures are real, not generated, and a query
+    against them reaches only `ai_calls`.** C7-SPEC.md. `ai-spend`'s packet
+    (`aiSpendSection`) and `unit-econ-ai`'s (`unitEconomicsSection`), both in
+    `internal/deliver/packet.go`, read `ai_calls` directly rather than the
+    daily `charges` ledger: this month's calls grouped by agent
+    (`ResourceId`) and by model, cost in Micros summed once and never
+    rounded per call (invariant 25), the blocked count named as the guard's
+    saving rather than folded into cost, the estimated share of
+    `x_cost_basis`, and (for `unit-econ-ai`) a cost per outcome per agent
+    with the denominator named, or, for an agent that spent and tagged
+    nothing, said plainly rather than invented. Neither section takes a desk
+    argument: `ai_calls` has no desk column at all, by construction, and
+    both are omitted entirely -- not a header over nothing -- until real
+    spend has landed, gated by the skills only these two roles hold
+    (`ai-spend-analysis`/`token-economics`/`model-routing-review`,
+    `unit-economics`/`cost-per-outcome`), the same convention every other
+    skill-gated section in that file already follows.
+    `cost-per-outcome` (`internal/finops/kpi.go`, `CostPerOutcome`) is the
+    same figure at the whole-desk grain: every agent that spent this month
+    contributes its WHOLE cost to the numerator and every outcome any of
+    them tagged contributes one to the denominator, so an agent that spent
+    and tagged nothing still counts in the cost rather than being quietly
+    excluded from a ratio that would otherwise look better for having
+    counted less; it reports once any outcome exists and refuses -- naming
+    the count of agents that spent and set none -- only when nothing does,
+    replacing the unconditional refusal this KPI carried before this step.
+    `agent-attribution` is unchanged: it already read this correctly (proven
+    by `TestAgentAttributionKPIBecomesComputedAfterAnImport`, from B0).
+    `ai_calls_query` (`tools/run/ai_calls_query.go`) is `charges_query`'s own
+    shape -- the same identifier allow-list scan against `sqlite_master`,
+    `WITH` banned unconditionally, the same read-only connection and forced
+    `LIMIT` -- scoped to `ai_calls` alone, and granted by `figures-read`
+    rather than `sql-readonly`: both AI desk roles already hold
+    `figures-read` to read `ai_calls` at all (`roles.yaml`'s own `reads`
+    line for each), and `sql-readonly` stays `charges_query`'s own broader
+    right over `charges`, `drivers` and `attribution`, untouched by this
+    step. `charges_query.go` itself is byte-for-byte unchanged: three of its
+    own `gates-have-teeth.sh` cases plant their mutant by an exact literal
+    match against that file's text, and a refactor sharing the allow-list
+    check between the two tools would have silently broken all three (their
+    mutation would find nothing to replace and report BROKEN, not a caught
+    fault) -- so `ai_calls_query.go` calls every table-agnostic helper
+    `charges_query.go` already exports (`tokenizeSQL`, `identifierTokens`,
+    `tablesInSQL`, `realTableNames`, `wrapWithLimit`, `chargesCellString`,
+    `renderChargesTable`, `startsWithSelect`, the banned-keyword and `WITH`
+    regexes) rather than copying them, and writes out only the two checks
+    that actually depend on which table is allowed.
+    *(gate: `TestAISpendSectionNamesTheAgentAndTheModel`,
+    `TestAISpendSectionCountsBlockedCallsAsTheSaving`,
+    `TestUnitEconAIPacketNamesCostPerOutcomeFromTheFixture`,
+    `TestUnitEconAIPacketNamesAgentsWithCostAndNoOutcome`,
+    `TestAISpendSectionWithOneCallThisMonth`,
+    `TestAISpendSectionCapsAtTenWithAndNMore`,
+    `TestAISpendSectionStaysBoundedWithAHugeOutcomeValue`,
+    `TestPacketOmitsAIDeskSectionsWithoutTheSkill` and
+    `TestAISpendSectionEmptyWithoutRealData` (`internal/deliver`) hold the
+    two sections; `TestAIByModelCountsCallsTokensCostAndBlocked`,
+    `TestOutcomeCountsByAgentCountsOnlyNonBlockedTaggedCalls`,
+    `TestBasisCountsSplitsSettledEstimatedBlocked`,
+    `TestCostPerOutcomeReportsOnceAnyOutcomeExists`,
+    `TestCostPerOutcomeCountsAnAgentWithCostAndNoOutcome`,
+    `TestCostPerOutcomeRefusesWithACountWhenNoOutcomeExists`,
+    `TestCostPerOutcomeRefusesOnAnEmptyMonth`,
+    `TestCostPerOutcomeSumsMicrosExactlyNotCentsPerRow`,
+    `TestCostPerOutcomeKPIReportsAfterTheFixtureImport`,
+    `TestCostPerOutcomeKPINotesPartialCoverage` and
+    `TestCostPerOutcomeKPIRefusesWithACountBeforeAnyImport` (`internal/finops`)
+    hold the KPI and its queries -- the last of these is also the regression
+    this step's own red-first pass found: `CostPerOutcome`'s first version
+    queried `ai_calls` unconditionally and turned a store with no `ai_calls`
+    table at all (which `TestAgentAttributionKPIBecomesComputedAfterAnImport`
+    already builds, for its own "before" half) into a hard error for the
+    WHOLE KPI library, exactly the failure mode this file's own header
+    already warns `KPIs()` against; `aiCallsTableExists` fixed it.
+    `TestAICallsQueryHostileInputs` reuses `TestChargesQueryHostileInputs`'
+    own list verbatim, adjusted for the different allow-list (every case
+    naming `charges` as the allowed table now names `ai_calls`; `charges`
+    itself becomes a must-refuse case), plus the two hostile cases this step
+    names by name (a `ResourceId` with a quote in it, reached as a string
+    literal rather than a table reference; a 1 MB `x_outcome` value, refused
+    on size); `TestAICallsQueryAnswersOverAICallsAndRefusesCharges` is the
+    same property end to end through the dispatcher;
+    `TestAICallsQueryIsGrantedByFiguresReadNotSQLReadonly` and
+    `TestAICallsQueryRefusesAnAnalystWithNoRights` hold the right (`tools/run`).
+    `scripts/gates-have-teeth.sh`'s `ai_calls_query: drops its table
+    allow-list` case plants this step's own named mutant (`if
+    !aiCallsAllowedTables[tb] {` -> `if false {`) against
+    `TestAICallsQueryHostileInputs`; the sum-cents-per-row mutant (rounding
+    each agent's cost to its own nearest cent before summing, rather than
+    summing exact Micros once) and the count-blocked-as-cost mutant
+    (dropping `-r.BlockedCalls` from `CostPerOutcome`'s "did this agent
+    spend" gate, so a blocked-only agent is counted as having spent and
+    tagged nothing) were planted by hand and reverted rather than kept as
+    permanent cases, caught by `TestCostPerOutcomeSumsMicrosExactlyNotCentsPerRow`
+    and `TestCostPerOutcomeCountsAnAgentWithCostAndNoOutcome` respectively --
+    the same shape invariants 26, 27 and 31's own history already describes
+    for this repository, named in the PR body with the exact diff and the
+    failing test's output.)*
 
 ## Decisions that have no gate yet
 
