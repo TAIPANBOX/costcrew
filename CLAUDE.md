@@ -57,7 +57,7 @@ health path passed.
 
 ```sh
 go test ./...                        # 542 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 70 cases; needs a clean tree; ~PLACEHOLDER_TIME
+./scripts/gates-have-teeth.sh        # 70 cases; needs a clean tree; ~7m under load, ~3m40s clean
 ./scripts/features-are-bound.sh      # 119 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
@@ -86,21 +86,31 @@ test; tools/bench gained 7, 5 in the first pass and 2 more in coordinator
 review's -stack-host fix) and 67 -> 69 gates-have-teeth.sh cases (the
 second-door mutant, one case per binary). Feature scenarios 105 -> 115
 (8 in the first pass, 2 in the -stack-host fix). This step (invariant 33)
-independently forked before #29 merged and, on its own branch alone, moved
-the same 515 -> 528 tests and 67 -> 68 gates-have-teeth.sh cases; merging the
-two forward rather than rebasing (both add commits, neither rewrites
-history) makes the true totals 542 tests, 70
-gates-have-teeth.sh cases and 119 feature scenarios
-(@measured 2026-09-03, this merge commit, the three commands above),
-each re-measured on the merged tree rather than assumed additive, since nothing
-here keeps that arithmetic honest by itself. The gates-have-teeth.sh count
-this block now carries is the reconciled `grep -c '^run_case '` convention
-above, not the harness's own `teeth: N passed` summary line this step's own
-CLAUDE.md carried before the merge -- the two agree
-(@measured 2026-09-03, `./scripts/gates-have-teeth.sh` on the merged
-tree, 70 passed, 0 failed) and the grep is the one documented
-here since it is what PR #29 already established as the estate's shared
-convention and it does not need the ~PLACEHOLDER_TIME run to answer.
+independently forked at the SAME 602fa25, before #29 merged, and moved
+that fork point's own 515 -> 528 tests, 67 -> 68 gates-have-teeth.sh
+cases and added its own 4-scenario `features/executive-pack.feature` on
+its own branch alone. Merging the two forward rather than rebasing (both
+add commits, neither rewrites history) landed exactly on simple
+inclusion-exclusion, not by assumption but checked against a re-count on
+the merge commit itself: 541 tests (528+528-515), 70 gates-have-teeth.sh
+cases (69+68-67) and 119 scenarios (115+4, no overlap: main had none of
+this step's own feature file). Fixing this PR's own should-fix findings
+then added one more test, bound to an existing scenario rather than a new
+one (features/executive-pack.feature's "first period" scenario gained a
+second `@test:` line): 542 tests, still 70 gates-have-teeth.sh cases,
+still 119 scenarios but 134 bindings
+(@measured 2026-09-03, this branch's own HEAD, the three commands above
+plus `./scripts/features-are-bound.sh`'s own line) -- re-measured rather
+than assumed additive either time, since nothing here keeps that
+arithmetic honest by itself. The gates-have-teeth.sh count this block
+carries is the reconciled `grep -c '^run_case '` convention above, not
+the harness's own `teeth: N passed` summary line this step's own
+CLAUDE.md carried before the merge; the two agree (@measured 2026-09-03,
+`./scripts/gates-have-teeth.sh` on the merged tree, 70 passed, 0 failed,
+~7 minutes under this session's own concurrent load), and the grep stays
+the one documented here because it is what PR #29 already made the
+estate's shared convention, and answering it costs a `grep`, not a
+multi-minute run.
 
 The gates in this repo are Go tests rather than shell scripts, so
 `gates-have-teeth.sh` mutates the PRODUCT and requires the test to go red.
