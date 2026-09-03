@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "costcrew-console",
+      "runtimeExecutable": "/private/tmp/claude-501/-Users-yukos-Development/2840edcc-a467-434d-b584-f697d6ba3664/scratchpad/costcrew-console",
+      "runtimeArgs": ["-data", "/private/tmp/claude-501/-Users-yukos-Development/2840edcc-a467-434d-b584-f697d6ba3664/scratchpad/live-crew-store", "-stack-host", "costcrew.local"],
+      "port": 8321
+    }
+  ]
+}

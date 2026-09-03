@@ -385,8 +385,21 @@ an absent invariant.
     and main.scrollTop forced to 400: nothing moved it, all 26 links visible,
     zero mismatches; 92 page-and-size combinations clean afterwards. Below
     936px of viewport the panel keeps an internal scroll, which is what any
-    list too long for its box does; the structural answer is fewer than 26
-    destinations and that is Yurii's call.)*
+    list too long for its box does; the structural answer is fewer
+    destinations and that is Yurii's call. He made it in the other direction
+    on 2026-09-03, for the one page nothing led to: `@yurii 2026-09-03`,
+    reading the site's own screenshot of it, "я не бачу в боковому меню
+    вкладки такої Right Sizing. Так і не зміг знайти." Rightsizing is the
+    28th link, and the budget moved with it rather than the link going in
+    under a stale number. @measured 2026-09-03, the in-app browser against a
+    real console on a fresh store, five viewport heights, reading
+    `nav.scrollHeight` against `nav.clientHeight` and the last link's own
+    bottom edge: content 980px, slack 40px at a 1020px viewport and 20px at
+    1000px, no scrollbar of its own at either; the scrollbar returns at 990px
+    and below. One link costs 28px, so the height at which the trap returns
+    moved from about 964px to about 992px, and the band this change costs is
+    a viewport between those two figures. Anybody shorter than that was
+    already scrolling before it.)*
 
 20. **A figure that mixes generated and real money says so.** Both themes are
     measured, not eyeballed: the marker's first border was 1.2:1 against its
