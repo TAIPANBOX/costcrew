@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/TAIPANBOX/costcrew/actions/workflows/ci.yml/badge.svg)](https://github.com/TAIPANBOX/costcrew/actions/workflows/ci.yml)
 ![Go](https://img.shields.io/badge/go-1.27-00ADD8.svg)
-![tests](https://img.shields.io/badge/tests-384-brightgreen.svg)
+![tests](https://img.shields.io/badge/tests-436-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)
 ![Status](https://img.shields.io/badge/enforces-nothing%20by%20design-success.svg)
 
@@ -156,9 +156,9 @@ off the stem; `-stack-host` sets the `agent://` authority.
 ## Gates
 
 ```sh
-go test ./...                        # 384 tests, 18 packages
+go test ./...                        # 436 tests, 20 packages
 ./scripts/features-are-bound.sh      # every scenario bound to a named test, both ways
-./scripts/gates-have-teeth.sh        # 59 cases: each gate is made to fail on purpose
+./scripts/gates-have-teeth.sh        # 63 cases: each gate is made to fail on purpose
 gofmt -l . && go vet ./...
 ```
 
@@ -167,12 +167,35 @@ and requires the failure, requires the gate NOT to fire on a non-fault, and
 requires it to say it measured nothing rather than reporting OK when its subject
 has been taken away.
 
+## The bench
+
+`tools/bench` answers the question a FinOps lead actually asks about a crew of
+agents: not how many deliverables it wrote, but how many of them named the
+right cause. The generated estate carries the true cause of every planted
+driver event, so the bench runs an analyst (or its own deterministic mock
+engine, for a test suite that needs no key) on N known anomalies with that
+cause hidden from its packet, and prints what fraction named the right
+service, day, kind and cause, beside the cost per task:
+
+```sh
+go run ./tools/bench -dir ./local -skill triage -engine mock
+```
+
+`-live` calls a real model and needs a real key; without it, any engine but
+`mock`/`mock-oracle` is priced at that model's own rate and refused, never
+called. What it is not: a score on the generated fixture is a score on the
+fixture, not a claim about a real production estate, and it says which mode it
+ran in (fixture or, on imported data with no planted driver, against the
+posted/returned stamp) right in its own header.
+
 ## Status
 
 - [x] Rewritten in Go, the Python original deleted 2026-08-25
 - [x] Registered producer on the shared bus: every type this console emits is listed under `costcrew` in SPEC 6.2, and estate-gates C4 holds that both ways
 - [x] Installed by `stack-up --with-finops`
 - [x] Live agents: `tools/run -live` prices the worst case before every call
+- [x] An evaluation bench: `tools/bench` scores a named cause against the
+      generated fixture's own known answer, or against imported data's stamps
 - [ ] Per-agent attribution of AI spend, which needs TokenFuse in the path
 - [ ] A console route that starts a crew run; today that is a CLI
 

@@ -33,7 +33,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"sort"
 	"strings"
 
 	"github.com/TAIPANBOX/costcrew/internal/money"
@@ -41,6 +40,7 @@ import (
 	"time"
 
 	"github.com/TAIPANBOX/costcrew/internal/crew"
+	"github.com/TAIPANBOX/costcrew/internal/deliver"
 	"github.com/TAIPANBOX/costcrew/internal/stack"
 )
 
@@ -423,103 +423,17 @@ func callOpenRouter(ctx context.Context, model, prompt string, maxTok int) (call
 	}, nil
 }
 
-// prompt is what the analyst is asked, built only from what the console holds.
+// prompt is production's own call into internal/deliver.Prompt: see that
+// function for everything this used to say about persona, mission, the
+// packet, the date, the format note and the options block instructions.
 //
-// The task, and the brief the analyst was hired with. Nothing else: an analyst
-// without figures-read is not handed figures, and this is where that rule is
-// kept rather than hoped for.
-//
-// packetText is the TASK PACKET (packet.go), inserted here rather than
-// built by this function: it needs a database read the estimator's own
-// worst-case measurement (main.go's price()) must not repeat at call time,
-// since the estate can move between pricing a run and executing it and a
-// bound only true of a moment ago is not a bound. price() calls packet()
-// once and carries the result in estimate.Packet; execute() passes that
-// same string back in here unchanged. An empty packetText renders nothing,
-// which is right both for a task with no figures section to show and for
-// every existing caller that has never heard of a packet.
+// Moved there (B7-SPEC.md section 3's factoring) so tools/bench can send the
+// identical prompt tools/run does rather than a second one that only looks
+// like it: "so the bench measures what production runs, not a second
+// prompt" (B7-SPEC.md section 2). This wrapper keeps the old unexported name
+// so every call site and test in this package needed no change.
 func prompt(t crew.Task, a crew.Analyst, today, packetText string) string {
-	var b strings.Builder
-	fmt.Fprintf(&b, "You are %s, %s on the %s desk of a FinOps practice.\n", a.Name, a.Role, a.Desk)
-	if a.Mission != "" {
-		fmt.Fprintf(&b, "Your brief: %s\n", a.Mission)
-	}
-	b.WriteString(jobDescriptionBlock(a.Name, a.Desk))
-	b.WriteString(packetText)
-	fmt.Fprintf(&b, "\nThe task on your desk is %q.\n", t.Title)
-	if t.Goal != "" {
-		fmt.Fprintf(&b, "What it asks for: %s\n", t.Goal)
-	}
-	// The date, because it asked for one and got no answer.
-	//
-	// A live run produced "**Date:** [Today's Date]" on the face of a
-	// deliverable a person was meant to read. A model has no clock, so the
-	// choices are to give it the date or to have it guess; and this console's
-	// whole argument is that a figure nobody can check is worse than no figure.
-	fmt.Fprintf(&b, "\nToday is %s.\n", today)
-
-	// The format, kept to what the console renders.
-	//
-	// The renderer is deliberately tiny and now covers headings, rules, lists,
-	// bold and italic. Asking for a narrow format is cheaper than widening it
-	// further, and the renderer holds either way: a model that ignores this
-	// still has to come out readable.
-	b.WriteString("Use plain prose with ## headings, **bold** and simple " +
-		"- bullets. No tables, no code fences.\n")
-
-	b.WriteString(optionsBlockInstructions(a.Name, a.Desk))
-
-	b.WriteString("\nWrite the deliverable. Be specific, say what you do not know, " +
-		"and do not invent a number you were not given.\n")
-	return b.String()
-}
-
-// optionsBlockInstructions tells the model the one shape it must not use
-// prose for: the options block, fenced and tagged, at the very end. The
-// classes it may name come from the SAME job description jobDescriptionBlock
-// already printed above ("You may decide alone" / "You hand to the
-// supervisor") -- this repeats them as a closed list next to the JSON shape
-// itself, from the same roles.yaml data, so the vocabulary the model sees has
-// one source rather than two texts that could drift (B3-SPEC.md section 2:
-// "the prompt tells the model the block's shape and the classes it may name,
-// from the same roles data").
-//
-// Empty when the role matches no family, the same additive rule
-// jobDescriptionBlock and packet() already hold: nothing here should tell a
-// model to produce a shape this console cannot check.
-func optionsBlockInstructions(name, desk string) string {
-	r, ok := crew.RoleForDesk(name, desk)
-	if !ok {
-		return ""
-	}
-	legal := crew.ValidClassesFor(r)
-	if len(legal) == 0 {
-		if crew.AllowsNoOptions(r) {
-			return "\nThis role's deliverable is prose; it needs no options block.\n"
-		}
-		return ""
-	}
-	classes := make([]string, 0, len(legal))
-	for c := range legal {
-		classes = append(classes, c)
-	}
-	sort.Strings(classes)
-
-	var b strings.Builder
-	b.WriteString("\nEnd the deliverable with a fenced block tagged options, JSON, " +
-		"naming one to three courses of action -- never one you have already taken:\n")
-	b.WriteString("```options\n")
-	b.WriteString(`{"options": [{"class": "...", "summary": "...", "figure_cents": 0, ` +
-		`"saving_cents": 0, "risk": "low|medium|high", "needs": "nothing|a person to ...", ` +
-		"\"evidence\": [\"...\"]}]}\n")
-	b.WriteString("```\n")
-	fmt.Fprintf(&b, "class must be one of: %s. figure_cents and saving_cents are whole "+
-		"numbers of cents, never a decimal. This deliverable proposes; it never applies "+
-		"anything itself.\n", strings.Join(classes, ", "))
-	if crew.AllowsNoOptions(r) {
-		b.WriteString("Zero options is fine here if there is nothing to decide.\n")
-	}
-	return b.String()
+	return deliver.Prompt(t, a, today, packetText)
 }
 
 // execute runs ONE task and records what it produced and what it cost.

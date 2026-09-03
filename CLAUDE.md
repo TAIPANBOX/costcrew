@@ -56,19 +56,24 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 384 tests, 18 packages
-./scripts/gates-have-teeth.sh        # 59 cases; needs a clean tree; ~90s
-./scripts/features-are-bound.sh      # 88 scenarios, both directions
+go test ./...                        # 436 tests, 20 packages
+./scripts/gates-have-teeth.sh        # 63 cases; needs a clean tree; ~90s
+./scripts/features-are-bound.sh      # 92 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refused PR #19 on two findings the list above never asked for; a staticcheck built for an older Go cannot read this module, so on such a machine CI is the only place it runs
 ```
 
-Counts follow the suite, measured on `feat/skills-are-tools`; nothing here keeps
-them current automatically, so they lag whichever branch last updated them by
-hand (B1a's own merge left this block at 282/48/59 while its own PR body
-reported 301/52/70).
+Counts follow the suite, measured on `feat/the-bench-scores-a-named-cause-against-the-truth`
+(test count by `go test ./... -list '.*' | grep -c '^Test'` -- test FUNCTIONS, not
+subtests, the convention PR #21, #23 and this file's own `internal/manifest` gate
+already use, not `-v | grep -c '^--- PASS'`, which over-counts anything using
+`t.Run`; packages by `go list -f '{{if or .TestGoFiles .XTestGoFiles}}...'`;
+`grep -c '^run_case' scripts/gates-have-teeth.sh`; `grep -rc Scenario: features/*.feature`;
+2026-09-03); nothing here keeps them current automatically, so they lag whichever
+branch last updated them by hand (B1a's own merge left this block at 282/48/59
+while its own PR body reported 301/52/70).
 
 The gates in this repo are Go tests rather than shell scripts, so
 `gates-have-teeth.sh` mutates the PRODUCT and requires the test to go red.
@@ -599,7 +604,80 @@ an absent invariant.
     `Source` is one of the fixture's desks) and
     `TestTheSeededFixtureDriversReachThePacket` (E02's driver reaches
     `driversSection` and `packet()` after `estate.Seed`), both red on the
-    old code.)*
+    old code. `@claude` 2026-09-02: both now live in
+    `internal/deliver/fixture_drivers_test.go`, unrenamed, calling
+    `driversSection` and `Packet(..., false)` in their new home -- B7 moved
+    the packet builder there (invariant 29) after this invariant's own PR
+    merged; the two names above are otherwise exactly as landed.)*
+
+29. **A bench never hands an analyst the answer it is about to be scored
+    against, and it never writes the thing it measures.** B7-SPEC.md.
+    `internal/crew`'s investigator role owes "the cause, named, or 'none
+    established' in those words" (`roles.yaml`'s own `owes` line); the
+    generated fixture's registry knows the true cause of every planted
+    driver event, which is what makes a number possible at all --
+    `tools/bench` runs an analyst (or its own mock engine) on N such
+    anomalies with the driver's label and kind stripped from the packet,
+    scores whether the deliverable names the service, the day, the kind and
+    a cause matching that label, and never inserts a task, an artifact, a
+    charge or a journal row while doing it. `-live` is refused with either
+    mock engine and, without it, any other engine is priced at that model's
+    published rate and refused before a call, never after one.
+
+    The packet builder moved to `internal/deliver` to make this possible at
+    all: Go refuses to import a second `package main`
+    (`import ".../tools/run" ... is a program, not an importable package`),
+    so `tools/bench` could not otherwise build the exact packet
+    `tools/run` sends. `Packet`'s new `hideDriver` boolean is the only
+    behavioural change; `tools/run/packet.go`, `mandate.go`, `main.go` keep
+    their old unexported names as one-line wrappers, so no other call site
+    or test in that package changed.
+
+    `call()` did NOT move, and `tools/bench` holds no caller of its own
+    either, which a first version of this change got wrong: it read a key
+    from the environment and spoke to the Anthropic wire directly, no
+    gateway involved, exactly the second money path B6 closed by putting
+    TokenFuse in `tools/run`'s own call path in the first place. Caught in
+    review before merge (coordinator pass on PR #25, 2026-09-03) and
+    removed rather than gated: `-live` with any engine but the two mocks
+    now refuses outright, unconditionally, with the sentence "the bench is
+    not wired through the TokenFuse gateway yet; a live run waits for the
+    shared caller (one call path for tools/run and tools/bench, in
+    internal/deliver)" -- naming the eventual fix without attempting it
+    here. `tools/bench` holds no `net/http` import, no model-provider
+    credential read, anywhere.
+    *(gate: `TestBenchPacketHidesTheDriverLabelAndItsKind`,
+    `TestBenchPacketHidesTheDriverOnTheOtherKnownCase` (`internal/deliver`,
+    both real fixture cases: gcp/GKE and onprem/Batch cluster),
+    `TestBenchWritesNothingToTheEstate` (`tools/bench`: every table's row
+    count and the journal file itself, before and after a full scoring
+    run), `TestLiveWithARealEngineRefusesUntilTheSharedCallerExists` (the
+    refusal fires before the store opens) and
+    `TestNoFileInThisPackageCanMakeAnHTTPRequest` (every non-test file
+    under `tools/bench`, scanned for the literal substrings, the same way
+    `tools/run/main_test.go`'s `TestThisBinaryCannotSpend` proves it about
+    `main.go`). `TestScoreJudgesTheNamedCauseNotTheWholeBody` holds the
+    companion property a hidden driver would otherwise make pointless: the
+    scorer judges the EXTRACTED named cause, not whether the label's own
+    words appear anywhere in the deliverable's body, so an analyst cannot
+    score a match by echoing its own task description back.
+    `scripts/gates-have-teeth.sh` plants and catches three mutants, named in
+    B7-SPEC.md section 5: leaving the `driver:` line and the drivers
+    section in a hiding-mode packet, scoring cause by substring of the
+    whole deliverable instead of the named cause, and summing a run's cost
+    from cents rounded per case instead of micro-dollars rounded once at
+    the total (the `finest-unit-per-row-round-once-at-the-aggregate`
+    principle invariant 25 already holds for `ai_calls`). `ensureSeeded`
+    itself carries the same shape of fault, caught the same review pass:
+    it ran detection against ANY store, seeded by this call or not, so an
+    existing store (a live console's own data, or charges newer than
+    whatever detection last ran) gained anomaly rows it never asked for.
+    `estate.Seed`'s own return value now says whether this call created
+    the charges; detection and roster DATA run only then, while both
+    schemas (`crew.Schema`, `crew.RosterSchema`) are created unconditionally
+    because CREATE TABLE IF NOT EXISTS adds no row, proven by
+    `TestBenchDoesNotDetectAgainstAnExistingStore`: an existing store's own
+    anomaly count, before and after a bench run against it, equal.)*
 
 ## Decisions that have no gate yet
 

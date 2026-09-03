@@ -557,7 +557,7 @@ run_case 'a model able to put a tag on the page' caught ./internal/web \
 run_case 'a model left to guess the date' caught ./tools/run \
 	'TestTheModelIsToldTheDate' \
 	'does not carry the date' \
-	tools/run/live.go \
+	internal/deliver/prompt.go \
 	'fmt.Fprintf(&b, "\nToday is %s.\n", today)' \
 	'fmt.Fprintf(&b, "\n%s", today[:0])'
 
@@ -796,6 +796,53 @@ run_case $'options: an analyst'"'"'s Post applies an option' \
 	internal/web/work.go \
 	$'\t\t\terr = crew.Post(s.db, id, u.Username, "owner")\n\t\t} else {' \
 	$'\t\t\terr = crew.Post(s.db, id, u.Username, "owner")\n\t\t\tif err == nil {\n\t\t\t\tif opts, _ := crew.Options(s.db, id); len(opts) > 0 {\n\t\t\t\t\t_ = crew.MarkOptionApplied(s.db, opts[0].Artifact, opts[0].Ordinal, u.Username)\n\t\t\t\t}\n\t\t\t}\n\t\t} else {'
+
+# B7: the bench (tools/bench) scores a named cause against the truth a
+# generated fixture's registry already knows, and it can only prove
+# anything if the cause it checks was actually hidden first. B7-SPEC.md
+# section 5 names this mutant by its own words, "leave the driver: line in
+# the bench packet": internal/deliver/packet.go's AnomalySection prints it
+# unconditionally, exactly what the unexported anomalySection() in
+# tools/run/packet.go did before this step, and what any caller reusing it
+# for a bench would need to hide.
+run_case 'bench: the driver: line is left in a hiding-mode packet' \
+	fail \
+	./internal/deliver \
+	$'TestBenchPacketHidesTheDriverLabelAndItsKind' \
+	$'still names the driver label' \
+	internal/deliver/packet.go \
+	$'if an.Driver != "" && !hideDriver {' \
+	$'if an.Driver != "" {'
+
+# B7-SPEC.md section 5's second named mutant: "score cause by substring of
+# the whole deliverable instead of the named cause". A deliverable can
+# carry the driver's own words somewhere in its body (echoed back from the
+# task description, say) without ever naming them as ITS cause, and a
+# scorer that checked the whole body rather than the extracted named cause
+# would credit that as a match.
+run_case 'bench: cause scored by substring of the whole body' \
+	fail \
+	./tools/bench \
+	$'TestScoreJudgesTheNamedCauseNotTheWholeBody' \
+	$'never named as' \
+	tools/bench/score.go \
+	$'CauseMatched: causeMatches(an.Driver, named),' \
+	$'CauseMatched: causeMatches(an.Driver, body),'
+
+# B7-SPEC.md section 5's third named mutant, the
+# finest-unit-per-row-round-once-at-the-aggregate principle invariant 25
+# already holds for ai_calls: "count cost per call rounded to cents"
+# instead of summing micro-dollars and rounding once at the total. Two
+# cases at 0.3 of a cent each round to nothing individually and to a real
+# 0.6 of a cent summed first.
+run_case 'bench: cost summed after rounding each case to cents' \
+	fail \
+	./tools/bench \
+	$'TestReportTotalSumsMicrosBeforeAnyRounding' \
+	$'summed to nothing' \
+	tools/bench/report.go \
+	$'totalMicros += r.Score.CostMicros' \
+	$'totalMicros += (r.Score.CostMicros / 10_000) * 10_000'
 
 echo
 if [ -n "$(git status --porcelain)" ]; then
