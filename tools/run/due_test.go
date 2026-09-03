@@ -152,6 +152,92 @@ func TestDueRefusesBeforeAnyCallWhenWorstExceedsTheCeiling(t *testing.T) {
 	}
 }
 
+// TestDueRefusesBeforeAnyCallWhenTheMultipliedWorstExceedsTheCeilingButNotTheSingleCallWorst
+// is PRICE-DISPLAY-SPEC.md's own gap, found reading due.go rather than named
+// there by name: dueWorstMicros summed the raw, single-call e.WorstMicros
+// the same way report() and price()'s Verdict did, so a ceiling that could
+// never cover six rounds on the tool loop still passed THIS boundary check,
+// let crew.Approve create the sprint and the task, and only failed once
+// spend() reached execute()'s own reserve() -- which spend() swallows into a
+// printed line and a nil return (live.go's own spend, "A refusal stops the
+// run"), so dueExecute saw success and left a sprint and a never-run task on
+// the board.
+//
+// TestDueRunsWhenTheCeilingExactlyEqualsTheWorstCase, above in this file,
+// already sits at exactly this boundary and never noticed: its own comment
+// already names execute()'s reservation as "a different, larger number" than
+// this boundary's own worst case and deliberately asserts only on
+// sprintCount and dueExecute's own refusal wording, never on whether the
+// task actually ran. This test is the assertion that was missing.
+//
+// single is learned from each estimate's own e.WorstMicros directly, NOT
+// from dueWorstMicros(ests): after this fix dueWorstMicros returns the
+// RESERVED (already multiplied) figure, so calling it to learn the
+// single-call baseline would be circular -- it would return the very number
+// this test exists to check.
+func TestDueRefusesBeforeAnyCallWhenTheMultipliedWorstExceedsTheCeilingButNotTheSingleCallWorst(t *testing.T) {
+	db := dueTestDB(t)
+	hireDue(t, db, "expensive", "anthropic", money.Cents(100_000_00), money.Cents(100_000_00))
+	if err := crew.SetCadence(db, true, money.Cents(100_000_00), "yurii"); err != nil {
+		t.Fatal(err)
+	}
+
+	// Learn this fixture's own single-call worst case first, under a
+	// deliberately generous ceiling that cannot itself be the reason for
+	// anything below.
+	_, ests, _, _, _, _, _, err := duePreflight(db, money.Cents(100_000_00), true, 2000, "2026-09-03")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var single int64
+	var wouldRun int
+	for _, e := range ests {
+		if !e.Refused && e.Priced {
+			wouldRun++
+			single += e.WorstMicros
+		}
+	}
+	if wouldRun == 0 || single <= 0 {
+		t.Fatal("the fixture priced nothing to bound this test against")
+	}
+	multiplied := single * int64(loopsFor("anthropic"))
+	if multiplied <= single {
+		t.Fatal(`loopsFor("anthropic") is 1: this test needs a looping engine to mean anything`)
+	}
+	ceilingMicros := single + (multiplied-single)/2
+	ceiling := money.Cents((ceilingMicros + 9_999) / 10_000)
+	if int64(ceiling)*10_000 <= single || int64(ceiling)*10_000 >= multiplied {
+		t.Fatalf("the ceiling %s does not sit strictly between %s and %s",
+			ceiling, usd(single), usd(multiplied))
+	}
+	if err := crew.SetCadence(db, true, ceiling, "yurii"); err != nil {
+		t.Fatal(err)
+	}
+
+	// A fake server IS set up, the same as this file's other -due -live
+	// tests, even though a correctly-refusing run never dials one: this
+	// keeps the test meaningful (rather than accidentally passing because
+	// nothing could be reached) whichever state of the fix it runs against.
+	srv := fakeEngineServer(t)
+	t.Setenv("ANTHROPIC_API_KEY", "sk-ant-stub-not-real")
+	gw := gatewayConfig{URL: srv.URL, Host: "test.local", CeilingUSD: ceiling}
+
+	err = runDueOn(db, nil, ceiling, true, 2000, true, bus{}, gw, "2026-09-03")
+	if err == nil {
+		t.Fatalf("-due -live accepted a ceiling (%s) between the single-call worst "+
+			"case (%s) and the multiplied one (%s): a run that cannot possibly cover "+
+			"its own worst case must refuse before any call, not create a sprint and "+
+			"then silently fail to run it", ceiling, usd(single), usd(multiplied))
+	}
+	if !strings.Contains(err.Error(), "refused before any call") {
+		t.Errorf("refused for the wrong reason: %v", err)
+	}
+	if got := sprintCount(t, db); got != 0 {
+		t.Errorf("%d sprint(s) exist after a refusal that should have run before any "+
+			"call: -due's own boundary must refuse before crew.Approve, not after", got)
+	}
+}
+
 // ------------------------------------------------------------- red first (3)
 
 // Without -live, -due prints and writes nothing.

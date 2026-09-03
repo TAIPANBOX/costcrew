@@ -44,14 +44,53 @@ func ActualMicros(inTokens, outTokens int, p engines.Price) int64 {
 // preview and the runner's own preflight price the identical prompt.
 const estimateDate = "0000-00-00"
 
+// MaxToolRounds and LoopsFor are tools/run/loop.go's own tool-calling-loop
+// cap and per-engine multiplier, mirrored here (PRICE-DISPLAY-SPEC.md,
+// 2026-09-03) so a worst case computed where "package main" cannot be
+// imported -- this package, and internal/web's /cadence page through it --
+// uses the IDENTICAL multiplier tools/run's own execute() reserves before
+// the first call. tools/run/loop.go's maxToolRounds and loopsFor are now
+// one-line wrappers of these two, the same "moved here, old name kept as a
+// wrapper" shape every other shared formula in this file already uses (see
+// WorstCaseMicros and ActualMicros' own comments).
+//
+// Found reading live.go and main.go while confirming the incident this spec
+// describes: one execute() of a task on the tool loop (anthropic or
+// openrouter) can make up to MaxToolRounds model calls, each one costing up
+// to the SAME one-token-per-byte/full-output-cap bound a single call does
+// (looping does not shrink the per-round bound, it multiplies the call
+// COUNT), so the true worst case a run ever reserves for such a task is
+// WorstCaseMicros times this, never WorstCaseMicros alone. Before this fix,
+// EstimateWorstCase returned the unmultiplied figure -- correct for a
+// single-call engine, understating by up to MaxToolRounds times for
+// anthropic or openrouter, exactly the gap tools/run's own report() had.
+const MaxToolRounds = 6
+
+// LoopsFor is how many model calls one execute() of a task on this engine
+// can make: the tool loop's ceiling for the two engines it covers, one call
+// for every other engine.
+func LoopsFor(engine string) int {
+	switch engine {
+	case "anthropic", "openrouter":
+		return MaxToolRounds
+	}
+	return 1
+}
+
 // EstimateWorstCase prices one task for one analyst the way tools/run's own
-// price() does: the packet's bytes, the prompt built around them, and the
-// engine's published rate. It does not know or care about a task's own
-// per-task guard (tools/run's price() layers that comparison on top for its
-// own Verdict/Refused fields); this returns the same worstMicros/model/priced
-// triple price() computes before it ever looks at a guard, which is exactly
-// what a preview that has no task guard yet (B5-SPEC.md's due list, priced
-// before a sprint exists) and the runner's own precheck both need.
+// price() does -- the packet's bytes, the prompt built around them, and the
+// engine's published rate -- and then reserves it the way tools/run's own
+// execute() does: one call's own bound, times LoopsFor(a.Engine). It does
+// not know or care about a task's own per-task guard (tools/run's price()
+// layers that comparison on top for its own Verdict/Refused fields); this
+// returns the RESERVED worstMicros, a model name, and whether it could be
+// priced at all, which is exactly what a preview that has no task guard yet
+// (B5-SPEC.md's due list, priced before a sprint exists) needs to show a
+// person the number a live run of that same due list would actually
+// reserve -- not price()'s own single-call e.WorstMicros field, which stays
+// the one-call bound (tools/run's own reservedWorstCase(e) layers the same
+// multiplier on top of THAT, separately, so the two call sites can never
+// drift apart: see main.go's own comment).
 //
 // priced is false, and worstMicros and model carry no meaning, when the
 // engine is unknown, unmetered, or has no published price -- the same three
@@ -69,5 +108,6 @@ func EstimateWorstCase(db *sql.DB, t crew.Task, a crew.Analyst, maxOutputTokens 
 	}
 	pk := Packet(db, t, a, false)
 	promptTokens := Tokens(Prompt(t, a, estimateDate, pk))
-	return WorstCaseMicros(promptTokens, maxOutputTokens, p), model, true
+	oneCall := WorstCaseMicros(promptTokens, maxOutputTokens, p)
+	return oneCall * int64(LoopsFor(a.Engine)), model, true
 }

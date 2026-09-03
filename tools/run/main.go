@@ -297,23 +297,60 @@ func price(db *sql.DB, t crew.Task, a crew.Analyst, maxTok int) estimate {
 	// internal/deliver, shared with the /cadence console page, which cannot
 	// import this "package main" to call it here directly. Behaviour is
 	// unchanged; only the formula's one home moved.
+	//
+	// e.WorstMicros is ONE call's own bound. It stays that -- callers that
+	// need the RESERVED figure (this Verdict comparison, report(), spend()'s
+	// and -due's own whole-run preflights, and execute()'s actual reserve()
+	// call) go through reservedWorstCase(e) instead of reading this field
+	// directly, per PRICE-DISPLAY-SPEC.md, 2026-09-03: see that function's
+	// own comment for why a second copy of the multiplier is exactly what
+	// broke here the first time.
 	e.WorstMicros = deliver.WorstCaseMicros(e.PromptTokens, maxTok, p)
 
 	// The guard is in cents and the estimate is in micros, so the comparison
 	// happens in micros. Converting the other way would floor the estimate to
 	// zero and compare nothing against something.
+	//
+	// Compared against reservedWorstCase(e), the RESERVED figure, not
+	// e.WorstMicros: a task on the tool loop (anthropic, openrouter) can
+	// make up to loopsFor(e.Engine) calls in one execute(), each reserved
+	// before the first round is sent, so a guard that covers one call's own
+	// bound can still be refused live. Before this fix this compared
+	// e.WorstMicros directly, so a task could print "inside its guard" here
+	// and be refused by execute()'s own reserve() minutes later -- found
+	// running the first real live task on a real Anthropic account,
+	// PRICE-DISPLAY-SPEC.md.
 	leftMicros := int64(t.Budget-t.Spent) * 10_000
+	reserved := reservedWorstCase(e)
 	switch {
 	case t.Budget <= 0:
 		e.Verdict = "no per-task guard on this one"
-	case e.WorstMicros > leftMicros:
+	case reserved > leftMicros:
 		e.Verdict = fmt.Sprintf("worst case %s is past what is left of its guard, %s",
-			usd(e.WorstMicros), usd(leftMicros))
+			usd(reserved), usd(leftMicros))
 		e.Refused = true
 	default:
-		e.Verdict = fmt.Sprintf("inside its guard, %s left after", usd(leftMicros-e.WorstMicros))
+		e.Verdict = fmt.Sprintf("inside its guard, %s left after", usd(leftMicros-reserved))
 	}
 	return e
+}
+
+// reservedWorstCase is the true worst case a run reserves for one task: one
+// call's own bound (e.WorstMicros) times however many calls loopsFor(e.Engine)
+// says one execute() of it can make through the tool loop (loop.go). The
+// SAME figure execute()'s own reserve() call computes before the first round
+// (live.go) -- used here by price()'s own Verdict comparison against the
+// per-task guard, by report() (so the number a person reads before choosing
+// -ceiling is the number a live run will actually reserve), and by spend()'s
+// and -due's own whole-run preflight sums (live.go, due.go), so none of them
+// can diverge from reserve() the way they did the night PRICE-DISPLAY-SPEC.md
+// was written: report() showed a worst case of $0.0385 for task 294 on the
+// anthropic engine and reserve() required $0.2312 before it would let the
+// first round through -- almost exactly loopsFor("anthropic") (6) times
+// more, the exact ratio this function now makes structural rather than
+// coincidental.
+func reservedWorstCase(e estimate) int64 {
+	return e.WorstMicros * int64(loopsFor(e.Engine))
 }
 
 // tokens is production's own call into internal/deliver.Tokens, which is an
@@ -345,7 +382,12 @@ func report(db *sql.DB, ests []estimate, maxTok int, cap money.Cents, hasCap boo
 			// Summed BEFORE rounding. Forty-two calls at a quarter of a cent
 			// each is ten cents; forty-two roundings of a quarter of a cent
 			// is nothing.
-			worstMicros += e.WorstMicros
+			//
+			// reservedWorstCase(e), not e.WorstMicros: this is the number a
+			// person reads before choosing -ceiling, so it must be what a
+			// live run would actually reserve, loops included, not one
+			// call's own bound. PRICE-DISPLAY-SPEC.md, 2026-09-03.
+			worstMicros += reservedWorstCase(e)
 		}
 	}
 
@@ -381,7 +423,10 @@ func report(db *sql.DB, ests []estimate, maxTok int, cap money.Cents, hasCap boo
 		}
 		w := "-"
 		if e.Priced {
-			w = usd(e.WorstMicros)
+			// The same reservedWorstCase(e) the run total above sums: a
+			// person reads this column's own row and this must be the
+			// worst case THAT task would actually reserve, not one call's.
+			w = usd(reservedWorstCase(e))
 		}
 		fmt.Printf("%s%-19s %-12s %-28s %9s  %s\n",
 			mark, trim(e.Task.Title, 19), trim(e.Analyst.Name, 12), trim(em, 28), w, e.Verdict)

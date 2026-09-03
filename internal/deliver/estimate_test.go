@@ -106,3 +106,92 @@ func TestEstimateWorstCaseDoesNotMoveWithTheClock(t *testing.T) {
 		t.Errorf("two estimates of the same task differ: %d vs %d", w1, w2)
 	}
 }
+
+// PRICE-DISPLAY-SPEC.md, 2026-09-03. The /cadence page shows this figure to
+// a person before they flip the cadence switch on; the run that preview
+// describes is tools/run -due -live, which creates the due items as
+// ordinary tasks and runs them through the SAME execute() and the SAME tool
+// loop (tools/run/loop.go) an ordinary sprint task goes through. A
+// cadence-due task on anthropic or openrouter can therefore make up to
+// loopsFor(engine) model calls in one execute(), each reserved at THIS
+// task's own worst case before the first round is sent (live.go's own
+// execute()) -- so EstimateWorstCase must return that RESERVED figure, not
+// one call's own bound, or the preview understates by up to loopsFor's own
+// factor exactly the way tools/run's own report() did.
+//
+// The expected multiplier (6) is hardcoded here rather than read from
+// tools/run/loop.go's own loopsFor: this package cannot import "package
+// main" to call it (the exact restriction this file's own package comment
+// already names for Packet/Prompt/Tokens), and a test that reads the
+// multiplier from wherever this fix stores it would only prove the function
+// agrees with itself.
+func TestEstimateWorstCaseReturnsTheReservedFigureNotOneCallsOwnBound(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	db := st.DB()
+
+	task := crew.Task{Title: "Explain the move", Goal: "say what happened"}
+	a := crew.Analyst{Name: "a", State: "active", Engine: "anthropic", Skills: []string{"anomaly-triage"}}
+
+	p, ok := engines.PriceFor(a.Engine, engines.DefaultModel(a.Engine))
+	if !ok {
+		t.Fatal("no published price for the fixture's own engine/model")
+	}
+	pk := deliver.Packet(db, task, a, false)
+	oneCall := deliver.WorstCaseMicros(deliver.Tokens(deliver.Prompt(task, a, "0000-00-00", pk)), 2000, p)
+	if oneCall <= 0 {
+		t.Fatal("the fixture's own one-call worst case is zero")
+	}
+
+	worst, _, priced := deliver.EstimateWorstCase(db, task, a, 2000)
+	if !priced {
+		t.Fatal("the fixture came back unpriced")
+	}
+	const wantMultiplier = 6 // tools/run/loop.go's own loopsFor("anthropic")
+	if want := oneCall * wantMultiplier; worst != want {
+		t.Errorf("EstimateWorstCase = %d, want %d (one call's own bound %d times %d, "+
+			"the tool loop's own multiplier for anthropic): the /cadence preview must "+
+			"show what a live -due run of this task would actually reserve, not one "+
+			"round's own bound", worst, want, oneCall, wantMultiplier)
+	}
+}
+
+// TestEstimateWorstCaseIsUnchangedForASingleCallEngine is the boundary
+// PRICE-DISPLAY-SPEC.md asks for on the other side: bedrock (and every
+// engine outside the tool loop, tools/run/loop.go's runToolLoop) never
+// makes more than one call per execute(), so the multiplier here must be a
+// no-op, 1x, not a second bound layered on top of the first.
+func TestEstimateWorstCaseIsUnchangedForASingleCallEngine(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	db := st.DB()
+
+	task := crew.Task{Title: "Explain the move", Goal: "say what happened"}
+	a := crew.Analyst{Name: "a", State: "active", Engine: "bedrock", Skills: []string{"anomaly-triage"}}
+
+	p, ok := engines.PriceFor(a.Engine, engines.DefaultModel(a.Engine))
+	if !ok {
+		t.Fatal("no published price for the fixture's own engine/model")
+	}
+	pk := deliver.Packet(db, task, a, false)
+	oneCall := deliver.WorstCaseMicros(deliver.Tokens(deliver.Prompt(task, a, "0000-00-00", pk)), 2000, p)
+	if oneCall <= 0 {
+		t.Fatal("the fixture's own one-call worst case is zero")
+	}
+
+	worst, _, priced := deliver.EstimateWorstCase(db, task, a, 2000)
+	if !priced {
+		t.Fatal("the fixture came back unpriced")
+	}
+	if worst != oneCall {
+		t.Errorf("EstimateWorstCase = %d for a single-call engine, want %d unchanged "+
+			"(bedrock never enters the tool loop, so the multiplier must be a no-op "+
+			"here)", worst, oneCall)
+	}
+}
