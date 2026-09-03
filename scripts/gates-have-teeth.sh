@@ -945,7 +945,7 @@ run_case 'forecast: a recurring driver applies its effect once, un-extended' \
 	fail \
 	./internal/finops \
 	$'TestProjectWithDriversRepeatsARecurringDriverAcrossItsWindow' \
-	$'want 30.00' \
+	$'want 10.00' \
 	internal/finops/forecast.go \
 	$'effect = money.Cents(int64(sofar) * int64(windowDays) / int64(landed))' \
 	$'effect = money.Cents(int64(sofar) * int64(windowDays) / int64(windowDays))'
