@@ -683,108 +683,11 @@ func AwaitingStamp(db *sql.DB) ([]Task, error) {
 }
 
 // ------------------------------------------------------------- planning
-
-// Plan is a proposed sprint: what the crew would do next, routed to analysts
-// by desk, with the guards it would run under.
 //
-// It is a PROPOSAL. Nothing is created until an operator approves it, and the
-// approval is what materialises the tasks. A planner that writes straight to
-// the board is one that spends the budget before anybody agreed to the work.
-type Plan struct {
-	Label    string
-	Start    string
-	End      string
-	Goal     string
-	Items    []PlanItem
-	Budget   money.Cents
-	Existing bool // this sprint is already on the board
-}
-
-type PlanItem struct {
-	Title    string
-	Goal     string
-	Assignee string
-	Desk     string
-	Budget   money.Cents
-	Why      string
-}
-
-// Propose builds the next sprint from what the estate actually needs, which is
-// the difference between a plan and a template: every item names the thing it
-// came from.
-func Propose(db *sql.DB, label, start, end string) (Plan, error) {
-	p := Plan{Label: label, Start: start, End: end,
-		Goal: "Close what is open, and explain what is not."}
-
-	var exists int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM sprints WHERE label=?`, label).Scan(&exists); err != nil {
-		return p, err
-	}
-	p.Existing = exists > 0
-
-	// Open anomalies with nobody on them are the first call on the crew's
-	// time, largest first.
-	rows, err := db.Query(`SELECT id, source, service, day, excess_cents
-		FROM anomalies WHERE state='open' AND (handled_by IS NULL OR handled_by='')
-		ORDER BY ABS(excess_cents) DESC LIMIT 6`)
-	if err != nil {
-		return p, err
-	}
-	for rows.Next() {
-		var id, source, service, day string
-		var excess int64
-		if err := rows.Scan(&id, &source, &service, &day, &excess); err != nil {
-			rows.Close()
-			return p, err
-		}
-		p.Items = append(p.Items, PlanItem{
-			Title:    fmt.Sprintf("Explain the %s move on %s", service, day),
-			Goal:     fmt.Sprintf("%s against baseline on the %s desk.", money.Cents(excess), source),
-			Assignee: triageDesk(source),
-			Desk:     source,
-			Budget:   money.Cents(15_00),
-			Why:      "anomaly " + id + " is open and unowned",
-		})
-	}
-	rows.Close()
-
-	// Work that stopped, because a blocked task nobody revisits is the quiet
-	// way a sprint's capacity disappears.
-	blocked, err := Tasks(db, TaskFilter{State: Blocked})
-	if err != nil {
-		return p, err
-	}
-	for i, t := range blocked {
-		if i >= 3 {
-			break
-		}
-		p.Items = append(p.Items, PlanItem{
-			Title:    "Unblock: " + t.Title,
-			Goal:     t.Reason,
-			Assignee: t.Assignee,
-			Desk:     t.Desk,
-			Budget:   money.Cents(10_00),
-			Why:      fmt.Sprintf("task %d has been blocked since %s", t.ID, t.Updated),
-		})
-	}
-
-	for _, it := range p.Items {
-		p.Budget += it.Budget
-	}
-	return p, nil
-}
-
-func triageDesk(source string) string {
-	switch source {
-	case "aws", "gcp", "azure":
-		return "triage-" + source
-	case "ai":
-		return "triage-ai"
-	case "saas":
-		return "saas-manager"
-	}
-	return "investigator-onprem"
-}
+// Plan, PlanItem, Propose and triageDesk moved to plan.go (B4-SPEC.md): the
+// five-source, skill-routed version is long enough to want its own file, the
+// same way options.go and decision.go each hold one B3 concern. Approve
+// below is unchanged and stays here.
 
 // Approve materialises a plan onto the board. This is the only thing that
 // creates the tasks, and it is a person's act.

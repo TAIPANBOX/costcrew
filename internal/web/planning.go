@@ -199,7 +199,8 @@ func (s *Server) planPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	label, start, end := nextWeek(s)
-	p, err := crew.Propose(s.db, label, start, end)
+	goal := r.URL.Query().Get("goal")
+	p, err := crew.Propose(s.db, label, start, end, goal)
 	if err != nil {
 		http.Error(w, "store unavailable", http.StatusInternalServerError)
 		return
@@ -260,7 +261,7 @@ func (s *Server) approvePlan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p, err := crew.Propose(s.db, r.PostFormValue("label"),
-		r.PostFormValue("start"), r.PostFormValue("end"))
+		r.PostFormValue("start"), r.PostFormValue("end"), r.PostFormValue("goal"))
 	if err != nil {
 		redirectMsg(w, r, "/sprint/plan", err.Error())
 		return

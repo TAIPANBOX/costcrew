@@ -5,6 +5,15 @@
   <p>A proposal, not a sprint. Nothing is created until you approve it, and the approval is what puts the work on the board. A planner that writes straight to the board spends the budget before anybody agreed to the work.</p>
 </header>
 
+<form class="action" method="get" action="/sprint/plan">
+  <div class="row">
+    <label for="goal">Goal for this sprint (optional)</label>
+    <input type="text" id="goal" name="goal" value="{{.P.TypedGoal}}" placeholder="e.g. commitment-modelling for the aws desk">
+    <button type="submit">Update the plan</button>
+  </div>
+</form>
+{{if .P.GoalUnmatched}}<p class="msg">The goal names no skill this crew's roster holds, so it added nothing: the five sources below still apply.</p>{{end}}
+
 <div class="tiles">
   <div class="tile"><div class="k">Items</div><div class="v">{{len .P.Items}}</div><div class="s">{{.P.Start}} to {{.P.End}}</div></div>
   <div class="tile"><div class="k">Guards</div><div class="v">{{.P.Budget}}</div><div class="s">the ceiling this sprint would run under</div></div>
@@ -25,7 +34,7 @@
         <td><span class="note">{{.Why}}</span></td>
       </tr>
     {{else}}
-      <tr><td colspan="5" class="empty">Nothing to plan: no anomaly is unowned and nothing is blocked. That is a good week rather than a problem.</td></tr>
+      <tr><td colspan="5" class="empty">Nothing to plan: no anomaly is unowned, nothing is blocked, no cadence is due, nothing came back for rework, no decision is waiting, and the goal named nothing. That is a good week rather than a problem.</td></tr>
     {{end}}
     </tbody>
   </table>
@@ -40,6 +49,7 @@
   <input type="hidden" name="label" value="{{.P.Label}}">
   <input type="hidden" name="start" value="{{.P.Start}}">
   <input type="hidden" name="end" value="{{.P.End}}">
+  <input type="hidden" name="goal" value="{{.P.TypedGoal}}">
   <div class="row"><button type="submit">Approve and put it on the board</button></div>
 </form>
 {{end}}{{end}}
