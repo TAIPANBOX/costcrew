@@ -193,3 +193,51 @@ func TestApplyAnUnwiredClassIsRecordedOnly(t *testing.T) {
 		t.Errorf("option state %q, want applied", got.State)
 	}
 }
+
+// TestApplyingPurchaseHasNoSideEffect is C4-SPEC.md section 4's own mutant
+// (h), "put purchase into the apply table (must be refused by the class
+// check)": purchase's owner is "nobody" in roles.yaml -- crew.MayDecide
+// refuses it before it ever reaches an Owner field, for EVERY role,
+// TestRolesAreBound's own coverage of classes/roles.yaml already holds that
+// direction -- so applySideEffect's table has no case for it, on purpose,
+// the same "text only" shape TestApplyAnUnwiredClassIsRecordedOnly already
+// proves for allocation.rule. This test is sensitive to the one thing that
+// property does not cover: applySideEffect ITSELF quietly growing a case for
+// "purchase" that DOES do something, which is exactly what
+// gates-have-teeth.sh's own "commitments: purchase in the apply table" case
+// plants (a driver.recurring-shaped case, the cheapest real side effect this
+// table already has an example of) and this test must catch.
+func TestApplyingPurchaseHasNoSideEffect(t *testing.T) {
+	db := applyTestDB(t)
+	opt := plantOption(t, db, "management", "", "purchase",
+		"buy a one-year Committed Use Discount on the ai desk")
+
+	var before int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM drivers`).Scan(&before); err != nil {
+		t.Fatal(err)
+	}
+	if err := finops.Apply(db, opt, "y.mercer", nil); err != nil {
+		t.Fatal(err)
+	}
+	var after int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM drivers`).Scan(&after); err != nil {
+		t.Fatal(err)
+	}
+	if after != before {
+		t.Errorf("drivers went from %d to %d rows: applying a purchase option must never "+
+			"write a real side effect, because the purchase itself never happens in this console",
+			before, after)
+	}
+	got := mustGetOption(t, db, opt.Artifact, opt.Ordinal)
+	if got.State != crew.OptionApplied {
+		t.Errorf("option state %q, want applied (the STAMP is recorded; only the money is not)", got.State)
+	}
+
+	// The class check itself, independent of the apply table: no role, not
+	// even the owner link, may ever decide purchase alone.
+	for _, role := range []string{"owner", "supervisor", "commitments"} {
+		if may, why := crew.MayDecide(role, "purchase"); may {
+			t.Errorf("crew.MayDecide(%q, \"purchase\") = true, want false: %s", role, why)
+		}
+	}
+}

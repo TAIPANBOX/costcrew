@@ -134,7 +134,12 @@ func (s *Server) saas(w http.ResponseWriter, r *http.Request) {
 		"waste":   func(x, y world.Licence) int { return cmpInt64(int64(x.Waste()), int64(y.Waste())) },
 		"renews":  func(x, y world.Licence) int { return cmpString(x.Renews, y.Renews) },
 	}, "waste")
-	comms := copyOf(world.Commitments)
+	commRows, commReal, err := finops.Commitments(s.db)
+	if err != nil {
+		http.Error(w, "store unavailable", http.StatusInternalServerError)
+		return
+	}
+	comms := copyOf(commRows)
 	cp := readSortNamed(r, "csort", "used", false)
 	applySort(comms, cp, map[string]func(x, y world.Commitment) int{
 		"desk":    func(x, y world.Commitment) int { return cmpString(x.Source, y.Source) },
@@ -148,6 +153,7 @@ func (s *Server) saas(w http.ResponseWriter, r *http.Request) {
 		shell
 		Rows            []world.Licence
 		Commitments     []world.Commitment
+		CommitmentsReal bool
 		Waterline       float64
 		Waste           money.Cents
 		Idle            int
@@ -155,7 +161,7 @@ func (s *Server) saas(w http.ResponseWriter, r *http.Request) {
 		Soon            int
 		Sort            sortSpec
 		SortCommitments sortSpec
-	}{s.shellFor(r, "SaaS", "saas"), rows, comms,
+	}{s.shellFor(r, "SaaS", "saas"), rows, comms, commReal,
 		world.Waterline, waste, idle, issued, soon, sp, cp})
 }
 

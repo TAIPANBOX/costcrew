@@ -962,6 +962,50 @@ run_case 'run: live.go grows a second net/http door' \
 	$'package main' \
 	$'package main\n\n// net/http, planted only by gates-have-teeth.sh'
 
+# C4-SPEC.md section 4's three named mutants.
+
+# (a) "compute coverage with floats": rounding both sides to the nearest
+# whole dollar before dividing, via integer truncation rather than
+# money.Pct's own direct cents ratio. TestCoverageIsCommittedOverEligiblePerDeskAndMonth
+# would NOT catch this on its own -- 150000/200000 are both exact multiples
+# of 100, so truncating to dollars first and the correct cents ratio agree
+# by coincidence -- which is exactly why the dedicated fixture exists.
+run_case 'commitments: coverage rounds through dollars first' \
+	fail \
+	./internal/finops \
+	$'TestCoverageDoesNotRoundThroughDollarsFirst' \
+	$'want close to 33.3' \
+	internal/finops/commitments.go \
+	$'r.Pct, r.OK = money.Pct(r.CommittedCents, r.EligibleCents)' \
+	$'r.Pct = float64(int64(r.CommittedCents)/100) / float64(int64(r.EligibleCents)/100) * 100\n\t\tr.OK = r.EligibleCents != 0'
+
+# (b) "count a Purchase row as usage": the ChargeCategory=Purchase routing
+# check in processFocusFile is disabled, so a commitment's own price falls
+# through to ai_calls and inflates the desk's derived Usage charges.
+run_case 'commitments: a Purchase row counted as usage' \
+	fail \
+	./internal/connectors \
+	$'TestPurchaseRowsAreNeverCountedAsUsage' \
+	$'' \
+	internal/connectors/tokenfusefocus.go \
+	$'if focusField(rec, col, "ChargeCategory") == "Purchase" {' \
+	$'if focusField(rec, col, "ChargeCategory") == "Purchase" && false {'
+
+# (c) "put purchase into the apply table": applySideEffect grows a real case
+# for the one class roles.yaml's own classes: list gives owner "nobody" --
+# never a decision the console applies, only ever an option a person acts on
+# outside it (crew.MayDecide refuses it before Owner is even read). The
+# planted case reuses driver.one-time's own body, the cheapest real side
+# effect this table already has an example of.
+run_case 'commitments: purchase in the apply table' \
+	fail \
+	./internal/finops \
+	$'TestApplyingPurchaseHasNoSideEffect' \
+	$'must never write a real side effect' \
+	internal/finops/apply.go \
+	$'	case "driver.one-time": // class:driver.one-time' \
+	$'	case "purchase": // planted by gates-have-teeth.sh, must be caught\n\t\treturn applyDriver(db, opt, t, "one-time")\n\tcase "driver.one-time": // class:driver.one-time'
+
 echo
 if [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'
