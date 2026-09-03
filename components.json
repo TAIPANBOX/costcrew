@@ -178,6 +178,9 @@
           "engine": {
             "required": false
           },
+          "gateway": {
+            "required": false
+          },
           "live": {
             "required": false
           },
@@ -191,6 +194,9 @@
             "required": false
           },
           "skill": {
+            "required": false
+          },
+          "stack-host": {
             "required": false
           }
         }
