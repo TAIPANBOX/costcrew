@@ -1056,6 +1056,26 @@ run_case 'C2: accept a target-less allocation.rule' \
 	internal/crew/options.go \
 	$'\t\tif o.Class == "allocation.rule" {' \
 	$'\t\tif false && o.Class == "allocation.rule" {'
+# C8-SPEC.md section 4's own named mutant: "show a refused KPI as zero".
+# executiveFigureLine's Blocked check is what keeps cost-per-outcome (always
+# refused in this console until C7) from ever falling into the value
+# branches below it; removing it does not merely blank the line, because
+# ExecutiveFigure.Numeric is a real float64 that defaults to Go's own zero
+# value when HasVal is false (internal/finops/kpi.go's own comment on the
+# field explains why on purpose) -- so the mutant does not fail to compile
+# or panic, it prints "Cost per business outcome: 0.0 (previous period:
+# refused, ...)", a refusal wearing a number, which is the exact shape this
+# console's own COALESCE history (invariant 24's SUM bug) has been bitten by
+# twice already. @measured 2026-09-03, planting this exact mutation by hand
+# before adding it here.
+run_case 'the executive pack: show a refused KPI as zero' \
+	fail \
+	./internal/deliver \
+	$'TestExecutiveSectionShowsARefusedKPIAsRefusedNeverZero' \
+	$'does not show cost-per-outcome as refused' \
+	internal/deliver/packet.go \
+	$'func executiveFigureLine(f finops.ExecutiveFigure) string {\n\tif f.Blocked != "" {\n\t\treturn fmt.Sprintf("%s: refused, %s\\n", f.Name, f.Blocked)\n\t}\n\tif !f.HasVal {\n\t\treturn "" // neither a value nor a refusal: nothing here to say, never invented\n\t}\n\tif !f.HasPeriod {' \
+	$'func executiveFigureLine(f finops.ExecutiveFigure) string {\n\tif !f.HasPeriod {'
 
 echo
 if [ -n "$(git status --porcelain)" ]; then

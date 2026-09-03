@@ -25,6 +25,7 @@ import (
 	"database/sql"
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -86,6 +87,19 @@ func Packet(db *sql.DB, t crew.Task, a crew.Analyst, hideDriver bool) string {
 			if s := lastExplanationSection(db, an); s != "" {
 				sections = append(sections, s)
 			}
+		}
+	}
+	// "decision-framing" only, not "exec-reporting": exec-reporter carries
+	// both (internal/world/world.go), and exec-reporting is ALSO the
+	// desk reporters' own skill (reporter-aws and the rest), which is what
+	// reportingSection just above already answers to. Gating executiveSection
+	// on the skill the desk reporters do NOT have is what keeps the two
+	// sections apart -- one desk's month against four estate-wide numbers
+	// are different questions, and "management" (exec-reporter's own desk in
+	// t.Desk) owns no team's spend for reportingSection to report on anyway.
+	if HasString(a.Skills, "decision-framing") {
+		if s := executiveSection(db); s != "" {
+			sections = append(sections, s)
 		}
 	}
 
@@ -830,4 +844,158 @@ func closePackSection(db *sql.DB, a crew.Analyst, t crew.Task) string {
 	}
 
 	return b.String()
+}
+
+// -------------------------------------------------------- the executive pack
+
+// executiveSection is C8-SPEC.md section 2's own words: the four KPI
+// figures with last period's value and the delta, and the last three
+// posted explanations on the desks whose spend moved most, so the pack's
+// "why" comes from what a desk actually posted rather than from a
+// template. Empty when the estate has no charges at all, the same
+// "additive, never misleading" rule every other section here holds.
+func executiveSection(db *sql.DB) string {
+	figs, period, previous, err := finops.Executive(db)
+	if err != nil || len(figs) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "The executive pack (%s)\n", period)
+	for _, f := range figs {
+		b.WriteString(executiveFigureLine(f))
+	}
+	if s := movedDesksSection(db, period, previous); s != "" {
+		b.WriteString("\n")
+		b.WriteString(s)
+	}
+	return b.String()
+}
+
+// executiveFigureLine is one KPI's own line. The Blocked check comes FIRST
+// and returns on its own: C8-SPEC.md section 4, "a refused KPI appears as
+// refused in the packet, not as zero", and gates-have-teeth.sh's "show a
+// refused KPI as zero" case plants exactly this guard's removal, which
+// falls through to the value branches below and prints f.Numeric's own Go
+// zero value -- a real 0.0, not an absence, which is what makes the mutant
+// catchable at all.
+func executiveFigureLine(f finops.ExecutiveFigure) string {
+	if f.Blocked != "" {
+		return fmt.Sprintf("%s: refused, %s\n", f.Name, f.Blocked)
+	}
+	if !f.HasVal {
+		return "" // neither a value nor a refusal: nothing here to say, never invented
+	}
+	if !f.HasPeriod {
+		return fmt.Sprintf("%s: %.1f%s (no previous period)\n", f.Name, f.Numeric, f.Unit)
+	}
+	if !f.PrevHasVal {
+		reason := f.PrevBlocked
+		if reason == "" {
+			reason = "no cost in that period"
+		}
+		return fmt.Sprintf("%s: %.1f%s (previous period: refused, %s)\n", f.Name, f.Numeric, f.Unit, reason)
+	}
+	return fmt.Sprintf("%s: %.1f%s (was %.1f%s, %+.1f)\n", f.Name, f.Numeric, f.Unit, f.PrevNumeric, f.Unit, f.Delta)
+}
+
+// movedDesksSection is the last three posted explanations -- any analyst's,
+// any task's -- on the desk or desks whose total spend moved most between
+// previous and period, ranked by the SIZE of the move either way (the
+// overview page's own movers(), internal/web/pages.go, already reads "what
+// changed" the same way, not "what went up"). Filled desk by desk, newest
+// explanation first, stopping at three: a desk that moved the most but has
+// nothing posted on it yet (the boundary C8-SPEC.md section 4 names)
+// contributes nothing, and the next desk in the ranking fills the rest,
+// which is why this reads "desks" and not "the desk".
+func movedDesksSection(db *sql.DB, period, previous string) string {
+	if previous == "" {
+		return "" // nothing to compare a move against yet: the estate's first period
+	}
+	now, err := estate.Totals(db, period)
+	if err != nil {
+		return ""
+	}
+	was, err := estate.Totals(db, previous)
+	if err != nil {
+		return ""
+	}
+
+	type moved struct {
+		desk  string
+		delta money.Cents
+	}
+	var moves []moved
+	for _, d := range world.Desks {
+		delta := now[d.Name] - was[d.Name]
+		if delta == 0 {
+			continue
+		}
+		moves = append(moves, moved{d.Name, delta})
+	}
+	if len(moves) == 0 {
+		return ""
+	}
+	// world.Desks is a fixed order, not a ranked one: sorted here, and
+	// stably, so two desks tied on the size of their move keep world.Desks's
+	// own order rather than whatever order the loop above happened to visit
+	// them in -- the same nondeterminism invariant 7 (CLAUDE.md) already
+	// guards every other ranked list in this console against.
+	sort.SliceStable(moves, func(i, j int) bool {
+		return moves[i].delta.Abs() > moves[j].delta.Abs()
+	})
+
+	var b strings.Builder
+	shown := 0
+	for _, m := range moves {
+		if shown >= 3 {
+			break
+		}
+		rows, err := lastPostedOnDesk(db, m.desk, 3-shown)
+		if err != nil || len(rows) == 0 {
+			continue
+		}
+		if shown == 0 {
+			b.WriteString("The last posted explanations on the desks whose spend moved most\n")
+		}
+		for _, r := range rows {
+			fmt.Fprintf(&b, "\n%s, %s, %s\n", r.title, r.desk, r.when)
+			b.WriteString(trimBytes(r.body, 200))
+			b.WriteString("\n")
+		}
+		shown += len(rows)
+	}
+	return b.String()
+}
+
+type postedRow struct {
+	title, desk, when, body string
+}
+
+// lastPostedOnDesk is the last n posted deliverables on desk, any analyst,
+// newest first -- the same notion of "posted explanation" this file already
+// holds in lastExplanationSection and ownHistorySection, just not scoped to
+// one service (lastExplanationSection) or one author (ownHistorySection):
+// the executive pack cares about what the DESK posted, not who posted it.
+func lastPostedOnDesk(db *sql.DB, desk string, n int) ([]postedRow, error) {
+	if n <= 0 {
+		return nil, nil
+	}
+	rows, err := db.Query(`SELECT t.title, COALESCE(ar.stamped, ar.created, ''), ar.body
+		FROM artifacts ar JOIN tasks t ON t.id = ar.task
+		WHERE t.desk = ? AND ar.state = 'posted'
+		ORDER BY ar.stamped DESC, ar.id DESC LIMIT ?`, desk, n)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []postedRow
+	for rows.Next() {
+		var r postedRow
+		if err := rows.Scan(&r.title, &r.when, &r.body); err != nil {
+			return nil, err
+		}
+		r.desk = desk
+		out = append(out, r)
+	}
+	return out, rows.Err()
 }

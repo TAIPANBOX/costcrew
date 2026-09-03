@@ -282,6 +282,29 @@ func Artifacts(db *sql.DB, task int) ([]Artifact, error) {
 	return out, rows.Err()
 }
 
+// GetArtifact reads one deliverable by id. Artifacts reads by TASK, because
+// every caller inside this package already has one; this is for a caller
+// that only has the artifact id, the same shape internal/web/decisions.go's
+// own unexported getArtifact already holds for the identical reason --
+// internal/finops.applyExplainerPublish (C8-SPEC.md) is the one outside
+// this package.
+func GetArtifact(db *sql.DB, id int) (Artifact, error) {
+	taskID, err := TaskOfArtifact(db, id)
+	if err != nil {
+		return Artifact{}, err
+	}
+	arts, err := Artifacts(db, taskID)
+	if err != nil {
+		return Artifact{}, err
+	}
+	for _, a := range arts {
+		if a.ID == id {
+			return a, nil
+		}
+	}
+	return Artifact{}, ErrNotFound
+}
+
 func Comments(db *sql.DB, task int) ([]Comment, error) {
 	rows, err := db.Query(`SELECT id, task, COALESCE(author,''), COALESCE(body,''),
 		COALESCE(created,'') FROM comments WHERE task=? ORDER BY id`, task)

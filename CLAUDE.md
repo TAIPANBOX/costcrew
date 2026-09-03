@@ -1225,6 +1225,84 @@ an absent invariant.
     mistake cannot even compile inside `ValidateAndSaveOptions` itself, but
     `tools/run` imports both, and `saveDraft` is where a wiring mistake
     written there instead actually would.)*
+33. **A refused KPI in the executive pack reads as a refusal, never as a
+    zero, and explainer.publish is no longer text only.** C8-SPEC.md.
+    `finops.Executive` names the four numbers roles.yaml's own
+    executive-reporter owes (`allocation-coverage`, `unallocated-share` and
+    `agent-attribution`, the only three of the twelve KPIs that vary with a
+    period at all, plus `cost-per-outcome`, which never computes in this
+    console until C7 and is therefore guaranteed to exercise the refusal on
+    any estate) ONCE, so the packet `internal/deliver.executiveSection`
+    builds and any future page reading the same figures cannot disagree
+    about which four. `ExecutiveFigure.Numeric` is a real `float64` that
+    defaults to Go's own zero value when the KPI has none -- deliberately,
+    the same shape this file's own COALESCE history (invariants 24 and 25's
+    own SUM bugs) has already been bitten by twice -- so a renderer that
+    forgets to check `Blocked`/`HasVal` FIRST prints an honest, catchable
+    "0.0" rather than nothing at all. The pack's second half is the last
+    three posted deliverables -- any analyst's, any task's -- on the desk
+    or desks whose total spend moved most between the reported period and
+    the one before it (`estate.Totals` for each, ranked by the size of the
+    move either way, `movedDesksSection`), filling across desks when the
+    top mover has nothing posted on it yet rather than showing nothing.
+    `internal/finops.applySideEffect` wires `explainer.publish` to
+    `crew.PublishArtifact` (which itself finishes with a call to
+    `crew.Publish`, the SAME state transition a person's stamp on a
+    Commission-drafted explainer already goes through), reading the
+    OPTION'S OWN ARTIFACT as the target this class was recorded-only for
+    lack of, per invariant 27's own comment: the artifact's whole body,
+    verbatim, is the explainer's body, and the option's summary is its
+    topic. The explainer's Team and Audience are both the fixed string
+    "leadership", which is not one of `world.Teams`'s ten roster names on
+    purpose -- `internal/web`'s explainers page only links a row's team to
+    `/team/{name}` when `isRealTeam` finds a real one there, and
+    `?audience=leadership` is the leadership page C8-SPEC.md names: the
+    same route, filtered to rows whose Audience matches.
+    *(gate: `TestExecutiveReturnsFourFiguresWithPreviousValuesAndDeltas`,
+    `TestExecutiveNeverGivesARefusedKPIAValue`,
+    `TestExecutiveSaysNoPreviousPeriodForTheFirstPeriod` (`internal/finops`,
+    `Executive` itself, the last one built by hand rather than with
+    `estate.Seed`, which always spans several months, to reach the
+    boundary at all) and `TestExecutiveSectionSaysNoPreviousPeriodForTheFirstPeriod`
+    (`internal/deliver`, the same boundary at the RENDERED line: the first
+    test alone only reached `HasPeriod`, the data-layer flag, and never
+    called `Packet()`, so nothing checked that `executiveFigureLine` ever
+    reaches the branch that prints the words the scenario names);
+    `TestExecutiveSectionCarriesTheFourNumbers`,
+    `TestExecutiveSectionIsAbsentForAPlainDeskReporter` (gated on
+    "decision-framing", exec-reporter's own second skill, never
+    "exec-reporting" alone, which the desk reporters already share and
+    already answer to with `reportingSection`),
+    `TestExecutiveSectionShowsARefusedKPIAsRefusedNeverZero`,
+    `TestExecutiveSectionShowsTheLastExplanationOnTheDeskThatMovedMost`,
+    `TestExecutiveSectionFallsThroughADeskWithNoPostedExplanation`,
+    `TestExecutiveSectionTrimsAOneMegabyteExplanationBody` (`internal/deliver`,
+    the section itself, its own assertions widened to require the
+    explanation's title actually reached the packet and its body cut at
+    exactly 200 bytes -- the original two checks alone held vacuously
+    true on `main`, where the whole section does not exist, so neither
+    caught its own absence); `TestApplyExplainerPublishPublishesTheArtifactsBodyAsAnExplainer`
+    (`internal/finops`, the wiring, actor "supervisor" since explainer.publish
+    is the supervisor's own `decides_alone` class);
+    `TestTheLeadershipPageShowsTheExecutivePackOnlyAfterAStamp`,
+    `TestTheLeadershipPacksTeamIsNotALinkToANonexistentTeamPage`,
+    `TestAScriptTagInThePacksTitleRendersAsTextOnTheLeadershipPage`
+    (`internal/web`, through the console's own read routes).
+    `scripts/gates-have-teeth.sh`'s `the executive pack: show a refused KPI
+    as zero` case plants the mutant C8-SPEC.md section 4 names by its own
+    words, removing `executiveFigureLine`'s Blocked/HasVal guard whole so
+    execution falls into the value branches with `Numeric` at its zero
+    value. Two more mutants were planted by hand and reverted rather than
+    kept as permanent cases: `crew.PublishArtifact` returning before
+    calling `Publish`, caught by
+    `TestApplyExplainerPublishPublishesTheArtifactsBodyAsAnExplainer`'s own
+    state and publisher assertions (the row exists but stays a draft,
+    publisher empty); and `executivePeriod` reading one month further back
+    than the one actually beside `period`, caught by
+    `TestExecutiveReturnsFourFiguresWithPreviousValuesAndDeltas`'s own
+    cross-check against `Allocate` called on the EXACT expected previous
+    month directly, which a merely internally-consistent delta
+    (`Numeric-PrevNumeric`) would not have caught on its own.)*
 
 ## Decisions that have no gate yet
 
