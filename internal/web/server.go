@@ -42,6 +42,18 @@ type Server struct {
 	// on disk does not carry.
 	passportFor func(crew.Analyst) passport.Passport
 	mux         *http.ServeMux
+
+	// gateway is the TokenFuse gateway this console's own spend goes
+	// through, already normalized (deliver.NormalizeGateway). Empty means
+	// "not configured", and B4-STEP-TWO-SPEC.md section 4's plan-ask
+	// handler refuses to spend at all rather than falling back to a direct,
+	// unmetered vendor call the way tools/run's own -live does: a console
+	// that can spend real money from a browser click should never fall
+	// back to that merely because nobody configured routing. This is
+	// tools/bench's own rule ("-live needs -gateway"), not tools/run's
+	// permissive one, and internal/web/planning.go's own comment on
+	// askPlan says so again where the refusal actually fires.
+	gateway string
 }
 
 // Stack is the optional wiring into the governance plane.
@@ -52,6 +64,12 @@ type Stack struct {
 	Passports   func([]crew.Analyst) (int, error)
 	PassportFor func(crew.Analyst) passport.Passport
 	Delegation  func(operator, analyst string) []string
+	// Gateway is the TokenFuse gateway URL for the console's own spend
+	// (B4-STEP-TWO-SPEC.md section 4), already normalized by the caller
+	// (cmd/costcrew/main.go, the same deliver.NormalizeGateway tools/run
+	// and tools/bench both validate -gateway with). Empty switches the
+	// plan-ask feature's spending off; see Server.gateway.
+	Gateway string
 }
 
 // New builds the console. A zero Stack means the governance plane is switched
@@ -64,7 +82,7 @@ func New(st *store.Store, au *auth.Auth, sk Stack) *Server {
 	s := &Server{st: st, au: au, db: st.DB(), rec: sk.Recorder, host: host,
 		eventsPath: sk.EventsPath, passports: sk.Passports,
 		passportFor: sk.PassportFor,
-		delegate:    sk.Delegation, mux: http.NewServeMux()}
+		delegate:    sk.Delegation, gateway: sk.Gateway, mux: http.NewServeMux()}
 	s.routes()
 	return s
 }
@@ -199,6 +217,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /cadence", s.setCadence)
 	s.mux.HandleFunc("GET /sprint/plan", s.planPage)
 	s.mux.HandleFunc("POST /sprint/plan", s.approvePlan)
+	s.mux.HandleFunc("POST /sprint/plan/ask", s.askPlan)
+	s.mux.HandleFunc("POST /sprint/plan/approve-model", s.approveModelPlan)
 	s.mux.HandleFunc("POST /sprint/{id}/close", s.closeSprint)
 	s.mux.HandleFunc("POST /sprint/{id}/supervise", s.superviseSprint)
 	s.mux.HandleFunc("GET /sprint/{id}/decisions/{owner}", s.decisionPage)

@@ -23,6 +23,7 @@ import (
 	"github.com/TAIPANBOX/costcrew/internal/auth"
 	"github.com/TAIPANBOX/costcrew/internal/connectors"
 	"github.com/TAIPANBOX/costcrew/internal/crew"
+	"github.com/TAIPANBOX/costcrew/internal/deliver"
 	"github.com/TAIPANBOX/costcrew/internal/detect"
 	"github.com/TAIPANBOX/costcrew/internal/estate"
 	"github.com/TAIPANBOX/costcrew/internal/finops"
@@ -54,6 +55,19 @@ func main() {
 	spiffeSock := flag.String("spiffe-socket", "",
 		"the SPIFFE Workload API socket; empty means this console is not attested")
 
+	// The TokenFuse gateway for the console's OWN spend (B4-STEP-TWO-SPEC.md
+	// section 4: the supervisor's one planning call per sprint). Off unless
+	// pointed somewhere, the same flag shape tools/run and tools/bench
+	// already use, falling back to COSTCREW_GATEWAY so an installation can
+	// set it once. Unlike tools/run's own -live, this console never falls
+	// back to calling a vendor directly when it is unset: the plan-ask
+	// handler refuses to spend rather than make an unmetered call from a
+	// browser click, the same rule tools/bench's own -live already keeps.
+	gateway := flag.String("gateway", deliver.GatewayEnvDefault(),
+		"TokenFuse gateway for the supervisor's own planning calls, e.g. "+
+			"http://127.0.0.1:4177; empty means the console cannot spend at all. "+
+			"Falls back to COSTCREW_GATEWAY.")
+
 	setPw := flag.String("set-password", "", "create or reset an account as NAME:PASSWORD, then exit")
 	setRole := flag.String("set-role", "admin", "the role a new -set-password account gets")
 	weak := flag.Bool("allow-weak-password", false, "let -set-password set a password below the minimum, for a local demo account")
@@ -77,7 +91,16 @@ func main() {
 			log.Fatalf("costcrew: %v", err)
 		}
 	}
-	if err := run(*addr, *dir, cfg); err != nil {
+	// Validated before the store or the listener are even opened, the same
+	// place tools/run's own -gateway is checked, and for the same reason: a
+	// bad -gateway value is a configuration mistake, not a spending one, and
+	// the sooner it is reported the less of a start has already happened
+	// around it.
+	gatewayURL, err := deliver.NormalizeGateway(*gateway)
+	if err != nil {
+		log.Fatalf("costcrew: %v", err)
+	}
+	if err := run(*addr, *dir, cfg, gatewayURL); err != nil {
 		log.Fatalf("costcrew: %v", err)
 	}
 }
@@ -170,7 +193,7 @@ func abs(p string) string {
 	return p
 }
 
-func run(addr, dir string, scfg stack.Config) error {
+func run(addr, dir string, scfg stack.Config, gatewayURL string) error {
 	st, err := store.Open(dir)
 	if err != nil {
 		return fmt.Errorf("opening the store in %s: %w", dir, err)
@@ -388,12 +411,16 @@ func run(addr, dir string, scfg stack.Config) error {
 		log.Print("CostCrew: demo mode, nobody can spend the owner's model budget")
 	}
 
+	if gatewayURL == "" {
+		log.Print("CostCrew: no -gateway configured; the supervisor's plan-ask cannot spend " +
+			"and will refuse every ask with one sentence")
+	}
 	srv := &http.Server{
 		Addr: addr,
 		Handler: web.New(st, au, web.Stack{
 			Recorder: rec, Host: scfg.Host, EventsPath: scfg.EventsPath,
 			Passports: em.WritePassports, PassportFor: em.PassportFor,
-			Delegation: em.Delegation,
+			Delegation: em.Delegation, Gateway: gatewayURL,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}

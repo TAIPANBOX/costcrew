@@ -1,14 +1,21 @@
 package web
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"html/template"
 	"net/http"
 	"strconv"
 	"time"
 
+	"github.com/TAIPANBOX/costcrew/internal/auth"
 	"github.com/TAIPANBOX/costcrew/internal/crew"
+	"github.com/TAIPANBOX/costcrew/internal/deliver"
+	"github.com/TAIPANBOX/costcrew/internal/engines"
 	"github.com/TAIPANBOX/costcrew/internal/finops"
 	"github.com/TAIPANBOX/costcrew/internal/money"
+	"github.com/TAIPANBOX/costcrew/internal/stack"
 	"github.com/TAIPANBOX/costcrew/internal/world"
 )
 
@@ -193,6 +200,42 @@ func (s *Server) explainerAction(kind string) http.HandlerFunc {
 
 // ---------------------------------------------------------------- planning
 
+// planAskMaxTokens mirrors cadence.go's own dueEstimateMaxTokens and
+// tools/run's -max-tokens default: the output cap the one planning call is
+// priced and made with.
+const planAskMaxTokens = 2000
+
+// planItemSort is the sort map both the deterministic and the model's own
+// table share: one PlanItem shape, one set of column names.
+var planItemSort = map[string]func(a, b crew.PlanItem) int{
+	"task":    func(a, b crew.PlanItem) int { return cmpString(a.Title, b.Title) },
+	"analyst": func(a, b crew.PlanItem) int { return cmpString(a.Assignee, b.Assignee) },
+	"desk":    func(a, b crew.PlanItem) int { return cmpString(a.Desk, b.Desk) },
+	"guard":   func(a, b crew.PlanItem) int { return cmpInt64(int64(a.Budget), int64(b.Budget)) },
+	"because": func(a, b crew.PlanItem) int { return cmpString(a.Why, b.Why) },
+}
+
+// planPageView is what templates/plan.html renders, for GET /sprint/plan
+// (unchanged: Asked stays false and every Ask* field its zero value, so
+// nothing extra renders) and for POST /sprint/plan/ask (the same template,
+// with the extra fields filled in) alike -- one shape, so the ask
+// handler's render call needs no template of its own.
+type planPageView struct {
+	shell
+	P      crew.Plan
+	CanAct bool
+	Sort   sortSpec
+
+	// Populated only by askPlan. Asked distinguishes "never asked" (GET) from
+	// "asked and the model named zero items" (ModelPlanOK true, ModelPlan.Items
+	// empty), which a zero-valued ModelPlan alone could not.
+	Asked        bool
+	AskRefusal   string // non-empty: the ask itself, or the model's answer, was refused
+	AskRawAnswer string // the model's own text, shown WHOLE beside a refusal reason
+	ModelPlan    crew.Plan
+	ModelPlanOK  bool // true: ModelPlan is a real, approvable plan
+}
+
 func (s *Server) planPage(w http.ResponseWriter, r *http.Request) {
 	u := s.guard(w, r)
 	if u == nil {
@@ -208,19 +251,279 @@ func (s *Server) planPage(w http.ResponseWriter, r *http.Request) {
 	// Default: the guard, biggest first. A plan is read to decide what to cut,
 	// and the thing you cut is the expensive one.
 	srt := readSort(r, "guard", true)
-	applySort(p.Items, srt, map[string]func(a, b crew.PlanItem) int{
-		"task":    func(a, b crew.PlanItem) int { return cmpString(a.Title, b.Title) },
-		"analyst": func(a, b crew.PlanItem) int { return cmpString(a.Assignee, b.Assignee) },
-		"desk":    func(a, b crew.PlanItem) int { return cmpString(a.Desk, b.Desk) },
-		"guard":   func(a, b crew.PlanItem) int { return cmpInt64(int64(a.Budget), int64(b.Budget)) },
-		"because": func(a, b crew.PlanItem) int { return cmpString(a.Why, b.Why) },
-	}, "guard")
-	s.render(w, tplPlan, struct {
-		shell
-		P      crew.Plan
-		CanAct bool
-		Sort   sortSpec
-	}{s.shellFor(r, "Plan a sprint", "sprints"), p, u.May("operator"), srt})
+	applySort(p.Items, srt, planItemSort, "guard")
+	s.render(w, tplPlan, planPageView{
+		shell: s.shellFor(r, "Plan a sprint", "sprints"), P: p, CanAct: u.May("operator"), Sort: srt,
+	})
+}
+
+// askPlan is B4-STEP-TWO-SPEC.md section 4: prices the supervisor's one
+// planning call, refuses before making it when the worst case is over its
+// own PerTask or no gateway is configured, makes it, validates the answer,
+// settles the actual cost and journals plan_asked either way, then renders
+// the SAME plan page with the model's plan (or its refusal) alongside the
+// deterministic one.
+//
+// It renders directly rather than redirecting -- the one handler in this
+// package that does, besides internal/web/intake.go's own preview step,
+// which this mirrors: a two-step "show what would happen, then let a
+// separate act commit it" flow, where round-tripping the shown answer
+// through a hidden form field (verified again, from scratch, at the second
+// step) is safer than trusting a server-side copy of what an earlier
+// moment produced.
+func (s *Server) askPlan(w http.ResponseWriter, r *http.Request) {
+	u := s.guard(w, r)
+	if u == nil {
+		return
+	}
+	if !s.checked(w, r, "/sprint/plan", u) {
+		return
+	}
+	label := r.PostFormValue("label")
+	start := r.PostFormValue("start")
+	end := r.PostFormValue("end")
+	goal := r.PostFormValue("goal")
+
+	det, err := crew.Propose(s.db, label, start, end, goal)
+	if err != nil {
+		redirectMsg(w, r, "/sprint/plan", err.Error())
+		return
+	}
+	srt := readSort(r, "guard", true)
+	applySort(det.Items, srt, planItemSort, "guard")
+
+	view := planPageView{
+		shell: s.shellFor(r, "Plan a sprint", "sprints"), P: det, CanAct: u.May("operator"),
+		Sort: srt, Asked: true,
+	}
+
+	month := ""
+	if len(start) >= 7 {
+		month = start[:7]
+	}
+
+	roster, err := crew.Roster(s.db)
+	if err != nil {
+		http.Error(w, "store unavailable", http.StatusInternalServerError)
+		return
+	}
+	var sup crew.Analyst
+	supOK := false
+	for _, a := range roster {
+		if a.Name == "supervisor" {
+			sup, supOK = a, true
+		}
+	}
+	if !supOK || sup.State != "active" {
+		s.refusePlanAsk(w, view, u, label, month, 0, "no active supervisor analyst is on the roster")
+		return
+	}
+
+	spent, err := crew.SpendInMonth(s.db, month)
+	if err != nil {
+		http.Error(w, "store unavailable", http.StatusInternalServerError)
+		return
+	}
+
+	packet := deliver.PlanPacket(s.db, det, roster, spent)
+	prompt := deliver.PlanPrompt(sup, packet)
+	worstMicros, model, priced := deliver.PlanWorstCase(sup, prompt, planAskMaxTokens)
+	if !priced {
+		s.refusePlanAsk(w, view, u, label, month, 0, fmt.Sprintf(
+			"%s cannot be priced (an unknown or unmetered engine), so the call is refused before it is made", sup.Engine))
+		return
+	}
+	worstCents := money.Cents((worstMicros + 9_999) / 10_000)
+	if worstCents > sup.PerTask {
+		s.refusePlanAsk(w, view, u, label, month, 0, fmt.Sprintf(
+			"the worst case for this call is %s, over the supervisor's own per-task guard %s: "+
+				"refused before it is made", worstCents, sup.PerTask))
+		return
+	}
+	// The console never falls back to calling a vendor directly. tools/run's
+	// own -live does, when -gateway is unset; this handler does not, the
+	// same rule tools/bench's own -live keeps ("-live needs -gateway: the
+	// bench's spend must be metered exactly like the crew's, through the
+	// same TokenFuse gateway, never a direct call"). A browser click that
+	// can spend real money should never fall back to an unmetered direct
+	// call merely because nobody configured routing.
+	if s.gateway == "" {
+		s.refusePlanAsk(w, view, u, label, month, 0,
+			"no TokenFuse gateway is configured for this console; the supervisor's spend must "+
+				"be metered through it, so the call is refused rather than made directly")
+		return
+	}
+
+	runID := fmt.Sprintf("plan-ask-%d", time.Now().UTC().UnixNano())
+	gw := deliver.Gateway{
+		URL: s.gateway, RunID: runID, AgentID: stack.AgentURI(s.host, "supervisor"),
+		BudgetUSD: deliver.GatewayBudgetUSD(sup.PerTask, sup.PerTask),
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
+	defer cancel()
+	res, callErr := deliver.Call(ctx, sup.Engine, model, prompt, planAskMaxTokens, gw)
+	if callErr != nil {
+		reason := callErr.Error()
+		var gwr deliver.GatewayRefusal
+		if errors.As(callErr, &gwr) {
+			reason = gwr.Error()
+		}
+		// The call reached the gateway (or the vendor) and failed there,
+		// which is not the same as never having been priced: nothing was
+		// actually spent, so this settles zero, same as the pre-call
+		// refusals above.
+		s.refusePlanAsk(w, view, u, label, month, 0, "the call could not be made: "+reason)
+		return
+	}
+
+	price, _ := engines.PriceFor(sup.Engine, model) // known good: PlanWorstCase already confirmed priced
+	actualMicros := deliver.WorstCaseMicros(res.InTokens, res.OutTokens, price)
+
+	// AskRawAnswer is set on every branch, accepted included: it is not only
+	// what a refusal shows, it is also the /sprint/plan/approve-model form's
+	// own hidden "answer" field, round-tripped so that handler can
+	// re-validate the SAME text from scratch rather than trust a stored
+	// copy of what this moment accepted.
+	items, found, reason := crew.ValidatePlanAnswer(res.Text, det, roster, spent)
+	view.AskRawAnswer = res.Text
+	switch {
+	case !found:
+		view.AskRefusal = "the model's answer carried no fenced ```plan block"
+	case reason != "":
+		view.AskRefusal = reason
+	default:
+		mp := modelPlanFrom(det, items)
+		applySort(mp.Items, srt, planItemSort, "guard")
+		view.ModelPlan, view.ModelPlanOK = mp, true
+	}
+
+	outcome := crew.PlanAskAccepted
+	if view.AskRefusal != "" {
+		outcome = crew.PlanAskRefused
+	}
+	cents, err := crew.SettlePlanAsk(s.db, label, month, "supervisor", actualMicros, outcome, view.AskRefusal)
+	if err != nil {
+		http.Error(w, "store unavailable", http.StatusInternalServerError)
+		return
+	}
+	s.journalPlanAsked(u, label, cents, string(outcome), view.AskRefusal)
+	s.render(w, tplPlan, view)
+}
+
+// refusePlanAsk settles whatever the ask cost (0 for every case that calls
+// this: every caller above is a refusal BEFORE deliver.Call ever runs),
+// journals it, and renders the page with the refusal shown.
+func (s *Server) refusePlanAsk(w http.ResponseWriter, view planPageView, u *auth.User, label, month string, micros int64, reason string) {
+	view.AskRefusal = reason
+	cents, err := crew.SettlePlanAsk(s.db, label, month, "supervisor", micros, crew.PlanAskRefused, reason)
+	if err != nil {
+		http.Error(w, "store unavailable", http.StatusInternalServerError)
+		return
+	}
+	s.journalPlanAsked(u, label, cents, string(crew.PlanAskRefused), reason)
+	s.render(w, tplPlan, view)
+}
+
+// journalPlanAsked is section 4's own words: "journals sprint_planned-style
+// plan_asked with the cost and the outcome (accepted, refused with
+// reason)".
+func (s *Server) journalPlanAsked(u *auth.User, label string, cost money.Cents, outcome, reason string) {
+	if s.rec == nil {
+		return
+	}
+	data := map[string]any{
+		"sprint": label, "cost_cents": int64(cost), "outcome": outcome, "asked_by": u.Username,
+	}
+	if reason != "" {
+		data["reason"] = reason
+	}
+	_ = s.rec.Emit("plan_asked", "supervisor", "info", data, s.delegation(u.Username, "supervisor"))
+}
+
+// modelPlanFrom rebuilds a crew.Plan from the model's own validated items:
+// Title, Goal, Desk and Skill are the deterministic item's own (never the
+// model's to invent); Assignee, Budget and Why are the model's.
+func modelPlanFrom(det crew.Plan, items []crew.PlanAnswerItem) crew.Plan {
+	mp := crew.Plan{Label: det.Label, Start: det.Start, End: det.End,
+		Goal: det.Goal, TypedGoal: det.TypedGoal, Existing: det.Existing}
+	for _, pa := range items {
+		d := det.Items[pa.Ref-1]
+		it := crew.PlanItem{Title: d.Title, Goal: d.Goal, Assignee: pa.Assignee,
+			Desk: d.Desk, Budget: pa.Budget, Why: pa.Why, Skill: d.Skill}
+		mp.Items = append(mp.Items, it)
+		mp.Budget += it.Budget
+	}
+	return mp
+}
+
+// approveModelPlan is the model plan's own approve form: it re-validates
+// the model's raw answer (posted back in a hidden field, escaped by
+// html/template on the way out and decoded by the browser on the way back
+// in, never trusted as-is) against a FRESHLY computed deterministic plan
+// and roster, exactly the way askPlan validated it the first time, so
+// nothing here trusts a stale copy of what an earlier moment accepted --
+// crew.Approve itself is unchanged, called with a crew.Plan this handler
+// builds the same way askPlan's own preview did.
+func (s *Server) approveModelPlan(w http.ResponseWriter, r *http.Request) {
+	u := s.guard(w, r)
+	if u == nil {
+		return
+	}
+	if !s.checked(w, r, "/sprint/plan", u) {
+		return
+	}
+	label := r.PostFormValue("label")
+	start := r.PostFormValue("start")
+	end := r.PostFormValue("end")
+	goal := r.PostFormValue("goal")
+	answer := r.PostFormValue("answer")
+
+	det, err := crew.Propose(s.db, label, start, end, goal)
+	if err != nil {
+		redirectMsg(w, r, "/sprint/plan", err.Error())
+		return
+	}
+	roster, err := crew.Roster(s.db)
+	if err != nil {
+		redirectMsg(w, r, "/sprint/plan", "store unavailable")
+		return
+	}
+	month := ""
+	if len(start) >= 7 {
+		month = start[:7]
+	}
+	spent, err := crew.SpendInMonth(s.db, month)
+	if err != nil {
+		redirectMsg(w, r, "/sprint/plan", "store unavailable")
+		return
+	}
+
+	items, found, reason := crew.ValidatePlanAnswer(answer, det, roster, spent)
+	if !found || reason != "" {
+		msg := "the model's plan no longer re-validates against the current roster; ask again"
+		if reason != "" {
+			msg += ": " + reason
+		}
+		redirectMsg(w, r, "/sprint/plan", msg)
+		return
+	}
+	mp := modelPlanFrom(det, items)
+	mp.Existing = det.Existing
+
+	// "owner": a web session is always a person, and sprint.approve is the
+	// owner's class (ROLES-2026-09.md section 1) -- the same actor
+	// approvePlan already passes for the deterministic plan.
+	n, err := crew.Approve(s.db, mp, "owner")
+	if err != nil {
+		redirectMsg(w, r, "/sprint/plan", err.Error())
+		return
+	}
+	if s.rec != nil {
+		_ = s.rec.Emit("sprint_planned", "supervisor", "info", map[string]any{
+			"sprint": mp.Label, "tasks": n, "approved_by": u.Username, "source": "model",
+		}, s.delegation(u.Username, "supervisor"))
+	}
+	redirectMsg(w, r, "/sprints", "")
 }
 
 // nextWeek is the Monday after the last sprint on the board, not after today:

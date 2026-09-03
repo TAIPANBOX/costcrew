@@ -72,6 +72,21 @@ type PlanItem struct {
 	Desk     string
 	Budget   money.Cents
 	Why      string
+
+	// Skill is the taxonomy skill this item was routed by -- routedItem's
+	// own class, when class is a real skill token from SkillPool rather than
+	// a roster name -- set only where routing genuinely chose among
+	// candidates holding a skill. Empty for every item whose assignee is not
+	// a skill-routed choice at all: blocked rework returns to the same
+	// assignee (proposeBlocked), cadence-due names the one overdue analyst
+	// (CadenceDue), returned work goes back to whoever wrote it
+	// (proposeReturned), and a decision-request item is always the
+	// supervisor's own (proposeDecisionRequests). B4-STEP-TWO-SPEC.md
+	// section 3's re-routing check needs to know which pool an alternative
+	// assignee must be validated against, and PlanItem is the only place
+	// that pool's name survives past routing -- chooseAnalyst's own
+	// candidates slice is gone by the time Propose returns.
+	Skill string
 }
 
 // skillAnomalyTriage is the skill source 1's routing looks for: the
@@ -231,7 +246,7 @@ func proposeAnomalies(db *sql.DB, p *Plan, roster []Analyst, spent map[string]mo
 			}
 			p.Items = append(p.Items, PlanItem{
 				Title: title, Goal: goal, Assignee: assignee,
-				Desk: r.source, Budget: budget, Why: baseWhy,
+				Desk: r.source, Budget: budget, Why: baseWhy, Skill: skillAnomalyTriage,
 			})
 			continue
 		}
@@ -857,6 +872,11 @@ func routedItem(title, goal, baseWhy string, candidates []Analyst, class string,
 		return PlanItem{Title: title, Goal: goal, Assignee: "supervisor", Desk: "management",
 			Budget: 0, Why: why}
 	}
+	// class is a real skill token for source 1 and for goal rule (a)/(c), and
+	// a roster NAME for goal rule (b) -- callers never mix the two, but this
+	// function has no way to tell them apart on its own, so it records
+	// whichever string it was given and leaves "is this actually a skill" to
+	// the reader (crew.ValidatePlanAnswer checks membership in SkillPool).
 	return PlanItem{Title: title, Goal: goal, Assignee: chosen.Name, Desk: chosen.Desk,
-		Budget: chosen.PerTask, Why: why}
+		Budget: chosen.PerTask, Why: why, Skill: class}
 }

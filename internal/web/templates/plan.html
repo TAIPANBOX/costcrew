@@ -20,7 +20,7 @@
 </div>
 
 <div class="panel">
-  <h2>What it proposes, and why</h2>
+  <h2>The deterministic plan, and why</h2>
   <div class="scroll">
   <table>
     <thead><tr>{{$.Sort.Header "task" "Task" "" false}}{{$.Sort.Header "analyst" "Analyst" "" false}}{{$.Sort.Header "desk" "Desk" "tight" false}}{{$.Sort.Header "guard" "Guard" "num" true}}{{$.Sort.Header "because" "Because" "" false}}</tr></thead>
@@ -43,14 +43,77 @@
 
 {{if .P.Existing}}
 <p class="msg">{{.P.Label}} is already on the board.</p>
-{{else if .CanAct}}{{if .P.Items}}
+{{else if .CanAct}}
+{{if .P.Items}}
 <form class="action" method="post" action="/sprint/plan">
   <input type="hidden" name="csrf" value="{{.CSRF}}">
   <input type="hidden" name="label" value="{{.P.Label}}">
   <input type="hidden" name="start" value="{{.P.Start}}">
   <input type="hidden" name="end" value="{{.P.End}}">
   <input type="hidden" name="goal" value="{{.P.TypedGoal}}">
-  <div class="row"><button type="submit">Approve and put it on the board</button></div>
+  <div class="row"><button type="submit">Approve the deterministic plan</button></div>
 </form>
-{{end}}{{end}}
+{{end}}
+
+<form class="action" method="post" action="/sprint/plan/ask">
+  <input type="hidden" name="csrf" value="{{.CSRF}}">
+  <input type="hidden" name="label" value="{{.P.Label}}">
+  <input type="hidden" name="start" value="{{.P.Start}}">
+  <input type="hidden" name="end" value="{{.P.End}}">
+  <input type="hidden" name="goal" value="{{.P.TypedGoal}}">
+  <div class="row">
+    <button type="submit">Ask the supervisor to plan it too</button>
+    <span class="note">One metered call, priced before it is made, shown beside this plan rather than in place of it.</span>
+  </div>
+</form>
+{{end}}
+
+{{if .Asked}}
+<div class="panel">
+  <h2>The supervisor's own plan</h2>
+  {{if .AskRefusal}}
+    <p class="msg">The call was refused: <span class="note">{{.AskRefusal}}</span></p>
+    {{if .AskRawAnswer}}
+    <p>What the model wrote, in full, so nothing here hides what it said:</p>
+    <pre class="scroll">{{.AskRawAnswer}}</pre>
+    {{end}}
+  {{else if .ModelPlanOK}}
+    <div class="tiles">
+      <div class="tile"><div class="k">Items</div><div class="v">{{len .ModelPlan.Items}}</div><div class="s">the supervisor's own routing</div></div>
+      <div class="tile"><div class="k">Guards</div><div class="v">{{.ModelPlan.Budget}}</div><div class="s">the ceiling this version would run under</div></div>
+    </div>
+    {{if .ModelPlan.Items}}
+    <div class="scroll">
+    <table>
+      <thead><tr><th>Task</th><th>Analyst</th><th class="tight">Desk</th><th class="num">Guard</th><th>Because</th></tr></thead>
+      <tbody>
+      {{range .ModelPlan.Items}}
+        <tr>
+          <td><strong>{{.Title}}</strong><span class="sub">{{.Goal}}</span></td>
+          <td>{{if .Assignee}}<a href="/staff/{{.Assignee}}">{{.Assignee}}</a>{{else}}<span class="note">unassigned</span>{{end}}</td>
+          <td class="tight">{{if .Desk}}<a href="/desk/{{.Desk}}">{{.Desk}}</a>{{end}}</td>
+          <td class="num">{{.Budget}}</td>
+          <td><span class="note">{{.Why}}</span></td>
+        </tr>
+      {{end}}
+      </tbody>
+    </table>
+    </div>
+    {{if .CanAct}}
+    <form class="action" method="post" action="/sprint/plan/approve-model">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <input type="hidden" name="label" value="{{.P.Label}}">
+      <input type="hidden" name="start" value="{{.P.Start}}">
+      <input type="hidden" name="end" value="{{.P.End}}">
+      <input type="hidden" name="goal" value="{{.P.TypedGoal}}">
+      <input type="hidden" name="answer" value="{{.AskRawAnswer}}">
+      <div class="row"><button type="submit">Approve the supervisor's plan instead</button></div>
+    </form>
+    {{end}}
+    {{else}}
+    <p class="empty">The supervisor named nothing this sprint: a legal answer, shown as such.</p>
+    {{end}}
+  {{end}}
+</div>
+{{end}}
 {{end}}
