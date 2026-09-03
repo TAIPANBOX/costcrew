@@ -16,6 +16,7 @@ package finops
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -109,17 +110,18 @@ func Apply(db *sql.DB, opt crew.Option, actor string, rec Recorder) error {
 // applySideEffect is the table itself. Every class named here also exists in
 // internal/crew/roles.yaml (scripts/roles-are-bound.sh's property 1 already
 // checks that direction for every "// class:" tag in internal/ and tools/),
-// and the classes with no case below -- allocation.rule, budget.set,
-// explainer.publish among them -- are "text only" deliberately: their
-// existing functions (finops.SetRule, the estate budgets intake,
-// crew.Publish) each need a structured target (a rule id, a team and month,
-// an explainer id) the generic options shape
+// and the classes with no case below -- budget.set, explainer.publish among
+// them -- are "text only" deliberately: their existing functions (the
+// estate budgets intake, crew.Publish) each need a structured target (a
+// team and month, an explainer id) the generic options shape
 // (class/summary/figure_cents/saving_cents/risk/needs/evidence) does not
 // carry and this option's own task does not supply either. Inventing one
 // would be exactly "invent a number it was not given", the rule every job
 // description in ROLES-2026-09.md carries under "Never". Wiring them is
-// follow-up work once a companion field names the target; see this PR's
-// body and the report's NOT PROVEN line.
+// follow-up work once a companion field names the target, the same way
+// C2-SPEC.md's own "target" field did for allocation.rule below (invariant
+// 32, CLAUDE.md): once a class carries a real target, applySideEffect's own
+// case reads it rather than staying text-only forever.
 func applySideEffect(db *sql.DB, opt crew.Option, t crew.Task, actor string, rec Recorder) error {
 	switch opt.Class {
 	case "anomaly.explain": // class:anomaly.explain
@@ -152,7 +154,10 @@ func applySideEffect(db *sql.DB, opt crew.Option, t crew.Task, actor string, rec
 		if err != nil || period == "" {
 			return err
 		}
-		return Close(db, period, actor)
+		if err := Close(db, period, actor); err != nil {
+			return err
+		}
+		return queueShowbackTasks(db, period, t.Sprint)
 	case "period.reopen": // class:period.reopen
 		periods, err := ClosedPeriods(db)
 		if err != nil {
@@ -166,9 +171,88 @@ func applySideEffect(db *sql.DB, opt crew.Option, t crew.Task, actor string, rec
 			reason = "reopened by " + actor
 		}
 		return Reopen(db, periods[0], reason)
+	case "allocation.rule": // class:allocation.rule
+		return applyAllocationRule(db, opt)
 	}
-	// allocation.rule, budget.set, explainer.publish, and every class not
-	// named above: recorded only, per this function's own comment.
+	// budget.set, explainer.publish, and every class not named above:
+	// recorded only, per this function's own comment.
+	return nil
+}
+
+// allocationRuleTarget mirrors internal/crew's own generic decode of the
+// same JSON (unallocationRuleTarget there, typed only enough to validate
+// shape): this is the one place that actually reads it as a rule id and a
+// Method, because internal/crew cannot import this package's Method type
+// without the import cycling back (this package already imports crew).
+type allocationRuleTarget struct {
+	RuleID int64  `json:"rule_id"`
+	Method Method `json:"method"`
+}
+
+// applyAllocationRule is C2-SPEC.md section 2's own wiring: "internal/finops.Apply
+// wires allocation.rule to finops.SetRule with that target", the companion
+// field this class was missing when apply.go's own comment first named it
+// as recorded-only for lack of one. A target that fails to decode, or is
+// simply absent (an option saved before this feature existed, or a caller
+// bypassing crew.ValidateAndSaveOptions the way TestApplyAnUnwiredClassIsRecordedOnly
+// does), is left exactly as "recorded only" always was: no error, nothing
+// invented. Once a target IS present, SetRule's own checks -- a rule id
+// this store does not have, a method string it does not define -- are what
+// refuse it; duplicating either check here would only risk the two
+// disagreeing.
+func applyAllocationRule(db *sql.DB, opt crew.Option) error {
+	if len(opt.Target) == 0 {
+		return nil
+	}
+	var tgt allocationRuleTarget
+	if err := json.Unmarshal(opt.Target, &tgt); err != nil {
+		return nil
+	}
+	if tgt.RuleID <= 0 || tgt.Method == "" {
+		return nil
+	}
+	return SetRule(db, int(tgt.RuleID), tgt.Method)
+}
+
+// queueShowbackTasks is period.close's own statement half (C2-SPEC.md
+// section 2): "one showback narration artifact per team is queued as a
+// task for the desk's reporter (the existing task creation path), never
+// sent by this console." One task per (source, team) row of the period
+// JUST frozen -- FrozenPeriod, not a fresh Allocate, because what is owed
+// is a showback about the numbers actually closed, not whatever the estate
+// has moved to by the time this runs -- assigned to "reporter-"+source
+// only when that analyst is on the roster (reporter-aws, reporter-gcp,
+// reporter-azure, reporter-onprem today; a desk with none, ai and saas
+// today, is skipped rather than queued to nobody). sprintID is the sprint
+// the period.close option's own task belongs to, so the showback tasks land
+// beside the close itself rather than on whatever sprint happens to be
+// "current" days or weeks later.
+func queueShowbackTasks(db *sql.DB, period string, sprintID int) error {
+	frozen, err := FrozenPeriod(db, period)
+	if err != nil {
+		return err
+	}
+	roster, err := crew.Roster(db)
+	if err != nil {
+		return err
+	}
+	onRoster := make(map[string]bool, len(roster))
+	for _, a := range roster {
+		onRoster[a.Name] = true
+	}
+	for _, row := range frozen.Teams {
+		reporter := "reporter-" + row.Source
+		if !onRoster[reporter] {
+			continue
+		}
+		title := fmt.Sprintf("Showback narration: %s on %s, %s", row.Team, row.Source, period)
+		goal := fmt.Sprintf("Write the showback narration for %s's %s spend in %s: "+
+			"%s direct, %s allocated, %s total.",
+			row.Team, row.Source, period, row.Direct, row.Allocated, row.Loaded())
+		if _, err := crew.EnsureTask(db, sprintID, title, goal, reporter, row.Source, 0); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

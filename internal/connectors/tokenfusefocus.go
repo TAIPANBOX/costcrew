@@ -57,6 +57,7 @@ CREATE TABLE IF NOT EXISTS ai_calls(
   billed_microusd INTEGER NOT NULL,
   blocked INTEGER NOT NULL, basis TEXT NOT NULL,
   outcome TEXT, tool_calls INTEGER,
+  invoice_id TEXT,          -- NULL unless the file's own header carried InvoiceId (C2-SPEC.md section 2)
   PRIMARY KEY (file_sha256, row_no));
 CREATE INDEX IF NOT EXISTS ai_calls_day ON ai_calls(day, team, model);
 CREATE INDEX IF NOT EXISTS ai_calls_agent ON ai_calls(agent, day);
@@ -87,8 +88,22 @@ func EnsureFocusSchema(db *sql.DB) error {
 		!strings.Contains(err.Error(), "duplicate column name") {
 		return fmt.Errorf("adding charges.provenance: %w", err)
 	}
+	// C2-SPEC.md section 2's own column. Both charges and ai_calls carry it
+	// as an ALTER here, the same "add to the source schema AND keep an idempotent
+	// ALTER for an installation that predates it" convention charges.provenance
+	// above already holds: estate.SeedSchema's own charges CREATE TABLE gained
+	// invoice_id for every store built from scratch after this change, and this
+	// is what retrofits a store built before it.
+	if _, err := db.Exec(`ALTER TABLE charges ADD COLUMN invoice_id TEXT`); err != nil &&
+		!strings.Contains(err.Error(), "duplicate column name") {
+		return fmt.Errorf("adding charges.invoice_id: %w", err)
+	}
 	if _, err := db.Exec(focusSchema); err != nil {
 		return fmt.Errorf("creating ai_calls: %w", err)
+	}
+	if _, err := db.Exec(`ALTER TABLE ai_calls ADD COLUMN invoice_id TEXT`); err != nil &&
+		!strings.Contains(err.Error(), "duplicate column name") {
+		return fmt.Errorf("adding ai_calls.invoice_id: %w", err)
 	}
 	return nil
 }
@@ -175,15 +190,15 @@ func tokenFuseFocusReader(db *sql.DB, cfg map[string]string, opt ImportOptions) 
 		ins, err = tx.Prepare(`INSERT INTO ai_calls
 			(file_sha256, row_no, ts, day, team, agent, run_id, parent_run_id,
 			 provider, model, tokens_in, tokens_out, billed_microusd, blocked, basis,
-			 outcome, tool_calls)
-			VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+			 outcome, tool_calls, invoice_id)
+			VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 			ON CONFLICT(file_sha256, row_no) DO UPDATE SET
 			  ts=excluded.ts, day=excluded.day, team=excluded.team, agent=excluded.agent,
 			  run_id=excluded.run_id, parent_run_id=excluded.parent_run_id,
 			  provider=excluded.provider, model=excluded.model,
 			  tokens_in=excluded.tokens_in, tokens_out=excluded.tokens_out,
 			  billed_microusd=excluded.billed_microusd, blocked=excluded.blocked, basis=excluded.basis,
-			  outcome=excluded.outcome, tool_calls=excluded.tool_calls`)
+			  outcome=excluded.outcome, tool_calls=excluded.tool_calls, invoice_id=excluded.invoice_id`)
 		if err != nil {
 			return "", err
 		}
@@ -420,7 +435,7 @@ func processFocusFile(path string, ins *sql.Stmt) (*focusSummary, error) {
 		if _, err := ins.Exec(sha, rowNo, row.TS, row.Day, nullIfEmpty(row.Team), row.Agent,
 			nullIfEmpty(row.RunID), nullIfEmpty(row.ParentRunID), nullIfEmpty(row.Provider),
 			row.Model, row.TokensIn, row.TokensOut, int64(row.BilledMicros), blockedInt,
-			row.Basis, nullIfEmpty(row.Outcome), toolCalls); err != nil {
+			row.Basis, nullIfEmpty(row.Outcome), toolCalls, nullIfEmpty(row.InvoiceID)); err != nil {
 			return nil, fmt.Errorf("row %d: writing to ai_calls: %w", rowNo, err)
 		}
 	}
@@ -458,6 +473,11 @@ type focusRow struct {
 	Blocked                      bool
 	Basis, Outcome               string
 	ToolCalls                    *int64
+	// InvoiceID is empty when the file's own header names no InvoiceId
+	// column at all: it is not in requiredFocusColumns, so its absence
+	// refuses nothing (C2-SPEC.md section 2, "if the FOCUS InvoiceId
+	// column is present in a file; absent otherwise").
+	InvoiceID string
 }
 
 // parseFocusRow validates and converts one already-aligned record (same
@@ -543,6 +563,7 @@ func parseFocusRow(rec []string, col map[string]int) (focusRow, error) {
 		Basis:     strings.TrimSpace(field("x_cost_basis")),
 		Outcome:   strings.TrimSpace(field("x_outcome")),
 		ToolCalls: toolCalls,
+		InvoiceID: strings.TrimSpace(field("InvoiceId")),
 	}, nil
 }
 
@@ -693,8 +714,8 @@ func deriveCharges(tx *sql.Tx, daysTouched map[string]bool) error {
 	}
 	defer del.Close()
 	ins, err := tx.Prepare(`INSERT INTO charges
-		(source, day, service, team, category, billed_cents, quantity, unit, meter, model, provenance)
-		VALUES ('ai', ?, ?, ?, 'Usage', ?, ?, 'tokens', ?, ?, 'tokenfuse-focus')`)
+		(source, day, service, team, category, billed_cents, quantity, unit, meter, model, invoice_id, provenance)
+		VALUES ('ai', ?, ?, ?, 'Usage', ?, ?, 'tokens', ?, ?, ?, 'tokenfuse-focus')`)
 	if err != nil {
 		return err
 	}
@@ -704,22 +725,27 @@ func deriveCharges(tx *sql.Tx, daysTouched map[string]bool) error {
 		if _, err := del.Exec(d); err != nil {
 			return fmt.Errorf("clearing %s's derived charges: %w", d, err)
 		}
+		// invoice_id is grouped alongside team/provider/model, not merely
+		// carried along: two rows that would otherwise be one charges row but
+		// belong to different invoices must reconcile to those two invoices
+		// separately, or "reconciliation to the cent" (C2-SPEC.md section 2)
+		// would be reading a number this query itself had already blurred.
 		rows, err := tx.Query(`SELECT COALESCE(team,''), COALESCE(provider,''), model,
-				SUM(billed_microusd), SUM(tokens_in+tokens_out)
+				COALESCE(invoice_id,''), SUM(billed_microusd), SUM(tokens_in+tokens_out)
 			FROM ai_calls WHERE day=? AND blocked=0
-			GROUP BY COALESCE(team,''), COALESCE(provider,''), model
-			ORDER BY 1,2,3`, d)
+			GROUP BY COALESCE(team,''), COALESCE(provider,''), model, COALESCE(invoice_id,'')
+			ORDER BY 1,2,3,4`, d)
 		if err != nil {
 			return err
 		}
 		type grp struct {
-			team, provider, model string
-			micros, qty           int64
+			team, provider, model, invoiceID string
+			micros, qty                      int64
 		}
 		var groups []grp
 		for rows.Next() {
 			var g grp
-			if err := rows.Scan(&g.team, &g.provider, &g.model, &g.micros, &g.qty); err != nil {
+			if err := rows.Scan(&g.team, &g.provider, &g.model, &g.invoiceID, &g.micros, &g.qty); err != nil {
 				rows.Close()
 				return err
 			}
@@ -735,7 +761,7 @@ func deriveCharges(tx *sql.Tx, daysTouched map[string]bool) error {
 			service := strings.TrimSpace(g.provider) + " API"
 			cents := money.Micros(g.micros).Cents() // the one rounding, after the sum
 			if _, err := ins.Exec(d, service, nullIfEmpty(g.team), int64(cents), g.qty,
-				g.model, g.model); err != nil {
+				g.model, g.model, nullIfEmpty(g.invoiceID)); err != nil {
 				return fmt.Errorf("writing the %s/%s charges row for %s: %w", g.team, g.model, d, err)
 			}
 		}

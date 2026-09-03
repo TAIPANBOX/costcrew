@@ -56,17 +56,17 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 515 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 68 cases; needs a clean tree; ~90s
-./scripts/features-are-bound.sh      # 105 scenarios, both directions
+go test ./...                        # 542 tests, 20 packages
+./scripts/gates-have-teeth.sh        # 69 cases; needs a clean tree; ~90s
+./scripts/features-are-bound.sh      # 109 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refused PR #19 on two findings the list above never asked for; a staticcheck built for an older Go cannot read this module, so on such a machine CI is the only place it runs
 ```
 
-Counts follow the suite, measured on `feat/cadence-runs-when-a-person-switches-it-on`
-after rebasing onto main past #27's own merge
+Counts follow the suite, measured on `feat/c2-month-end-close`, rebased onto
+main at 602fa25 (#28's own merge)
 (test count by `go test ./... -list '.*' | grep -c '^Test'` -- test FUNCTIONS, not
 subtests, the convention PR #21, #23 and this file's own `internal/manifest` gate
 already use, not `-v | grep -c '^--- PASS'`, which over-counts anything using
@@ -76,7 +76,9 @@ already use, not `-v | grep -c '^--- PASS'`, which over-counts anything using
 branch last updated them by hand (B1a's own merge left this block at 282/48/59
 while its own PR body reported 301/52/70). Invariants 1, 2 and 5's own route
 counts (48/30/30 -> 50/34/34) were also re-measured while touching this file for
-B5, since the new /cadence routes are directly what moved them.
+B5, since the new /cadence routes are directly what moved them. C2 added 27
+tests (515 -> 542) and one gates-have-teeth case (68 -> 69); package count is
+unchanged (20), since every new test file landed in an existing package.
 
 The gates in this repo are Go tests rather than shell scripts, so
 `gates-have-teeth.sh` mutates the PRODUCT and requires the test to go red.
@@ -485,11 +487,15 @@ an absent invariant.
     it (`anomaly.Explain/Dismiss/Accept`, `finops.Freeze/Close/Reopen`,
     `estate.InsertDriver`, extracted from `Seed`'s own inline insert so a
     second caller does not copy the column order by hand); three classes
-    (`allocation.rule`, `budget.set`, `explainer.publish`) are recorded only
-    for now, because the generic option shape carries no rule id, team,
-    month or explainer id for them to act on, and inventing one would be
-    exactly `commit money`'s neighbour on the never-list, "invent a number it
-    was not given" -- see the PR body. Applying one option marks every OTHER
+    (`allocation.rule`, `budget.set`, `explainer.publish`) were recorded only
+    at the time this invariant was written, because the generic option shape
+    carried no rule id, team, month or explainer id for them to act on, and
+    inventing one would be exactly `commit money`'s neighbour on the
+    never-list, "invent a number it was not given" -- see the PR body.
+    `allocation.rule` gained the companion field this paragraph describes the
+    lack of (invariant 32, C2-SPEC.md); `budget.set` and `explainer.publish`
+    still have none and are recorded only exactly as this paragraph
+    originally found them. Applying one option marks every OTHER
     live option of the SAME deliverable, and every live rival option of a
     DIFFERENT deliverable answering the same `anomaly.explain` question (next
     paragraph), `not_chosen` (`crew.LiveRivalsOf`, called from inside `Apply`
@@ -784,6 +790,110 @@ an absent invariant.
     reverted rather than kept as permanent cases, each caught by one of the
     tests above, the same shape invariant 27's own history already
     describes for this repository.)*
+
+32. **A chargeback period's close carries real weight now: the packet the
+    chargeback analyst reads is built from the SAME allocation this console
+    renders on its own pages, `allocation.rule` is refused without a
+    structured target naming which rule and method, and applying
+    `period.close` queues the statements rather than only freezing a
+    number.** C2-SPEC.md. `@yurii 2026-09-02`, the ask this step serves:
+    "більш повною мірою замінити людей на цих посадах" -- a chargeback
+    analyst's last three days of the month, "reconcile, allocate, freeze,
+    send the statements, answer the arguments."
+
+    `internal/deliver.closePackSection` triggers on the ROLE (the
+    chargeback-analyst family, via `crew.RoleForDesk`) and the task's own
+    TITLE naming a period (`\d{4}-\d{2}`, the same shape `finops.Allocate`'s
+    own period key already uses), because this family's single `cadence`
+    line in `roles.yaml` -- "weekly, and the close pack monthly" -- covers
+    two different kinds of task on the SAME analyst, and only the title
+    tells the packet builder which one it is looking at. It reads
+    `finops.Allocate`, `finops.Rules`, the new `finops.UnallocatedPots`
+    (each unallocated pot with the RULE id, or none, that left it there --
+    `Allocate`'s own inline rule resolution, extracted into `ruleFor` so the
+    two can never disagree about which pot is unallocated or why) and
+    `finops.TrueUpFor`, and the new `finops.InvoiceReconciliation` (grouping
+    a period's `charges` by `invoice_id`, cents-exact, with one sentence --
+    "no invoice column is loaded" -- when not one row carries one). It is
+    appended in `Packet()` after the anomaly-related sections and before
+    `ownHistorySection`: "yields before memory, after the anomaly" is
+    C2-SPEC.md's own words for that exact place, and invariant 30's own
+    ordering (memory appended last, so it is always what yields first once
+    the cap is reached) is otherwise unchanged.
+
+    `allocation.rule` options now carry a `target` object (`{"rule_id",
+    "method", "share"}`, `crew.Option.Target`, a new nullable
+    `artifact_options.target` column -- `crew.EnsureOptionTarget` migrates
+    an installation from before it) and `crew.ValidateAndSaveOptions`
+    refuses the WHOLE deliverable's options, the same way an
+    out-of-vocabulary class already does, when that class's target is
+    absent, malformed, or carries a `share` outside 0 to 1 -- structural and
+    range checks only, because whether `rule_id` actually names a rule, and
+    whether `method` is one `finops.SetRule` accepts, both need
+    `internal/finops`, which already imports this package (`apply.go`), so
+    the reverse import would cycle; those two are refused instead when the
+    option is actually APPLIED, by `finops.SetRule`'s own existing checks,
+    reused rather than duplicated. `internal/finops.Apply`'s `case
+    "allocation.rule"` decodes the target with its own local type and calls
+    `finops.SetRule`; a target that fails to decode, or is simply absent (an
+    option saved before this feature existed, or a direct caller bypassing
+    the save-time gate the way `TestApplyAnUnwiredClassIsRecordedOnly`
+    already does for other classes), is left exactly as "recorded only"
+    always was -- no error, nothing invented. `budget.set` and
+    `explainer.publish` are unchanged, still recorded-only, for the same
+    reason `apply.go`'s own comment already gives.
+
+    Applying `period.close` -- always the OWNER's stamp: its `roles.yaml`
+    owner is `owner`, so the supervisor's own auto-apply pass never reaches
+    it regardless of the figure, and it is always carried into a decision
+    request -- freezes the period (unchanged) and then queues one task per
+    (source, team) row of the period JUST frozen, titled to name the team,
+    its desk and the period, assigned to `"reporter-"+source` when that
+    analyst is on the roster (`reporter-aws`, `reporter-gcp`,
+    `reporter-azure`, `reporter-onprem` today; a desk with none, `ai` and
+    `saas` today, is skipped rather than queued to nobody) so that analyst's
+    own `commentary.showback` duty (`roles.yaml`'s `reporter` family) has a
+    task to answer. `crew.EnsureTask` is `EnsureSupervisorTask`'s own
+    find-or-create shape (dedupe key: sprint, assignee, title), generalised
+    rather than copied a second time, and `EnsureSupervisorTask` itself is
+    now a one-line call through it. No statement is SENT by this console:
+    queuing the task is the whole of what "send the statements" means here,
+    and the reporter's own deliverable, once written and stamped, is what a
+    person actually sends.
+    *(gate: `TestClosePackSectionAppearsOnAChargebackTaskNamingAPeriod`,
+    `TestClosePackSectionAbsentWithoutAPeriodInTheTitle`,
+    `TestClosePackSectionAbsentForANonChargebackRole`,
+    `TestClosePackSectionNamesNoPreviousClose`,
+    `TestClosePackSectionSaysNoInvoiceColumnIsLoaded`,
+    `TestClosePackSectionReconcilesInvoicesWhenPresent`,
+    `TestClosePackSectionComesBeforeMemoryInThePacket` for the packet
+    section; `TestUnallocatedPotsSumToTheAllocationsOwnUnallocatedTotal`,
+    `TestUnallocatedPotsNameTheRuleThatLeftEachOne`,
+    `TestUnallocatedPotsNameNoRuleWhenNoneCoversTheCategory`,
+    `TestInvoiceReconciliationSaysNoColumnIsLoadedWhenNoneIs`,
+    `TestInvoiceReconciliationGroupsByInvoiceToTheCent` for the two new
+    `internal/finops` readers; `TestAllocationRuleWithNoTargetIsRefused`,
+    `TestAllocationRuleTargetHostileInputs` (a share of 1.5, a negative
+    share, a 1 MB target -- caught by the existing 64 KiB whole-block cap
+    rather than a second one, a missing/zero/negative `rule_id`, no
+    `method`), `TestAllocationRuleTargetIsAcceptedEvenWithAnUnknownRuleId`,
+    `TestAllocationRuleWithAValidTargetIsSaved` for the save-time gate;
+    `TestApplyAllocationRuleWithATargetCallsSetRule`,
+    `TestApplyAllocationRuleWithNoTargetIsANoOp`,
+    `TestApplyAllocationRuleWithAnUnknownRuleIDFails` for the apply-time
+    wiring; `TestApplyPeriodCloseQueuesOneReporterTaskPerTeam`,
+    `TestApplyPeriodCloseQueuesATaskForATeamWithZeroAllocatedShare`,
+    `TestApplyPeriodCloseSkipsADeskWithNoReporter` for the statements;
+    `TestChargebackPageShowsTheLastCloseBesideTheLive`,
+    `TestChargebackPageSaysNoPreviousCloseWhenNoneExists` for the page;
+    `TestFocusReaderCarriesInvoiceIdWhenTheColumnIsPresent`,
+    `TestFocusReaderLeavesInvoiceIdNullWhenTheColumnIsAbsent`,
+    `TestEnsureFocusSchemaAddsInvoiceIdColumns` for the FOCUS reader's own
+    optional column. `scripts/gates-have-teeth.sh`'s `C2: accept a
+    target-less allocation.rule` case plants exactly the fault its name
+    says: disabling the save-time target check in
+    `crew.ValidateAndSaveOptions` so an `allocation.rule` option with no
+    target is written anyway.)*
 
 ## Decisions that have no gate yet
 

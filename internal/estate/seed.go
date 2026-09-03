@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS charges(
   source TEXT NOT NULL, day TEXT NOT NULL, service TEXT NOT NULL,
   team TEXT, category TEXT NOT NULL, billed_cents INTEGER NOT NULL,
   quantity REAL, unit TEXT, meter TEXT, model TEXT,
+  invoice_id TEXT,          -- NULL unless a reader carried FOCUS InvoiceId (C2-SPEC.md section 2)
   provenance TEXT);         -- NULL means generated; set by a connector's reader
 CREATE TABLE IF NOT EXISTS drivers(
   date_start TEXT, date_end TEXT, scope TEXT, label TEXT, kind TEXT, source TEXT);
