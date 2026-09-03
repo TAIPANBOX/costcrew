@@ -1,0 +1,35 @@
+{{define "content"}}
+<header class="page">
+  <h1>Rightsizing</h1>
+  <p>What the providers' own recommendation exports say is paid for at a size nobody uses. This is a list, not a decision: every row is a person's own <code>infra.change</code> to make, never something this console applies.</p>
+</header>
+
+{{range .Groups}}
+<div class="panel">
+  <h2>{{.Desk.Name}}</h2>
+  {{if .Rows}}
+  <p class="note">Imported from {{.LastFile}}, {{.LastDate}}.</p>
+  <div class="scroll">
+  <table>
+    <thead><tr>
+      <th>Resource</th><th>Action</th><th>Current</th><th>Recommended</th>
+      <th class="num">Saving/mo</th><th class="tight">Lookback</th>
+    </tr></thead>
+    <tbody>{{range .Rows}}
+      <tr>
+        <td>{{.Resource}}</td>
+        <td class="tight">{{.Action}}</td>
+        <td>{{.Current}}</td>
+        <td>{{if .Recommended}}{{.Recommended}}{{else}}<span class="note">(none)</span>{{end}}</td>
+        <td class="num">{{.MonthlySavingCents}}</td>
+        <td class="tight">{{.LookbackDays}} {{plural .LookbackDays "day" "days"}}{{if le .LookbackDays 14}} <span class="chip open">a monthly job looks idle to this window</span>{{end}}</td>
+      </tr>
+    {{end}}</tbody>
+  </table>
+  </div>
+  {{else}}
+  <p class="empty">none imported</p>
+  {{end}}
+</div>
+{{end}}
+{{end}}

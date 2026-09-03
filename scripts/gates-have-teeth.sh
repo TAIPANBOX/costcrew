@@ -925,6 +925,33 @@ run_case 'due: skip the switch check' \
 	$'if !enabled {' \
 	$'if !enabled && false {'
 
+# C5-SPEC.md section 4's own named mutant, "rank by current cost": the
+# optimizer's packet section ranks its recommendations by saving, and this
+# swaps the comparator to read Current (the resource's own size string,
+# e.g. "m5.2xlarge") instead of MonthlySavingCents. Go allows > on
+# strings, so this still compiles.
+#
+# @measured 2026-09-03, planting this exact mutation by hand: the golden
+# fixture's own five rows happen to keep i-0a1b... ahead of i-0b2c... under
+# EITHER comparator (their Current strings sort the same way their savings
+# do, by coincidence), so a test that checks only that one pair passes
+# right through the mutant. TestRecommendationsSectionCapsAtTenWithAndNMore
+# does not share that coincidence: its twelve planted rows all carry the
+# SAME Current value, so the mutated comparator degenerates entirely to
+# the resource-name tie-break and cuts the two HIGHEST-saving rows instead
+# of the two lowest. TestRecommendationsSectionRanksBySavingFromAFixtureImport
+# was rewritten to check the full five-row order rather than one pair, so
+# it now catches the same mutant too; both are named here because either
+# one going toothless on its own should still be caught by the other.
+run_case 'rightsizing: rank by current cost instead of saving' \
+	fail \
+	./internal/deliver \
+	$'TestRecommendationsSectionCapsAtTenWithAndNMore' \
+	$'the lowest-saving row was shown instead of cut' \
+	internal/deliver/rightsizing.go \
+	$'if recs[i].MonthlySavingCents != recs[j].MonthlySavingCents {\n\t\t\treturn recs[i].MonthlySavingCents > recs[j].MonthlySavingCents\n\t\t}' \
+	$'if recs[i].Current != recs[j].Current {\n\t\t\treturn recs[i].Current > recs[j].Current\n\t\t}'
+
 echo
 if [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'

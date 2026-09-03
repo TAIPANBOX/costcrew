@@ -199,6 +199,12 @@ func run(addr, dir string, scfg stack.Config) error {
 	if err := connectors.EnsureFocusSchema(st.DB()); err != nil {
 		return fmt.Errorf("ensuring the FOCUS reader's schema: %w", err)
 	}
+	// recommendations, unconditionally: the optimizer's own packet section
+	// and the /rightsizing page both read it on every render regardless of
+	// whether a rightsizing connector has ever been pointed at a folder.
+	if err := connectors.EnsureRecommendationsSchema(st.DB()); err != nil {
+		return fmt.Errorf("ensuring the rightsizing readers' schema: %w", err)
+	}
 	if err := estate.SeedBudgets(st.DB()); err != nil {
 		return fmt.Errorf("setting budgets: %w", err)
 	}

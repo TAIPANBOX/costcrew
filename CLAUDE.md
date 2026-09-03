@@ -56,17 +56,17 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 515 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 68 cases; needs a clean tree; ~90s
-./scripts/features-are-bound.sh      # 105 scenarios, both directions
+go test ./...                        # 532 tests, 20 packages
+./scripts/gates-have-teeth.sh        # 69 cases; needs a clean tree; ~90s
+./scripts/features-are-bound.sh      # 114 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refused PR #19 on two findings the list above never asked for; a staticcheck built for an older Go cannot read this module, so on such a machine CI is the only place it runs
 ```
 
-Counts follow the suite, measured on `feat/cadence-runs-when-a-person-switches-it-on`
-after rebasing onto main past #27's own merge
+Counts follow the suite, measured on `feat/c5-rightsizing-from-provider-recommendations`,
+branched from `main` at #28's own merge (602fa25), no rebase since
 (test count by `go test ./... -list '.*' | grep -c '^Test'` -- test FUNCTIONS, not
 subtests, the convention PR #21, #23 and this file's own `internal/manifest` gate
 already use, not `-v | grep -c '^--- PASS'`, which over-counts anything using
@@ -77,6 +77,17 @@ branch last updated them by hand (B1a's own merge left this block at 282/48/59
 while its own PR body reported 301/52/70). Invariants 1, 2 and 5's own route
 counts (48/30/30 -> 50/34/34) were also re-measured while touching this file for
 B5, since the new /cadence routes are directly what moved them.
+
+C5 re-measured the same way. 515/68/105, this block's own numbers, were
+still exactly right on `main` at #28's merge (measured directly against that
+commit, not assumed): the same three commands there give 515, 68, 105. Only
+invariant 1's own route count had drifted, 50 stated against 56 actual GET
+routes in `server.go` at that same commit, unnoticed since B5 because nothing
+that landed between the two touched a route AND this file in the same PR.
+515/68/105 -> 532/69/114 is this branch's own delta (17 tests: 9 in
+`internal/connectors`, 5 in `internal/deliver`, 3 in `internal/web`; one
+`run_case`, C5-SPEC.md's own named mutant; nine scenarios,
+`features/rightsizing.feature`); 56 -> 57 is the one route this branch adds.
 
 The gates in this repo are Go tests rather than shell scripts, so
 `gates-have-teeth.sh` mutates the PRODUCT and requires the test to go red.
@@ -97,7 +108,7 @@ an absent invariant.
    `/logout`, `/healthz` and `/static/` genuinely answer anybody; `/signup` is
    open only while nobody can administer the installation (invariant 10); and
    `/calendar` and `/stats` are aliases that redirect to a guarded page.
-   *(gate: `TestEveryRouteRequiresASession`, which walks all 50 GET routes
+   *(gate: `TestEveryRouteRequiresASession`, which walks all 57 GET routes
    registered in `server.go`. Its regexp is anchored to the registration and
    not to the string `HandleFunc`, because it once fired on a route named in a
    COMMENT, and a gate that fires on prose gets deleted the first week.)*
@@ -784,6 +795,58 @@ an absent invariant.
     reverted rather than kept as permanent cases, each caught by one of the
     tests above, the same shape invariant 27's own history already
     describes for this repository.)*
+
+32. **The optimizer's own packet ranks its recommendations by saving, never
+    by the size string, and names the risk a short lookback carries.**
+    C5-SPEC.md. The providers already publish their own rightsizing and idle
+    recommendations for free, and this step's whole surface is reading
+    them: three readers (`aws-rightsizing`, Cost Explorer's own Rightsizing
+    Recommendations CSV; `gcp-recommender`, a Recommender export;
+    `azure-advisor`, Advisor's own cost recommendations CSV, which reports
+    its saving as POTENTIAL ANNUAL cost and is divided by twelve, rounded
+    half away from zero, the same convention `money.Parse` already uses)
+    land in one shared `recommendations` table, and `deliver.recommendationsSection`
+    reads it back for the optimizer families' own packet
+    (`optimizer-aws/gcp/azure/onprem`, skill `rightsizing-analysis`). No
+    model is called by this step and `infra.change` never enters the apply
+    table, which invariant 23 already owns to nobody in the crew; this is
+    read-only, all the way through.
+
+    Ranked by `MonthlySavingCents`, descending, ties broken by resource so
+    the same estate renders the same list every time (invariant 7) rather
+    than on map or file order. A row's own lookback carries the sentence
+    `roles.yaml`'s optimizer family already writes for itself in its own
+    `owes` text ("a monthly job looks idle to a fourteen-day window")
+    whenever that lookback is fourteen days or fewer, and stays silent
+    about the risk otherwise. Top ten, with a trailing "and N more".
+    *(gate: `TestRecommendationsSectionRanksBySavingFromAFixtureImport`,
+    `TestRecommendationsSectionFlagsShortLookbackNotLong`,
+    `TestRecommendationsSectionCapsAtTenWithAndNMore`,
+    `TestRecommendationsSectionEmptyForADeskWithNoImports`,
+    `TestPacketIncludesRecommendationsOnlyForRightsizingAnalysis` in
+    `internal/deliver`; `TestAWSRightsizingIsRead`, `TestGCPRecommenderIsRead`,
+    `TestAzureAdvisorIsRead`, `TestAzureAnnualToMonthlyRoundsHalfAwayFromZero`,
+    `TestEmptyFileIsZeroRows`, `TestImportIsIdempotentForRightsizing`,
+    `TestTestDescribesRightsizingWithoutWriting`,
+    `TestRecommendationsFiltersByDesk` and `TestHostileRightsizingInput`
+    (an unknown header set; a negative saving; a resource id and a field
+    each carrying an embedded quote or comma; a UTF-8 BOM; CRLF line
+    endings; a 100 MB line, memory measured before and after) in
+    `internal/connectors`; `TestTheRightsizingPageReadsARealImport` and
+    `TestTheRightsizingPageStartsWithNoneImported` in `internal/web`, the
+    same end-to-end shape `TestTheAIPageReadsARealImport` already holds for
+    `tokenfuse-focus`. That a reader earns `Built` only by being registered
+    is invariant 22's own gate, `TestBuiltMeansAReaderExists`, unchanged
+    and already proving it for these three entries too, because `Status`
+    is derived from the `readers` map in exactly the one place invariant 22
+    describes.
+    `scripts/gates-have-teeth.sh` plants the mutant C5-SPEC.md names by its
+    own words, "rank by current cost": the sort comparator in
+    `recommendationsSection` swapped from comparing `MonthlySavingCents` to
+    comparing `Current` (the resource's own size string, e.g.
+    "m5.2xlarge") -- Go allows `>` on strings, so this still compiles, and
+    the list silently reorders itself alphabetically by instance type
+    instead of by money.)*
 
 ## Decisions that have no gate yet
 

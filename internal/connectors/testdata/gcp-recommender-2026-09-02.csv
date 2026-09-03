@@ -1,0 +1,4 @@
+project_id,resource,recommender_subtype,current_machine_type,recommended_machine_type,monthly_cost_savings,currency_code,observation_period_days,description
+taipanbox-prod,projects/taipanbox-prod/zones/us-central1-a/instances/vm-triage-1,CHANGE_MACHINE_TYPE,n2-standard-8,n2-standard-4,131.40,USD,14,
+taipanbox-prod,projects/taipanbox-prod/zones/us-central1-a/instances/vm-forecast-2,CHANGE_MACHINE_TYPE,e2-standard-4,e2-standard-2,58.30,USD,90,
+taipanbox-prod,projects/taipanbox-prod/zones/europe-west1-b/instances/vm-batch-9,STOP_VM,n2-standard-16,(stopped),210.75,USD,21,
