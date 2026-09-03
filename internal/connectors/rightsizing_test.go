@@ -421,6 +421,186 @@ func TestHostileRightsizingInput(t *testing.T) {
 		assertNoRecommendations(t, db)
 	})
 
+	t.Run("a garbage (non-numeric) AWS saving is refused, naming the amount", func(t *testing.T) {
+		f := awsRowFields()
+		f[6] = "50.00abc" // EstimatedMonthlySavings
+		dir := t.TempDir()
+		writeFocusFile(t, dir, "bad.csv", awsHeader+"\n"+strings.Join(f, ","))
+		st := openFocusStore(t)
+		db := st.DB()
+		if err := Save(db, "aws-rightsizing", map[string]string{"path": dir}); err != nil {
+			t.Fatal(err)
+		}
+		msg, err := Import(db, "aws-rightsizing", false, ImportOptions{})
+		if err != nil {
+			t.Fatalf("Import returned a hard error: %v", err)
+		}
+		if !strings.Contains(msg, "50.00abc") {
+			t.Errorf("the refusal does not name the bad amount: %s", msg)
+		}
+		assertNoRecommendations(t, db)
+	})
+
+	t.Run("an empty AWS InstanceId is refused", func(t *testing.T) {
+		f := awsRowFields()
+		f[1] = "" // InstanceId
+		dir := t.TempDir()
+		writeFocusFile(t, dir, "bad.csv", awsHeader+"\n"+strings.Join(f, ","))
+		st := openFocusStore(t)
+		db := st.DB()
+		if err := Save(db, "aws-rightsizing", map[string]string{"path": dir}); err != nil {
+			t.Fatal(err)
+		}
+		msg, err := Import(db, "aws-rightsizing", false, ImportOptions{})
+		if err != nil {
+			t.Fatalf("Import returned a hard error: %v", err)
+		}
+		if !strings.Contains(msg, "InstanceId") {
+			t.Errorf("the refusal does not name InstanceId: %s", msg)
+		}
+		assertNoRecommendations(t, db)
+	})
+
+	t.Run("a garbage AWS lookback is refused", func(t *testing.T) {
+		f := awsRowFields()
+		f[8] = "two weeks" // LookbackPeriodInDays
+		dir := t.TempDir()
+		writeFocusFile(t, dir, "bad.csv", awsHeader+"\n"+strings.Join(f, ","))
+		st := openFocusStore(t)
+		db := st.DB()
+		if err := Save(db, "aws-rightsizing", map[string]string{"path": dir}); err != nil {
+			t.Fatal(err)
+		}
+		msg, err := Import(db, "aws-rightsizing", false, ImportOptions{})
+		if err != nil {
+			t.Fatalf("Import returned a hard error: %v", err)
+		}
+		if !strings.Contains(msg, "LookbackPeriodInDays") {
+			t.Errorf("the refusal does not name LookbackPeriodInDays: %s", msg)
+		}
+		assertNoRecommendations(t, db)
+	})
+
+	t.Run("a negative GCP saving is refused", func(t *testing.T) {
+		f := gcpRowFields()
+		f[5] = "-50.00" // monthly_cost_savings
+		dir := t.TempDir()
+		writeFocusFile(t, dir, "bad.csv", gcpHeader+"\n"+strings.Join(f, ","))
+		st := openFocusStore(t)
+		db := st.DB()
+		if err := Save(db, "gcp-recommender", map[string]string{"path": dir}); err != nil {
+			t.Fatal(err)
+		}
+		msg, err := Import(db, "gcp-recommender", false, ImportOptions{})
+		if err != nil {
+			t.Fatalf("Import returned a hard error: %v", err)
+		}
+		if !strings.Contains(msg, "negative") {
+			t.Errorf("the refusal does not say negative: %s", msg)
+		}
+		assertNoRecommendations(t, db)
+	})
+
+	t.Run("an empty GCP resource is refused", func(t *testing.T) {
+		f := gcpRowFields()
+		f[1] = "" // resource
+		dir := t.TempDir()
+		writeFocusFile(t, dir, "bad.csv", gcpHeader+"\n"+strings.Join(f, ","))
+		st := openFocusStore(t)
+		db := st.DB()
+		if err := Save(db, "gcp-recommender", map[string]string{"path": dir}); err != nil {
+			t.Fatal(err)
+		}
+		msg, err := Import(db, "gcp-recommender", false, ImportOptions{})
+		if err != nil {
+			t.Fatalf("Import returned a hard error: %v", err)
+		}
+		if !strings.Contains(msg, "no resource") {
+			t.Errorf("the refusal does not say no resource: %s", msg)
+		}
+		assertNoRecommendations(t, db)
+	})
+
+	t.Run("a garbage GCP lookback is refused", func(t *testing.T) {
+		f := gcpRowFields()
+		f[7] = "N/A" // observation_period_days
+		dir := t.TempDir()
+		writeFocusFile(t, dir, "bad.csv", gcpHeader+"\n"+strings.Join(f, ","))
+		st := openFocusStore(t)
+		db := st.DB()
+		if err := Save(db, "gcp-recommender", map[string]string{"path": dir}); err != nil {
+			t.Fatal(err)
+		}
+		msg, err := Import(db, "gcp-recommender", false, ImportOptions{})
+		if err != nil {
+			t.Fatalf("Import returned a hard error: %v", err)
+		}
+		if !strings.Contains(msg, "observation_period_days") {
+			t.Errorf("the refusal does not name observation_period_days: %s", msg)
+		}
+		assertNoRecommendations(t, db)
+	})
+
+	t.Run("a negative Azure annual saving is refused", func(t *testing.T) {
+		f := azureRowFields()
+		f[6] = "-600.00" // PotentialAnnualCostSavings
+		dir := t.TempDir()
+		writeFocusFile(t, dir, "bad.csv", azureHeader+"\n"+strings.Join(f, ","))
+		st := openFocusStore(t)
+		db := st.DB()
+		if err := Save(db, "azure-advisor", map[string]string{"path": dir}); err != nil {
+			t.Fatal(err)
+		}
+		msg, err := Import(db, "azure-advisor", false, ImportOptions{})
+		if err != nil {
+			t.Fatalf("Import returned a hard error: %v", err)
+		}
+		if !strings.Contains(msg, "negative") {
+			t.Errorf("the refusal does not say negative: %s", msg)
+		}
+		assertNoRecommendations(t, db)
+	})
+
+	t.Run("an empty Azure ImpactedResource is refused", func(t *testing.T) {
+		f := azureRowFields()
+		f[1] = "" // ImpactedResource
+		dir := t.TempDir()
+		writeFocusFile(t, dir, "bad.csv", azureHeader+"\n"+strings.Join(f, ","))
+		st := openFocusStore(t)
+		db := st.DB()
+		if err := Save(db, "azure-advisor", map[string]string{"path": dir}); err != nil {
+			t.Fatal(err)
+		}
+		msg, err := Import(db, "azure-advisor", false, ImportOptions{})
+		if err != nil {
+			t.Fatalf("Import returned a hard error: %v", err)
+		}
+		if !strings.Contains(msg, "ImpactedResource") {
+			t.Errorf("the refusal does not name ImpactedResource: %s", msg)
+		}
+		assertNoRecommendations(t, db)
+	})
+
+	t.Run("a garbage Azure lookback is refused", func(t *testing.T) {
+		f := azureRowFields()
+		f[8] = "a week or so" // LookbackDays
+		dir := t.TempDir()
+		writeFocusFile(t, dir, "bad.csv", azureHeader+"\n"+strings.Join(f, ","))
+		st := openFocusStore(t)
+		db := st.DB()
+		if err := Save(db, "azure-advisor", map[string]string{"path": dir}); err != nil {
+			t.Fatal(err)
+		}
+		msg, err := Import(db, "azure-advisor", false, ImportOptions{})
+		if err != nil {
+			t.Fatalf("Import returned a hard error: %v", err)
+		}
+		if !strings.Contains(msg, "LookbackDays") {
+			t.Errorf("the refusal does not name LookbackDays: %s", msg)
+		}
+		assertNoRecommendations(t, db)
+	})
+
 	t.Run("a resource id with an embedded quote round-trips", func(t *testing.T) {
 		f := awsRowFields()
 		f[1] = `"i-0quoted""instance"""` // InstanceId, RFC 4180 doubled-quote escaping
