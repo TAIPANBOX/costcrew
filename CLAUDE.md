@@ -56,17 +56,20 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 515 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 68 cases; needs a clean tree; ~90s
-./scripts/features-are-bound.sh      # 105 scenarios, both directions
+go test ./...                        # 534 tests, 20 packages
+./scripts/gates-have-teeth.sh        # 71 cases; needs a clean tree; ~90s
+./scripts/features-are-bound.sh      # 108 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refused PR #19 on two findings the list above never asked for; a staticcheck built for an older Go cannot read this module, so on such a machine CI is the only place it runs
 ```
 
-Counts follow the suite, measured on `feat/cadence-runs-when-a-person-switches-it-on`
-after rebasing onto main past #27's own merge
+Counts follow the suite, measured on `feat/c3-the-forecast-that-is-scored`,
+branched from `602fa25` (PR #28's own merge) and NOT rebased since -- eight
+other branches are in flight against `main` at once and this file's own
+counts are branch-relative until whoever merges last reconciles them, the
+same shape B1a's own note below already describes
 (test count by `go test ./... -list '.*' | grep -c '^Test'` -- test FUNCTIONS, not
 subtests, the convention PR #21, #23 and this file's own `internal/manifest` gate
 already use, not `-v | grep -c '^--- PASS'`, which over-counts anything using
