@@ -98,6 +98,19 @@ var catalogue = []toolDef{
 		Run: runChargesQueryTool,
 	},
 	{
+		// C7-SPEC.md section 2: the charges_query shape (ai_calls_query.go),
+		// gated by figures-read -- ai-spend and unit-econ-ai already hold it
+		// to read ai_calls at all -- rather than sql-readonly, which is
+		// charges_query's own broader right and stays exactly what it was.
+		Name: "ai_calls_query", Right: "figures-read",
+		Description: "Run a read-only SELECT over the ai_calls table only. One " +
+			"statement, at most 200 rows, no writes, no comments, no other table.",
+		Schema: objSchema([]string{"sql"}, map[string]any{
+			"sql": strProp("a single SELECT statement naming only ai_calls"),
+		}),
+		Run: runAICallsQueryTool,
+	},
+	{
 		Name: "budgets", Right: "budgets-read",
 		Description: "Read every team's budget, spend and variance on one desk, " +
 			"for one period.",

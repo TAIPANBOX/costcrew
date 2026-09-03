@@ -206,12 +206,42 @@ func KPIs(db *sql.DB, period string) ([]KPI, error) {
 				"nothing to compare an actual against. Accuracy against an unfrozen "+
 				"forecast is a number that improves whenever somebody edits the forecast."),
 	})
+	// C7-SPEC.md section 2: reports once any call on the AI desk this month
+	// carries x_outcome, refusing -- and naming the count of agents that
+	// spent and set none -- only when nothing does. Meets is left false even
+	// while reporting: the target is "trending down" and nothing here holds
+	// a PRIOR month's own figure to compare against, so claiming a trend
+	// either way would be exactly the invented number this file's own
+	// header warns against.
+	//
+	// Value and Unit are set ONLY when hasCPO: the /kpis page's own sort by
+	// value compares .Value as a plain string regardless of .HasVal, and
+	// this KPI was ALWAYS blocked before this step, Value at its Go zero
+	// value (""), tied with carbon-per-workload's own permanent "" and
+	// broken by insertion order. Setting Value to a real number even while
+	// blocked ("0.00") stopped being a tie with "" and silently reordered
+	// that page -- found by the parity gate comparing this step's own
+	// before and after captures, /kpis?sort=value&dir=asc line 68, the
+	// exact shape invariant 26 and the AI page's own history (this file's
+	// AttributionCoverage comment) already warn this gate catches.
+	perOutcome, hasCPO, cpoWithNone, cpoTotal, err := CostPerOutcome(db, period)
+	if err != nil {
+		return nil, err
+	}
+	var cpoNote string
+	cpoValue, cpoUnit := "", ""
+	if hasCPO {
+		cpoValue, cpoUnit = perOutcome.String(), "USD/outcome"
+		if cpoWithNone > 0 {
+			cpoNote = fmt.Sprintf("%d of %d agents that spent on the AI desk this month tagged no "+
+				"outcome; this figure covers only the cost of the ones that did.", cpoWithNone, cpoTotal)
+		}
+	}
 	add(KPI{
 		ID: "cost-per-outcome", Name: "Cost per business outcome", Group: "Unit economics",
-		Target: "trending down",
-		Blocked: "the business metric this would divide by is not connected. A cost " +
-			"per outcome derived from a cost is not a unit economic, it is the same " +
-			"number wearing a denominator.",
+		Value: cpoValue, Unit: cpoUnit, Target: "trending down",
+		HasVal: hasCPO, Note: cpoNote,
+		Blocked: blockedIf(!hasCPO, costPerOutcomeRefusal(cpoWithNone, cpoTotal)),
 	})
 	add(KPI{
 		ID: "carbon-per-workload", Name: "Carbon per workload", Group: "Sustainability",
@@ -253,6 +283,30 @@ func blockedIf(cond bool, why string) string {
 		return why
 	}
 	return ""
+}
+
+// costPerOutcomeRefusal is cost-per-outcome's own refusal text: the count
+// of agents that spent on the AI desk this month and tagged none, or, when
+// nothing has spent there at all, the SAME sentence this KPI carried
+// unconditionally before this step -- word for word, not merely in
+// substance. That case (total == 0) is exactly what a fresh install or a
+// generated-only estate still reaches (ai_calls exists, empty; no real
+// import has ever run), which is the one state parity/captures/golden was
+// captured from, so this KPI's own text stays byte-identical there and the
+// parity gate's "0 differing" holds. The count-of-agents wording below is
+// reachable only once real AI spend exists with nothing tagged -- a state
+// the OLD, unconditionally-blocked KPI could never have described either
+// way, so there is no prior text for it to stay identical to.
+func costPerOutcomeRefusal(withNone, total int) string {
+	if total == 0 {
+		return "the business metric this would divide by is not connected. A cost " +
+			"per outcome derived from a cost is not a unit economic, it is the same " +
+			"number wearing a denominator."
+	}
+	return fmt.Sprintf("no call on the AI desk this month carries an outcome (x_outcome); "+
+		"%d of %d agents that spent this month set none. A cost per outcome derived from a "+
+		"cost with nothing counted is not a unit economic, it is the same number wearing a "+
+		"denominator.", withNone, total)
 }
 
 // KPICounts is the header: how many report, how many refuse, how many meet.

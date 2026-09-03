@@ -785,6 +785,22 @@ run_case $'skills are tools: a CTE naming itself charges is allowed again' \
 	$'if withAnywhereRE.MatchString(trimmed) {' \
 	$'if false {'
 
+# C7: ai_calls_query is charges_query's own shape, scoped to ai_calls, and
+# deliberately its OWN file rather than a shared, parameterised check --
+# see internal/deliver's own comment on why (the three cases above plant
+# their mutant by an exact literal match against charges_query.go, and a
+# shared allow-list check would have broken all three). One teeth case,
+# named in C7-SPEC.md section 4 by these exact words: "drop the allow-list
+# scan on ai_calls_query".
+run_case $'skills are tools: ai_calls_query drops its table allow-list' \
+	fail \
+	./tools/run \
+	$'TestAICallsQueryHostileInputs' \
+	$'want refused' \
+	tools/run/ai_calls_query.go \
+	$'if !aiCallsAllowedTables[tb] {' \
+	$'if false {'
+
 # B3: an analyst's deliverable ends in options, and only a stamp -- the
 # supervisor's own act, or an owner's on a carried one -- applies one.
 # B3-SPEC.md section 6 names this mutant by its own words, "let Post apply

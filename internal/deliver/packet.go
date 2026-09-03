@@ -98,6 +98,22 @@ func Packet(db *sql.DB, t crew.Task, a crew.Analyst, hideDriver bool) string {
 			sections = append(sections, s)
 		}
 	}
+	// C7-SPEC.md section 2: the AI desk's own two sections, gated by the
+	// skills only ai-spend and unit-econ-ai hold (world.go's roster), the
+	// same convention every skill-gated section above already follows.
+	// Neither takes a desk argument: ai_calls has no desk column at all --
+	// it IS the AI desk's own table, by construction, the way charges.source
+	// is what makes every section above this one desk-general.
+	if HasString(a.Skills, "ai-spend-analysis", "token-economics", "model-routing-review") {
+		if s := aiSpendSection(db); s != "" {
+			sections = append(sections, s)
+		}
+	}
+	if HasString(a.Skills, "unit-economics", "cost-per-outcome") {
+		if s := unitEconomicsSection(db); s != "" {
+			sections = append(sections, s)
+		}
+	}
 
 	// ownHistorySection is MEMORY (B8-SPEC.md section 2) and is appended
 	// LAST, deliberately, and this is the one place that order is decided:
@@ -567,6 +583,137 @@ func forecastingSection(db *sql.DB, desk string) string {
 		} else {
 			b.WriteString(", not yet scored\n")
 		}
+	}
+	return b.String()
+}
+
+// ------------------------------------------------------------- the AI desk
+
+// aiSpendSectionCap is C7-SPEC.md section 2's own number: top ten by cost,
+// then "and N more" -- driversSection's own convention (driversSectionCap),
+// reused here rather than invented anew.
+const aiSpendSectionCap = 10
+
+// aiSpendSection is ai-spend's own packet: this month's ai_calls grouped by
+// agent (ResourceId) and by model, the blocked count named as the guard's
+// saving rather than folded into cost (a blocked call always settles at
+// zero -- the reader refuses any row that says otherwise), and the
+// estimated share of x_cost_basis. Omitted entirely -- not a header over
+// nothing, the convention every section in this file already holds --
+// until real AI spend has landed on the desk.
+func aiSpendSection(db *sql.DB) string {
+	month, ok, err := finops.LatestRealAIMonth(db)
+	if err != nil || !ok {
+		return ""
+	}
+	byAgent, err := finops.AIByAgent(db, month)
+	if err != nil || len(byAgent) == 0 {
+		return ""
+	}
+	byModel, err := finops.AIByModel(db, month)
+	if err != nil {
+		return ""
+	}
+	settled, estimated, blockedBasis, err := finops.BasisCounts(db, month)
+	if err != nil {
+		return ""
+	}
+
+	var calls, blockedCalls int
+	var total money.Micros
+	for _, r := range byAgent {
+		calls += r.Calls
+		blockedCalls += r.BlockedCalls
+		total += r.Cost
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "The AI desk's month (%s)\n", month)
+	fmt.Fprintf(&b, "total: %s, %d calls, %d blocked (the guard's saving, never a cost: a "+
+		"blocked call always settles at zero)\n", total, calls, blockedCalls)
+	if n := settled + estimated; n > 0 {
+		fmt.Fprintf(&b, "basis: %d settled, %d estimated (%.0f%% of the non-blocked calls), "+
+			"%d blocked\n", settled, estimated, float64(estimated)/float64(n)*100, blockedBasis)
+	}
+
+	b.WriteString("\nBy agent, top ten by cost\n")
+	shown := 0
+	for _, r := range byAgent {
+		if shown >= aiSpendSectionCap {
+			break
+		}
+		fmt.Fprintf(&b, "  %-56s %8s  %d calls, %d blocked\n", r.Agent, r.Cost, r.Calls, r.BlockedCalls)
+		shown++
+	}
+	if len(byAgent) > shown {
+		fmt.Fprintf(&b, "and %d more\n", len(byAgent)-shown)
+	}
+
+	b.WriteString("\nBy model, top ten by cost\n")
+	shown = 0
+	for _, r := range byModel {
+		if shown >= aiSpendSectionCap {
+			break
+		}
+		fmt.Fprintf(&b, "  %-24s %8s  %d calls, %d blocked\n", r.Model, r.Cost, r.Calls, r.BlockedCalls)
+		shown++
+	}
+	if len(byModel) > shown {
+		fmt.Fprintf(&b, "and %d more\n", len(byModel)-shown)
+	}
+
+	return b.String()
+}
+
+// unitEconomicsSection is unit-econ-ai's own packet: cost per outcome per
+// agent, for every agent with at least one x_outcome-tagged call this
+// month, and one sentence naming every agent that spent and tagged none --
+// said plainly rather than a cost per outcome invented for it. Omitted
+// entirely until real AI spend has landed, the same convention as
+// aiSpendSection above.
+func unitEconomicsSection(db *sql.DB) string {
+	month, ok, err := finops.LatestRealAIMonth(db)
+	if err != nil || !ok {
+		return ""
+	}
+	byAgent, err := finops.AIByAgent(db, month)
+	if err != nil || len(byAgent) == 0 {
+		return ""
+	}
+	counts, err := finops.OutcomeCountsByAgent(db, month)
+	if err != nil {
+		return ""
+	}
+
+	var withOutcome []string
+	var noOutcome []string
+	for _, r := range byAgent {
+		if r.Calls-r.BlockedCalls == 0 {
+			continue // nothing spent; not a gap, nothing to divide either
+		}
+		if n := counts[r.Agent]; n > 0 {
+			perOutcome := money.Micros(int64(r.Cost) / int64(n))
+			withOutcome = append(withOutcome, fmt.Sprintf("  %-56s %8s per outcome (n=%d, %s total)\n",
+				r.Agent, perOutcome, n, r.Cost))
+		} else {
+			noOutcome = append(noOutcome, r.Agent)
+		}
+	}
+	if len(withOutcome) == 0 && len(noOutcome) == 0 {
+		return ""
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "Unit economics, cost per outcome (%s)\n", month)
+	if len(withOutcome) == 0 {
+		b.WriteString("  no agent's calls this month carry an outcome\n")
+	}
+	for _, l := range withOutcome {
+		b.WriteString(l)
+	}
+	if len(noOutcome) > 0 {
+		fmt.Fprintf(&b, "cost with no outcome header, said rather than invented, for: %s\n",
+			strings.Join(noOutcome, ", "))
 	}
 	return b.String()
 }
