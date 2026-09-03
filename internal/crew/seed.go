@@ -37,6 +37,12 @@ func Seed(db *sql.DB, anomalies []AnomalySeed) (sprints, tasks, artifacts int, e
 	if err := EnsureLiveSpendLedger(db); err != nil {
 		return 0, 0, 0, err
 	}
+	// Same reasoning, same place: OwnerOfAnomaly reads teams.owner on every
+	// call, and a caller that forgot the migration would rather have it here
+	// than fail every anomaly page with "no such table: teams".
+	if err := EnsureTeamOwner(db); err != nil {
+		return 0, 0, 0, err
+	}
 	var have int
 	if err := db.QueryRow(`SELECT COUNT(*) FROM sprints`).Scan(&have); err != nil {
 		return 0, 0, 0, err

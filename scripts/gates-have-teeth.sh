@@ -787,15 +787,35 @@ run_case $'skills are tools: a CTE naming itself charges is allowed again' \
 # describes, using only internal/crew (already imported here) rather than
 # internal/finops.Apply, because the property under test is that POSTING
 # must not touch an option's state at all, not that the wrong side effect
-# ran.
+# ran. The anchor moved onto C1's own tellOwnerAnomalyExplained call (C1
+# added the `if err == nil {` guard this needle now lives inside of) without
+# changing what the case proves.
 run_case $'options: an analyst'"'"'s Post applies an option' \
 	fail \
 	./internal/web \
 	$'TestOnlyTheOwnersStampAppliesAKeyDecision' \
 	$'Post must apply nothing' \
 	internal/web/work.go \
-	$'\t\t\terr = crew.Post(s.db, id, u.Username, "owner")\n\t\t} else {' \
-	$'\t\t\terr = crew.Post(s.db, id, u.Username, "owner")\n\t\t\tif err == nil {\n\t\t\t\tif opts, _ := crew.Options(s.db, id); len(opts) > 0 {\n\t\t\t\t\t_ = crew.MarkOptionApplied(s.db, opts[0].Artifact, opts[0].Ordinal, u.Username)\n\t\t\t\t}\n\t\t\t}\n\t\t} else {'
+	$'\t\t\t\ts.tellOwnerAnomalyExplained(id)\n\t\t\t}\n\t\t} else {' \
+	$'\t\t\t\ts.tellOwnerAnomalyExplained(id)\n\t\t\t\tif opts, _ := crew.Options(s.db, id); len(opts) > 0 {\n\t\t\t\t\t_ = crew.MarkOptionApplied(s.db, opts[0].Artifact, opts[0].Ordinal, u.Username)\n\t\t\t\t}\n\t\t\t}\n\t\t} else {'
+
+# C1-SPEC.md section 4's own named mutant, "emit before the post instead of
+# after": anomaly_explained is C1's own notification to the anomaly's
+# owner, and it must be a CONSEQUENCE of the post actually having succeeded,
+# never of the attempt. Moving the call ahead of crew.Post makes it fire
+# unconditionally, including on a refused second post (an artifact already
+# posted, "a stamp is not taken back") -- exactly the case
+# TestARefusedSecondPostTellsNobodyTwice exists to catch: after one real
+# post and one refused one, it insists the journal still names the anomaly
+# exactly once.
+run_case 'anomaly desk: emit before the post instead of after' \
+	fail \
+	./internal/web \
+	$'TestARefusedSecondPostTellsNobodyTwice' \
+	$'want still 1' \
+	internal/web/work.go \
+	$'\t\t\terr = crew.Post(s.db, id, u.Username, "owner")\n\t\t\tif err == nil {\n\t\t\t\t// C1-SPEC.md section 2: AFTER the post has actually\n\t\t\t\t// succeeded, never before -- a refused post (an artifact\n\t\t\t\t// already posted) must tell nobody anything, because it did\n\t\t\t\t// not happen.\n\t\t\t\ts.tellOwnerAnomalyExplained(id)\n\t\t\t}' \
+	$'\t\t\ts.tellOwnerAnomalyExplained(id)\n\t\t\terr = crew.Post(s.db, id, u.Username, "owner")'
 
 # B7: the bench (tools/bench) scores a named cause against the truth a
 # generated fixture's registry already knows, and it can only prove
