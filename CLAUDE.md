@@ -82,15 +82,15 @@ routes that already existed), so those three counts are untouched here.
 Re-measured again, same day, fixing review of this PR's first version (test
 count 536 -> 537, cases 69 -> 70; the one new test and the one new
 gates-have-teeth.sh case both belong to the blocking fix invariant 32 now
-describes). `@claude` 2026-09-03: `grep -c '^run_case'` and the runtime
-`teeth: N passed` line disagree by exactly one, both before and after this
-fix (measured directly: the unmodified branch tip reports 69 cases by grep
-and "68 passed, 0 failed" at runtime; this fix's tree reports 70 and "69
-passed, 0 failed") -- one case in the file, not one of this fix's two,
-appears not to execute. Not investigated further here: this predates the
-fix in this PR and the counts above follow this file's own documented
-convention (`grep -c`), the same one PR #21, #23 and B1a's own history
-already used.
+describes). The 69 -> 70 (grep) versus 68 -> 69 (runtime `teeth: N passed`)
+gap is not new and not a bug: this PR's own first version already named it
+("69 cases by the repo's own grep convention (68 real invocations; the
+convention's own count includes the run_case() definition line...)"),
+`grep -c '^run_case'` matches line 122's `run_case() {` itself alongside
+every actual invocation, so the two counts are always exactly one apart by
+construction. `@claude` 2026-09-03, re-confirmed rather than re-derived:
+grep -n '^run_case()' scripts/gates-have-teeth.sh matches only that
+definition line.
 
 The gates in this repo are Go tests rather than shell scripts, so
 `gates-have-teeth.sh` mutates the PRODUCT and requires the test to go red.
