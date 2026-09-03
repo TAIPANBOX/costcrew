@@ -1030,7 +1030,10 @@ run_case 'plan-ask: charge the settled cost to nobody' \
 # decoded target's own dates with a fixed day (any day but the target's own
 # 2026-08-01/2026-08-30) is the same fault the original bug had, just
 # without needing time.Now() (this file no longer imports "time" at all,
-# and the mutation must still compile on its own).
+# and the mutation must still compile on its own -- "_ = tgt" keeps the
+# decoded value referenced so dropping its own two fields does not also
+# strand it as an unused variable, a second way this exact edit failed to
+# compile the first time it was tried).
 run_case 'driver-window: write Start = End = day ignoring the target' \
 	fail \
 	./internal/finops \
@@ -1038,7 +1041,7 @@ run_case 'driver-window: write Start = End = day ignoring the target' \
 	$'want 2026-08-01 to 2026-08-30' \
 	internal/finops/apply.go \
 	$'\t\tstart, end = tgt.Start, tgt.End' \
-	$'\t\tstart, end = "2026-09-03", "2026-09-03"'
+	$'\t\tstart, end = "2026-09-03", "2026-09-03"; _ = tgt'
 
 echo
 if [ -n "$(git status --porcelain)" ]; then
