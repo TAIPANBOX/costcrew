@@ -60,6 +60,14 @@ if [ ! -f "$ROLES" ]; then
 	exit 1
 fi
 
+# jq reads the roster's own -json output (property 2, below); see that
+# section's own comment for why -json replaced raw -v text.
+if ! command -v jq >/dev/null 2>&1; then
+	echo "measured nothing: jq is not on PATH, and property 2 (the roster) is" >&2
+	echo "read from JSON this script cannot parse without it." >&2
+	exit 1
+fi
+
 fail=0
 
 # --------------------------------------------------------- extract roles.yaml
@@ -144,15 +152,47 @@ while IFS= read -r id; do
 done <<<"$dup_ids"
 
 # --------------------------------------------------------- property 2: roster
-
-roster_out="$(go test ./internal/crew -run '^TestRosterForTheRolesGate$' -v 2>&1)"
-if ! printf '%s\n' "$roster_out" | grep -q '^--- PASS: TestRosterForTheRolesGate'; then
+#
+# @measured 2026-09-03: CI run 33756844013 on PR #47 failed TestRolesAreBound
+# with "DEAD ROLE commitment-analyst (matches: commitments) matches no
+# roster name" while every one of the 39 roster names present passed the
+# FORWARD check; the identical commit's re-run passed clean. roles.yaml was
+# not touched by that PR, and 30 local loops of this script alone, 25 more
+# with a concurrent `go test ./...` warming the shared cache, and 20 more
+# forcing a fresh (uncached) nested run under heavy concurrent load all came
+# back clean -- the mechanism was not reproduced locally, macOS rather than
+# the CI runner's Linux being the likeliest reason why not.
+#
+# Two changes follow from that, neither depending on having pinned the exact
+# mechanism:
+#
+#   -count=1 forces a real execution every time. Without it, this exact
+#   (-run, -v) pair is itself one of go test's cacheable flag combinations
+#   (`go help test`: -run and -v both are), so a second call against the
+#   same test binary can replay a PRIOR call's stdout byte for byte instead
+#   of running anything -- and go test ./... itself never passes -count=1 to
+#   the ./... it builds, so within one CI job this exact nested invocation,
+#   unlike this script's own outer TestRolesAreBound, was never actually
+#   exempt from that replay.
+#
+#   -json in place of raw -v text turns each log line into its own
+#   self-delimited object (one JSON value per `Action:"output"` event)
+#   rather than a line a merged stdout+stderr stream, a concurrent writer,
+#   or a scheduling hiccup could reshape before a hand-rolled `grep -oE`
+#   ever sees it. `fromjson? // empty` sanitises the raw stream first, so a
+#   stray non-JSON line (a build failure on stderr, folded in by 2>&1) is
+#   dropped rather than aborting the whole parse.
+roster_raw="$(go test ./internal/crew -run '^TestRosterForTheRolesGate$' -v -count=1 -json 2>&1)"
+roster_events="$(printf '%s\n' "$roster_raw" | jq -R -c 'fromjson? // empty' 2>/dev/null)"
+roster_pass_events=$(printf '%s\n' "$roster_events" | jq -r 'select(.Action=="pass" and .Test=="TestRosterForTheRolesGate") | .Action' 2>/dev/null | grep -c . || true)
+if [ "$roster_pass_events" -ne 1 ]; then
 	printf 'ROSTER UNREADABLE   TestRosterForTheRolesGate did not pass, so this gate has nothing to check names against:\n'
-	printf '%s\n' "$roster_out" | tail -20
+	printf '%s\n' "$roster_raw" | tail -20
 	fail=$((fail + 1))
 fi
-roster_names="$(printf '%s\n' "$roster_out" | grep -oE 'ROSTER \S+' | awk '{print $2}' | sort -u)"
-roster_rights="$(printf '%s\n' "$roster_out" | grep -oE 'ROSTER .*')"
+roster_text="$(printf '%s\n' "$roster_events" | jq -r 'select(.Action=="output" and .Test=="TestRosterForTheRolesGate") | .Output' 2>/dev/null)"
+roster_names="$(printf '%s\n' "$roster_text" | grep -oE 'ROSTER \S+' | awk '{print $2}' | sort -u)"
+roster_rights="$(printf '%s\n' "$roster_text" | grep -oE 'ROSTER .*')"
 n_roster=$(printf '%s\n' "$roster_names" | grep -c . || true)
 
 # forward: every roster name matches exactly one family
@@ -270,4 +310,25 @@ if [ "$n_classes" -eq 0 ] || [ "$n_roles" -eq 0 ]; then
 	exit 1
 fi
 printf 'roles: %d classes, %d roles, %d roster names, %d broken\n' "$n_classes" "$n_roles" "$n_roster" "$fail"
+
+# @measured 2026-09-03: the CI incident this section answers (see property
+# 2's own comment) printed one DEAD ROLE line and the summary above and
+# nothing else, so the next reader had no way to tell whether "commitments"
+# was ever actually read. Whenever anything is broken, whichever property
+# caught it, print what this run actually saw: every roster name it read,
+# and the nested go test's own raw output, so a failure that cannot be
+# reproduced by hand still carries its own evidence.
+if [ "$fail" -ne 0 ]; then
+	echo
+	echo "roster names read ($n_roster):"
+	if [ "$n_roster" -eq 0 ]; then
+		echo "  (none)"
+	else
+		printf '%s\n' "$roster_names" | sed 's/^/  ROSTER NAME READ  /'
+	fi
+	echo
+	echo "nested go test output (-json), first 60 lines:"
+	printf '%s\n' "$roster_raw" | head -60 | sed 's/^/  /'
+fi
+
 [ "$fail" -eq 0 ]
