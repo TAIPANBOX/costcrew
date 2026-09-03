@@ -272,3 +272,85 @@ func TestHaltsListsEveryHaltedDesk(t *testing.T) {
 		t.Errorf("Halts() = %+v, want both aws and gcp", halts)
 	}
 }
+
+// ---------------------------------------------------------------- hostile
+
+// Hostile: C9-SPEC.md section 4, "a source name with a quote". ApplyHalt's
+// own header already claims desk "travels as plain data through a
+// parameterised query throughout... a source name carrying a quote is just
+// a string to suspend nobody under" -- this is the test that proves the
+// claim rather than merely asserting it: the full write/read/list/lift
+// cycle on a desk name carrying a single quote, checked against a same-day
+// plain desk to prove neither write corrupted the other.
+//
+// Red first: verified by hand, not left in the tree. Temporarily changing
+// ApplyHalt's parameterised INSERT (`VALUES (?,?,?,?,?,?)`, desk, ...) to
+// naive string concatenation (`"INSERT INTO desk_halts(...) VALUES('"+desk+"', ...)"`)
+// makes this test fail immediately: db.Exec returns a SQL syntax error,
+// because the quote in "o'brien-cloud" closes the string literal early.
+// Reverting restores the parameterised form and the test passes again --
+// the same plant-prove-revert shape gates-have-teeth.sh's own cases use,
+// applied here by hand because this is a hostile-input property, not one
+// of C9-SPEC.md section 4's three named Mutants.
+func TestADeskNameWithAQuoteIsSuspendedAndReadBackUnmangled(t *testing.T) {
+	db := planDB(t)
+	quoted := `o'brien-cloud`
+	hire(t, db, "triage-quoted", quoted, "openrouter", []string{"anomaly-triage"}, money.Cents(1000), money.Cents(10000))
+	hire(t, db, "triage-aws", "aws", "openrouter", []string{"anomaly-triage"}, money.Cents(1000), money.Cents(10000))
+	rec := &spyRecorder{}
+
+	reason := "tagging feed stale"
+	suspended, already, err := crew.ApplyHalt(db, quoted, reason, "data-quality", "yurii", "2026-09-01", rec)
+	if err != nil {
+		t.Fatalf("ApplyHalt on a desk name with a quote (%q): %v", quoted, err)
+	}
+	if already {
+		t.Error("already = true on the FIRST halt of a desk whose name carries a quote")
+	}
+	if len(suspended) != 1 || suspended[0] != "triage-quoted" {
+		t.Fatalf("suspended = %v, want exactly [triage-quoted]", suspended)
+	}
+	// The plain "aws" desk, halted nowhere here, must stay untouched: a
+	// broken query on the quoted desk could otherwise corrupt every row.
+	if a, err := crew.GetAnalyst(db, "triage-aws"); err != nil || a.State != "active" {
+		t.Errorf("triage-aws.State = %v (err %v), want active: a halt on %q must not touch a different desk",
+			a.State, err, quoted)
+	}
+
+	h, found, err := crew.ActiveHalt(db, quoted)
+	if err != nil {
+		t.Fatalf("ActiveHalt(%q): %v", quoted, err)
+	}
+	if !found {
+		t.Fatalf("ActiveHalt(%q) found nothing after ApplyHalt", quoted)
+	}
+	if h.Desk != quoted {
+		t.Errorf("h.Desk = %q, want %q read back unmangled", h.Desk, quoted)
+	}
+	if h.Reason != reason {
+		t.Errorf("h.Reason = %q, want %q", h.Reason, reason)
+	}
+
+	halts, err := crew.Halts(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := map[string]bool{}
+	for _, hh := range halts {
+		seen[hh.Desk] = true
+	}
+	if !seen[quoted] {
+		t.Errorf("Halts() = %+v, want %q listed", halts, quoted)
+	}
+
+	reactivated, err := crew.LiftHalt(db, quoted, "confirmed current again", "yurii", rec)
+	if err != nil {
+		t.Fatalf("LiftHalt(%q): %v", quoted, err)
+	}
+	if len(reactivated) != 1 || reactivated[0] != "triage-quoted" {
+		t.Fatalf("reactivated = %v, want exactly [triage-quoted]", reactivated)
+	}
+	if _, found, err := crew.ActiveHalt(db, quoted); err != nil || found {
+		t.Errorf("ActiveHalt(%q) after lifting: found=%v err=%v, want gone", quoted, found, err)
+	}
+}
