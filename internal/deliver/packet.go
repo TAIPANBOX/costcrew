@@ -520,9 +520,10 @@ func reportingSection(db *sql.DB, desk string) string {
 	return b.String()
 }
 
-// forecastingSection is the run-rate projection for the desk and the basis
-// it was built from, plus the most recently frozen forecast and its grade
-// when one has been scored.
+// forecastingSection is the driver-aware run-rate projection for the desk
+// and the basis it was built from, plus the most recently frozen forecast
+// and, once its own period has closed, the miss against what happened.
+// C3-SPEC.md sections 1 and 2.
 func forecastingSection(db *sql.DB, desk string) string {
 	if desk == "" {
 		return ""
@@ -531,11 +532,14 @@ func forecastingSection(db *sql.DB, desk string) string {
 	if err != nil || period == "" {
 		return ""
 	}
-	proj, basis, err := finops.Project(db, period)
-	if err != nil {
-		return ""
-	}
-	amt, ok := proj[desk]
+	// A desk with nothing landed yet this period reads as ok=false, the
+	// same graceful "nothing to project" this section has always allowed:
+	// ProjectWithDrivers errors on a desk with no data at all, where the
+	// old map-lookup here simply found no key. Only that ONE desk-scoped
+	// question is folded into ok; every other failure (the store itself
+	// being unavailable) would already have shown up in OpenPeriod above.
+	amt, basis, lines, projErr := finops.ProjectWithDrivers(db, desk, period)
+	ok := projErr == nil
 
 	frozen, ferr := finops.Forecasts(db, period)
 	var last finops.Forecast
@@ -559,11 +563,30 @@ func forecastingSection(db *sql.DB, desk string) string {
 	if ok {
 		fmt.Fprintf(&b, "run-rate projection: %s\n", amt)
 		fmt.Fprintf(&b, "basis: %s\n", basis)
+		if len(lines) > 0 {
+			b.WriteString("drivers applied:\n")
+			for _, l := range lines {
+				fmt.Fprintf(&b, "  %s (%s, %s to %s): %s\n", l.Label, l.Kind, l.Start, l.End, l.Effect)
+			}
+		}
 	}
 	if haveLast {
 		fmt.Fprintf(&b, "last frozen forecast: %s for %s", last.Forecast, last.Period)
 		if last.HasAct {
 			fmt.Fprintf(&b, ", graded %s (%.1f%% error)\n", last.Grade, last.ErrorPct)
+			// The next month explains the miss, C3-SPEC.md section 1: the
+			// frozen figure against what happened, and whichever registered
+			// drivers the frozen basis never named -- a driver added to the
+			// registry only after the freeze, naming in hindsight what the
+			// gap turned out to be.
+			diff := last.Actual - last.Forecast
+			fmt.Fprintf(&b, "miss: frozen %s, actual %s, difference %s\n", last.Forecast, last.Actual, diff)
+			if missed, merr := finops.Missed(db, desk, last.Period, last.Basis); merr == nil && len(missed) > 0 {
+				b.WriteString("missed drivers:\n")
+				for _, d := range missed {
+					fmt.Fprintf(&b, "  %s (%s, %s to %s)\n", d.Label, d.Kind, d.Start, d.End)
+				}
+			}
 		} else {
 			b.WriteString(", not yet scored\n")
 		}

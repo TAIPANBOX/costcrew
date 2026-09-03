@@ -20,9 +20,15 @@ var (
 
 // ---------------------------------------------------------------- forecast
 
+// projRow is one desk's own driver-aware projection: C3-SPEC.md's own
+// figure, basis and driver lines, computed per desk because
+// finops.ProjectWithDrivers is a per-desk question (a driver's scope and
+// window belong to one desk, never to the whole estate at once).
 type projRow struct {
-	Source string
-	Amount money.Cents
+	Source  string
+	Amount  money.Cents
+	Basis   string
+	Drivers []finops.DriverLine
 }
 
 func (s *Server) forecast(w http.ResponseWriter, r *http.Request) {
@@ -33,16 +39,17 @@ func (s *Server) forecast(w http.ResponseWriter, r *http.Request) {
 	// The OPEN month, not the last closed one: a forecast is about a month
 	// that has not finished, which is the opposite of every other page here.
 	open := world.LastDay[:7]
-	proj, basis, err := finops.Project(s.db, open)
-	if err != nil {
-		http.Error(w, "store unavailable", http.StatusInternalServerError)
-		return
-	}
 	var rows []projRow
 	for _, d := range world.Desks {
-		if v, ok := proj[d.Name]; ok {
-			rows = append(rows, projRow{d.Name, v})
+		amt, basis, lines, err := finops.ProjectWithDrivers(s.db, d.Name, open)
+		if err != nil {
+			// This desk has nothing landed yet this month: the same
+			// "no row for this desk" a plain map lookup used to produce
+			// silently, kept explicit here rather than treated as a store
+			// failure.
+			continue
 		}
+		rows = append(rows, projRow{d.Name, amt, basis, lines})
 	}
 	psrt := readSortNamed(r, "psort", "amount", true)
 	applySort(rows, psrt, map[string]func(a, b projRow) int{
@@ -70,7 +77,6 @@ func (s *Server) forecast(w http.ResponseWriter, r *http.Request) {
 	s.render(w, tplForecast, struct {
 		shell
 		Period         string
-		Basis          string
 		Projection     []projRow
 		Rows           []finops.Forecast
 		Frozen         bool
@@ -81,7 +87,7 @@ func (s *Server) forecast(w http.ResponseWriter, r *http.Request) {
 		CanAct         bool
 		Sort           sortSpec
 		SortProjection sortSpec
-	}{s.shellFor(r, "Forecast", "forecast"), open, basis, rows, history,
+	}{s.shellFor(r, "Forecast", "forecast"), open, rows, history,
 		frozen, acc, scored, hasAcc, finops.LadderText(), u.May("operator"), spec, psrt})
 }
 

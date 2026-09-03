@@ -177,6 +177,39 @@ func TestApplyAnomalyExplainSetsItsState(t *testing.T) {
 	}
 }
 
+// C3-SPEC.md section 2: "the option's summary becomes the freeze's recorded
+// basis." The forecaster's own written explanation, not the generated
+// run-rate sentence, ends up in forecasts.basis once a supervisor applies
+// the forecast.freeze option.
+func TestApplyForecastFreezeUsesTheOptionsSummaryAsTheBasis(t *testing.T) {
+	db := applyTestDB(t)
+	period, err := finops.OpenPeriod(db)
+	if err != nil || period == "" {
+		t.Fatalf("no open period: %v %v", period, err)
+	}
+	opt := plantOption(t, db, "aws", "", "forecast.freeze",
+		"the analyst's own written explanation, driver and all")
+
+	if err := finops.Apply(db, opt, "supervisor", nil); err != nil {
+		t.Fatal(err)
+	}
+	frozen, err := finops.IsFrozen(db, period)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !frozen {
+		t.Fatalf("%s is not frozen after applying forecast.freeze", period)
+	}
+	var basis string
+	if err := db.QueryRow(`SELECT basis FROM forecasts WHERE period=? AND source='aws'`,
+		period).Scan(&basis); err != nil {
+		t.Fatal(err)
+	}
+	if basis != opt.Summary {
+		t.Errorf("basis = %q, want the option's own summary %q", basis, opt.Summary)
+	}
+}
+
 // A class with no row in the table -- allocation.rule needs a specific rule
 // id and method the generic option shape does not carry -- is recorded only:
 // no error, the option is marked applied, and nothing it has no data for is

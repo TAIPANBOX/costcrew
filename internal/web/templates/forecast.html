@@ -7,11 +7,17 @@
 <div class="panel">
   <h2>{{.Period}}, as it stands</h2>
   <div class="body">
-    <p class="note">{{.Basis}}.</p>
+    <p class="note">A driver whose own window falls inside this month moves its desk's own row by its own measured effect, named below, instead of being blended into the plain run rate.</p>
     <div class="scroll"><table>
-      <thead><tr>{{$.SortProjection.Header "desk" "Desk" "tight" false}}{{$.SortProjection.Header "amount" "Projected" "num" true}}</tr></thead>
+      <thead><tr>{{$.SortProjection.Header "desk" "Desk" "tight" false}}{{$.SortProjection.Header "amount" "Projected" "num" true}}<th>Drivers applied</th></tr></thead>
       <tbody>{{range .Projection}}
-        <tr><td class="tight"><a href="/desk/{{.Source}}">{{.Source}}</a></td><td class="num">{{.Amount}}</td></tr>
+        <tr>
+          <td class="tight"><a href="/desk/{{.Source}}">{{.Source}}</a></td>
+          <td class="num">{{.Amount}}</td>
+          <td>{{if .Drivers}}{{range .Drivers}}<div>{{.Label}} <span class="sub">({{.Kind}}, {{.Start}} to {{.End}}: {{.Effect}})</span></div>{{end}}{{else}}<span class="note">none</span>{{end}}</td>
+        </tr>
+      {{else}}
+        <tr><td colspan="3" class="empty">Nothing landed for this month yet.</td></tr>
       {{end}}</tbody>
     </table></div>
     {{if .Frozen}}

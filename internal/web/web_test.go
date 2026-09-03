@@ -1022,6 +1022,30 @@ func TestFreezingAForecastTurnsARefusingKPIIntoAReportingOne(t *testing.T) {
 	}
 }
 
+// C3-SPEC.md: the forecast page's own projection is driver-aware. The
+// seeded estate's own registry carries two RECURRING drivers whose window
+// spans the whole estate (N04, onprem; N05, ai), so the open month's own
+// row for one of those desks names a driver without this test having to
+// plant one by hand.
+func TestTheForecastPageNamesTheDriversThatMovedTheProjection(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+
+	_, body, _ := h.get(t, "/forecast")
+	found := false
+	for _, want := range []string{"Month-end batch on the storage array", "Scheduled weekly training window"} {
+		if strings.Contains(body, want) {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("the forecast page does not name either of the seeded estate's own recurring drivers")
+	}
+	if !strings.Contains(body, "one-time") && !strings.Contains(body, "recurring") {
+		t.Error("the forecast page does not say what KIND of driver moved the projection")
+	}
+}
+
 // Re-freezing would move a number somebody has already been shown.
 func TestAFrozenForecastCannotBeRefrozen(t *testing.T) {
 	h := startBare(t)
