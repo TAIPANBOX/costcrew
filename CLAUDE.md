@@ -57,7 +57,7 @@ health path passed.
 
 ```sh
 go test ./...                        # 598 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 75 cases; needs a clean tree; ~5m13s at 74, not re-timed for +1
+./scripts/gates-have-teeth.sh        # 75 cases; needs a clean tree; @measured `time ./scripts/gates-have-teeth.sh` 2026-09-03, 5m06s, 75 passed 0 failed
 ./scripts/features-are-bound.sh      # 134 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
