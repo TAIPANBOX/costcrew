@@ -143,12 +143,18 @@ CREATE TABLE IF NOT EXISTS artifact_options(
 CREATE TABLE IF NOT EXISTS decision_requests(
   artifact INTEGER PRIMARY KEY, sprint INTEGER NOT NULL, owner TEXT NOT NULL,
   lapses TEXT, created TEXT);
+CREATE TABLE IF NOT EXISTS plan_asks(
+  id INTEGER PRIMARY KEY, sprint_label TEXT NOT NULL, month TEXT NOT NULL,
+  analyst TEXT NOT NULL, micros INTEGER NOT NULL, cents INTEGER NOT NULL,
+  outcome TEXT NOT NULL, reason TEXT, created TEXT);
 CREATE INDEX IF NOT EXISTS tasks_sprint ON tasks(sprint, state);
 CREATE INDEX IF NOT EXISTS tasks_assignee ON tasks(assignee, state);
 CREATE INDEX IF NOT EXISTS tasks_owner ON tasks(owner);
 CREATE INDEX IF NOT EXISTS artifacts_task ON artifacts(task);
 CREATE INDEX IF NOT EXISTS artifact_options_state ON artifact_options(state);
 CREATE INDEX IF NOT EXISTS decision_requests_owner ON decision_requests(owner, sprint);
+CREATE INDEX IF NOT EXISTS plan_asks_month ON plan_asks(analyst, month);
+CREATE INDEX IF NOT EXISTS plan_asks_label ON plan_asks(sprint_label);
 `
 
 // ------------------------------------------------------------------ reads
@@ -775,6 +781,14 @@ func CloseSprint(db *sql.DB, id int) (int, error) {
 // The month comes from the sprint the work sat in, because that is when the
 // work was done. A task with no sprint has no month and is left out rather
 // than being charged to whichever month somebody is looking at.
+//
+// The supervisor's own plan-ask spend (B4-STEP-TWO-SPEC.md section 4) is
+// added in on top of the tasks/sprints sum above, additively, never
+// replacing it: that call is made BEFORE the sprint it plans is ever
+// approved (crew.Approve refuses a second time on a label already on the
+// board), so it has no task or sprint row of its own for the join above to
+// find, and SettlePlanAsk keeps its own small ledger (plan_asks) keyed by
+// calendar month instead, for exactly this read.
 func SpendInMonth(db *sql.DB, period string) (map[string]money.Cents, error) {
 	rows, err := db.Query(`SELECT COALESCE(t.assignee,''), COALESCE(SUM(t.spent_cents),0)
 		FROM tasks t JOIN sprints s ON s.id = t.sprint
@@ -792,5 +806,23 @@ func SpendInMonth(db *sql.DB, period string) (map[string]money.Cents, error) {
 		}
 		out[who] = money.Cents(v)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	prows, err := db.Query(`SELECT analyst, COALESCE(SUM(cents),0) FROM plan_asks
+		WHERE month = ? GROUP BY analyst`, period)
+	if err != nil {
+		return nil, err
+	}
+	defer prows.Close()
+	for prows.Next() {
+		var who string
+		var v int64
+		if err := prows.Scan(&who, &v); err != nil {
+			return nil, err
+		}
+		out[who] += money.Cents(v)
+	}
+	return out, prows.Err()
 }
