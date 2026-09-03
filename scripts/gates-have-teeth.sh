@@ -112,7 +112,7 @@ gate() {
 	return $rc
 }
 
-# run_case <name> <expect: fail|pass> <pkg> <pattern> <needle> <file old new>...
+# run_case <name> <expect: fail|pass|gone> <pkg> <pattern> <needle> <file old new>...
 #
 # The edits are ARGUMENTS, not a program. They were a python program at first,
 # built with printf inside $(...) inside a heredoc, and four of sixteen
@@ -123,6 +123,21 @@ run_case() {
 	local name="$1" expect="$2" pkg="$3" pattern="$4" needle="$5"
 	shift 5
 	cases=$((cases + 1))
+
+	# An expect word this harness does not define matches neither TOOTHLESS
+	# below (expect = fail) nor OVEREAGER (expect = pass), so it fell through
+	# to the "ok" at the end and reported success regardless of what the
+	# mutation did. A word nobody defined once made twenty cases green
+	# whatever happened -- "caught", here -- so an unrecognized expect is
+	# refused as a failure of this harness rather than read as a pass.
+	case "$expect" in
+		fail|pass|gone) ;;
+		*)
+			printf 'UNKNOWN EXPECT  %s\n                %s is not a word this harness defines: it knows\n                fail, pass and gone and nothing else, so this case\n                would have judged nothing and printed ok whatever the\n                mutation did\n' "$name" "$expect"
+			failures=$((failures + 1))
+			return
+			;;
+	esac
 
 	local key base
 	key="$baseline_dir/$(printf '%s %s' "$pkg" "$pattern" | cksum | tr -d ' ')"
@@ -481,28 +496,28 @@ run_case $'features: a binding points at a test that is gone' \
 # obvious mutation, passing "" instead of the sentence, leaves two variables
 # declared and not used, and Go then fails the build with the same exit code as
 # a caught fault. That looked like a toothless gate for a while.
-run_case 'a KPI that hides which part is real' caught ./internal/finops \
+run_case 'a KPI that hides which part is real' fail ./internal/finops \
 	'TestTheCrewCostKPISaysWhatIsRealMoney' \
 	'does not say what of its figure is real' \
 	internal/finops/kpi.go \
 	'crew.RealMoney(liveMicros, liveTasks)' \
 	'crew.RealMoney(liveMicros*0, liveTasks)'
 
-run_case 'a KPI library that crashes on an empty detector' caught ./internal/finops \
+run_case 'a KPI library that crashes on an empty detector' fail ./internal/finops \
 	'TestTheKPISaysNothingAboutMoneyNobodySpent' \
 	'converting NULL to int' \
 	internal/finops/kpi.go \
 	"COALESCE(SUM(CASE WHEN state='open' THEN 1 ELSE 0 END),0)," \
 	"SUM(CASE WHEN state='open' THEN 1 ELSE 0 END),"
 
-run_case 'a card reporting the whole board as its own' caught ./internal/web \
+run_case 'a card reporting the whole board as its own' fail ./internal/web \
 	'TestTheAgentCardSaysWhatOfItsCostIsReal' \
 	'does not say what of its cost is real' \
 	internal/web/templates/analyst.html \
 	'{{if .RealMoney}}<br><strong>{{.RealMoney}}</strong>{{end}}' \
 	'{{if false}}<br><strong>{{.RealMoney}}</strong>{{end}}'
 
-run_case 'a sentence about money nobody spent' caught ./internal/finops \
+run_case 'a sentence about money nobody spent' fail ./internal/finops \
 	'TestTheKPISaysNothingAboutMoneyNobodySpent' \
 	'want empty' \
 	internal/crew/provenance.go \
@@ -514,7 +529,7 @@ run_case 'a sentence about money nobody spent' caught ./internal/finops \
 # 225 tokens bounded against a 559-byte prompt. It held, because a real tokeniser
 # gives about a quarter of a token per byte, and that is not the point: the
 # sentence says one token per byte, "which no tokeniser can exceed".
-run_case 'a bound narrower than its own promise' caught ./tools/run \
+run_case 'a bound narrower than its own promise' fail ./tools/run \
 	'TestThePromptBoundCoversTheWholePrompt' \
 	'short by' \
 	tools/run/main.go \
@@ -524,21 +539,21 @@ run_case 'a bound narrower than its own promise' caught ./tools/run \
 # A deliverable must not show its own syntax. The seeded drafts were written to
 # match the renderer, so it handled bold and "## " and everything agreed with
 # itself; a model then wrote 44 and the page printed ###, --- and dashes back.
-run_case 'a deliverable showing its own markdown' caught ./internal/web \
+run_case 'a deliverable showing its own markdown' fail ./internal/web \
 	'TestADeliverableDoesNotShowItsOwnSyntax' \
 	'still in the output' \
 	internal/web/work.go \
 	'if h, level := heading(p); h != "" {' \
 	'if h, level := heading(p); false && h != "" {'
 
-run_case 'a heading glued to the line under it' caught ./internal/web \
+run_case 'a heading glued to the line under it' fail ./internal/web \
 	'TestADeliverableDoesNotShowItsOwnSyntax' \
 	'still in the output' \
 	internal/web/work.go \
 	'strings.Split(standalone(src), "\n\n")' \
 	'strings.Split(src, "\n\n")'
 
-run_case 'a rule printed as three dashes' caught ./internal/web \
+run_case 'a rule printed as three dashes' fail ./internal/web \
 	'TestADeliverableDoesNotShowItsOwnSyntax' \
 	'still in the output' \
 	internal/web/work.go \
@@ -547,14 +562,14 @@ run_case 'a rule printed as three dashes' caught ./internal/web \
 
 # The body is written by a model, so escaping is the only thing between it and
 # the reader. inline() escapes FIRST and puts back two marks after.
-run_case 'a model able to put a tag on the page' caught ./internal/web \
+run_case 'a model able to put a tag on the page' fail ./internal/web \
 	'TestADeliverableCannotPutATagOnThePage' \
 	'reached the page' \
 	internal/web/work.go \
 	'esc := html.EscapeString(s)' \
 	'esc := html.UnescapeString(s)'
 
-run_case 'a model left to guess the date' caught ./tools/run \
+run_case 'a model left to guess the date' fail ./tools/run \
 	'TestTheModelIsToldTheDate' \
 	'does not carry the date' \
 	internal/deliver/prompt.go \
@@ -563,7 +578,7 @@ run_case 'a model left to guess the date' caught ./tools/run \
 
 # One figure covering generated and live spend together. Invariant 16 carried
 # this as its open item: the deliverables were marked, the money was not.
-run_case 'a crew figure that hides which part is real' caught ./internal/web \
+run_case 'a crew figure that hides which part is real' fail ./internal/web \
 	'TestTheCrewPageSaysWhatOfItsFigureIsReal' \
 	'does not say how much of its figure is real' \
 	internal/web/templates/staff.html \
@@ -572,7 +587,7 @@ run_case 'a crew figure that hides which part is real' caught ./internal/web \
 
 # The live marker must read as a marker. .chip carries 5.97:1 in light mode,
 # .tile carries 1.29; the marker was drawn with the container family at 1.2:1.
-run_case 'a marker drawn like a panel edge' caught ./internal/web \
+run_case 'a marker drawn like a panel edge' fail ./internal/web \
 	'TestTheLiveMarkerIsDrawnLikeAMarker' \
 	'the box is not there' \
 	internal/web/assets/app.css \
@@ -582,14 +597,14 @@ run_case 'a marker drawn like a panel edge' caught ./internal/web \
 # The page's scroll must not be able to move the sidebar. Three attempts: sticky
 # gave it its own scrollbar, static let the page's momentum slide it under the
 # cursor, fixed is the only one the page cannot touch.
-run_case 'a sidebar the page can move' caught ./internal/web \
+run_case 'a sidebar the page can move' fail ./internal/web \
 	'TestThePageCannotMoveTheSidebar' \
 	'is not fixed' \
 	internal/web/assets/app.css \
 	'  position: fixed; top: 0; left: 0; z-index: 5;' \
 	'  position: sticky; top: 0; left: 0; z-index: 5;'
 
-run_case 'content rendered under the sidebar' caught ./internal/web \
+run_case 'content rendered under the sidebar' fail ./internal/web \
 	'TestThePageCannotMoveTheSidebar' \
 	'renders underneath' \
 	internal/web/assets/app.css \
@@ -600,14 +615,14 @@ run_case 'content rendered under the sidebar' caught ./internal/web \
 # and the crew page said 0.56. TWO faults produce that number and both must go
 # red: rounding each CALL up, and rounding each TASK up, which is the same thing
 # when the runner makes one call per task and is what the first fix left behind.
-run_case 'each task rounded up on its own' caught ./tools/run \
+run_case 'each task rounded up on its own' fail ./tools/run \
 	'TestTheLedgerDoesNotOverstateManySmallCalls' \
 	'overstates the run' \
 	internal/crew/provenance.go \
 	'whole := r.micros / 10_000' \
 	'whole := (r.micros + 9_999) / 10_000'
 
-run_case 'the run is never settled into cents' caught ./tools/run \
+run_case 'the run is never settled into cents' fail ./tools/run \
 	'TestTheLedgerDoesNotOverstateManySmallCalls' \
 	'overstates the run' \
 	internal/crew/provenance.go \
@@ -616,7 +631,7 @@ run_case 'the run is never settled into cents' caught ./tools/run \
 
 # A task somebody stopped stays stopped. crew.TaskFilter{OpenOnly} includes
 # blocked, which is right for a board and wrong for a thing that does the work.
-run_case 'work done past a reason a person recorded' caught ./tools/run \
+run_case 'work done past a reason a person recorded' fail ./tools/run \
 	'TestABlockedTaskIsNotWorkedAround' \
 	'picked up anyway' \
 	tools/run/main.go \
@@ -628,11 +643,12 @@ run_case 'work done past a reason a person recorded' caught ./tools/run \
 # text, and blocked -- billed in full for nothing a person could read.
 #
 # anthropicBody, and this test with it, moved to internal/deliver/call.go
-# with call() (B6B-SPEC.md); this case follows it there. "caught" and not
-# "fail" (this file's own two-word expectations are used both ways, see
-# run_case's header): a passing gate that reports "ok ... (caught)" is
-# proof the mutation was actually judged, same as every other case here.
-run_case 'the model is left free to think instead of answering' caught ./internal/deliver \
+# with call() (B6B-SPEC.md); this case follows it there. It read expect as
+# "caught" until 2026-09-03: a word run_case never defined, so it matched
+# neither TOOTHLESS nor OVEREAGER and printed ok whatever the mutation did.
+# Renamed to "fail" along with nineteen others once the harness was made to
+# refuse a word it does not know instead of passing it through as green.
+run_case 'the model is left free to think instead of answering' fail ./internal/deliver \
 	'TestAnthropicIsAskedForAnAnswerRatherThanReasoning' \
 	'want disabled' \
 	internal/deliver/call.go \
@@ -643,14 +659,14 @@ run_case 'the model is left free to think instead of answering' caught ./interna
 # the same author and the same state, and for one full run 63 real ones sat
 # indistinguishable among 342. Two faults can bring that back: the writer going
 # quiet about what it wrote, and the page going quiet about what it was told.
-run_case 'a deliverable that does not say a model wrote it' caught ./tools/run \
+run_case 'a deliverable that does not say a model wrote it' fail ./tools/run \
 	'TestARunnerDeliverableIsMarkedLive' \
 	'indistinguishable' \
 	tools/run/live.go \
 	"datetime('now'), 'live')" \
 	"datetime('now'), 'fixture')"
 
-run_case 'a marker no page displays' caught ./internal/web \
+run_case 'a marker no page displays' fail ./internal/web \
 	'TestTheTaskPageShowsWhichDeliverableWasWrittenLive' \
 	'want exactly 1' \
 	internal/web/templates/task.html \
