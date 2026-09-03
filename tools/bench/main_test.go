@@ -6,14 +6,13 @@ import (
 	"testing"
 )
 
-// This test package DOES pass -live in two places below
-// (TestLiveWithEitherMockIsHostile), and that is the only shape it is ever
-// allowed to take: -live paired with a mock engine, refused by main.go's
-// own flag validation before selectKnownCases or any caller runs at all.
-// No test anywhere in this package pairs -live with a real engine name,
-// which is the one combination that would reach liveCall. See live_test.go
-// for how that function's own request and response handling is proven
-// without ever setting anthropicAPIBase to the real vendor.
+// This test package DOES pass -live, in TestLiveWithEitherMockIsHostile
+// (paired with a mock engine) and in live_test.go's
+// TestLiveWithARealEngineRefusesUntilTheSharedCallerExists (paired with a
+// real one). Both are refused by main.go's own flag validation before the
+// store is even opened, and this package holds no way to make an HTTP
+// request at all (live_test.go's TestNoFileInThisPackageCanMakeAnHTTPRequest
+// checks the source directly): there is no third combination to avoid.
 func runArgs(t *testing.T, args ...string) (code int, out, errOut string) {
 	t.Helper()
 	var stdout, stderr bytes.Buffer
@@ -140,13 +139,21 @@ func TestAMockOracleRunSucceeds(t *testing.T) {
 // A store is seeded exactly once: running the bench twice against the same
 // -dir must not change the estate, the roster, or which cases exist (no
 // re-detection surprises, no duplicate roster rows).
+// The FIRST run against a fresh -dir seeds it, so its own output carries no
+// "existing store" note; every run after that reads what is already there,
+// so the SECOND and THIRD runs -- both against a now-existing store -- are
+// where idempotency actually applies, and must match each other exactly.
 func TestRunningTwiceAgainstTheSameDirIsIdempotent(t *testing.T) {
 	dir := t.TempDir()
-	_, out1, _ := runArgs(t, "-dir", dir, "-skill", "investigate", "-engine", "mock", "-seed", "9")
+	runArgs(t, "-dir", dir, "-skill", "investigate", "-engine", "mock", "-seed", "9")
 	_, out2, _ := runArgs(t, "-dir", dir, "-skill", "investigate", "-engine", "mock", "-seed", "9")
-	if out1 != out2 {
-		t.Errorf("two runs against the same -dir with the same seed produced different output:\n"+
-			"--- first ---\n%s\n--- second ---\n%s", out1, out2)
+	_, out3, _ := runArgs(t, "-dir", dir, "-skill", "investigate", "-engine", "mock", "-seed", "9")
+	if out2 != out3 {
+		t.Errorf("two runs against the same, already-existing -dir with the same seed "+
+			"produced different output:\n--- second ---\n%s\n--- third ---\n%s", out2, out3)
+	}
+	if !strings.Contains(out2, "existing store") {
+		t.Errorf("a run against a store the bench did not just seed does not say so:\n%s", out2)
 	}
 }
 

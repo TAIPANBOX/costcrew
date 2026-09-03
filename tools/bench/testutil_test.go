@@ -23,8 +23,12 @@ func seededTestDB(t *testing.T) *sql.DB {
 	}
 	t.Cleanup(func() { st.Close() })
 	db := st.DB()
-	if err := ensureSeeded(db); err != nil {
+	fresh, err := ensureSeeded(db)
+	if err != nil {
 		t.Fatal(err)
+	}
+	if !fresh {
+		t.Fatal("a brand-new t.TempDir() reported itself already seeded; this helper's own assumption is broken")
 	}
 	return db
 }

@@ -107,8 +107,9 @@ func printStampReport(w io.Writer, seed int64, cases []stampCase, skill, engine 
 func printWorstCasePrice(w io.Writer, n int, engine, model string, worstMicros int64) {
 	fmt.Fprintf(w, "-live was not given. Without it this bench refuses every engine but "+
 		"mock and mock-oracle.\n")
-	fmt.Fprintf(w, "Worst case for %d case(s) on %s/%s: USD %.4f. Add -live to actually "+
-		"spend it (this agent never does).\n", n, engine, model, microsToUSD(worstMicros))
+	fmt.Fprintf(w, "Worst case for %d case(s) on %s/%s: USD %.4f. -live is refused for "+
+		"every real engine until the shared TokenFuse caller is wired, and this agent "+
+		"never adds it either way.\n", n, engine, model, microsToUSD(worstMicros))
 }
 
 func percent(part, whole int) int {

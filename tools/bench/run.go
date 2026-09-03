@@ -1,11 +1,11 @@
 package main
 
 // Per-case orchestration: build the task and the bench packet the same way
-// production would, then either synthesize a mock deliverable or make the
-// one real call -live authorizes. B7-SPEC.md section 2, steps 2 and 3.
+// production would, then synthesize a mock deliverable (mock.go). B7-SPEC.md
+// section 2, steps 2 and 3. There is no live path here: see main.go's run()
+// for why -live with a real engine refuses before reaching any of this.
 
 import (
-	"context"
 	"database/sql"
 	"fmt"
 	"time"
@@ -57,30 +57,6 @@ func scoreMock(db *sql.DB, cases []knownCase, engine string) ([]caseResult, erro
 		trueKind, _ := trueKindFor(drivers, c.Anomaly.Driver)
 		body := mockDeliverable(c.Anomaly, trueKind, oracle)
 		out = append(out, caseResult{Case: c, Score: scoreDeliverable(c.Anomaly, trueKind, body, 0)})
-	}
-	return out, nil
-}
-
-// scoreLive is the path -live authorizes: one real call per case, through
-// the same Packet and Prompt production sends (hideDriver=true) and this
-// package's own liveCall (see live.go for why that is not tools/run's
-// call()). This agent never reaches this function with -live set; it
-// exists so the flag means what section 2 says it means.
-func scoreLive(ctx context.Context, db *sql.DB, cases []knownCase, engine, model string, p engines.Price, maxTok int) ([]caseResult, error) {
-	drivers, err := estate.Drivers(db)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]caseResult, 0, len(cases))
-	for _, c := range cases {
-		trueKind, _ := trueKindFor(drivers, c.Anomaly.Driver)
-		prompt := promptFor(db, c.Anomaly, c.Analyst)
-		res, err := liveCall(ctx, engine, model, prompt, maxTok)
-		if err != nil {
-			return nil, fmt.Errorf("case %s: %w", c.Anomaly.ID, err)
-		}
-		cost := costMicros(res.InTokens, res.OutTokens, p)
-		out = append(out, caseResult{Case: c, Score: scoreDeliverable(c.Anomaly, trueKind, res.Text, cost)})
 	}
 	return out, nil
 }

@@ -17,15 +17,25 @@
 // under and not merely follows: -live is refused with mock or mock-oracle,
 // and without -live any other engine is priced and refused, never called.
 // This agent never passes -live in any test or any run it makes.
+//
+// -live with a REAL engine is refused too, unconditionally, for a second
+// reason layered on top of the first: B6 put the TokenFuse gateway in
+// tools/run's own call path so every crew call is metered per agent, and
+// this package holds no caller of its own at all -- no model provider
+// credential read from the process environment, no HTTP client of any
+// kind anywhere under tools/bench (see live_test.go's own structural
+// check on the package's source). A live run waits for the shared
+// caller: one call path for tools/run and tools/bench, in
+// internal/deliver, which is deliberately not this change.
 package main
 
 import (
-	"context"
 	"database/sql"
 	"flag"
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/TAIPANBOX/costcrew/internal/anomaly"
@@ -97,6 +107,15 @@ func run(args []string, stdout, stderr io.Writer) (code int, err error) {
 				"console knows", *engine)
 		}
 	}
+	// Checked after the two engine-name checks above (a bogus -engine value
+	// is refused for THAT reason, not this one), and before the store is
+	// even opened: no case is selected, no packet is built, nothing is
+	// priced. See this file's own top comment for why.
+	if *live {
+		return 1, fmt.Errorf("the bench is not wired through the TokenFuse gateway yet; " +
+			"a live run waits for the shared caller (one call path for tools/run and " +
+			"tools/bench, in internal/deliver)")
+	}
 
 	st, err := store.Open(*dir)
 	if err != nil {
@@ -105,7 +124,8 @@ func run(args []string, stdout, stderr io.Writer) (code int, err error) {
 	defer st.Close()
 	db := st.DB()
 
-	if err := ensureSeeded(db); err != nil {
+	fresh, err := ensureSeeded(db)
+	if err != nil {
 		return 1, err
 	}
 
@@ -116,7 +136,11 @@ func run(args []string, stdout, stderr io.Writer) (code int, err error) {
 	if !anyDriver {
 		return runStampMode(db, stdout, *n, *skill, *engine, int64(*seed))
 	}
-	return runFixtureMode(context.Background(), db, stdout, *n, *skill, *engine, *live, int64(*seed), *maxTok)
+	// *live is always false here: the check above returns before this
+	// point whenever it is set, for either reason (a mock engine, or a
+	// real one with no shared caller yet), so runFixtureMode below never
+	// needs to know about it at all.
+	return runFixtureMode(db, stdout, *n, *skill, *engine, int64(*seed), *maxTok, fresh)
 }
 
 // ensureSeeded brings a fresh -dir up to the same baseline the console's
@@ -124,33 +148,56 @@ func run(args []string, stdout, stderr io.Writer) (code int, err error) {
 // the generated estate as tools/run does"): the charges, the roster, and
 // one detection pass so the anomalies table -- and the driver label on the
 // ones a registry entry explains -- exists to select known cases from.
-// Every step here is idempotent (estate.Seed and crew.SeedRoster both
-// refuse to run twice; anomaly.Run reconciles rather than replaces), so
-// calling this against an ALREADY-seeded -dir, generated or imported, does
-// nothing. Recorder nil: nothing here should journal a governance event on
-// the bench's account, and detect.Run already treats a nil Recorder as
-// "say nothing", never as an error.
-func ensureSeeded(db *sql.DB) error {
-	if _, err := estate.Seed(db); err != nil {
-		return fmt.Errorf("seeding the estate: %w", err)
+//
+// fresh reports whether THIS call is the one that actually created the
+// charges, which is estate.Seed's own return value turned into a bool
+// rather than assumed: an existing store (a live console's own data, or
+// charges newer than whatever detection last ran against them) must never
+// have the roster or a detection pass written into it by a tool that is
+// only supposed to read and print. Coordinator review of PR #25,
+// 2026-09-03, red first on TestBenchDoesNotDetectAgainstAnExistingStore
+// (tools/bench): before this, an existing store's anomalies table gained
+// nine rows it never asked for. On an existing store this function now
+// does nothing but ensure the board's schema exists (see below), and
+// run() reads whatever anomalies are already there, however many that is.
+//
+// Recorder nil on the fresh path: nothing here should journal a governance
+// event on the bench's account, and detect.Run already treats a nil
+// Recorder as "say nothing", never as an error.
+func ensureSeeded(db *sql.DB) (fresh bool, err error) {
+	seededRows, err := estate.Seed(db)
+	if err != nil {
+		return false, fmt.Errorf("seeding the estate: %w", err)
 	}
-	if _, err := crew.SeedRoster(db, "bench"); err != nil {
-		return fmt.Errorf("seeding the roster: %w", err)
+	fresh = seededRows > 0
+
+	// Schema for both the roster and the board, unconditional on fresh:
+	// CREATE TABLE IF NOT EXISTS never adds a ROW, only a table a query
+	// would otherwise fail against with "no such table" -- selectKnownCases
+	// and selectStampCases both read the roster even on an existing store
+	// this call did not seed, and stamp mode reads the board the same way.
+	// A strict no-op against a directory the console itself already
+	// brought up, existing or not.
+	if _, err := db.Exec(crew.RosterSchema); err != nil {
+		return fresh, fmt.Errorf("ensuring the roster's schema exists: %w", err)
 	}
-	if _, _, err := anomaly.Run(db, time.Now(), detect.Default(), nil); err != nil {
-		return fmt.Errorf("running detection: %w", err)
-	}
-	// Schema only, never crew.Seed: this bench never wants the 279-deliverable
-	// generated board (fixture mode builds its own in-memory crew.Task and
-	// touches the tasks/artifacts TABLES not at all), but stamp mode reads
-	// them with crew.Tasks/crew.Artifacts, and a store that has only ever
-	// been seeded by THIS command otherwise has no such tables to query at
-	// all. CREATE TABLE IF NOT EXISTS is schema, not a row, and it is a
-	// strict no-op against a directory the console itself already brought up.
 	if _, err := db.Exec(crew.Schema); err != nil {
-		return fmt.Errorf("ensuring the board's schema exists: %w", err)
+		return fresh, fmt.Errorf("ensuring the board's schema exists: %w", err)
 	}
-	return nil
+
+	// The DATA -- 39 fixture analysts, a detection pass over the estate --
+	// only when this call is the one that just created the charges that
+	// data is about. An existing store keeps whatever roster and whatever
+	// anomalies it already has; this bench reads them, never adds to them.
+	if fresh {
+		if _, err := crew.SeedRoster(db, "bench"); err != nil {
+			return fresh, fmt.Errorf("seeding the roster: %w", err)
+		}
+		if _, _, err := anomaly.Run(db, time.Now(), detect.Default(), nil); err != nil {
+			return fresh, fmt.Errorf("running detection: %w", err)
+		}
+	}
+	return fresh, nil
 }
 
 func runStampMode(db *sql.DB, w io.Writer, n int, skill, engine string, seed int64) (int, error) {
@@ -167,17 +214,29 @@ func runStampMode(db *sql.DB, w io.Writer, n int, skill, engine string, seed int
 	return 0, nil
 }
 
-func runFixtureMode(ctx context.Context, db *sql.DB, w io.Writer, n int, skill, engine string, live bool, seed int64, maxTok int) (int, error) {
+// runFixtureMode is only ever reached with -live absent: run()'s own check
+// refuses a real engine with -live before opening the store at all, so an
+// engine that is not mock here is always priced and refused (exit 2),
+// never called. fresh is ensureSeeded's own report of whether THIS call
+// created the estate; false means the bench read an existing store rather
+// than seeding one, and says so, in place of running detection against it.
+func runFixtureMode(db *sql.DB, w io.Writer, n int, skill, engine string, seed int64, maxTok int, fresh bool) (int, error) {
 	cases, total, eligible, err := selectKnownCases(db, skill, n, seed)
 	if err != nil {
 		return 1, err
 	}
-	note := ""
-	if n > eligible {
-		note = fmt.Sprintf("       requested %d, %d anomal%s carr%s a driver and %d "+
-			"eligible for skill %s; using %d",
-			n, total, plural(total, "y", "ies"), plural(total, "ies", "y"), eligible, skill, len(cases))
+	var notes []string
+	if !fresh {
+		notes = append(notes, fmt.Sprintf(
+			"       existing store, read as found rather than re-detected: "+
+				"%d anomal%s carr%s a driver", total, plural(total, "y", "ies"), plural(total, "ies", "y")))
 	}
+	if n > eligible {
+		notes = append(notes, fmt.Sprintf("       requested %d, %d anomal%s carr%s a driver and %d "+
+			"eligible for skill %s; using %d",
+			n, total, plural(total, "y", "ies"), plural(total, "ies", "y"), eligible, skill, len(cases)))
+	}
+	note := strings.Join(notes, "\n")
 
 	if !isMockEngine(engine) {
 		model := engines.DefaultModel(engine)
@@ -186,23 +245,15 @@ func runFixtureMode(ctx context.Context, db *sql.DB, w io.Writer, n int, skill, 
 			return 1, fmt.Errorf("no price is known for %s/%s, so a live run's worst case "+
 				"cannot be bounded", engine, model)
 		}
-		if !live {
-			worst, err := worstCaseMicros(db, cases, engine, model, p, maxTok)
-			if err != nil {
-				return 1, err
-			}
-			if note != "" {
-				fmt.Fprintln(w, note)
-			}
-			printWorstCasePrice(w, len(cases), engine, model, worst)
-			return 2, nil
-		}
-		results, err := scoreLive(ctx, db, cases, engine, model, p, maxTok)
+		worst, err := worstCaseMicros(db, cases, engine, model, p, maxTok)
 		if err != nil {
 			return 1, err
 		}
-		printDriverReport(w, seed, results, skill, engine, note)
-		return 0, nil
+		if note != "" {
+			fmt.Fprintln(w, note)
+		}
+		printWorstCasePrice(w, len(cases), engine, model, worst)
+		return 2, nil
 	}
 
 	results, err := scoreMock(db, cases, engine)

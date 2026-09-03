@@ -200,9 +200,9 @@
           "value": "scores an analyst's named cause against the known driver on the generated fixture (or, on imported data with no driver, against the posted/returned stamp), so a FinOps lead reads a percentage rather than a pile of deliverables",
           "why": "as above"
         },
-        "never_calls_live_by_default": {
+        "holds_no_caller_at_all": {
           "value": true,
-          "why": "-live is required before this binary can reach a real model, and neither mock engine is ever selectable with it; not checkable from outside the source, since a manifest cannot prove an operator will not pass the flag."
+          "why": "-live refuses unconditionally: with a mock engine because neither mock is ever selectable with it, and with a real one because this binary imports no HTTP client and reads no model-provider credential (checked by reading tools/bench's own source, not merely by this flag's default). A live run waits for a shared caller in internal/deliver, so that tools/run's TokenFuse gateway covers this binary's calls too; not built yet."
         }
       }
     },
