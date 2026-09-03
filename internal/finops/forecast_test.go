@@ -483,6 +483,30 @@ func TestKPIsForecastAccuracyNamesTheLargestMissesDriver(t *testing.T) {
 	}
 }
 
+// worseMiss's first tie-break: two scored month-desks with the SAME
+// ErrorPct pick the one with the larger absolute cents gap.
+func TestLargestMissBreaksATiedErrorOnTheAbsoluteGap(t *testing.T) {
+	db := schemaOnlyDB(t)
+	if _, err := db.Exec(finops.ForecastSchema); err != nil {
+		t.Fatal(err)
+	}
+	insertForecast(t, db, "2026-01", "aws", 10000, "b")
+	insertForecast(t, db, "2026-01", "gcp", 20000, "b")
+	plantCharge(t, db, "aws", "2026-01-15", "Amazon EC2", 11000) // 10% error, 1000 gap
+	plantCharge(t, db, "gcp", "2026-01-15", "GKE", 22000)        // 10% error, 2000 gap
+
+	got, ok, err := finops.LargestMiss(db, "2026-02")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok {
+		t.Fatal("LargestMiss found nothing")
+	}
+	if got.Source != "gcp" {
+		t.Errorf("largest miss = %s, want gcp: same 10%% error as aws, but a 2000-cent gap against aws's 1000", got.Source)
+	}
+}
+
 func insertForecast(t *testing.T, db *sql.DB, period, source string, cents int64, basis string) {
 	t.Helper()
 	if _, err := db.Exec(`INSERT INTO forecasts
