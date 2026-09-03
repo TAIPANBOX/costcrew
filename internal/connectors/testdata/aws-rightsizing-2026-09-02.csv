@@ -1,0 +1,6 @@
+AccountId,InstanceId,Region,CurrentInstanceType,RecommendedInstanceType,RightsizingType,EstimatedMonthlySavings,CurrencyCode,LookbackPeriodInDays,Notes
+111111111111,i-0a1b2c3d4e5f60789,us-east-1,m5.2xlarge,m5.large,Modify,184.20,USD,14,
+111111111111,i-0b2c3d4e5f607890a,us-east-1,c5.4xlarge,c5.2xlarge,Modify,92.10,USD,90,
+111111111111,i-0c3d4e5f60789ab12,us-west-2,r5.xlarge,r5.large,Modify,0.00,USD,30,
+222222222222,i-0d4e5f60789ab123c,eu-west-1,t3.large,,Terminate,45.60,USD,14,idle since the migration finished
+111111111111,i-0e5f60789ab123cd4,us-east-1,m5.xlarge,m5.large,Modify,12.50,USD,45,

@@ -102,6 +102,16 @@ func Packet(db *sql.DB, t crew.Task, a crew.Analyst, hideDriver bool) string {
 			sections = append(sections, s)
 		}
 	}
+	// C5-SPEC.md: the optimizer families' own skill. Gated the same way as
+	// every section above, by the skill that earns it (world.go seeds
+	// optimizer-aws/gcp/azure/onprem with "rightsizing-analysis"), not by
+	// role family name, so a re-briefed analyst gains or loses the section
+	// exactly when its skills say so.
+	if HasString(a.Skills, "rightsizing-analysis") {
+		if s := recommendationsSection(db, t.Desk); s != "" {
+			sections = append(sections, s)
+		}
+	}
 
 	if HasString(a.Skills, "exec-reporting", "showback-narration", "variance-commentary") {
 		if s := reportingSection(db, t.Desk); s != "" {

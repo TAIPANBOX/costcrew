@@ -1,0 +1,3 @@
+SubscriptionId,ImpactedResource,Category,RecommendationType,CurrentSku,RecommendedSku,PotentialAnnualCostSavings,Currency,LookbackDays,ResourceGroup
+9f1c2b3a-0001-4a11-8b22-abc123def456,/subscriptions/9f1c2b3a/resourceGroups/rg-triage/providers/Microsoft.Compute/virtualMachines/vm-triage-eu-1,Cost,Right-size,Standard_D8s_v5,Standard_D4s_v5,2208.00,USD,7,rg-triage
+9f1c2b3a-0001-4a11-8b22-abc123def456,/subscriptions/9f1c2b3a/resourceGroups/rg-batch/providers/Microsoft.Compute/virtualMachines/vm-batch-eu-2,Cost,Shutdown,Standard_D16s_v5,(deallocated),1104.00,USD,90,rg-batch

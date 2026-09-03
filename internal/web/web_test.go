@@ -79,6 +79,12 @@ func startFull(t *testing.T, withHistory bool, eventsPath string) *harness {
 	if err := connectors.EnsureFocusSchema(st.DB()); err != nil {
 		t.Fatal(err)
 	}
+	// recommendations, the same reason: /rightsizing reads it on every
+	// render whether or not any of the three rightsizing readers has ever
+	// been pointed at a folder.
+	if err := connectors.EnsureRecommendationsSchema(st.DB()); err != nil {
+		t.Fatal(err)
+	}
 	if err := estate.SeedBudgets(st.DB()); err != nil {
 		t.Fatal(err)
 	}
@@ -270,6 +276,7 @@ func TestSignedInPagesRender(t *testing.T) {
 		{"/ai", "AI spend"},
 		{"/forecast", "Forecast"},
 		{"/explainers", "Explainers"},
+		{"/rightsizing", "Rightsizing"},
 		{"/teams", "Teams"},
 		{"/desks", "Desks"},
 		{"/team/ml-platform", "ml-platform"},
@@ -1932,6 +1939,7 @@ func TestEveryTableCanScrollInsideItsOwnBox(t *testing.T) {
 		"/chargeback", "/results", "/kpis", "/utilisation", "/saas", "/ai", "/forecast",
 		"/explainers", "/connectors", "/engines", "/accounts", "/audit", "/teams",
 		"/desks", "/team/ml-platform", "/desk/aws", "/staff/triage-aws", "/sprint/plan",
+		"/rightsizing",
 	} {
 		code, body, _ := h.get(t, path)
 		if code != http.StatusOK {

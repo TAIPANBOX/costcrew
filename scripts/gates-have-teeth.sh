@@ -1112,6 +1112,50 @@ run_case 'the executive pack: show a refused KPI as zero' \
 	internal/deliver/packet.go \
 	$'func executiveFigureLine(f finops.ExecutiveFigure) string {\n\tif f.Blocked != "" {\n\t\treturn fmt.Sprintf("%s: refused, %s\\n", f.Name, f.Blocked)\n\t}\n\tif !f.HasVal {\n\t\treturn "" // neither a value nor a refusal: nothing here to say, never invented\n\t}\n\tif !f.HasPeriod {' \
 	$'func executiveFigureLine(f finops.ExecutiveFigure) string {\n\tif !f.HasPeriod {'
+# C5-SPEC.md section 4's own named mutant, "rank by current cost": the
+# optimizer's packet section ranks its recommendations by saving, and this
+# swaps the comparator to read Current (the resource's own size string,
+# e.g. "m5.2xlarge") instead of MonthlySavingCents. Go allows > on
+# strings, so this still compiles.
+#
+# @measured 2026-09-03, planting this exact mutation by hand: the golden
+# fixture's own five rows happen to keep i-0a1b... ahead of i-0b2c... under
+# EITHER comparator (their Current strings sort the same way their savings
+# do, by coincidence), so a test that checks only that one pair passes
+# right through the mutant. TestRecommendationsSectionCapsAtTenWithAndNMore
+# does not share that coincidence: its twelve planted rows all carry the
+# SAME Current value, so the mutated comparator degenerates entirely to
+# the resource-name tie-break and cuts the two HIGHEST-saving rows instead
+# of the two lowest. TestRecommendationsSectionRanksBySavingFromAFixtureImport
+# was rewritten to check the full five-row order rather than one pair, so
+# it now catches the same mutant too.
+#
+# Coordinator review of PR #34, 2026-09-03, found that this case only ever
+# mutated the comparator's copy in internal/deliver, while web's own
+# /rightsizing page carried an identical, separately-maintained copy this
+# case never touched: a mutation planted directly in the page's own copy
+# compiled clean and passed the whole internal/web suite, since nothing
+# there checked row order either. The comparator now lives in exactly one
+# place, connectors.RankBySaving (internal/connectors/rightsizing.go), and
+# both deliver.recommendationsSection and the page call it rather than
+# each carrying their own copy, so this one case protects both callers by
+# construction. Retargeted here at RankBySaving's own direct test, the
+# fastest of the (now three) tests this mutation breaks -- the other two,
+# TestRecommendationsSectionCapsAtTenWithAndNMore /
+# TestRecommendationsSectionRanksBySavingFromAFixtureImport (internal/deliver)
+# and TestTheRightsizingPageOrdersRowsBySavingNotBySize (internal/web),
+# are not wired into their own run_case, the same "either one going
+# toothless should still be caught by the other" reasoning this file
+# already uses elsewhere: all three were @measured 2026-09-03 against this
+# exact mutation by hand (PR report has the transcripts).
+run_case 'rightsizing: rank by current cost instead of saving' \
+	fail \
+	./internal/connectors \
+	$'TestRankBySavingOrdersDescendingWithResourceTiebreak' \
+	$'position 0: got res-0, want res-3' \
+	internal/connectors/rightsizing.go \
+	$'if recs[i].MonthlySavingCents != recs[j].MonthlySavingCents {\n\t\t\treturn recs[i].MonthlySavingCents > recs[j].MonthlySavingCents\n\t\t}' \
+	$'if recs[i].Current != recs[j].Current {\n\t\t\treturn recs[i].Current > recs[j].Current\n\t\t}'
 
 echo
 if [ -n "$(git status --porcelain)" ]; then

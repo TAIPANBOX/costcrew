@@ -97,6 +97,29 @@ named mutants). Feature scenarios 115 -> 126 (11 new). Write routes
 (invariants 2 and 5) moved 34 -> 36 with the two new POST routes;
 invariant 1's GET count (50) is unchanged, since neither new route is one.
 
+C5 re-measured the same way, with the SAME grep bug this file carried until
+today: 515/68/105 was stated at the time as `main`'s own numbers at #28's
+merge, but the true `run_case` count there (corrected grep) is 67, not 68 --
+515/67/105 is what the three commands, run correctly, actually give at
+602fa25. Only invariant 1's own route count had drifted for an unrelated
+reason, 50 stated against 56 actual GET routes in `server.go` at that same
+commit, unnoticed since B5 because nothing that landed between the two
+touched a route AND this file in the same PR. 515/67/105 -> 532/68/114 is
+C5's own original delta (17 tests: 9 in `internal/connectors`, 5 in
+`internal/deliver`, 3 in `internal/web`; one `run_case`, C5-SPEC.md's own
+named mutant; nine scenarios, `features/rightsizing.feature`); 56 -> 57 is
+the one route this branch adds.
+
+Re-measured again 2026-09-03 after coordinator review of PR #34: two more
+tests (10 in `internal/connectors`, 4 in `internal/web`, both up by one),
+without adding a route, a scenario or a `run_case` (the existing
+"rightsizing: rank by current cost" case is retargeted at its new location
+instead of a second one being added -- invariant 33's own gate list says
+where). 532/68/114 -> 534/68/114, and the harness itself, run on the
+resulting clean committed tree, printed `teeth: 68 passed, 0 failed` --
+the one number in this whole block that is `@measured` rather than
+`@claude`'s arithmetic on top of a grep.
+
 The gates in this repo are Go tests rather than shell scripts, so
 `gates-have-teeth.sh` mutates the PRODUCT and requires the test to go red.
 Read its header before adding a case: two of its properties exist because Go
@@ -116,7 +139,7 @@ an absent invariant.
    `/logout`, `/healthz` and `/static/` genuinely answer anybody; `/signup` is
    open only while nobody can administer the installation (invariant 10); and
    `/calendar` and `/stats` are aliases that redirect to a guarded page.
-   *(gate: `TestEveryRouteRequiresASession`, which walks all 50 GET routes
+   *(gate: `TestEveryRouteRequiresASession`, which walks all 57 GET routes
    registered in `server.go`. Its regexp is anchored to the registration and
    not to the string `HandleFunc`, because it once fired on a route named in a
    COMMENT, and a gate that fires on prose gets deleted the first week.)*
@@ -1416,6 +1439,88 @@ an absent invariant.
     lookup, returning `""` on every path (@measured 2026-09-03: red on "no
     reason was given for the owner lookup" and "reason \"\" does not say
     which team decided it").)*
+33. **The optimizer's own packet ranks its recommendations by saving, never
+    by the size string, and names the risk a short lookback carries.**
+    C5-SPEC.md (numbered 33, not 32: B6B-SPEC.md's own invariant landed on
+    `main` as 32 while this branch was in flight, after this branch's fork
+    point -- see the PR body's "Invariant numbering collision" section).
+    The providers already publish their own rightsizing and idle
+    recommendations for free, and this step's whole surface is reading
+    them: three readers (`aws-rightsizing`, Cost Explorer's own Rightsizing
+    Recommendations CSV; `gcp-recommender`, a Recommender export;
+    `azure-advisor`, Advisor's own cost recommendations CSV, which reports
+    its saving as POTENTIAL ANNUAL cost and is divided by twelve, rounded
+    half away from zero, the same convention `money.Parse` already uses)
+    land in one shared `recommendations` table, and `deliver.recommendationsSection`
+    reads it back for the optimizer families' own packet
+    (`optimizer-aws/gcp/azure/onprem`, skill `rightsizing-analysis`). No
+    model is called by this step and `infra.change` never enters the apply
+    table, which invariant 23 already owns to nobody in the crew; this is
+    read-only, all the way through.
+
+    Ranked by `MonthlySavingCents`, descending, ties broken by resource so
+    the same estate renders the same list every time (invariant 7) rather
+    than on map or file order. A row's own lookback carries the sentence
+    `roles.yaml`'s optimizer family already writes for itself in its own
+    `owes` text ("a monthly job looks idle to a fourteen-day window")
+    whenever that lookback is fourteen days or fewer, and stays silent
+    about the risk otherwise. Top ten, with a trailing "and N more".
+
+    The comparator itself is `connectors.RankBySaving`
+    (`internal/connectors/rightsizing.go`), called by BOTH
+    `deliver.recommendationsSection` and web's `/rightsizing` page, which
+    wants the identical order ("a person reading this page and an analyst
+    reading its packet see the same list in the same order"). It did not
+    start that way: coordinator review of PR #34, 2026-09-03, found that
+    the page carried its own separately-maintained copy of this same
+    comparator, and that `scripts/gates-have-teeth.sh`'s "rank by current
+    cost" case (below) only ever mutated the `internal/deliver` copy --
+    proven by planting the identical mutation directly in the page's own
+    copy by hand and running `go test ./internal/web/...`, which passed
+    clean, since no test in that package checked row order at all, only
+    substring presence. `@claude` 2026-09-03: two callers wanting the same
+    order is not a reason for two copies of a comparator, so now there is
+    one, `RankBySaving`, and one gate on it protects both callers by
+    construction rather than by each being separately remembered.
+    *(gate: `TestRankBySavingOrdersDescendingWithResourceTiebreak` in
+    `internal/connectors`, `RankBySaving`'s own direct proof, isolated from
+    any DB or HTTP surface; `TestRecommendationsSectionRanksBySavingFromAFixtureImport`,
+    `TestRecommendationsSectionFlagsShortLookbackNotLong`,
+    `TestRecommendationsSectionCapsAtTenWithAndNMore`,
+    `TestRecommendationsSectionEmptyForADeskWithNoImports`,
+    `TestPacketIncludesRecommendationsOnlyForRightsizingAnalysis` in
+    `internal/deliver`; `TestAWSRightsizingIsRead`, `TestGCPRecommenderIsRead`,
+    `TestAzureAdvisorIsRead`, `TestAzureAnnualToMonthlyRoundsHalfAwayFromZero`,
+    `TestEmptyFileIsZeroRows`, `TestImportIsIdempotentForRightsizing`,
+    `TestTestDescribesRightsizingWithoutWriting`,
+    `TestRecommendationsFiltersByDesk` and `TestHostileRightsizingInput`
+    (an unknown header set; a negative saving; a resource id and a field
+    each carrying an embedded quote or comma; a UTF-8 BOM; CRLF line
+    endings; a 100 MB line, memory measured before and after) in
+    `internal/connectors`; `TestTheRightsizingPageReadsARealImport`,
+    `TestTheRightsizingPageStartsWithNoneImported` and
+    `TestTheRightsizingPageOrdersRowsBySavingNotBySize` (the row-order
+    proof the page's own gap needed) in `internal/web`, the same
+    end-to-end shape `TestTheAIPageReadsARealImport` already holds for
+    `tokenfuse-focus`; `/rightsizing` is also now on
+    `TestPagesRenderTheSameTwice`'s own curated path list
+    (`internal/web/owners_test.go`), which it was missing from before.
+    That a reader earns `Built` only by being registered is invariant 22's
+    own gate, `TestBuiltMeansAReaderExists`, unchanged and already proving
+    it for these three entries too, because `Status` is derived from the
+    `readers` map in exactly the one place invariant 22 describes.
+    `scripts/gates-have-teeth.sh` plants the mutant C5-SPEC.md names by its
+    own words, "rank by current cost": the comparator inside
+    `RankBySaving` swapped from comparing `MonthlySavingCents` to
+    comparing `Current` (the resource's own size string, e.g.
+    "m5.2xlarge") -- Go allows `>` on strings, so this still compiles, and
+    the list silently reorders itself alphabetically by instance type
+    instead of by money; caught now by all three of
+    `TestRankBySavingOrdersDescendingWithResourceTiebreak`,
+    `TestRecommendationsSectionCapsAtTenWithAndNMore` and
+    `TestTheRightsizingPageOrdersRowsBySavingNotBySize` (each
+    `@measured` 2026-09-03 by hand, PR report has the transcripts), any one
+    of which going toothless should still be caught by the other two.)*
 
 ## Decisions that have no gate yet
 
