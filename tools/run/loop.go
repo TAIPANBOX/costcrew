@@ -9,14 +9,18 @@ package main
 // conversation, and the round sent again; the LAST round is sent with no
 // tools at all, so the model has no choice left but to answer.
 //
-// call(), callAnthropic and callOpenRouter (live.go) are UNCHANGED: they
-// are still the single-shot path, still directly tested by
-// anthropic_test.go and bedrock_test.go, and still what runs for an engine
-// this loop does not cover. Bedrock is that engine here. Its caller
-// (bedrock.go's bedrockRequest) does build a real Converse body -- the
-// type is literally *bedrockruntime.ConverseInput -- but it sets no
-// ToolConfig and callBedrock parses no tool_use content block from the
-// response; adding that is a third, structurally different tool-call shape
+// call() is still the single-shot path and still what runs for an engine
+// this loop does not cover. callAnthropic and callOpenRouter, the engine
+// bodies call() dispatches to, moved to internal/deliver with it
+// (B6B-SPEC.md; call() here is now a one-line wrapper over deliver.Call),
+// directly tested there now rather than by this package's own
+// anthropic_test.go/bedrock_test.go, which kept only the tests that
+// exercise call() itself. Bedrock is the engine this loop does not cover.
+// Its caller (internal/deliver/bedrock.go's bedrockRequest) does build a
+// real Converse body -- the type is literally *bedrockruntime.ConverseInput
+// -- but it sets no ToolConfig and callBedrock parses no tool_use content
+// block from the response; adding that is a third, structurally different
+// tool-call shape
 // (the AWS SDK's document.Interface, neither Anthropic's JSON nor OpenAI's)
 // that section 3.1's catalogue never asks for -- it renders exactly two
 // shapes, Anthropic and OpenAI-style -- and no test in section 4 exercises
