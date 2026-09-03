@@ -925,6 +925,23 @@ run_case 'due: skip the switch check' \
 	$'if !enabled {' \
 	$'if !enabled && false {'
 
+# C9-SPEC.md section 4's own named mutant, "skip the -due check for a halted
+# desk": CLAUDE.md invariant 32. CadenceDue is the ONE function both -due
+# and Propose route their cadence-due work through, so disabling the check
+# it makes here disables it for both without a second case. `is && false`
+# is deliberate rather than deleting the `if` outright, the same shape
+# invariant 31's own "skip the switch check" case above uses: it keeps the
+# mutation to a single token so a reader can see exactly what was turned
+# off, and the source still compiles with the branch simply never taken.
+run_case 'due: skip the -due check for a halted desk' \
+	fail \
+	./internal/crew \
+	$'TestCadenceDueSkipsAHaltedDeskAndSaysWhy' \
+	$'on the HALTED' \
+	internal/crew/plan.go \
+	$'if _, is := halted[a.Desk]; is {' \
+	$'if _, is := halted[a.Desk]; is && false {'
+
 echo
 if [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'

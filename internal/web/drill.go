@@ -301,6 +301,7 @@ func (s *Server) desk(w http.ResponseWriter, r *http.Request) {
 	}
 
 	budgets, _ := estateBudgets(s.db, name, period)
+	halt, halted, _ := crew.ActiveHalt(s.db, name)
 
 	srt := readSort(r, "amount", true)
 	applySort(byTeam, srt, map[string]func(a, b spendRow) int{
@@ -350,6 +351,8 @@ func (s *Server) desk(w http.ResponseWriter, r *http.Request) {
 		Tasks       []taskView
 		Commitments []world.Commitment
 		Budgets     []budgetLine
+		Halted      bool
+		Halt        crew.DeskHalt
 		Sort        sortSpec
 		SortTrend   sortSpec
 		SortService sortSpec
@@ -358,7 +361,7 @@ func (s *Server) desk(w http.ResponseWriter, r *http.Request) {
 		SortBudget  sortSpec
 	}{s.shellFor(r, name, "desks"), desk, period, months, byTeam, byService,
 		trend, total, anoms, openMoney, analysts, views(tasks), commitments,
-		budgets, srt, tsrt, vsrt, msrt, asrt, bsrt})
+		budgets, halted, halt, srt, tsrt, vsrt, msrt, asrt, bsrt})
 }
 
 type budgetLine struct {

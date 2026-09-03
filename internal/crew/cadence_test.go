@@ -175,6 +175,90 @@ func TestSetCadenceRefusesANegativeCeiling(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------- C9: desk halts
+
+// CadenceDue skips a halted desk's cadence work and says why (C9-SPEC.md
+// section 2). This is the mutant scripts/gates-have-teeth.sh plants: "skip
+// the -due check for a halted desk".
+//
+// ApplyHalt already suspends every active analyst it finds on the desk, and
+// CadenceDue's own "state != active" rule silently skips a suspended one on
+// its own -- so this hires a SECOND analyst directly onto the already-halted
+// desk, active, to prove the halt check itself fires rather than merely
+// happening to agree with the ordinary suspension rule.
+func TestCadenceDueSkipsAHaltedDeskAndSaysWhy(t *testing.T) {
+	db := planDB(t)
+	hire(t, db, "daily-writer", "aws", "openrouter", []string{"anomaly-triage"}, money.Cents(1000), money.Cents(10000))
+	if _, err := db.Exec(`UPDATE analysts SET cadence='daily' WHERE name='daily-writer'`); err != nil {
+		t.Fatal(err)
+	}
+	rec := &spyRecorder{}
+	if _, _, err := crew.ApplyHalt(db, "aws", "tagging feed stale for 5 days", "data-quality", "yurii", "2026-09-01", rec); err != nil {
+		t.Fatal(err)
+	}
+
+	// Hired AFTER the halt, so it is genuinely active on an already-halted
+	// desk: Hire itself does not check for a halt.
+	hire(t, db, "late-hire", "aws", "openrouter", []string{"anomaly-triage"}, money.Cents(1000), money.Cents(10000))
+	if _, err := db.Exec(`UPDATE analysts SET cadence='daily' WHERE name='late-hire'`); err != nil {
+		t.Fatal(err)
+	}
+
+	roster, err := crew.Roster(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	items, err := crew.CadenceDue(db, roster, "2026-09-05", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, it := range items {
+		if it.Assignee == "late-hire" {
+			t.Errorf("CadenceDue proposed daily cadence work for late-hire on the HALTED "+
+				"aws desk: %+v", it)
+		}
+	}
+	var sawWhy bool
+	for _, it := range items {
+		if strings.Contains(it.Why, "aws") && strings.Contains(it.Why, "halt") {
+			sawWhy = true
+		}
+	}
+	if !sawWhy {
+		t.Errorf("CadenceDue skipped the halted aws desk with no explanation naming it in "+
+			"Why: %+v", items)
+	}
+}
+
+// The SAME skip reaches Propose, since proposeCadenceDue wraps CadenceDue:
+// C9-SPEC.md section 2, "-due and Propose skip a halted desk".
+func TestProposeSkipsAHaltedDeskThroughCadenceDue(t *testing.T) {
+	db := planDB(t)
+	hire(t, db, "daily-writer", "aws", "openrouter", []string{"anomaly-triage"}, money.Cents(1000), money.Cents(10000))
+	if _, err := db.Exec(`UPDATE analysts SET cadence='daily' WHERE name='daily-writer'`); err != nil {
+		t.Fatal(err)
+	}
+	rec := &spyRecorder{}
+	if _, _, err := crew.ApplyHalt(db, "aws", "tagging feed stale", "data-quality", "yurii", "2026-09-01", rec); err != nil {
+		t.Fatal(err)
+	}
+	hire(t, db, "late-hire", "aws", "openrouter", []string{"anomaly-triage"}, money.Cents(1000), money.Cents(10000))
+	if _, err := db.Exec(`UPDATE analysts SET cadence='daily' WHERE name='late-hire'`); err != nil {
+		t.Fatal(err)
+	}
+
+	p, err := crew.Propose(db, "2026-W99", "2026-09-05", "2026-09-11", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, it := range p.Items {
+		if it.Assignee == "late-hire" {
+			t.Errorf("Propose proposed work for late-hire on the halted aws desk: %+v", it)
+		}
+	}
+}
+
 // Hostile: a settings row holding garbage reads as off, the safe direction,
 // rather than panicking or being treated as a number nobody wrote.
 func TestCadenceSettingsOnGarbageReadsAsOff(t *testing.T) {

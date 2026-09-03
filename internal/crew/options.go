@@ -207,6 +207,15 @@ func AllowsNoOptions(role JobDescription) bool {
 	for c := range ValidClassesFor(role) {
 		switch c {
 		case "commentary.variance", "commentary.showback", "forecast.project":
+		// data.halt is CONDITIONAL prose, unlike the three above, which are
+		// always prose: the data-quality analyst's own owes line names a
+		// halt request only "when a threshold (T.stale, T.untagged) is
+		// crossed" (C9-SPEC.md section 1), and most days nothing is. Its
+		// whole vocabulary is this one hands_up class, so on an ordinary
+		// day the deliverable is the freshness-and-coverage report alone,
+		// naming no options at all -- the same shape the three prose
+		// classes above already establish is allowed to skip the block.
+		case "data.halt":
 		default:
 			return false
 		}

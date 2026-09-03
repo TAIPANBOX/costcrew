@@ -17,6 +17,7 @@ package finops
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/TAIPANBOX/costcrew/internal/anomaly"
@@ -166,10 +167,44 @@ func applySideEffect(db *sql.DB, opt crew.Option, t crew.Task, actor string, rec
 			reason = "reopened by " + actor
 		}
 		return Reopen(db, periods[0], reason)
+	case "data.halt": // class:data.halt
+		return applyHalt(db, opt, actor, rec)
 	}
 	// allocation.rule, budget.set, explainer.publish, and every class not
 	// named above: recorded only, per this function's own comment.
 	return nil
+}
+
+// applyHalt is data.halt's side effect: C9-SPEC.md section 2. The desk it
+// targets travels in the option's own Needs field -- the generic option
+// shape (class/summary/figure_cents/saving_cents/risk/needs/evidence) has no
+// dedicated "desk" column, the same gap this file's own header names for
+// allocation.rule/budget.set/explainer.publish, and Needs is the one field
+// already meant to carry "what a person would have to do"; here, which
+// desk. Summary is the reason -- "a halt request naming the desk and the
+// reason" is roles.yaml's own owes line for this role.
+//
+// The owner a stale halt is later carried to (finops.Supervise) is read the
+// SAME way an ordinary carried option's owner already is: tasks.owner of
+// the deliverable that named it, via ownerOfOption (supervise.go), so a
+// data.halt decision request and an ordinary one can never disagree about
+// whose it is.
+func applyHalt(db *sql.DB, opt crew.Option, actor string, rec Recorder) error {
+	desk := strings.TrimSpace(opt.Needs)
+	if desk == "" {
+		return fmt.Errorf("data.halt option %d names no desk in its needs field", opt.Ordinal)
+	}
+	reason := strings.TrimSpace(opt.Summary)
+	if reason == "" {
+		reason = fmt.Sprintf("data.halt applied on option %d, no reason given in the deliverable", opt.Ordinal)
+	}
+	owner, err := ownerOfOption(db, opt)
+	if err != nil {
+		return err
+	}
+	today := time.Now().UTC().Format("2006-01-02")
+	_, _, err = crew.ApplyHalt(db, desk, reason, actor, owner, today, rec)
+	return err
 }
 
 // applyDriver derives the drivers row's scope, source and window from the
