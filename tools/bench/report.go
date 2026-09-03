@@ -107,9 +107,14 @@ func printStampReport(w io.Writer, seed int64, cases []stampCase, skill, engine 
 func printWorstCasePrice(w io.Writer, n int, engine, model string, worstMicros int64) {
 	fmt.Fprintf(w, "-live was not given. Without it this bench refuses every engine but "+
 		"mock and mock-oracle.\n")
-	fmt.Fprintf(w, "Worst case for %d case(s) on %s/%s: USD %.4f. -live is refused for "+
-		"every real engine until the shared TokenFuse caller is wired, and this agent "+
-		"never adds it either way.\n", n, engine, model, microsToUSD(worstMicros))
+	// B6b wired the shared caller (CLAUDE.md invariant 32); this sentence
+	// said "-live is refused for every real engine until the shared TokenFuse
+	// caller is wired" for two days after it was, found reading a live bench
+	// run's own output on 2026-09-03. Name what a live run actually needs.
+	fmt.Fprintf(w, "Worst case for %d case(s) on %s/%s: USD %.4f. A dry run never calls "+
+		"a model. A live run needs -live, -gateway and -stack-host together, and is "+
+		"refused before any call when its worst case is over the ceiling.\n",
+		n, engine, model, microsToUSD(worstMicros))
 }
 
 func percent(part, whole int) int {
