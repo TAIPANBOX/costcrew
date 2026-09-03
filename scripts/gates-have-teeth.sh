@@ -925,6 +925,37 @@ run_case 'due: skip the switch check' \
 	$'if !enabled {' \
 	$'if !enabled && false {'
 
+# B6B-SPEC.md section 4: "a second net/http import under tools/" -- the
+# whole point of moving call() into internal/deliver is that neither binary
+# can open a second door of its own, and the structural test on each side
+# (tools/bench's TestNoFileInThisPackageCanMakeAnHTTPRequest,
+# tools/run's own TestLiveDotGoHoldsNoWayToMakeAnHTTPRequestAnyMore) is what
+# would catch a future edit re-adding one. Planted as a comment rather than
+# a real import: a real, unused "net/http" import would fail to COMPILE, and
+# this script's own header explains why that is judged BROKEN rather than
+# CAUGHT -- the mutation would prove nothing about the test, only that Go
+# refuses an unused import. A comment containing the literal substring
+# compiles cleanly and is exactly what the test's own plain
+# strings.Contains scan (deliberately naive, so it cannot be fooled by an
+# import alias) cannot tell apart from a real one.
+run_case 'bench: a second net/http door' \
+	fail \
+	./tools/bench \
+	$'TestNoFileInThisPackageCanMakeAnHTTPRequest' \
+	$'contains "net/http"' \
+	tools/bench/gateway.go \
+	$'package main' \
+	$'package main\n\n// net/http, planted only by gates-have-teeth.sh'
+
+run_case 'run: live.go grows a second net/http door' \
+	fail \
+	./tools/run \
+	$'TestLiveDotGoHoldsNoWayToMakeAnHTTPRequestAnyMore' \
+	$'contains "net/http"' \
+	tools/run/live.go \
+	$'package main' \
+	$'package main\n\n// net/http, planted only by gates-have-teeth.sh'
+
 echo
 if [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'

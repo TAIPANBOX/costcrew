@@ -178,6 +178,9 @@
           "engine": {
             "required": false
           },
+          "gateway": {
+            "required": false
+          },
           "live": {
             "required": false
           },

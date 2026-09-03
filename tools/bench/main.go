@@ -18,15 +18,17 @@
 // and without -live any other engine is priced and refused, never called.
 // This agent never passes -live in any test or any run it makes.
 //
-// -live with a REAL engine is refused too, unconditionally, for a second
-// reason layered on top of the first: B6 put the TokenFuse gateway in
-// tools/run's own call path so every crew call is metered per agent, and
-// this package holds no caller of its own at all -- no model provider
-// credential read from the process environment, no HTTP client of any
-// kind anywhere under tools/bench (see live_test.go's own structural
-// check on the package's source). A live run waits for the shared
-// caller: one call path for tools/run and tools/bench, in
-// internal/deliver, which is deliberately not this change.
+// B6B-SPEC.md: -live with a real engine now calls the shared caller, one
+// call path for tools/run and tools/bench, in internal/deliver.Call -- the
+// same one every live crew call goes through since B6 put the TokenFuse
+// gateway in tools/run's own call path. This package still holds no caller
+// of its own: no model provider credential read from the process
+// environment, no HTTP client of any kind anywhere under tools/bench (see
+// live_test.go's own structural check on the package's source; gateway.go,
+// this step's own new file, reaches every call through deliver.Call). -live
+// is refused, before the store opens, unless -gateway is also given: the
+// bench's spend must be metered exactly like the crew's, never a second,
+// unmetered path.
 package main
 
 import (
@@ -40,6 +42,7 @@ import (
 
 	"github.com/TAIPANBOX/costcrew/internal/anomaly"
 	"github.com/TAIPANBOX/costcrew/internal/crew"
+	"github.com/TAIPANBOX/costcrew/internal/deliver"
 	"github.com/TAIPANBOX/costcrew/internal/detect"
 	"github.com/TAIPANBOX/costcrew/internal/engines"
 	"github.com/TAIPANBOX/costcrew/internal/estate"
@@ -81,12 +84,18 @@ func run(args []string, stdout, stderr io.Writer) (code int, err error) {
 	skill := flag.String("skill", "triage", "triage or investigate: which role answers")
 	engine := flag.String("engine", "mock", "which engine route to score, or mock/mock-oracle (section 4)")
 	live := flag.Bool("live", false,
-		"actually call a model; refused with mock or mock-oracle, and without it any other engine is priced and refused")
+		"actually call a model; refused with mock or mock-oracle, and without -gateway too (section 4)")
 	// Int, not Int64: the same regexp above has no Int64 alternative, and a
 	// plain int is 64 bits on every platform this ever builds for, so
 	// nothing is actually lost by the narrower type here.
 	seed := flag.Int("seed", 1, "the random seed for case selection, so a run is reproducible")
 	maxTok := flag.Int("max-tokens", 2000, "the output cap a live call would be made with")
+	// The TokenFuse gateway, the runner's own flag, same help text, same
+	// COSTCREW_GATEWAY fallback (B6B-SPEC.md section 2: "the same
+	// validation"): a bench live run is metered exactly like a crew one.
+	gateway := flag.String("gateway", deliver.GatewayEnvDefault(),
+		"TokenFuse gateway for the Anthropic route, e.g. http://127.0.0.1:4177; "+
+			"empty calls api.anthropic.com directly. Falls back to COSTCREW_GATEWAY.")
 	if err := flag.CommandLine.Parse(args); err != nil {
 		return 2, nil // flag.CommandLine already wrote its own message to stderr
 	}
@@ -107,14 +116,25 @@ func run(args []string, stdout, stderr io.Writer) (code int, err error) {
 				"console knows", *engine)
 		}
 	}
+
+	// -gateway is validated before the store is even opened, the same
+	// "a bad value is a configuration mistake, not a spending one" reasoning
+	// tools/run/main.go's own run() uses, and the same wording
+	// TestNormalizeGatewayRefusesANonHTTPURL already holds there
+	// (B6B-SPEC.md section 4: "in both binaries, with the same message").
+	gatewayURL, err := deliver.NormalizeGateway(*gateway)
+	if err != nil {
+		return 1, err
+	}
+
 	// Checked after the two engine-name checks above (a bogus -engine value
 	// is refused for THAT reason, not this one), and before the store is
 	// even opened: no case is selected, no packet is built, nothing is
 	// priced. See this file's own top comment for why.
-	if *live {
-		return 1, fmt.Errorf("the bench is not wired through the TokenFuse gateway yet; " +
-			"a live run waits for the shared caller (one call path for tools/run and " +
-			"tools/bench, in internal/deliver)")
+	if *live && gatewayURL == "" {
+		return 1, fmt.Errorf("-live needs -gateway: the bench's spend must be metered " +
+			"exactly like the crew's, through the same TokenFuse gateway, never a " +
+			"second, unmetered path")
 	}
 
 	st, err := store.Open(*dir)
@@ -136,11 +156,7 @@ func run(args []string, stdout, stderr io.Writer) (code int, err error) {
 	if !anyDriver {
 		return runStampMode(db, stdout, *n, *skill, *engine, int64(*seed))
 	}
-	// *live is always false here: the check above returns before this
-	// point whenever it is set, for either reason (a mock engine, or a
-	// real one with no shared caller yet), so runFixtureMode below never
-	// needs to know about it at all.
-	return runFixtureMode(db, stdout, *n, *skill, *engine, int64(*seed), *maxTok, fresh)
+	return runFixtureMode(db, stdout, *n, *skill, *engine, int64(*seed), *maxTok, fresh, *live, gatewayURL)
 }
 
 // ensureSeeded brings a fresh -dir up to the same baseline the console's
@@ -214,13 +230,15 @@ func runStampMode(db *sql.DB, w io.Writer, n int, skill, engine string, seed int
 	return 0, nil
 }
 
-// runFixtureMode is only ever reached with -live absent: run()'s own check
-// refuses a real engine with -live before opening the store at all, so an
-// engine that is not mock here is always priced and refused (exit 2),
-// never called. fresh is ensureSeeded's own report of whether THIS call
-// created the estate; false means the bench read an existing store rather
-// than seeding one, and says so, in place of running detection against it.
-func runFixtureMode(db *sql.DB, w io.Writer, n int, skill, engine string, seed int64, maxTok int, fresh bool) (int, error) {
+// runFixtureMode: with -live absent, an engine that is not mock is always
+// priced and refused (exit 2), never called. With -live present, run()'s
+// own preflight has already required -gateway to be set (section 4's
+// "before the store opens" boundary), so live here always means "call it,
+// through the gateway". fresh is ensureSeeded's own report of whether THIS
+// call created the estate; false means the bench read an existing store
+// rather than seeding one, and says so, in place of running detection
+// against it.
+func runFixtureMode(db *sql.DB, w io.Writer, n int, skill, engine string, seed int64, maxTok int, fresh, live bool, gatewayURL string) (int, error) {
 	cases, total, eligible, err := selectKnownCases(db, skill, n, seed)
 	if err != nil {
 		return 1, err
@@ -245,6 +263,16 @@ func runFixtureMode(db *sql.DB, w io.Writer, n int, skill, engine string, seed i
 			return 1, fmt.Errorf("no price is known for %s/%s, so a live run's worst case "+
 				"cannot be bounded", engine, model)
 		}
+
+		if live {
+			results, err := scoreLive(db, cases, engine, model, p, maxTok, gatewayURL)
+			if err != nil {
+				return 1, err
+			}
+			printDriverReport(w, seed, results, skill, engine, note)
+			return 0, nil
+		}
+
 		worst, err := worstCaseMicros(db, cases, engine, model, p, maxTok)
 		if err != nil {
 			return 1, err

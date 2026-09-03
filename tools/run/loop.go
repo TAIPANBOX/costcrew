@@ -36,6 +36,7 @@ import (
 	"time"
 
 	"github.com/TAIPANBOX/costcrew/internal/crew"
+	"github.com/TAIPANBOX/costcrew/internal/deliver"
 	"github.com/TAIPANBOX/costcrew/internal/engines"
 )
 
@@ -74,10 +75,13 @@ type roundResult struct {
 	Calls     []requestedCall
 }
 
+// roundCostMicros moved to internal/deliver as ActualMicros (B6B-SPEC.md),
+// so tools/bench's own live scoring path can price what a call actually
+// cost with the identical formula rather than a second copy that only
+// looks like it. This wrapper keeps the old unexported name so every call
+// site in this file needed no other change.
 func roundCostMicros(inTok, outTok int, p engines.Price) int64 {
-	in := float64(inTok) / 1e6 * p.InPerM
-	out := float64(outTok) / 1e6 * p.OutPerM
-	return int64((in + out) * 1e6)
+	return deliver.ActualMicros(inTok, outTok, p)
 }
 
 // runToolLoop is what execute() calls instead of call() now. For anthropic

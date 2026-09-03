@@ -56,17 +56,17 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 515 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 68 cases; needs a clean tree; ~90s
-./scripts/features-are-bound.sh      # 105 scenarios, both directions
+go test ./...                        # 526 tests, 20 packages
+./scripts/gates-have-teeth.sh        # 70 cases; needs a clean tree; ~90s
+./scripts/features-are-bound.sh      # 113 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refused PR #19 on two findings the list above never asked for; a staticcheck built for an older Go cannot read this module, so on such a machine CI is the only place it runs
 ```
 
-Counts follow the suite, measured on `feat/cadence-runs-when-a-person-switches-it-on`
-after rebasing onto main past #27's own merge
+Counts follow the suite, measured on `feat/one-metered-call-path` after rebasing
+onto main past #28's own merge
 (test count by `go test ./... -list '.*' | grep -c '^Test'` -- test FUNCTIONS, not
 subtests, the convention PR #21, #23 and this file's own `internal/manifest` gate
 already use, not `-v | grep -c '^--- PASS'`, which over-counts anything using
@@ -76,7 +76,11 @@ already use, not `-v | grep -c '^--- PASS'`, which over-counts anything using
 branch last updated them by hand (B1a's own merge left this block at 282/48/59
 while its own PR body reported 301/52/70). Invariants 1, 2 and 5's own route
 counts (48/30/30 -> 50/34/34) were also re-measured while touching this file for
-B5, since the new /cadence routes are directly what moved them.
+B5, since the new /cadence routes are directly what moved them. B6b (this file's
+own invariant 32) moved 515 -> 526 (internal/deliver gained 8 tests, 3 of them
+moved from tools/run rather than new; tools/run's own count fell by 2, net of
+one new structural test; tools/bench gained 5) and 68 -> 70 gates-have-teeth.sh
+cases (the second-door mutant, one case per binary).
 
 The gates in this repo are Go tests rather than shell scripts, so
 `gates-have-teeth.sh` mutates the PRODUCT and requires the test to go red.
@@ -784,6 +788,81 @@ an absent invariant.
     reverted rather than kept as permanent cases, each caught by one of the
     tests above, the same shape invariant 27's own history already
     describes for this repository.)*
+
+32. **A live model call, from either binary, goes through exactly one door.**
+    B6B-SPEC.md. Invariant 29 named the hole this closes: `tools/bench` had
+    briefly grown its own private Anthropic caller (a key read from the
+    environment, no gateway), the second money path B6 had already closed
+    once by putting TokenFuse in `tools/run`'s own call path, and coordinator
+    review of PR #25 removed it rather than gate it, leaving `-live` refused
+    outright until "the shared caller exists". It now does:
+    `internal/deliver.Call` (`internal/deliver/call.go`), one exported
+    function over one exported `Gateway` type, holding everything that used
+    to spend money in `tools/run/live.go` -- the three engine bodies, the
+    Anthropic request builder and its `x-fuse-*` headers, the 402 refusal
+    parse. `tools/run`'s own `call()` is now a one-line wrapper over it (the
+    same move `packet()` and `prompt()` made in B7); `gatewayHeaders` and
+    `callResult` are now type ALIASES of `Gateway` and `Result`
+    (`type gatewayHeaders = deliver.Gateway`), not new types, so every
+    existing `gatewayHeaders{...}` literal in this package's own tests
+    needed no change at all. `tools/bench` gains the identical `-gateway`
+    flag, the identical validation (`deliver.NormalizeGateway`, before the
+    store opens, same wording as the runner's own boundary), and a new file,
+    `tools/bench/gateway.go`, whose `scoreLive` calls `deliver.Call` once
+    per selected case, carrying one run id (minted once per bench
+    invocation, `bench-<unix>`, the same shape `bus.go`'s own `newRunID`
+    mints for a crew run) and one budget (the whole run's own worst case,
+    the same "no per-task guard, use the run figure" fallback
+    `GatewayBudgetUSD` already gives), with a distinct agent id per case
+    (`stack.AgentURI("", analystName)`). `-live` with a real engine and no
+    `-gateway` refuses before the store opens, naming the flag; `Call`
+    itself refuses before any request when the gateway is on but the run id
+    or the agent id would be empty, which covers both binaries at the one
+    place that actually builds the request, rather than a duplicated
+    preflight check in each.
+
+    What did NOT move, on purpose: `execute()`, `runBudget`,
+    `gatewayHeadersFor` and the bus all stay in `tools/run` -- a run's own
+    orchestration, not part of making one call. Nor did `loop.go`'s own
+    `anthropicRound`/`openRouterRound`: a separate, pre-existing
+    implementation from B2 that already duplicated the Anthropic wire
+    independently of `call()` (its own package comment has said so since
+    then), and the ONLY place production reaches `call()`/`Call` for
+    is `bedrock` or an engine outside the tool loop -- anthropic and
+    openrouter traffic in `tools/run` goes through `loop.go`'s own
+    request-building, untouched by this move, which is also why
+    `gateway_test.go`'s three `execute()`-based tests
+    (`TestAGatewayCallCarriesTheAnalystsIdentity` and its two neighbours)
+    stayed in `tools/run` unedited: they exercise that path, not `call()`'s.
+    *(gate: `TestNoFileInThisPackageCanMakeAnHTTPRequest` (`tools/bench`,
+    unchanged in substance, now proven against a package that actually has
+    something to call) and `TestLiveDotGoHoldsNoWayToMakeAnHTTPRequestAnyMore`
+    (`tools/run`, new: `live.go` alone, not the whole package, since
+    `loop.go` legitimately keeps its own `net/http` import for the reason
+    above); `TestLiveWithGatewaySendsTheThreeFuseHeaders` (`tools/bench`,
+    against a fake gateway, both of the fixture's two known cases, proving
+    one run id shared and one agent id each); `TestAnEmptyRunIDRefusesBeforeTheCall`
+    and `TestAnEmptyAgentIDRefusesBeforeTheCall` (`internal/deliver`);
+    `TestGatewayForBuildsThePerCaseGateway` and its empty-URL neighbour
+    isolate the bench's own per-case builder directly, the same
+    "isolate the layer" reasoning invariant 26 already gives.
+    `scripts/gates-have-teeth.sh` plants a second `net/http` import (as a
+    comment -- a real, unused import would not compile, and would be judged
+    BROKEN rather than CAUGHT) under each binary and requires its own
+    structural test to catch it. Two mutants named in B6B-SPEC.md section 4
+    were planted by hand and reverted rather than kept as permanent cases:
+    dropping one `x-fuse-*` header from `anthropicRequest`, caught by
+    `TestAGatewayRequestCarriesTheThreeHeadersAndNeverInventsAParent` and,
+    end to end, by the bench's own header test; and `gatewayFor` returning
+    an empty URL regardless of what it was given, caught by
+    `TestGatewayForBuildsThePerCaseGateway` directly and, end to end, by the
+    bench's own header test failing on an attempted call to the real
+    Anthropic API (a 401, no key being real) rather than the fake server --
+    proof of exactly the unmetered-call failure mode this invariant
+    exists to prevent. A third mutant B6B-SPEC.md names conditionally,
+    "parse usage with a cap and no truncation flag", does not apply: no
+    such cap exists anywhere in this call path, before or after the move,
+    checked by reading `live.go` and grepping the module for one.)*
 
 ## Decisions that have no gate yet
 
