@@ -14,17 +14,27 @@ import (
 
 func seeded(t *testing.T) *sql.DB {
 	t.Helper()
-	db, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "t.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { db.Close() })
+	db := rawDB(t)
 	if _, err := estate.Seed(db); err != nil {
 		t.Fatal(err)
 	}
 	if err := finops.SeedRules(db); err != nil {
 		t.Fatal(err)
 	}
+	return db
+}
+
+// rawDB is an empty sqlite store, no schema at all: seeded() builds on it
+// with estate.Seed's full generated world, and executive_test.go's own
+// singleMonthDB builds on it with a single hand-planted charge, for the
+// boundary estate.Seed can never produce (it always spans several months).
+func rawDB(t *testing.T) *sql.DB {
+	t.Helper()
+	db, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "t.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { db.Close() })
 	return db
 }
 

@@ -21,6 +21,7 @@ import (
 	"github.com/TAIPANBOX/costcrew/internal/anomaly"
 	"github.com/TAIPANBOX/costcrew/internal/crew"
 	"github.com/TAIPANBOX/costcrew/internal/estate"
+	"github.com/TAIPANBOX/costcrew/internal/finops"
 	"github.com/TAIPANBOX/costcrew/internal/money"
 	"github.com/TAIPANBOX/costcrew/internal/store"
 	"github.com/TAIPANBOX/costcrew/internal/world"
@@ -135,7 +136,12 @@ func deliverTestDB(t *testing.T) *sql.DB {
 	}
 	t.Cleanup(func() { st.Close() })
 	db := st.DB()
-	for _, schema := range []string{crew.Schema, estate.SeedSchema, anomaly.Schema} {
+	// finops.Schema (allocation_rules, chargeback) joined the list for
+	// C8-SPEC.md's executiveSection: Executive() reads KPIs(), which reads
+	// Allocate(), which reads allocation_rules whether or not any rule is
+	// actually seeded into it -- an empty table is a legal store (everything
+	// reports unallocated), a MISSING one is "no such table".
+	for _, schema := range []string{crew.Schema, estate.SeedSchema, anomaly.Schema, finops.Schema} {
 		if _, err := db.Exec(schema); err != nil {
 			t.Fatal(err)
 		}

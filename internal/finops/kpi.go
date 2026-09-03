@@ -3,6 +3,7 @@ package finops
 import (
 	"database/sql"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/TAIPANBOX/costcrew/internal/crew"
@@ -268,6 +269,155 @@ func KPICounts(ks []KPI) (reporting, blocked, meeting int) {
 		}
 	}
 	return
+}
+
+// ----------------------------------------------------------- the exec pack
+
+// executiveKPIIDs is the four KPIs roles.yaml's own executive-reporter owes
+// ("four numbers, each with its reason ... and never from a template"),
+// named ONCE here rather than in internal/deliver or any web page, so
+// nothing that ever reads them can disagree about which four.
+//
+// @claude 2026-09-03: neither ROLES-2026-09.md nor PLAN-2026-09.md names the
+// four by id, so this choice is mine, made against what KPIs() actually
+// computes rather than against a wish list. Only THREE of the twelve vary
+// with the period argument at all: allocation-coverage and
+// unallocated-share both come from Allocate(db, period), and
+// agent-attribution comes from AttributionCoverage(db, period). Every other
+// KPI's own query -- crew-cost, anomaly-open-money, forecast-accuracy and
+// the rest -- ignores the argument entirely (forecast-accuracy reads
+// OpenPeriod() instead, on purpose, per its own comment), so "last period's
+// value and the delta" would be a delta of zero BY CONSTRUCTION for any of
+// them, on every estate, which is not a number an executive should be shown
+// as though it meant something. cost-per-outcome is the fourth: it never
+// computes in this console at all (no outcome metric is connected until
+// C7), so it is the one guaranteed to exercise "refused, not zero" on any
+// estate, generated or real, which is exactly the property C8-SPEC.md
+// section 4 asks this pack to prove.
+var executiveKPIIDs = []string{
+	"allocation-coverage", "unallocated-share", "agent-attribution", "cost-per-outcome",
+}
+
+// ExecutiveFigure is one of the four numbers the executive pack shows: this
+// period's own KPI row (so a refusal carries its exact reason, in the KPI's
+// own words), its value as a NUMBER rather than the page's pre-formatted
+// string, and the period before it.
+//
+// Numeric is 0 whenever HasVal is false -- Go's own zero value for
+// float64, left exactly as the language gives it rather than guarded
+// against -- because C8-SPEC.md section 4 asks for a refusal that renders
+// as a refusal and never as a zero, and that guard needs a REAL zero on the
+// other side of it to catch, the same shape this file's own COALESCE
+// history (the comments on the anomalies and crew queries above) has
+// already been bitten by twice.
+type ExecutiveFigure struct {
+	KPI
+	Numeric float64
+
+	// HasPeriod is false only for the estate's very first period: C8-SPEC.md
+	// section 4's own words, "no previous period". Once true, the figure DID
+	// have a period before it, even when that period's own KPI has nothing to
+	// show (PrevHasVal false) -- that is a different sentence ("the previous
+	// period itself refused"), not the boundary this flag names.
+	HasPeriod bool
+
+	PrevHasVal  bool // the previous period's OWN KPI had a value, not a refusal
+	PrevNumeric float64
+	PrevBlocked string // the previous period's own refusal, when PrevHasVal is false
+
+	Delta    float64
+	HasDelta bool // true only when THIS period and the previous one both have a value
+}
+
+// Executive is the four figures the executive pack shows, C8-SPEC.md
+// section 2. period is the period the figures are FOR: the last COMPLETE
+// month in Months(), never the one still running -- the same index
+// internal/web's own period() defaults to, for the same reason: a
+// fortnightly pack that included eleven days of an open month would tell an
+// executive the estate got cheaper because the month is not over yet.
+// previous is the month before that, or "" when period is the estate's very
+// first one. figures is nil, with no error, when the estate has no charges
+// at all -- an empty pack, not a crash, the same "additive, never
+// misleading" rule every packet section already holds.
+func Executive(db *sql.DB) (figures []ExecutiveFigure, period, previous string, err error) {
+	period, previous, err = executivePeriod(db)
+	if err != nil || period == "" {
+		return nil, period, previous, err
+	}
+	cur, err := KPIs(db, period)
+	if err != nil {
+		return nil, period, previous, err
+	}
+	var prev []KPI
+	if previous != "" {
+		if prev, err = KPIs(db, previous); err != nil {
+			return nil, period, previous, err
+		}
+	}
+
+	for _, id := range executiveKPIIDs {
+		k, ok := kpiByID(cur, id)
+		if !ok {
+			// Cannot happen while executiveKPIIDs names only real ids -- KPIs()
+			// always appends all twelve, refusal or not -- so this is a guard
+			// against a future rename of an id above, not a live path. A
+			// packet's job is to say what it has, never to crash the analyst
+			// it was building for.
+			continue
+		}
+		f := ExecutiveFigure{KPI: k, HasPeriod: previous != ""}
+		if k.HasVal {
+			if n, perr := strconv.ParseFloat(k.Value, 64); perr == nil {
+				f.Numeric = n
+			}
+		}
+		if pk, pok := kpiByID(prev, id); pok {
+			f.PrevBlocked = pk.Blocked
+			if pk.HasVal {
+				if n, perr := strconv.ParseFloat(pk.Value, 64); perr == nil {
+					f.PrevHasVal = true
+					f.PrevNumeric = n
+				}
+			}
+		}
+		if k.HasVal && f.PrevHasVal {
+			f.Delta = f.Numeric - f.PrevNumeric
+			f.HasDelta = true
+		}
+		figures = append(figures, f)
+	}
+	return figures, period, previous, nil
+}
+
+func kpiByID(ks []KPI, id string) (KPI, bool) {
+	for _, k := range ks {
+		if k.ID == id {
+			return k, true
+		}
+	}
+	return KPI{}, false
+}
+
+// executivePeriod picks the period the executive pack reports on: the last
+// COMPLETE month in Months(), skipping index 0 (the one still running) when
+// a complete month exists, the identical index internal/web's own period()
+// defaults to. previous is the month right before it in Months()'s own
+// descending list, so "no previous period" is exactly the estate's own
+// first month, never a calendar gap Months() cannot see anyway.
+func executivePeriod(db *sql.DB) (period, previous string, err error) {
+	months, err := Months(db)
+	if err != nil || len(months) == 0 {
+		return "", "", err
+	}
+	idx := 0
+	if len(months) > 1 {
+		idx = 1
+	}
+	period = months[idx]
+	if idx+1 < len(months) {
+		previous = months[idx+1]
+	}
+	return period, previous, nil
 }
 
 // ------------------------------------------------------------- maturity

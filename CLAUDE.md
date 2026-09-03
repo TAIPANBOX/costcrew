@@ -56,27 +56,27 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 515 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 68 cases; needs a clean tree; ~90s
-./scripts/features-are-bound.sh      # 105 scenarios, both directions
+go test ./...                        # 528 tests, 20 packages
+./scripts/gates-have-teeth.sh        # 69 cases; needs a clean tree; ~90s
+./scripts/features-are-bound.sh      # 109 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refused PR #19 on two findings the list above never asked for; a staticcheck built for an older Go cannot read this module, so on such a machine CI is the only place it runs
 ```
 
-Counts follow the suite, measured on `feat/cadence-runs-when-a-person-switches-it-on`
-after rebasing onto main past #27's own merge
-(test count by `go test ./... -list '.*' | grep -c '^Test'` -- test FUNCTIONS, not
-subtests, the convention PR #21, #23 and this file's own `internal/manifest` gate
-already use, not `-v | grep -c '^--- PASS'`, which over-counts anything using
-`t.Run`; packages by `go list -f '{{if or .TestGoFiles .XTestGoFiles}}...'`;
-`grep -c '^run_case' scripts/gates-have-teeth.sh`; `grep -rc Scenario: features/*.feature`;
-2026-09-03); nothing here keeps them current automatically, so they lag whichever
-branch last updated them by hand (B1a's own merge left this block at 282/48/59
-while its own PR body reported 301/52/70). Invariants 1, 2 and 5's own route
-counts (48/30/30 -> 50/34/34) were also re-measured while touching this file for
-B5, since the new /cadence routes are directly what moved them.
+Counts follow the suite, measured on `feat/c8-the-executive-pack` off
+`origin/main` at 602fa25 (test count by `go test ./... -list '.*' | grep -c
+'^Test'` -- test FUNCTIONS, not subtests, the convention PR #21, #23 and this
+file's own `internal/manifest` gate already use, not `-v | grep -c '^---
+PASS'`, which over-counts anything using `t.Run`; packages by `go list -f
+'{{if or .TestGoFiles .XTestGoFiles}}...'`; `grep -c '^run_case'
+scripts/gates-have-teeth.sh`; `grep -rc Scenario: features/*.feature`;
+2026-09-03); nothing here keeps them current automatically, so they lag
+whichever branch last updated them by hand (B1a's own merge left this block at
+282/48/59 while its own PR body reported 301/52/70). Invariants 1, 2 and 5's
+own route counts (48/30/30 -> 50/34/34) were also re-measured while touching
+this file for B5, since the new /cadence routes are directly what moved them.
 
 The gates in this repo are Go tests rather than shell scripts, so
 `gates-have-teeth.sh` mutates the PRODUCT and requires the test to go red.
@@ -784,6 +784,76 @@ an absent invariant.
     reverted rather than kept as permanent cases, each caught by one of the
     tests above, the same shape invariant 27's own history already
     describes for this repository.)*
+
+32. **A refused KPI in the executive pack reads as a refusal, never as a
+    zero, and explainer.publish is no longer text only.** C8-SPEC.md.
+    `finops.Executive` names the four numbers roles.yaml's own
+    executive-reporter owes (`allocation-coverage`, `unallocated-share` and
+    `agent-attribution`, the only three of the twelve KPIs that vary with a
+    period at all, plus `cost-per-outcome`, which never computes in this
+    console until C7 and is therefore guaranteed to exercise the refusal on
+    any estate) ONCE, so the packet `internal/deliver.executiveSection`
+    builds and any future page reading the same figures cannot disagree
+    about which four. `ExecutiveFigure.Numeric` is a real `float64` that
+    defaults to Go's own zero value when the KPI has none -- deliberately,
+    the same shape this file's own COALESCE history (invariants 24 and 25's
+    own SUM bugs) has already been bitten by twice -- so a renderer that
+    forgets to check `Blocked`/`HasVal` FIRST prints an honest, catchable
+    "0.0" rather than nothing at all. The pack's second half is the last
+    three posted deliverables -- any analyst's, any task's -- on the desk
+    or desks whose total spend moved most between the reported period and
+    the one before it (`estate.Totals` for each, ranked by the size of the
+    move either way, `movedDesksSection`), filling across desks when the
+    top mover has nothing posted on it yet rather than showing nothing.
+    `internal/finops.applySideEffect` wires `explainer.publish` to
+    `crew.PublishArtifact` (which itself finishes with a call to
+    `crew.Publish`, the SAME state transition a person's stamp on a
+    Commission-drafted explainer already goes through), reading the
+    OPTION'S OWN ARTIFACT as the target this class was recorded-only for
+    lack of, per invariant 27's own comment: the artifact's whole body,
+    verbatim, is the explainer's body, and the option's summary is its
+    topic. The explainer's Team and Audience are both the fixed string
+    "leadership", which is not one of `world.Teams`'s ten roster names on
+    purpose -- `internal/web`'s explainers page only links a row's team to
+    `/team/{name}` when `isRealTeam` finds a real one there, and
+    `?audience=leadership` is the leadership page C8-SPEC.md names: the
+    same route, filtered to rows whose Audience matches.
+    *(gate: `TestExecutiveReturnsFourFiguresWithPreviousValuesAndDeltas`,
+    `TestExecutiveNeverGivesARefusedKPIAValue`,
+    `TestExecutiveSaysNoPreviousPeriodForTheFirstPeriod` (`internal/finops`,
+    `Executive` itself, the last one built by hand rather than with
+    `estate.Seed`, which always spans several months, to reach the
+    boundary at all); `TestExecutiveSectionCarriesTheFourNumbers`,
+    `TestExecutiveSectionIsAbsentForAPlainDeskReporter` (gated on
+    "decision-framing", exec-reporter's own second skill, never
+    "exec-reporting" alone, which the desk reporters already share and
+    already answer to with `reportingSection`),
+    `TestExecutiveSectionShowsARefusedKPIAsRefusedNeverZero`,
+    `TestExecutiveSectionShowsTheLastExplanationOnTheDeskThatMovedMost`,
+    `TestExecutiveSectionFallsThroughADeskWithNoPostedExplanation`,
+    `TestExecutiveSectionTrimsAOneMegabyteExplanationBody` (`internal/deliver`,
+    the section itself); `TestApplyExplainerPublishPublishesTheArtifactsBodyAsAnExplainer`
+    (`internal/finops`, the wiring, actor "supervisor" since explainer.publish
+    is the supervisor's own `decides_alone` class);
+    `TestTheLeadershipPageShowsTheExecutivePackOnlyAfterAStamp`,
+    `TestTheLeadershipPacksTeamIsNotALinkToANonexistentTeamPage`,
+    `TestAScriptTagInThePacksTitleRendersAsTextOnTheLeadershipPage`
+    (`internal/web`, through the console's own read routes).
+    `scripts/gates-have-teeth.sh`'s `the executive pack: show a refused KPI
+    as zero` case plants the mutant C8-SPEC.md section 4 names by its own
+    words, removing `executiveFigureLine`'s Blocked/HasVal guard whole so
+    execution falls into the value branches with `Numeric` at its zero
+    value. Two more mutants were planted by hand and reverted rather than
+    kept as permanent cases: `crew.PublishArtifact` returning before
+    calling `Publish`, caught by
+    `TestApplyExplainerPublishPublishesTheArtifactsBodyAsAnExplainer`'s own
+    state and publisher assertions (the row exists but stays a draft,
+    publisher empty); and `executivePeriod` reading one month further back
+    than the one actually beside `period`, caught by
+    `TestExecutiveReturnsFourFiguresWithPreviousValuesAndDeltas`'s own
+    cross-check against `Allocate` called on the EXACT expected previous
+    month directly, which a merely internally-consistent delta
+    (`Numeric-PrevNumeric`) would not have caught on its own.)*
 
 ## Decisions that have no gate yet
 

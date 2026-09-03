@@ -17,11 +17,13 @@ package finops
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/TAIPANBOX/costcrew/internal/anomaly"
 	"github.com/TAIPANBOX/costcrew/internal/crew"
 	"github.com/TAIPANBOX/costcrew/internal/estate"
+	"github.com/TAIPANBOX/costcrew/internal/money"
 	"github.com/TAIPANBOX/costcrew/internal/world"
 )
 
@@ -109,17 +111,25 @@ func Apply(db *sql.DB, opt crew.Option, actor string, rec Recorder) error {
 // applySideEffect is the table itself. Every class named here also exists in
 // internal/crew/roles.yaml (scripts/roles-are-bound.sh's property 1 already
 // checks that direction for every "// class:" tag in internal/ and tools/),
-// and the classes with no case below -- allocation.rule, budget.set,
-// explainer.publish among them -- are "text only" deliberately: their
-// existing functions (finops.SetRule, the estate budgets intake,
-// crew.Publish) each need a structured target (a rule id, a team and month,
-// an explainer id) the generic options shape
+// and the classes with no case below -- allocation.rule and budget.set
+// among them -- are "text only" deliberately: their existing functions
+// (finops.SetRule, the estate budgets intake) each need a structured target
+// (a rule id, a team and month) the generic options shape
 // (class/summary/figure_cents/saving_cents/risk/needs/evidence) does not
 // carry and this option's own task does not supply either. Inventing one
 // would be exactly "invent a number it was not given", the rule every job
 // description in ROLES-2026-09.md carries under "Never". Wiring them is
 // follow-up work once a companion field names the target; see this PR's
 // body and the report's NOT PROVEN line.
+//
+// explainer.publish was the third class in that list until C8-SPEC.md: it
+// needed an explainer id the generic shape does not carry either, but the
+// target turned out to need no companion field at all -- the option's OWN
+// artifact IS the pack, so applyExplainerPublish below reads its author and
+// its whole body rather than inventing anything this option was never
+// given, and publishes through crew.PublishArtifact, which itself finishes
+// by calling crew.Publish, the SAME state transition Commission's own draft
+// already goes through by a person's hand.
 func applySideEffect(db *sql.DB, opt crew.Option, t crew.Task, actor string, rec Recorder) error {
 	switch opt.Class {
 	case "anomaly.explain": // class:anomaly.explain
@@ -166,10 +176,35 @@ func applySideEffect(db *sql.DB, opt crew.Option, t crew.Task, actor string, rec
 			reason = "reopened by " + actor
 		}
 		return Reopen(db, periods[0], reason)
+	case "explainer.publish": // class:explainer.publish
+		return applyExplainerPublish(db, opt, actor)
 	}
-	// allocation.rule, budget.set, explainer.publish, and every class not
-	// named above: recorded only, per this function's own comment.
+	// allocation.rule, budget.set, and every other class not named above:
+	// recorded only, per this function's own comment.
 	return nil
+}
+
+// applyExplainerPublish is C8-SPEC.md section 2: the deliverable's own
+// artifact is the target explainer.publish was missing. topic is the
+// option's own summary ("the pack's title"), falling back to the artifact's
+// own title only for the option shapes ValidateAndSaveOptions already
+// allows through with an empty summary (evidence-only options), so a stamp
+// never publishes an explainer with no title at all. "leadership" is not a
+// roster team -- world.Teams names ten real ones -- which is exactly why
+// explainers.html only links a team's name to /team/{name} when a real one
+// is there: this is the one row on that page that deliberately is not.
+func applyExplainerPublish(db *sql.DB, opt crew.Option, actor string) error {
+	art, err := crew.GetArtifact(db, opt.Artifact)
+	if err != nil {
+		return err
+	}
+	topic := strings.TrimSpace(opt.Summary)
+	if topic == "" {
+		topic = art.Title
+	}
+	_, err = crew.PublishArtifact(db, "leadership", topic, "leadership", art.Author,
+		art.Body, money.Cents(opt.FigureCents), actor)
+	return err
 }
 
 // applyDriver derives the drivers row's scope, source and window from the
