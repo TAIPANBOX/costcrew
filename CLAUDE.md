@@ -2280,10 +2280,14 @@ an absent invariant.
     A new GET route, `/leadership` (`internal/web/leadership.go`), its own
     template (`templates/leadership.html`), reuses `finops.Executive`,
     `crew.Explainers` and `renderBody` rather than copying any of them. No
-    sidebar entry: `TestTheSidebarFitsAWindow` budgets 27 links and the
-    sidebar was already at 27 (invariant 19 is Yurii's call to grow it, not
-    mine, and a first attempt to add `/rightsizing` there went red on exactly
-    that gate on 2026-09-03). Reached instead from two in-page links, always
+    sidebar entry: `TestTheSidebarFitsAWindow` budgeted 27 links when this
+    branch forked (a first attempt to add `/rightsizing` there went red on
+    exactly that gate on 2026-09-03, invariant 19's own call to make, not
+    mine); costcrew#48 later moved the budget to 28 with Yurii's own
+    decision to add `/rightsizing` specifically, and that decision does not
+    extend to this page -- `/leadership` stays off the sidebar under the
+    same rule invariant 19 already names, not because of which number the
+    budget happens to be. Reached instead from two in-page links, always
     shown: `/kpis`'s own header ("The four figures a leader is owed each
     period, beside the pack written about them: Leadership") and
     `/explainers`'s own header ("Packs written for leadership are on their
