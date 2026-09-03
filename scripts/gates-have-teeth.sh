@@ -890,8 +890,8 @@ run_case 'memory: history is prepended instead of appended, so it no longer yiel
 	$'TestOwnHistoryNeverCrowdsOutTheAnomalyUnderTheCap' \
 	$'the anomaly section is not intact' \
 	internal/deliver/packet.go \
-	$'if s := ownHistorySection(db, a, t.Desk); s != "" {\n\t\tsections = append(sections, s)\n\t}' \
-	$'if s := ownHistorySection(db, a, t.Desk); s != "" {\n\t\tsections = append([]string{s}, sections...)\n\t}'
+	$'if s := ownHistorySection(db, a, t.Desk); s != "" {\n\t\t\tsections = append(sections, s)\n\t\t}' \
+	$'if s := ownHistorySection(db, a, t.Desk); s != "" {\n\t\t\tsections = append([]string{s}, sections...)\n\t\t}'
 
 echo
 if [ -n "$(git status --porcelain)" ]; then

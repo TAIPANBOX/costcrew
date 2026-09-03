@@ -77,14 +77,6 @@ func plantOption(t *testing.T, db *sql.DB, artifactID, ordinal int, class, summa
 	}
 }
 
-func plantDecisionRequest(t *testing.T, db *sql.DB, artifactID, sprintID int, owner string) {
-	t.Helper()
-	if _, err := db.Exec(`INSERT INTO decision_requests (artifact, sprint, owner, lapses, created)
-		VALUES (?,?,?,?,datetime('now'))`, artifactID, sprintID, owner, "2026-09-10"); err != nil {
-		t.Fatal(err)
-	}
-}
-
 // memoryAnalyst is any analyst with figures-read (every non-suspended
 // analyst has it -- crew.RightsFor) and no anomaly-specific skill, so
 // Packet() exercises ownHistorySection without an anomaly in play unless a
@@ -217,8 +209,14 @@ func TestOwnHistoryShowsTheFateOfEveryOptionState(t *testing.T) {
 		{"applied", crew.OptionApplied, "owner1", "applied by owner1", nil},
 		{"refused", crew.OptionRefused, "owner1", "refused by owner1: too risky this quarter", nil},
 		{"not_chosen", crew.OptionNotChosen, "owner1", "not chosen (lost to the top-ranked option)", nil},
-		{"carried", crew.OptionCarried, "supervisor", "still waiting on owner2", func(t *testing.T, db *sql.DB, artifactID int) {
-			plantDecisionRequest(t, db, artifactID, 1, "owner2")
+		{"carried", crew.OptionCarried, "supervisor", "still waiting on t.langley", func(t *testing.T, db *sql.DB, artifactID int) {
+			taskID, err := crew.TaskOfArtifact(db, artifactID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := db.Exec(`UPDATE tasks SET owner=? WHERE id=?`, "t.langley", taskID); err != nil {
+				t.Fatal(err)
+			}
 		}},
 	}
 	for _, c := range cases {
@@ -473,13 +471,17 @@ func TestOwnHistoryQueryIsParameterisedAgainstAQuoteInTheName(t *testing.T) {
 
 // -------------------------------------------------------- bench hiding mode
 
-// The task brief's own extra boundary test: ownHistorySection is not gated
-// by hideDriver at all (B8-SPEC.md never says memory is bench-sensitive, and
-// section 2 says only driversSection is), so it must be proven that this
-// does not become a side channel: an analyst's own PAST history, unrelated
-// to the anomaly currently being hidden, must never carry the CURRENT
-// anomaly's driver label or kind, in hiding mode.
-func TestBenchHidingModeDoesNotLeakTheDriverThroughOwnHistory(t *testing.T) {
+// Coordinator review of PR #27: ownHistorySection was appended regardless of
+// hideDriver, so a store holding a posted deliverable by the SAME analyst on
+// the SAME desk, whose option named the CURRENT anomaly's own driver as its
+// cause (exactly what a real analyst writes for a RECURRING event), handed a
+// bench run the answer through its own history rather than through the
+// anomaly's driver: line. Memory of past answers on the same desk IS an
+// answer key, so hiding mode must omit the whole section, not merely filter
+// it -- proven two ways: the leak itself is gone, and production
+// (hideDriver=false) still carries the section whole, so the toggle is
+// doing real work rather than the section having quietly broken.
+func TestBenchHidingModeOmitsOwnHistoryEntirely(t *testing.T) {
 	db := deliverTestDB(t)
 	an := anomaly.Anomaly{
 		ID: "A-mem4", Source: "gcp", Team: "research", Service: "GKE",
@@ -495,24 +497,30 @@ func TestBenchHidingModeDoesNotLeakTheDriverThroughOwnHistory(t *testing.T) {
 		Label: an.Driver, Kind: "one-time", Source: an.Source,
 	})
 
-	// The analyst's OWN past history on this desk, from an unrelated prior
-	// task: an ordinary explanation that has nothing to do with THIS
-	// anomaly's driver.
-	pastTask := plantMemoryTask(t, db, "gcp", "Explain last week's move")
-	plantPostedArtifact(t, db, pastTask, "investigator-gcp",
-		"An earlier, unrelated spend increase from a traffic surge.", "2026-06-15T00:00:00Z")
+	// The analyst's OWN past history on this desk: a prior deliverable that
+	// named THIS SAME driver as its cause, the recurring-event case that
+	// makes memory an answer key if it survives hiding mode.
+	pastTask := plantMemoryTask(t, db, "gcp", "Explain last quarter's move")
+	pastArtID := plantPostedArtifact(t, db, pastTask, "investigator-gcp",
+		"The quarterly refresh drove usage up again.", "2026-03-15T00:00:00Z")
+	plantOption(t, db, pastArtID, 1, "anomaly.explain", an.Driver, crew.OptionApplied, "owner1", "")
 
 	task := crew.Task{ID: 1, Anomaly: an.ID, Desk: an.Source}
 	a := crew.Analyst{Name: "investigator-gcp", State: "active", Skills: []string{"anomaly-triage"}}
 
 	hidden := Packet(db, task, a, true)
-	if !strings.Contains(hidden, "An earlier, unrelated spend increase") {
-		t.Fatalf("ownHistorySection did not run at all in hiding mode; this test proves nothing:\n%s", hidden)
+	if strings.Contains(hidden, "What you posted on this desk before") {
+		t.Errorf("a bench packet (hideDriver=true) still carries the history section at all:\n%s", hidden)
 	}
 	if strings.Contains(hidden, an.Driver) {
 		t.Errorf("a bench packet (hideDriver=true) names the driver label via the history section:\n%s", hidden)
 	}
-	if strings.Contains(hidden, "one-time") {
-		t.Errorf("a bench packet (hideDriver=true) names the driver's kind via the history section:\n%s", hidden)
+
+	shown := Packet(db, task, a, false)
+	if !strings.Contains(shown, "What you posted on this desk before") {
+		t.Fatalf("production (hideDriver=false) lost the history section entirely:\n%s", shown)
+	}
+	if !strings.Contains(shown, an.Driver) {
+		t.Errorf("production's own history section no longer carries the option that named the driver:\n%s", shown)
 	}
 }

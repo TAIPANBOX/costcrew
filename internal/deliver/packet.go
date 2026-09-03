@@ -106,9 +106,15 @@ func Packet(db *sql.DB, t crew.Task, a crew.Analyst, hideDriver bool) string {
 	// reached. Every section above -- the anomaly, the series, the drivers,
 	// the team's month, the last posted explanation, reporting, forecasting
 	// -- is never trimmed to make room for memory, because memory is the
-	// only thing ever appended after them.
-	if s := ownHistorySection(db, a, t.Desk); s != "" {
-		sections = append(sections, s)
+	// only thing ever appended after them. Skipped ENTIRELY when hideDriver
+	// is true: a past posted deliverable's own option can name the very
+	// driver a bench run is hiding (a recurring cause explained before is
+	// exactly the case memory exists for), so memory of past answers on the
+	// same desk is itself an answer key.
+	if !hideDriver {
+		if s := ownHistorySection(db, a, t.Desk); s != "" {
+			sections = append(sections, s)
+		}
 	}
 
 	if len(sections) == 0 {
@@ -448,15 +454,21 @@ func fateOf(db *sql.DB, o crew.Option) string {
 	}
 }
 
-// waitingOwner is who a carried option is waiting on. decision_requests is
-// keyed by artifact -- one request per deliverable, B3-SPEC.md section 4 --
-// so every carried option of one artifact waits on the same owner; a missing
-// row (an option marked carried outside the supervisor's own pass) falls
-// back to a generic phrase rather than an empty name.
+// waitingOwner is who a carried option is waiting on: tasks.owner of the
+// task the option's OWN deliverable answers (crew.TaskOwner via
+// crew.TaskOfArtifact), the same lookup finops.ownerOfOption already uses
+// for the same question from the supervisor's own side. decision_requests
+// is keyed by the DECISION REQUEST's own artifact -- the supervisor's
+// deliverable, crew.WriteDecisionRequest -- never by the artifact whose
+// option was carried, so it is not what this reads.
 func waitingOwner(db *sql.DB, artifactID int) string {
-	var owner string
-	if err := db.QueryRow(`SELECT owner FROM decision_requests WHERE artifact=?`, artifactID).Scan(&owner); err != nil {
-		return "the owner"
+	taskID, err := crew.TaskOfArtifact(db, artifactID)
+	if err != nil {
+		return "unclaimed"
+	}
+	owner, err := crew.TaskOwner(db, taskID)
+	if err != nil || owner == "" {
+		return "unclaimed"
 	}
 	return owner
 }

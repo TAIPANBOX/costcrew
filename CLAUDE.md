@@ -697,7 +697,13 @@ an absent invariant.
     KiB cap is reached, so whatever is appended last is trimmed first, and
     everything appended earlier is untouched unless that alone is not
     enough. Nothing else about the cap changed; making this order explicit,
-    in the one place it is decided, is this invariant.
+    in the one place it is decided, is this invariant. `ownHistorySection`
+    is skipped ENTIRELY, not merely trimmed, when `hideDriver` is true: a
+    past posted deliverable's own option can name the very driver a bench
+    run is hiding (a recurring cause explained before is exactly the case
+    memory exists for), so memory of past answers on the same desk is
+    itself an answer key. Coordinator review of PR #27 found both this and
+    `waitingOwner` (below) reading the wrong table.
     *(gate: `TestOwnHistoryNeverCrowdsOutTheAnomalyUnderTheCap`
     (`internal/deliver`), which forces a packet over 12 KiB on a real
     anomaly and requires the anomaly section whole, the history section's
@@ -709,7 +715,10 @@ an absent invariant.
     `TestOwnHistoryShowsTheFateOfEveryOptionState` hold the section itself;
     `TestDriversSectionReachesOneHundredTwentyDays` and
     `TestDriversSectionCapsAtTwentyFourWithAndNMore` hold the widened
-    window. `scripts/gates-have-teeth.sh` plants four mutants, named in
+    window; `TestBenchHidingModeOmitsOwnHistoryEntirely` holds the hiding
+    case, planting a past option that names the current anomaly's own
+    driver and requiring it absent from a hidden packet and present in a
+    shown one. `scripts/gates-have-teeth.sh` plants four mutants, named in
     B8-SPEC.md section 4: own history shown for any author, not scoped to
     the analyst; an option's fate line dropped; the drivers window kept at
     90 days; and memory prepended instead of appended, so it is protected
