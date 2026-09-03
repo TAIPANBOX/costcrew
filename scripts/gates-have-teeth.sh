@@ -626,10 +626,16 @@ run_case 'work done past a reason a person recorded' caught ./tools/run \
 # The model must be asked for an answer rather than for reasoning. Four tasks on
 # a full run spent their whole token budget thinking, reached max_tokens with no
 # text, and blocked -- billed in full for nothing a person could read.
-run_case 'the model is left free to think instead of answering' caught ./tools/run \
+#
+# anthropicBody, and this test with it, moved to internal/deliver/call.go
+# with call() (B6B-SPEC.md); this case follows it there. "caught" and not
+# "fail" (this file's own two-word expectations are used both ways, see
+# run_case's header): a passing gate that reports "ok ... (caught)" is
+# proof the mutation was actually judged, same as every other case here.
+run_case 'the model is left free to think instead of answering' caught ./internal/deliver \
 	'TestAnthropicIsAskedForAnAnswerRatherThanReasoning' \
 	'want disabled' \
-	tools/run/live.go \
+	internal/deliver/call.go \
 	'"thinking":   map[string]any{"type": "disabled"},' \
 	'"thinking":   map[string]any{"type": "enabled"},'
 
