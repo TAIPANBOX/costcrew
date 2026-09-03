@@ -56,7 +56,7 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 553 tests, 20 packages
+go test ./...                        # 554 tests, 20 packages
 ./scripts/gates-have-teeth.sh        # 72 cases; needs a clean tree; ~3m40s, up from ~90s at 67
 ./scripts/features-are-bound.sh      # 119 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
@@ -88,8 +88,8 @@ one new structural test; tools/bench gained 7, 5 in the first pass and 2 more
 in coordinator review's -stack-host fix) and 67 -> 69 gates-have-teeth.sh
 cases (the second-door mutant, one case per binary). Feature scenarios
 105 -> 115 (8 in the first pass, 2 in the -stack-host fix). C4 (this file's
-own invariant 33) moved 528 -> 553 tests (connectors gained 6 for the
-commitments table and its routing; finops gained 13, 12 for coverage,
+own invariant 33) moved 528 -> 554 tests (connectors gained 6 for the
+commitments table and its routing; finops gained 14, 13 for coverage,
 utilisation, the calendar, break-even and the fallback adapter plus 1
 protective test in apply_test.go; deliver gained 5 for the packet section;
 web gained 1 for the SaaS page's own end-to-end real-import proof) and
@@ -962,6 +962,7 @@ an absent invariant.
     1 MB id refused, a Purchase row with no id refused rather than falling
     through to `ai_calls`), `TestCommitmentCostIsNeverParsedThroughFloat64`
     in `internal/connectors`; `TestCoverageIsCommittedOverEligiblePerDeskAndMonth`,
+    `TestCoverageOnACloudDeskCountsOnlyComputeDatabaseAndAccelerator`,
     `TestCoverageRefusesADeskWithNoEligibleSpend`,
     `TestCoverageDoesNotRoundThroughDollarsFirst`,
     `TestUtilisationIsUsedOverCommittedPerCommitment`,

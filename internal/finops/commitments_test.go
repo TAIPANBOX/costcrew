@@ -127,6 +127,30 @@ func TestCoverageIsCommittedOverEligiblePerDeskAndMonth(t *testing.T) {
 	}
 }
 
+// TestCoverageOnACloudDeskCountsOnlyComputeDatabaseAndAccelerator is the
+// other half of eligibleCents: a cloud desk (unlike ai) is filtered by
+// world.ResourceKind, the same classification world.buildCommitments
+// already applies to the generated waterline. Amazon EC2 counts; Amazon S3
+// (storage, not compute) must not.
+func TestCoverageOnACloudDeskCountsOnlyComputeDatabaseAndAccelerator(t *testing.T) {
+	db := commitmentsTestDB(t)
+	plantRealCharge(t, db, "aws", "2026-09-01", "Amazon EC2", 90000)
+	plantRealCharge(t, db, "aws", "2026-09-01", "Amazon S3", 40000)
+	plantCommitment(t, db, "aws-sp-1", "savings-plan", "Used", "aws", "2026-01-01", "2027-01-01", 700, 30000)
+
+	rows, err := finops.Coverage(db, "2026-09")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("got %d row(s), want 1", len(rows))
+	}
+	if rows[0].EligibleCents != money.Cents(90000) {
+		t.Errorf("eligible = %s, want 900.00 (EC2 only; S3 is not compute, database or accelerator)",
+			rows[0].EligibleCents)
+	}
+}
+
 // TestCoverageRefusesADeskWithNoEligibleSpend is the named boundary: "a desk
 // with no eligible spend (coverage refused, said)". A commitment with no
 // charges at all behind it must not report a coverage percentage -- there is
