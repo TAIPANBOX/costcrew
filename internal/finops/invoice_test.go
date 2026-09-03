@@ -76,3 +76,51 @@ func TestInvoiceReconciliationGroupsByInvoiceToTheCent(t *testing.T) {
 			uncovered, wantUncovered)
 	}
 }
+
+// C2-SPEC.md section 4's own named mutant: "reconcile with float
+// arithmetic (assert cents-exact on a fixture that breaks floats)". 29 and
+// 57 cents are each individually exact enough in IEEE 754 float64 that a
+// ROUND-HALF-UP float64 accumulator (dollars = cents/100.0, summed, cents
+// back via +0.5 then truncate) still recovers them correctly one at a
+// time -- this repository's own TestCostIsNeverParsedThroughFloat64
+// (invariant 25) is about parsing a string through float64, a different
+// failure mode, and would not go red on a fixture this small either. What
+// actually breaks at this magnitude is a careless reimplementation that
+// skips the rounding safety margin and truncates outright
+// (int64(sum*100), no +0.5): summed as float64 dollars, 0.29+0.57 lands a
+// hair under 0.86 and truncates to 85, not 86. Grouping still happens in
+// SQL, in integer cents (InvoiceReconciliation's own doc comment), so this
+// stays green on the real code; it is the regression test for a plausible
+// rewrite that stopped doing that.
+func TestInvoiceReconciliationIsCentsExactWhereFloatWouldLoseACent(t *testing.T) {
+	db := seeded(t)
+	m := aMonth(t, db)
+	day := m + "-12"
+	mustExecArgs(t, db, `INSERT INTO charges (source, day, service, category, billed_cents, invoice_id)
+		VALUES ('aws', ?, 'EC2', 'Usage', 29, 'INV-FLOAT')`, day)
+	mustExecArgs(t, db, `INSERT INTO charges (source, day, service, category, billed_cents, invoice_id)
+		VALUES ('gcp', ?, 'BigQuery', 'Usage', 57, 'INV-FLOAT')`, day)
+
+	invoices, _, has, err := finops.InvoiceReconciliation(db, m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !has {
+		t.Fatal("two rows carry an invoice_id, but InvoiceReconciliation says none is loaded")
+	}
+	var got money.Cents
+	found := false
+	for _, inv := range invoices {
+		if inv.InvoiceID == "INV-FLOAT" {
+			got, found = inv.Amount, true
+		}
+	}
+	if !found {
+		t.Fatal("INV-FLOAT is not in the reconciliation at all")
+	}
+	if got != 86 {
+		t.Errorf("INV-FLOAT totals %s, want 0.86: 29+57 cents summed through a naive "+
+			"float64 dollar accumulator truncates to 85, which is exactly the "+
+			"regression this fixture exists to catch", got)
+	}
+}

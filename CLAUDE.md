@@ -56,8 +56,8 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # PLACEHOLDER_TESTS tests, 20 packages
-./scripts/gates-have-teeth.sh        # PLACEHOLDER_GATES cases; needs a clean tree; ~3m40s, up from ~90s at 67
+go test ./...                        # 559 tests, 20 packages
+./scripts/gates-have-teeth.sh        # 70 cases; needs a clean tree; ~3m40s, up from ~90s at 67
 ./scripts/features-are-bound.sh      # 119 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
@@ -88,7 +88,7 @@ one new structural test; tools/bench gained 7, 5 in the first pass and 2 more
 in coordinator review's -stack-host fix) and 67 -> 69 gates-have-teeth.sh
 cases (the second-door mutant, one case per binary). Feature scenarios
 105 -> 115 (8 in the first pass, 2 in the -stack-host fix). C2 (this file's
-own invariant 33) moved 528 -> PLACEHOLDER_TESTS tests and 69 -> PLACEHOLDER_GATES
+own invariant 33) moved 528 -> 559 tests and 69 -> 70
 gates-have-teeth.sh cases (one case, the target-less allocation.rule mutant;
 the other two named mutants in section 4 -- float arithmetic, applying before
 the stamp -- are each named with the test that catches it below, planted by

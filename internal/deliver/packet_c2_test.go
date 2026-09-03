@@ -10,6 +10,7 @@ package deliver
 
 import (
 	"database/sql"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -127,6 +128,86 @@ func TestClosePackSectionNamesNoPreviousClose(t *testing.T) {
 	got := closePackSection(db, chargebackAnalyst, task)
 	if !strings.Contains(got, "no previous close") {
 		t.Errorf("a never-closed period's close pack does not say so:\n%s", got)
+	}
+}
+
+// The true-up's three branches (closePackSection's own switch): a real
+// delta since the close, a close with nothing moved since, and no previous
+// close at all. Only the third had a test before this one and the one
+// below it: a fixture too convenient (a period nobody ever closes) is
+// exactly how the other two go unverified while looking covered.
+func TestClosePackSectionSaysNothingHasMovedSinceTheClose(t *testing.T) {
+	db := closePackTestDB(t)
+	period := aClosePackMonth(t, db)
+	if err := finops.Close(db, period, "y.mercer"); err != nil {
+		t.Fatal(err)
+	}
+	trueUp, _, err := finops.TrueUpFor(db, period)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(trueUp) != 0 {
+		t.Fatal("this test needs a close with nothing moved since; the fixture already carries a delta")
+	}
+	task := crew.Task{Title: "Close the books, " + period, Desk: "management"}
+
+	got := closePackSection(db, chargebackAnalyst, task)
+	if !strings.Contains(got, "nothing has moved since the close") {
+		t.Errorf("a closed period with no true-up does not say nothing has moved:\n%s", got)
+	}
+	if strings.Contains(got, "no previous close") {
+		t.Errorf("a CLOSED period's close pack still says there is no previous close:\n%s", got)
+	}
+}
+
+// The true-up's other untested branch: something DID move since the close,
+// so the section must show the frozen figure beside the live one, not just
+// gesture at "closed" or "not closed".
+func TestClosePackSectionShowsTheTrueUpWhenSomethingMoved(t *testing.T) {
+	db := closePackTestDB(t)
+	period := aClosePackMonth(t, db)
+	before, err := finops.Allocate(db, period)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(before.Teams) == 0 {
+		t.Fatal("the seeded month has no teams; this test cannot see the property")
+	}
+	team := before.Teams[0]
+	if err := finops.Close(db, period, "y.mercer"); err != nil {
+		t.Fatal(err)
+	}
+	// A further charge on the SAME team, after the close: the true-up
+	// exists precisely to say this out loud rather than leave the frozen
+	// figure looking still current.
+	day := period + "-27"
+	if _, err := db.Exec(`INSERT INTO charges (source, day, service, team, category, billed_cents)
+		VALUES (?, ?, 'Late Correction', ?, 'Usage', 500000)`, team.Source, day, team.Team); err != nil {
+		t.Fatal(err)
+	}
+	task := crew.Task{Title: "Close the books, " + period, Desk: "management"}
+
+	trueUp, _, err := finops.TrueUpFor(db, period)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var moved *finops.TrueUp
+	for i, tu := range trueUp {
+		if tu.Source == team.Source && tu.Team == team.Team {
+			moved = &trueUp[i]
+		}
+	}
+	if moved == nil {
+		t.Fatal("the planted charge did not move this team's true-up; this test cannot see the property")
+	}
+
+	got := closePackSection(db, chargebackAnalyst, task)
+	want := fmt.Sprintf("%s / %s: %s then, %s now (%s)", moved.Source, moved.Team, moved.Frozen, moved.Now, moved.Delta)
+	if !strings.Contains(got, want) {
+		t.Errorf("close pack does not carry the true-up line %q:\n%s", want, got)
+	}
+	if strings.Contains(got, "no previous close") || strings.Contains(got, "nothing has moved") {
+		t.Errorf("close pack still says nothing moved / no previous close once something has:\n%s", got)
 	}
 }
 
