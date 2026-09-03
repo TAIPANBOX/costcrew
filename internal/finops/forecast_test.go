@@ -11,6 +11,7 @@ package finops_test
 
 import (
 	"database/sql"
+	"fmt"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -107,14 +108,23 @@ func TestProjectWithDriversAddsAOneTimeDriverOnceInsteadOfAveragingItAway(t *tes
 
 // A recurring driver's window can span many days; its own per-day rate,
 // measured over whatever of that window has landed, repeats across every
-// day the window covers -- not just the days that happened to land.
+// day the window covers -- not just the days that happened to land. The
+// SAME desk also runs Compute Engine every day, inside and outside the
+// GKE-scoped driver's own window, and that other service's own spend must
+// stay in the baseline throughout: a service-scoped driver excludes only
+// its own service's share of a day, never the whole desk-day (see
+// TestProjectWithDriversExcludesOnlyItsOwnScopeFromTheBaseline for the
+// defect this once was).
 func TestProjectWithDriversRepeatsARecurringDriverAcrossItsWindow(t *testing.T) {
 	db := schemaOnlyDB(t)
-	// The driver's own scope: three landed days of a ten-day window, 300/day.
-	plantCharge(t, db, "gcp", "2026-04-01", "GKE", 300)
-	plantCharge(t, db, "gcp", "2026-04-02", "GKE", 300)
-	plantCharge(t, db, "gcp", "2026-04-03", "GKE", 300)
-	// Baseline: five days outside the window, a different service.
+	// Inside the driver's own 10-day window: GKE 100/day for 5 landed days,
+	// Compute Engine 900/day alongside it every one of those same days.
+	for d := 1; d <= 5; d++ {
+		day := "2026-04-0" + strconv.Itoa(d)
+		plantCharge(t, db, "gcp", day, "GKE", 100)
+		plantCharge(t, db, "gcp", day, "Compute Engine", 900)
+	}
+	// Outside the window: five more days of Compute Engine alone.
 	for d := 11; d <= 15; d++ {
 		plantCharge(t, db, "gcp", "2026-04-"+strconv.Itoa(d), "Compute Engine", 1000)
 	}
@@ -128,19 +138,22 @@ func TestProjectWithDriversRepeatsARecurringDriverAcrossItsWindow(t *testing.T) 
 	if len(lines) != 1 {
 		t.Fatalf("driver lines = %d, want 1", len(lines))
 	}
-	// 300/day observed over 3 landed days, repeated across the window's own
-	// 10 days: 900 * 10 / 3 = 3000, not the raw 900 a one-time treatment
+	// 100/day observed over 5 landed days, repeated across the window's own
+	// 10 days: 500 * 10 / 5 = 1000, not the raw 500 a one-time treatment
 	// would give.
-	if lines[0].Effect != 3000 {
-		t.Errorf("recurring driver effect = %s, want 30.00 (its own rate repeated across all 10 window days, not just the 3 landed)", lines[0].Effect)
+	if lines[0].Effect != 1000 {
+		t.Errorf("recurring driver effect = %s, want 10.00 (its own rate repeated across all 10 window days, not just the 5 landed)", lines[0].Effect)
 	}
 	if lines[0].Kind != "recurring" {
 		t.Errorf("kind = %q, want recurring", lines[0].Kind)
 	}
-	// baseline: 5000 clean over 5 days, extended to (30 - 10 excluded) = 20
-	// non-driver days: 5000*20/5 = 20000. Total = 20000 + 3000 = 23000.
-	if got != 23000 {
-		t.Errorf("projection = %s, want 230.00 (20000 baseline + 3000 driver)", got)
+	// Compute Engine's own 900/day (inside the window) and 1000/day
+	// (outside it) are BOTH still in the baseline: (900*5 + 1000*5) clean
+	// over 10 landed days, extended across all 30 days of April (nothing
+	// desk-WIDE is excluded, since the driver's own scope is GKE alone):
+	// 9500*30/10 = 28500. Total = 28500 + 1000 = 29500.
+	if got != 29500 {
+		t.Errorf("projection = %s, want 295.00 (28500 baseline, with Compute Engine intact throughout, + 1000 driver)", got)
 	}
 }
 
@@ -262,6 +275,51 @@ func TestProjectWithDriversRoundsOnceMultiplyingBeforeDividing(t *testing.T) {
 	}
 	if lines[0].Effect != 233 {
 		t.Errorf("driver effect = %d cents, want 233 (100*7/3 truncated once, not (100/3)*7=231)", int64(lines[0].Effect))
+	}
+}
+
+// A service-scoped driver excludes only ITS OWN service's days from the
+// baseline, never the whole desk: found via the parity gate against the
+// seeded estate's own onprem desk, where N04 ("Month-end batch on the
+// storage array") is scoped to "Storage array" alone and spans the whole
+// estate as a recurring driver. The first version of this function excluded
+// the whole desk-day for ANY driver regardless of scope, which meant
+// onprem's Batch cluster, Virtualisation and Network services -- every
+// service on the desk except the one the driver actually names -- vanished
+// from the projection entirely for as long as that driver's window covers
+// the month, because the baseline saw nothing left to average and the
+// driver's own line only ever measures its own scope.
+func TestProjectWithDriversExcludesOnlyItsOwnScopeFromTheBaseline(t *testing.T) {
+	db := schemaOnlyDB(t)
+	for d := 1; d <= 10; d++ {
+		day := fmt.Sprintf("2026-06-%02d", d)
+		plantCharge(t, db, "onprem", day, "Storage array", 500)
+		plantCharge(t, db, "onprem", day, "Batch cluster", 2000)
+	}
+	// A recurring driver scoped to ONE service, spanning far wider than the
+	// month being projected -- the real shape N04 has in the seeded estate.
+	plantDriver(t, db, "onprem", "Storage array", "Month-end batch on the storage array",
+		"recurring", "2026-01-01", "2026-12-31")
+
+	got, _, lines, err := finops.ProjectWithDrivers(db, "onprem", "2026-06")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(lines) != 1 {
+		t.Fatalf("driver lines = %d, want 1", len(lines))
+	}
+	// Storage array: 500/day over 10 landed days, repeated across June's own
+	// 30 days (the driver's window, clipped to June): 5000*30/10 = 15000.
+	if lines[0].Effect != 15000 {
+		t.Errorf("driver effect = %s, want 150.00", lines[0].Effect)
+	}
+	// Batch cluster never falls inside the driver's own scope, so it must
+	// still be there: baseline is its 2000/day over 10 landed days,
+	// extended to all 30 days of June (nothing else claims them): 20000*30/10
+	// = 60000. Total = 60000 (Batch cluster, via the baseline) + 15000
+	// (Storage array, via the driver's own line) = 75000.
+	if got != 75000 {
+		t.Errorf("projection = %s, want 750.00 (Batch cluster's own 600.00 baseline plus the driver's 150.00, not the driver's line alone)", got)
 	}
 }
 

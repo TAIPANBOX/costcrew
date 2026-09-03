@@ -201,11 +201,26 @@ func projectWithDriversAsAt(db *sql.DB, desk, period string, through int) (money
 		return 0, "", nil, err
 	}
 
+	// A driver's own scope decides what it excludes from the baseline: "*"
+	// claims the WHOLE desk-day (wholeDeskExcluded), a named service claims
+	// only that service's own share of the day (scoped, below), leaving
+	// every other service on the same desk in the baseline where it
+	// belongs. The first version of this excluded the whole desk-day
+	// regardless of scope, which made a service-scoped RECURRING driver
+	// whose window spans many months -- N04, "Month-end batch on the
+	// storage array", the real shape onprem's own registry carries -- wipe
+	// every OTHER service on that desk out of the projection for as long as
+	// its window covers the month, because the baseline saw nothing left to
+	// average and the driver's own line only ever measures its own scope.
+	// Found by the parity gate against the seeded estate, not by any test:
+	// TestProjectWithDriversExcludesOnlyItsOwnScopeFromTheBaseline holds it
+	// now.
 	type applied struct {
 		d          world.Driver
 		start, end string
+		scoped     map[string]money.Cents // nil for "*"; that scope IS byDay
 	}
-	excludedDays := map[string]bool{}
+	wholeDeskExcluded := map[string]bool{}
 	var overlapping []applied
 	for _, d := range all {
 		if d.Source != desk {
@@ -218,46 +233,61 @@ func projectWithDriversAsAt(db *sql.DB, desk, period string, through int) (money
 			// either way, not applied. C3-SPEC.md section 4.
 			continue
 		}
-		overlapping = append(overlapping, applied{d, start, end})
-		for day := start; day <= end; day = nextDay(day) {
-			excludedDays[day] = true
+		ov := applied{d: d, start: start, end: end}
+		if d.Scope == "*" {
+			for day := start; day <= end; day = nextDay(day) {
+				wholeDeskExcluded[day] = true
+			}
+		} else {
+			ov.scoped, err = dayCents(db, desk, d.Scope, period, cut)
+			if err != nil {
+				return 0, "", nil, err
+			}
 		}
+		overlapping = append(overlapping, ov)
 	}
 
 	var cleanSofar money.Cents
-	var cleanDays int
+	var cleanLandedDays int
 	for day, v := range byDay {
-		if excludedDays[day] {
+		if wholeDeskExcluded[day] {
 			continue
 		}
-		cleanSofar += v
-		cleanDays++
+		remainder := v
+		for _, ov := range overlapping {
+			if ov.scoped == nil { // a "*" driver: already excluded above
+				continue
+			}
+			if day < ov.start || day > ov.end {
+				continue
+			}
+			remainder -= ov.scoped[day]
+		}
+		cleanSofar += remainder
+		cleanLandedDays++
 	}
-	cleanDaysInMonth := inMonth - len(excludedDays)
+	cleanDaysInMonth := inMonth - len(wholeDeskExcluded)
 
 	var total money.Cents
 	var basis string
 	switch {
-	case cleanDays > 0 && cleanDaysInMonth > 0:
-		total = money.Cents(int64(cleanSofar) * int64(cleanDaysInMonth) / int64(cleanDays))
+	case cleanLandedDays > 0 && cleanDaysInMonth > 0:
+		total = money.Cents(int64(cleanSofar) * int64(cleanDaysInMonth) / int64(cleanLandedDays))
 		basis = fmt.Sprintf("run rate over the %d non-driver days of %s that have data, extended to %d",
-			cleanDays, period, cleanDaysInMonth)
+			cleanLandedDays, period, cleanDaysInMonth)
 	default:
-		// Every day of the month a driver's own window did not claim has no
-		// data of its own, or a driver's window claims the whole month: the
-		// total comes entirely from the driver lines below.
+		// Every day of the month a "*" driver's own window did not claim
+		// has no data of its own, or a "*" driver's window claims the whole
+		// month: the total comes entirely from the driver lines below.
 		basis = fmt.Sprintf("every day of %s that has landed falls inside a driver's own window", period)
 	}
 
 	var lines []DriverLine
 	for _, ov := range overlapping {
 		d := ov.d
-		scoped := byDay
-		if d.Scope != "*" {
-			scoped, err = dayCents(db, desk, d.Scope, period, cut)
-			if err != nil {
-				return 0, "", nil, err
-			}
+		scoped := ov.scoped
+		if scoped == nil {
+			scoped = byDay
 		}
 		var sofar money.Cents
 		var landed int
