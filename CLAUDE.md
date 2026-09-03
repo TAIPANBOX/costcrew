@@ -232,7 +232,10 @@ an absent invariant.
     *(gate: `scripts/gates-have-teeth.sh` itself, checked by hand on
     2026-08-23: gutting an assertion reports TOOTHLESS, a dirty tree is
     refused, an already-red gate is UNJUDGEABLE rather than judged, and a kill
-    restores the tree.)*
+    restores the tree. @measured 2026-09-03: an expect word `run_case` does
+    not define is refused as UNKNOWN EXPECT rather than counted a pass, found
+    because twenty cases had silently carried `caught` instead of `fail` and
+    printed `ok` whatever their mutation did.)*
 
 16. **A deliverable says whether a person's money bought it.** The estate
     ships 279 generated drafts; a live run adds real ones to the same table,
