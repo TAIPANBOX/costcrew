@@ -56,9 +56,9 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # PLACEHOLDER_TESTS tests, 20 packages
-./scripts/gates-have-teeth.sh        # PLACEHOLDER_GATES cases; needs a clean tree; ~PLACEHOLDER_TIME
-./scripts/features-are-bound.sh      # PLACEHOLDER_SCENARIOS scenarios, both directions
+go test ./...                        # 562 tests, 20 packages
+./scripts/gates-have-teeth.sh        # 70 cases; needs a clean tree; ~5m (296s measured), up from ~3m40s at 69
+./scripts/features-are-bound.sh      # 119 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
@@ -91,9 +91,10 @@ in coordinator review's -stack-host fix) and 67 -> 69 gates-have-teeth.sh
 cases (the second-door mutant, one case per binary). Feature scenarios
 105 -> 115 (8 in the first pass, 2 in the -stack-host fix). C9 (this file's own
 invariant 33), merged onto #29 rather than onto the stale pre-#29 base its
-first submission used, moved 528 -> PLACEHOLDER_TESTS tests, 69 ->
-PLACEHOLDER_GATES gates-have-teeth.sh cases (one new case, the halted-desk
-mutant CLAUDE.md invariant 33 names) and 115 -> PLACEHOLDER_SCENARIOS feature
+first submission used, moved 528 -> 562 tests (33 in C9's own submission,
+one more, the quote-in-a-desk-name hostile case, added while reconciling
+this PR against #29), 69 -> 70 gates-have-teeth.sh cases (one new case, the
+halted-desk mutant CLAUDE.md invariant 33 names) and 115 -> 119 feature
 scenarios.
 
 The gates in this repo are Go tests rather than shell scripts, so
