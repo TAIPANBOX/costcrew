@@ -56,7 +56,7 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 539 tests, 20 packages
+go test ./...                        # 540 tests, 20 packages
 ./scripts/gates-have-teeth.sh        # 71 cases; needs a clean tree; ~90s
 ./scripts/features-are-bound.sh      # 108 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
@@ -793,19 +793,37 @@ an absent invariant.
     remembers which drivers it already knew about.** C3-SPEC.md.
     `finops.ProjectWithDrivers` excludes every calendar day any registered
     driver's own window covers (clipped to the month being projected) from
-    the run-rate side of the arithmetic entirely -- both the sum and the day
-    count -- and gives each driver its own line instead: a one-time
-    driver's window is one day, so this is that day's own measured total
-    added once; a recurring driver's window can span many days, so its own
-    per-day rate repeats across every one of them, "by its window" rather
-    than by a periodicity this registry does not carry. `finops.Freeze`
-    records this per-desk figure and basis; once an option carries its own
-    summary (`internal/finops/apply.go`'s `forecast.freeze` case, via
-    `finops.SetForecastBasis`), the forecaster's own written words replace
-    the generated sentence as the recorded basis. `finops.Missed` and
-    `finops.LargestMiss` read that basis back to name the drivers a freeze
-    did not know about, ranked by the largest scored error, and the KPI
-    grades the FROZEN figure only, never a live recomputation of it.
+    the run-rate side of the arithmetic -- both the sum and the day count
+    for a desk-wide (`"*"`) driver, only that driver's OWN service's own
+    share of each day for a scoped one, leaving every other service on the
+    same desk in the baseline where it belongs -- and gives each driver its
+    own line instead: a one-time driver's window is one day, so this is
+    that day's own measured total added once; a recurring driver's window
+    can span many days, so its own per-day rate repeats across every one of
+    them, "by its window" rather than by a periodicity this registry does
+    not carry. `finops.Freeze` records this per-desk figure and basis; once
+    an option carries its own summary (`internal/finops/apply.go`'s
+    `forecast.freeze` case, via `finops.SetForecastBasis`), the
+    forecaster's own written words replace the generated sentence as the
+    recorded basis. `finops.Missed` and `finops.LargestMiss` read that
+    basis back to name the drivers a freeze did not know about, ranked by
+    the largest scored error, and the KPI grades the FROZEN figure only,
+    never a live recomputation of it.
+
+    The scope-awareness above was not the first version: excluding the
+    whole desk-day for ANY driver regardless of scope was, and it was found
+    by the parity gate against the seeded estate, not by any test, because
+    every hand-built fixture this branch wrote until then happened not to
+    give a service-scoped driver's OWN window any other service's charges
+    to collide with. onprem's own registry carries N04 ("Month-end batch on
+    the storage array"), a RECURRING driver scoped to "Storage array"
+    alone whose window spans the whole 14.5-month estate; with the whole
+    desk-day excluded, onprem's Batch cluster, Virtualisation and Network
+    vanished from the projection for as long as that window covered the
+    month, because the baseline saw nothing left to average and the
+    driver's own line only ever measures its own scope. Forecast accuracy
+    on the seeded `/kpis` page went from 11.7% average error to 98.9%, with
+    a 436% single-desk miss, before the fix.
     *(gate: `TestProjectWithDriversAddsAOneTimeDriverOnceInsteadOfAveragingItAway`,
     `TestProjectWithDriversRepeatsARecurringDriverAcrossItsWindow`,
     `TestProjectWithDriversWithNoDriversEqualsTheNaiveRunRate`,
@@ -813,10 +831,20 @@ an absent invariant.
     `TestProjectWithDriversRefusesAMalformedDriverWindow`,
     `TestProjectWithDriversHandlesADriverEffectInTheBillionsOfCents`,
     `TestProjectWithDriversRoundsOnceMultiplyingBeforeDividing`,
+    `TestProjectWithDriversExcludesOnlyItsOwnScopeFromTheBaseline`,
     `TestMissedNamesADriverAddedAfterTheBasisWasWritten`,
     `TestMissedIsEmptyWhenTheBasisAlreadyNamesTheDriver`,
     `TestLargestMissPicksTheWorstErrorAndNamesItsDriver`,
     `TestLargestMissGradesTheFrozenFigureNotALiveOne`,
+    `TestLargestMissBreaksATiedErrorOnTheAbsoluteGap`,
+    `TestWorseMissOrdersByErrorPctFirst`,
+    `TestWorseMissBreaksATiedErrorOnTheAbsoluteGap`,
+    `TestWorseMissBreaksATiedGapOnThePeriod`,
+    `TestWorseMissBreaksAFullTieOnTheSource` (unexported, tested directly
+    against hand-built values rather than through Forecasts' own SQL order,
+    which happens to already agree with the later-period and lower-source
+    tie-breaks and so cannot tell them apart from simply keeping whichever
+    row a query returned first),
     `TestSetForecastBasisOverwritesEveryDesksRow`,
     `TestSetForecastBasisWithEmptyStringChangesNothing`,
     `TestKPIsForecastAccuracyNamesTheLargestMissesDriver`,
