@@ -217,9 +217,21 @@ func proposeAnomalies(db *sql.DB, p *Plan, roster []Analyst, spent map[string]mo
 
 		candidates := candidatesWithSkill(roster, skillAnomalyTriage, r.source)
 		if len(candidates) <= 1 {
+			// Priced from PerTask when the desk's triage analyst is on the
+			// roster at all -- active or not, this is a naming lookup, not
+			// a routing choice -- so two desks never price the same work
+			// differently for no reason. Review of this PR found the old
+			// 15.00 literal used here even when the analyst it names is
+			// right there with its own guard; the literal survives only
+			// when nobody of that name exists on the roster.
+			assignee := triageDesk(r.source)
+			budget := money.Cents(15_00)
+			if a, ok := findAnalyst(roster, assignee); ok {
+				budget = a.PerTask
+			}
 			p.Items = append(p.Items, PlanItem{
-				Title: title, Goal: goal, Assignee: triageDesk(r.source),
-				Desk: r.source, Budget: money.Cents(15_00), Why: baseWhy,
+				Title: title, Goal: goal, Assignee: assignee,
+				Desk: r.source, Budget: budget, Why: baseWhy,
 			})
 			continue
 		}
@@ -511,11 +523,28 @@ func desksInGoal() map[string]bool {
 	return out
 }
 
-// proposeGoal is section 3: split the goal into lowercase words, and for
-// every skill name in the roster's own taxonomy (crew.SkillPool, exactly
-// the roster's skills per invariant 21) that appears as a word in the goal,
-// add one item to the active analyst holding it on the desk the goal
-// names, or the one with the most headroom among those that have it.
+// proposeGoal is section 3, extended by review of this PR to match what a
+// person actually types rather than only the taxonomy's own exact strings.
+// Split the goal into lowercase words, and for each one, in order:
+//
+//   - (a) an exact skill token (crew.SkillPool, exactly the roster's skills
+//     per invariant 21): route to the active analyst holding it on the desk
+//     the goal names, or the one with the most headroom among those that
+//     have it;
+//   - (b) a roster NAME, exact ("commitments", "renewals", "forecaster",
+//     "data-quality"...): route straight to that analyst if it is active,
+//     the same "nobody active holds" fallback as (a) otherwise -- reusing
+//     chooseAnalyst's own empty-candidates path rather than a second one;
+//   - (c) the first hyphen-delimited segment of a hyphenated skill,
+//     singular or plural (one trailing "s" stripped from either side, never
+//     more): "commitment" and "commitments" both reach
+//     commitment-modelling. A segment more than one skill shares (today
+//     only "renewal": renewal-calendar and renewal-negotiation-prep) is
+//     left unresolved rather than guessed at; the roster-name form in (b)
+//     is what disambiguates "renewals" on its own.
+//
+// A word satisfying none of the three adds nothing. GoalUnmatched is set
+// only when NO word in the whole goal matched any of the three.
 func proposeGoal(p *Plan, roster []Analyst, goal string, spent map[string]money.Cents) {
 	words := goalWords(goal)
 	if len(words) == 0 {
@@ -531,23 +560,107 @@ func proposeGoal(p *Plan, roster []Analyst, goal string, spent map[string]money.
 	matchedAny := false
 	seen := map[string]bool{}
 	for _, w := range words {
-		if desks[w] || seen[w] || !pool[w] {
+		if desks[w] || seen[w] {
 			continue
 		}
-		seen[w] = true
-		matchedAny = true
 
-		title := []rune(goal)
-		if len(title) > 120 {
-			title = title[:120]
+		if pool[w] {
+			seen[w] = true
+			matchedAny = true
+			addSkillGoalItem(p, roster, goal, w, desk, spent)
+			continue
 		}
-		why := fmt.Sprintf("the sprint goal names %s", w)
-		candidates := candidatesWithSkill(roster, w, desk)
-		p.Items = append(p.Items, routedItem(string(title), goal, why, candidates, w, spent))
+		if _, ok := findAnalyst(roster, w); ok {
+			seen[w] = true
+			matchedAny = true
+			addNameGoalItem(p, roster, goal, w, spent)
+			continue
+		}
+		if skill, ok := resolveFirstSegment(w); ok {
+			seen[w] = true
+			matchedAny = true
+			addSkillGoalItem(p, roster, goal, skill, desk, spent)
+			continue
+		}
 	}
 	if !matchedAny {
 		p.GoalUnmatched = true
 	}
+}
+
+// goalTitle is section 3's "<goal clause>, trimmed to 120": the goal text
+// itself, cut on a rune boundary so a hostile multi-byte goal is never cut
+// mid-character.
+func goalTitle(goal string) string {
+	r := []rune(goal)
+	if len(r) > 120 {
+		r = r[:120]
+	}
+	return string(r)
+}
+
+// addSkillGoalItem is rule (a) and (c): skill is always the taxonomy's own
+// full name (the exact token for (a), the resolved skill for (c)), so the
+// item's Why, its candidate search and its engine-class lookup all read
+// the same string regardless of which rule found it.
+func addSkillGoalItem(p *Plan, roster []Analyst, goal, skill, desk string, spent map[string]money.Cents) {
+	why := fmt.Sprintf("the sprint goal names %s", skill)
+	candidates := candidatesWithSkill(roster, skill, desk)
+	p.Items = append(p.Items, routedItem(goalTitle(goal), goal, why, candidates, skill, spent))
+}
+
+// addNameGoalItem is rule (b): candidates is the one named analyst, or
+// nothing at all when it is not active, so chooseAnalyst's existing
+// "nobody active holds" and headroom-skip paths answer for a name exactly
+// as they already do for a skill -- one mechanism, not two.
+func addNameGoalItem(p *Plan, roster []Analyst, goal, name string, spent map[string]money.Cents) {
+	why := fmt.Sprintf("the sprint goal names %s", name)
+	candidates := candidateByName(roster, name)
+	p.Items = append(p.Items, routedItem(goalTitle(goal), goal, why, candidates, name, spent))
+}
+
+// candidateByName is rule (b)'s candidate set.
+func candidateByName(roster []Analyst, name string) []Analyst {
+	a, ok := findAnalyst(roster, name)
+	if !ok || a.State != "active" {
+		return nil
+	}
+	return []Analyst{a}
+}
+
+// skillFirstSegments maps the first hyphen-delimited segment of every
+// hyphenated skill in the taxonomy to the skill name(s) that share it,
+// built once the same way SkillPool is: a derived var, not a second
+// hand-kept list that could drift from it.
+var skillFirstSegments = buildSkillFirstSegments()
+
+func buildSkillFirstSegments() map[string][]string {
+	out := map[string][]string{}
+	for _, s := range SkillPool {
+		if i := strings.Index(s, "-"); i >= 0 {
+			seg := s[:i]
+			out[seg] = append(out[seg], s)
+		}
+	}
+	return out
+}
+
+// resolveFirstSegment is rule (c). Both sides are normalised by stripping
+// at most one trailing "s" before comparing, so "commitment" and
+// "commitments" both reach a segment written singular ("commitment") and
+// would equally reach one written plural, if the taxonomy ever had one.
+func resolveFirstSegment(word string) (skill string, ok bool) {
+	wnorm := strings.TrimSuffix(word, "s")
+	for seg, skills := range skillFirstSegments {
+		if wnorm != strings.TrimSuffix(seg, "s") {
+			continue
+		}
+		if len(skills) != 1 {
+			return "", false // shared by more than one skill: not guessed at
+		}
+		return skills[0], true
+	}
+	return "", false
 }
 
 // goalWords lowercases free text and splits it on whitespace, trimming
@@ -646,40 +759,43 @@ func chooseAnalyst(candidates []Analyst, class string, spent map[string]money.Ce
 	for i, a := range candidates {
 		cs[i] = cand{a, headroomOf(a, spent)}
 	}
-	preferred := engineByClass[class]
-	sort.SliceStable(cs, func(i, j int) bool {
-		if cs[i].headroom != cs[j].headroom {
-			return cs[i].headroom > cs[j].headroom
-		}
-		if preferred != "" {
-			im, jm := cs[i].a.Engine == preferred, cs[j].a.Engine == preferred
-			if im != jm {
-				return im
-			}
-		}
-		return cs[i].a.Name < cs[j].a.Name
-	})
 
-	// Walk every candidate, not just the ones before the winner: sorting
-	// puts the most headroom FIRST, so the obvious desk pick (often the
-	// worst headroom of the bunch) sorts AFTER whoever wins and an early
-	// return would never reach it to note the skip. A skip is worth saying
-	// regardless of where the skipped name falls in the ranking.
+	// Step one: drop everyone with no headroom left this month, before
+	// anything else is compared. Every skip is named, regardless of where
+	// the skipped analyst would otherwise have ranked, so nothing about the
+	// routing is hidden from the item's Why.
 	var skipped []string
-	winner := -1
-	for i, c := range cs {
+	var viable []cand
+	for _, c := range cs {
 		if c.headroom <= 0 {
 			skipped = append(skipped, fmt.Sprintf("%s skipped: no headroom this month", c.a.Name))
 			continue
 		}
-		if winner == -1 {
-			winner = i
-		}
+		viable = append(viable, c)
 	}
-	if winner == -1 {
+	if len(viable) == 0 {
 		return Analyst{}, false, strings.Join(skipped, "; ")
 	}
-	return cs[winner].a, true, strings.Join(skipped, "; ")
+
+	// Among analysts who already have headroom to spend: the engine the
+	// class prefers first (review of this PR found the sort ordering
+	// headroom BEFORE engine, which made engineByClass nearly dead code --
+	// a real-cents tie is rare, so the engine preference almost never got
+	// a turn), then the most headroom, then the name.
+	preferred := engineByClass[class]
+	sort.SliceStable(viable, func(i, j int) bool {
+		if preferred != "" {
+			im, jm := viable[i].a.Engine == preferred, viable[j].a.Engine == preferred
+			if im != jm {
+				return im
+			}
+		}
+		if viable[i].headroom != viable[j].headroom {
+			return viable[i].headroom > viable[j].headroom
+		}
+		return viable[i].a.Name < viable[j].a.Name
+	})
+	return viable[0].a, true, strings.Join(skipped, "; ")
 }
 
 // routedItem applies chooseAnalyst and folds its note into Why, falling

@@ -146,6 +146,84 @@ func TestGoalNamingASkillAddsAnItemForTheAnalystThatHoldsIt(t *testing.T) {
 	}
 }
 
+// Review of this PR: the plan's own red-first sentence (PLAN-2026-09.md,
+// B4) is a goal naming "commitments" reaching the commitments analyst by
+// that word alone, not the taxonomy's exact skill string. "commitments" is
+// the analyst's own roster NAME (rule b), which this test exercises
+// directly; the two tests after it exercise rule (b) with a desk word
+// alongside it, and rule (c)'s singular/plural segment match.
+func TestGoalNamingTheAnalystsOwnRosterNameRoutesToIt(t *testing.T) {
+	db := fullRoster(t)
+	p, err := crew.Propose(db, "2026-W99", "2026-09-08", "2026-09-14", "commitments")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := itemsWhy(p.Items, "the sprint goal names commitments")
+	if len(got) != 1 {
+		t.Fatalf("goal items for commitments = %d, want 1 (%v)", len(got), p.Items)
+	}
+	if got[0].Assignee != "commitments" {
+		t.Errorf("assignee = %q, want commitments", got[0].Assignee)
+	}
+}
+
+// A roster-name match routes straight to that analyst, on its own desk --
+// a desk word elsewhere in the goal does not need to agree, and here it
+// happens to (renewals is itself on the saas desk).
+func TestGoalNamingARosterNameWithADeskWordStillRoutesByName(t *testing.T) {
+	db := fullRoster(t)
+	p, err := crew.Propose(db, "2026-W99", "2026-09-08", "2026-09-14", "renewals for the saas desk")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := itemsWhy(p.Items, "the sprint goal names renewals")
+	if len(got) != 1 {
+		t.Fatalf("goal items for renewals = %d, want 1 (%v)", len(got), p.Items)
+	}
+	if got[0].Assignee != "renewals" {
+		t.Errorf("assignee = %q, want renewals", got[0].Assignee)
+	}
+	if got[0].Desk != "saas" {
+		t.Errorf("desk = %q, want saas (renewals's own desk)", got[0].Desk)
+	}
+}
+
+// Rule (c): the singular "commitment" is not a roster name and not the
+// exact skill token, but it is commitment-modelling's own first segment.
+func TestGoalNamingTheSingularSegmentReachesTheSkill(t *testing.T) {
+	db := fullRoster(t)
+	p, err := crew.Propose(db, "2026-W99", "2026-09-08", "2026-09-14", "commitment review this sprint")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := itemsWhy(p.Items, "the sprint goal names commitment-modelling")
+	if len(got) != 1 {
+		t.Fatalf("goal items for commitment-modelling = %d, want 1 (%v)", len(got), p.Items)
+	}
+	if got[0].Assignee != "commitments" {
+		t.Errorf("assignee = %q, want commitments", got[0].Assignee)
+	}
+}
+
+// A segment more than one skill shares (renewal-calendar,
+// renewal-negotiation-prep) is left unresolved by rule (c) rather than
+// guessed at: the singular "renewal" alone (no roster name matches it;
+// "renewals" the analyst is plural) must add nothing.
+func TestAnAmbiguousSegmentIsNotGuessedAt(t *testing.T) {
+	db := fullRoster(t)
+	p, err := crew.Propose(db, "2026-W99", "2026-09-08", "2026-09-14", "renewal")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := itemsWhy(p.Items, "the sprint goal names")
+	if len(got) != 0 {
+		t.Errorf("goal items for the ambiguous \"renewal\" = %d, want 0 (%v)", len(got), got)
+	}
+	if !p.GoalUnmatched {
+		t.Error("an ambiguous, otherwise-unmatched goal did not set GoalUnmatched")
+	}
+}
+
 // ------------------------------------------------------------ red first (2)
 func TestAWeeklyAnalystDueByCadenceGetsOneItem(t *testing.T) {
 	db := planDB(t)
@@ -359,8 +437,11 @@ func TestAnEmptyGoalAddsNothingFromTheGoalSource(t *testing.T) {
 
 func TestAGoalMatchingTwoSkillsAddsTwoItems(t *testing.T) {
 	db := fullRoster(t)
+	// Not "...this sprint": rule (c) (added on review) reaches
+	// sprint-planning through the word "sprint" itself, which would add a
+	// third, unintended item and defeat the point of this test.
 	p, err := crew.Propose(db, "2026-W99", "2026-09-08", "2026-09-14",
-		"commitment-modelling and variance-commentary this sprint")
+		"commitment-modelling and variance-commentary this week")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -506,7 +587,12 @@ func TestRoutedItemsArePricedByThePerTaskGuardNotALiteral(t *testing.T) {
 }
 
 // -------------------------------------------------------------- unchanged (source 1, <=1 candidate)
-func TestUnownedAnomaliesOnASingleAnalystDeskAreUnchanged(t *testing.T) {
+// The ROUTING for a single-analyst desk is unchanged: still the desk's
+// named triage analyst, regardless of headroom or skill. The PRICE is not
+// (see TestASingleCandidateDeskPricesFromThatAnalystsOwnPerTaskWhenItExists
+// below, added on review): saas-manager is on the roster, so this prices
+// from its own 14.00 PerTask rather than the old 15.00 literal.
+func TestUnownedAnomaliesOnASingleAnalystDeskKeepsTheOldRouting(t *testing.T) {
 	db := fullRoster(t)
 	plantAnomaly(t, db, "E903", "saas", "Zendesk", "2026-09-05", 10_000)
 
@@ -518,8 +604,55 @@ func TestUnownedAnomaliesOnASingleAnalystDeskAreUnchanged(t *testing.T) {
 	if len(got) != 1 {
 		t.Fatalf("items for E903 = %d, want 1", len(got))
 	}
-	if got[0].Assignee != "saas-manager" || got[0].Budget != money.Cents(15_00) {
-		t.Errorf("item = %+v, want saas-manager at the old 15.00 literal (unchanged behaviour)", got[0])
+	if got[0].Assignee != "saas-manager" {
+		t.Errorf("assignee = %q, want saas-manager (the desk's own triage pick, unchanged)", got[0].Assignee)
+	}
+	if got[0].Budget != money.Cents(14_00) {
+		t.Errorf("budget = %s, want 14.00 (saas-manager's own PerTask, not the old 15.00 literal)", got[0].Budget)
+	}
+}
+
+// Review of this PR: a single-candidate desk priced every item at the old
+// 15.00 literal even when the desk's named analyst is on the roster with
+// its own guard, so two desks priced the same shape of work differently
+// for no reason. Red first: this failed with budget 15.00 before the fix.
+func TestASingleCandidateDeskPricesFromThatAnalystsOwnPerTaskWhenItExists(t *testing.T) {
+	db := planDB(t)
+	hire(t, db, "investigator-onprem", "onprem", "openrouter", []string{"anomaly-triage"}, money.Cents(1800), money.Cents(5000))
+	plantAnomaly(t, db, "E904", "onprem", "Storage array", "2026-09-05", 20_000)
+
+	p, err := crew.Propose(db, "2026-W99", "2026-09-08", "2026-09-14", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := itemsWhy(p.Items, "anomaly E904")
+	if len(got) != 1 {
+		t.Fatalf("items for E904 = %d, want 1", len(got))
+	}
+	if got[0].Assignee != "investigator-onprem" {
+		t.Fatalf("assignee = %q, want investigator-onprem (triageDesk's unchanged pick)", got[0].Assignee)
+	}
+	if got[0].Budget != money.Cents(1800) {
+		t.Errorf("budget = %s, want 18.00 (investigator-onprem's own PerTask), not the old 15.00 literal", got[0].Budget)
+	}
+}
+
+// And the literal survives when nobody of that name exists on the roster
+// at all: an empty roster has no "triage-aws" to price from.
+func TestASingleCandidateDeskKeepsTheLiteralWhenNobodyOfThatNameExists(t *testing.T) {
+	db := planDB(t) // nobody hired
+	plantAnomaly(t, db, "E905", "aws", "Amazon EC2", "2026-09-05", 20_000)
+
+	p, err := crew.Propose(db, "2026-W99", "2026-09-08", "2026-09-14", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := itemsWhy(p.Items, "anomaly E905")
+	if len(got) != 1 {
+		t.Fatalf("items for E905 = %d, want 1", len(got))
+	}
+	if got[0].Assignee != "triage-aws" || got[0].Budget != money.Cents(15_00) {
+		t.Errorf("item = %+v, want triage-aws at 15.00 (nobody of that name is on this empty roster)", got[0])
 	}
 }
 
@@ -560,5 +693,35 @@ func TestEngineByClassPrefersTheMatchingRouteOnATie(t *testing.T) {
 	// variance-commentary prefers the cheap engine (engineByClass).
 	if got[0].Assignee != "cheap-writer" {
 		t.Errorf("assignee = %q, want cheap-writer (engineByClass prefers the cheap route for variance-commentary)", got[0].Assignee)
+	}
+}
+
+// Review of this PR: chooseAnalyst sorted by headroom FIRST and applied
+// the engine preference only on an exact headroom tie, which real cents
+// almost never produce, making engineByClass nearly dead code. Section 4's
+// own order is headroom-as-a-FILTER (drop anyone with none), then the
+// preferred engine, then the most headroom, then the name: here the
+// strong-engine candidate has LESS headroom than the cheap one and must
+// still win, because decision-framing prefers the strong route. Red first:
+// this chose more-headroom-cheap-writer before the fix.
+func TestEngineByClassWinsOverMoreHeadroomWhenBothHaveSome(t *testing.T) {
+	db := planDB(t)
+	hire(t, db, "more-headroom-cheap", "aws", "openrouter", []string{"decision-framing"}, money.Cents(2000), money.Cents(10000))
+	hire(t, db, "less-headroom-strong", "aws", "anthropic", []string{"decision-framing"}, money.Cents(2000), money.Cents(6000))
+	// Spend both down, unevenly, so neither has its full monthly guard and
+	// the strong-engine one ends up with LESS headroom than the cheap one.
+	spend(t, db, "more-headroom-cheap", "2026-09", 1000)  // headroom 90.00
+	spend(t, db, "less-headroom-strong", "2026-09", 4000) // headroom 20.00
+
+	p, err := crew.Propose(db, "2026-W99", "2026-09-08", "2026-09-14", "decision-framing this sprint")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := itemsWhy(p.Items, "the sprint goal names decision-framing")
+	if len(got) != 1 {
+		t.Fatalf("goal items = %d, want 1", len(got))
+	}
+	if got[0].Assignee != "less-headroom-strong" {
+		t.Errorf("assignee = %q, want less-headroom-strong (decision-framing prefers the strong engine, checked before headroom)", got[0].Assignee)
 	}
 }
