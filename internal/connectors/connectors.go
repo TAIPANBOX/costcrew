@@ -79,6 +79,7 @@ type Recorder interface {
 // tokenFuseFocusReader is defined in.
 var readers = map[string]Reader{
 	"tokenfuse-focus": tokenFuseFocusReader,
+	"saas-seats":      saasSeatsReader,
 }
 
 type Kind string

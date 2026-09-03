@@ -199,6 +199,12 @@ func run(addr, dir string, scfg stack.Config) error {
 	if err := connectors.EnsureFocusSchema(st.DB()); err != nil {
 		return fmt.Errorf("ensuring the FOCUS reader's schema: %w", err)
 	}
+	// licences, unconditionally: the SaaS page and the renewals packet
+	// section read it on every render regardless of whether the saas-seats
+	// connector has ever been pointed at a folder, the same reason above.
+	if err := connectors.EnsureLicenceSchema(st.DB()); err != nil {
+		return fmt.Errorf("ensuring the saas-seats reader's schema: %w", err)
+	}
 	if err := estate.SeedBudgets(st.DB()); err != nil {
 		return fmt.Errorf("setting budgets: %w", err)
 	}

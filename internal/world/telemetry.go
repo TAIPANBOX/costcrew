@@ -39,6 +39,19 @@ type Licence struct {
 	Renews   string
 	Term     string
 	Note     string
+
+	// Imported only (internal/finops.Licences, reading what the saas-seats
+	// connector in internal/connectors wrote): zero on every generated row,
+	// because the fixture invents no vendor contract to read a notice
+	// period, a term length or an active-window size off of. Active30 is
+	// still what an imported row's own "seats active" count is kept in --
+	// one field either source can be read through, rather than a second
+	// Idle()/Waste() pair -- even though the window an import measured
+	// against is not always literally thirty days; ActiveWindowDays says
+	// what it actually was.
+	ActiveWindowDays int
+	TermMonths       int
+	NoticeDays       int
 }
 
 func (l Licence) Idle() int { return l.Issued - l.Active30 }
@@ -46,6 +59,20 @@ func (l Licence) Idle() int { return l.Issued - l.Active30 }
 // Waste is money in seats nobody signed into. Monthly, at the per-seat price
 // actually being paid.
 func (l Licence) Waste() money.Cents { return l.PerSeat * money.Cents(l.Idle()) }
+
+// NoticeDeadline is the last day to act before the renewal takes effect:
+// NoticeDays before Renews. Meaningful only on an imported row -- a
+// generated one carries NoticeDays zero, which reads as "notice due on the
+// renewal date itself" rather than as "no notice period exists", so a
+// caller with a generated row has no business asking this at all. An
+// unparseable or empty Renews returns "" rather than a wrong date.
+func (l Licence) NoticeDeadline() string {
+	d, err := time.Parse("2006-01-02", l.Renews)
+	if err != nil {
+		return ""
+	}
+	return d.AddDate(0, 0, -l.NoticeDays).Format("2006-01-02")
+}
 
 // Commitment is a discount bought in advance: cheaper per hour, and only if
 // you use it.

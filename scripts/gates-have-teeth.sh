@@ -925,6 +925,54 @@ run_case 'due: skip the switch check' \
 	$'if !enabled {' \
 	$'if !enabled && false {'
 
+# C6: vendor seat and renewal data from a saas-seats CSV. C6-SPEC.md section
+# 4 names three mutants by their own words; these are them.
+#
+# "compute waste with floats": 29 idle seats at one cent each is 29 cents
+# exact in int64 arithmetic. A dollars-then-back-to-cents float64 round trip
+# (idle*perSeat/100.0*100.0, truncated the way a naive rewrite would do it)
+# lands on 28.999999999999996 and truncates to 28 -- @measured, python3:
+# `29/100*100` is `28.999999999999996`. Most cent amounts survive the same
+# round trip exactly, which is why this needed a specific value rather than
+# any row in the fixture, and why the fixture's own four rows (chosen for
+# the calendar's day-boundary cases below) are round numbers that would not
+# have caught it.
+run_case 'C6: idle-seat waste computed through a float64 round trip' \
+	fail \
+	./internal/connectors \
+	$'TestSaasSeatsWasteIsCentsExactNotFloatRounded' \
+	$'does not say 0.29 wasted' \
+	internal/connectors/saasseats.go \
+	$'s.WasteCents += money.Cents(int64(idle) * row.PerSeatCents)' \
+	$'s.WasteCents += money.Cents(float64(idle) * float64(row.PerSeatCents) / 100.0 * 100.0)'
+
+# "drop the notice deadline": the calendar's own reason for being read by
+# the saas-portfolio-manager (roles.yaml: "the renewal calendar ninety days
+# out") is the deadline, not the renewal date alone -- a renewal date with
+# no notice deadline beside it is a date, not a decision with a deadline.
+run_case 'C6: the notice deadline line is dropped from the renewal calendar' \
+	fail \
+	./internal/deliver \
+	$'TestRenewalsSectionListsTheCalendarWithNoticeDeadlines' \
+	$'notice deadline: 2026-08-19' \
+	internal/deliver/packet.go \
+	$'\t\tdeadline := l.NoticeDeadline()\n\t\tfmt.Fprintf(&b, "  notice deadline: %s%s\\n", deadline, noticeStatus(deadline, today))\n\t\tfmt.Fprintf(&b, "  issued/active:   %d/%d over %d days (idle %d)\\n",' \
+	$'\t\tfmt.Fprintf(&b, "  issued/active:   %d/%d over %d days (idle %d)\\n",'
+
+# "invent a benchmark figure when none exists": there is no benchmark
+# connector anywhere in this practice today (the same honest gap
+# roles.yaml's benchmarking-analyst family names for the estate's own
+# KPIs), so a number here is never a measurement -- C6-SPEC.md section 2:
+# "never a number without a source".
+run_case 'C6: a benchmark figure is invented where none exists' \
+	fail \
+	./internal/deliver \
+	$'TestRenewalsSectionSaysNoBenchmark' \
+	$'want 3 (once per renewal' \
+	internal/deliver/packet.go \
+	$'\t\tb.WriteString("  benchmark:       no benchmark\\n")' \
+	$'\t\tfmt.Fprintf(&b, "  benchmark:       %s (industry average)\\n", l.PerSeat)'
+
 echo
 if [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'
