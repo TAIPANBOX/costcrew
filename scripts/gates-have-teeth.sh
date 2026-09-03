@@ -1313,11 +1313,23 @@ run_case 'commitments: a Purchase row counted as usage' \
 # outside it (crew.MayDecide refuses it before Owner is even read). The
 # planted case reuses driver.one-time's own body, the cheapest real side
 # effect this table already has an example of.
+#
+# Needle changed during Phase C integration: DRIVER-WINDOW-SPEC.md's own
+# target guard in applyDriver (internal/finops/apply.go) now refuses a
+# one-time driver with no target and no anomaly BEFORE it would ever reach
+# the drivers-row write, so this mutation is caught one layer earlier than
+# when this case was written -- by applyDriver's own guard, not by
+# TestApplyingPurchaseHasNoSideEffect's row-count assertion. The test still
+# fails (t.Fatal on the returned error) and the underlying property this
+# case exists to prove -- purchase never writes a real side effect -- still
+# holds, now doubly so. Verified by hand: applying this exact mutation prints
+# "driver.one-time was applied with no target naming its window (and no
+# anomaly to take a day from): recorded only, no drivers row written".
 run_case 'commitments: purchase in the apply table' \
 	fail \
 	./internal/finops \
 	$'TestApplyingPurchaseHasNoSideEffect' \
-	$'must never write a real side effect' \
+	$'no drivers row written' \
 	internal/finops/apply.go \
 	$'	case "driver.one-time": // class:driver.one-time' \
 	$'	case "purchase": // planted by gates-have-teeth.sh, must be caught\n\t\treturn applyDriver(db, opt, t, "one-time")\n\tcase "driver.one-time": // class:driver.one-time'
