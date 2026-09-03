@@ -57,7 +57,7 @@ health path passed.
 
 ```sh
 go test ./...                        # 528 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 69 cases; needs a clean tree; ~90s
+./scripts/gates-have-teeth.sh        # 68 cases; needs a clean tree; ~90s
 ./scripts/features-are-bound.sh      # 109 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
@@ -70,13 +70,21 @@ Counts follow the suite, measured on `feat/c8-the-executive-pack` off
 '^Test'` -- test FUNCTIONS, not subtests, the convention PR #21, #23 and this
 file's own `internal/manifest` gate already use, not `-v | grep -c '^---
 PASS'`, which over-counts anything using `t.Run`; packages by `go list -f
-'{{if or .TestGoFiles .XTestGoFiles}}...'`; `grep -c '^run_case'
-scripts/gates-have-teeth.sh`; `grep -rc Scenario: features/*.feature`;
-2026-09-03); nothing here keeps them current automatically, so they lag
-whichever branch last updated them by hand (B1a's own merge left this block at
-282/48/59 while its own PR body reported 301/52/70). Invariants 1, 2 and 5's
-own route counts (48/30/30 -> 50/34/34) were also re-measured while touching
-this file for B5, since the new /cadence routes are directly what moved them.
+'{{if or .TestGoFiles .XTestGoFiles}}...'`; `grep -rc Scenario:
+features/*.feature`; 2026-09-03); nothing here keeps them current
+automatically, so they lag whichever branch last updated them by hand (B1a's
+own merge left this block at 282/48/59 while its own PR body reported
+301/52/70). Invariants 1, 2 and 5's own route counts (48/30/30 -> 50/34/34)
+were also re-measured while touching this file for B5, since the new
+/cadence routes are directly what moved them. The gates-have-teeth.sh count
+is the harness's own `teeth: N passed` line from a clean run
+(@measured 2026-09-03, `./scripts/gates-have-teeth.sh` on this branch, 68
+passed, 0 failed), NOT `grep -c '^run_case'`: that grep also matches the
+`run_case() {` function definition on line 122 and over-counts by one. `main`
+had 67 real cases, and 67 real plus the one definition line happened to read
+as 68 by grep, matching what this file already said; this step's own new
+case makes it 68 real, so the grep-based count is now 69 while the harness's
+own summary -- the number that actually held -- is 68.
 
 The gates in this repo are Go tests rather than shell scripts, so
 `gates-have-teeth.sh` mutates the PRODUCT and requires the test to go red.

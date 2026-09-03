@@ -185,7 +185,7 @@ platform act and a separate decision; neither is done in this repository.
 ```sh
 go test ./...                        # 528 tests, 20 packages
 ./scripts/features-are-bound.sh      # every scenario bound to a named test, both ways
-./scripts/gates-have-teeth.sh        # 69 cases: each gate is made to fail on purpose
+./scripts/gates-have-teeth.sh        # 68 cases: each gate is made to fail on purpose
 gofmt -l . && go vet ./...
 ```
 
