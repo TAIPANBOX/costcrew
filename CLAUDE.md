@@ -56,9 +56,9 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 827 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 93 cases; needs a clean tree; ~6m08s
-./scripts/features-are-bound.sh      # 189 scenarios, both directions
+go test ./...                        # 844 tests, 20 packages
+./scripts/gates-have-teeth.sh        # 94 cases; needs a clean tree; @measured 2026-09-03, 6m17s, 94 passed 0 failed, up from 6m08s at 93
+./scripts/features-are-bound.sh      # 195 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
@@ -138,6 +138,30 @@ the dispatch-level reproduction) and 75 -> 77 gates-have-teeth.sh cases
 (the two named mutants, one per direction). Feature scenarios 134 -> 136
 (2 new). This PR touches no route and adds none; every invariant's own
 route count is unchanged.
+Invariant 46 (PARTNER-BUDGET-RECOMMENDATIONS-SPEC.md), rebased twice while
+open: first past invariants 34-36 above as they stood then (#41, #42,
+#43), then past the Phase C integration (#44), which renumbered those
+three to 43-45 and added nine of its own (34-42) ahead of them, so this
+invariant's own number moved 34 -> 37 -> 46 across the two rebases. Final
+count, measured against what actually lands beside it: 827 -> 844 tests
+(internal/connectors gained 8, `budgetrecommendations_test.go`;
+internal/deliver gained 9, `partnerbudget_test.go`) and 93 -> 94
+gates-have-teeth.sh cases (the guardrail mutant, the only one of the
+spec's three kept as a permanent case). Feature scenarios 189 -> 195 (6
+new, `features/partner-budget-recommendations.feature`). The connector
+catalogue (package comment, invariant 22) moved from 11 entries (1 built,
+10 documented) before this branch started, to 14 (5 built, 9 documented)
+once Phase C's own rightsizing readers and `saas-seats` reader landed, to
+17 (8 built, 9 documented) with this step's three new readers; README.md's
+own "Ten connectors... Seven built" sentence was already stale before this
+branch started (measured against `origin/main` before branching: 11/1/10,
+not 10/7/3) and Phase C's own merge left it further stale still ("Eleven
+connectors... Two built", omitting that its own three rightsizing readers
+and the `saas-seats` reader were also newly Built); corrected here to the
+true count (17/8/9) alongside all six of the newly-built connectors' own
+names, rather than left wrong a third time by an edit that touches the
+same sentence and does not fix it. No route moved: this feature adds no
+`internal/web` file and changes none.
 
 C5 re-measured the same way, with the SAME grep bug this file carried until
 today: 515/68/105 was stated at the time as `main`'s own numbers at #28's
@@ -2141,6 +2165,74 @@ an absent invariant.
     so a mutant dropping `budgets-read` and a mutant adding a right nothing
     in `finops-partner`'s reads line asks for are both caught by the same
     test. `scripts/gates-have-teeth.sh` plants both mutants.)*
+
+46. **A provider's suggested budget never becomes this console's own budget
+    figure.** PARTNER-BUDGET-RECOMMENDATIONS-SPEC.md. `@yurii 2026-09-03`:
+    "це можна отримувати від користувача, або, наприклад, подивитись, які
+    пропозиції дають провайдери хмарні." A finops-partner's own packet
+    section (`internal/deliver/partnerbudget.go`) cites what AWS Budgets,
+    GCP's Cost Recommender or Azure Advisor would suggest beside the team's
+    real, finance-set budget, imported through three new connectors
+    (`aws-budgets-recommended`, `gcp-cost-recommender-budget`,
+    `azure-advisor-budget`, `internal/connectors/budgetrecommendations.go`)
+    into a new table, `budget_recommendations` (provider, team, month,
+    recommended_cents, source file, imported at). `estate.CurrentBudgets` and
+    `connectors.BudgetRecommendations` are read SEPARATELY and joined in Go,
+    in the packet section alone: a recommendation is never read by
+    `estate.BudgetVsActual`, `crew.SpendInMonth`'s guard math, `headroomOf`,
+    or any other headroom or guard computation anywhere in this codebase, and
+    no code path anywhere copies a `budget_recommendations` row into
+    `budgets`. The section shows both figures, the gap in cents and as a
+    percentage, and the sentence naming which is which ("the team's own
+    budget, set by finance" beside "what \<provider\> suggests, not applied
+    anywhere"), gated on the `stakeholder-briefing` skill the same way
+    `reportingSection` and `forecastingSection` gate on theirs -- every
+    seeded `partner-<desk>` analyst carries exactly that skill and no other
+    seeded analyst does. A team-month pairing missing either side is left
+    out, never shown against an invented zero, and the whole section is
+    absent when nothing pairs.
+    *(gate: `TestCurrentBudgetsAndSpendInMonthSourceNeverMentionsBudgetRecommendations`
+    (`internal/deliver`), a structural read of `CurrentBudgets`,
+    `BudgetVsActual`, `SpendInMonth`, `CheckGuards` and `headroomOf`'s own
+    source, refusing any mention of `budget_recommendations` inside their
+    OWN FUNCTION BODIES rather than the whole file, so an innocent comment
+    naming this feature elsewhere in the same file cannot trip it --
+    invariant 1's own warning about a gate that fires on prose, applied here
+    on purpose.
+    `TestImportingABudgetRecommendationNeverChangesRealBudgetComputations`
+    holds the same property behaviourally: `BudgetVsActual`, `CurrentBudgets`
+    and `SpendInMonth` are `reflect.DeepEqual`, byte for byte, before and
+    after a real import through `connectors.Import`.
+    `TestPartnerBudgetSectionAbsentWhenOnlyTheRealBudgetExists`,
+    `TestPartnerBudgetSectionAbsentWhenOnlyTheRecommendationExists` and
+    `TestPartnerBudgetSectionIgnoresARecommendationForAMonthWithNoRealBudgetRow`
+    hold "never shown as if it were paired";
+    `TestPartnerBudgetSectionCitesBothFiguresWithTheGap` holds the "not
+    applied anywhere" sentence and the gap itself;
+    `TestPartnerBudgetSectionShowsAZeroGapWhenTheyMatchExactly` holds the
+    zero-gap boundary, still shown, still labelled;
+    `TestEndToEndAnImportedRecommendationReachesAPostedDeliverable` walks the
+    whole path Yurii's second quote below asks for, import to a posted
+    brief, `@claude`-authored fixture prose rather than a live model call.
+    `scripts/gates-have-teeth.sh`'s own "guardrail: read
+    budget_recommendations into CurrentBudgets result" case plants the
+    spec's own named mutant -- `CurrentBudgets`'s query UNIONed with a
+    select against `budget_recommendations` -- and requires the structural
+    test to catch it. Two more mutants the spec names were planted by hand
+    and reverted rather than kept as permanent cases: dropping the pairing
+    guard's `continue` so a recommendation with no real budget is shown
+    against a defaulted zero as if it were paired, caught by
+    `TestPartnerBudgetSectionIgnoresARecommendationForAMonthWithNoRealBudgetRow`
+    (NOT by `TestPartnerBudgetSectionAbsentWhenOnlyTheRecommendationExists`,
+    which short-circuits earlier on `len(real)==0` and never reaches the
+    mutated line -- found by actually running the mutation rather than
+    assuming); and dropping the "not applied anywhere" sentence, caught by
+    `TestPartnerBudgetSectionCitesBothFiguresWithTheGap`.)*
+
+    `@yurii 2026-09-03`, confirming the scope: "Так, звісно, роби все, про
+    що ми говоримо, треба протестувати і зробити як варіант використання."
+    `features/partner-budget-recommendations.feature` opens with both
+    quotes verbatim.
 
 ## Decisions that have no gate yet
 

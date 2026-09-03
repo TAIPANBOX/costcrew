@@ -78,11 +78,14 @@ type Recorder interface {
 // is resolved before deriveStatus can read it, regardless of which file
 // tokenFuseFocusReader is defined in.
 var readers = map[string]Reader{
-	"tokenfuse-focus": tokenFuseFocusReader,
-	"aws-rightsizing": awsRightsizingReader,
-	"gcp-recommender": gcpRecommenderReader,
-	"azure-advisor":   azureAdvisorReader,
-	"saas-seats":      saasSeatsReader,
+	"tokenfuse-focus":             tokenFuseFocusReader,
+	"aws-rightsizing":             awsRightsizingReader,
+	"gcp-recommender":             gcpRecommenderReader,
+	"azure-advisor":               azureAdvisorReader,
+	"saas-seats":                  saasSeatsReader,
+	"aws-budgets-recommended":     awsBudgetsRecommendedReader,
+	"gcp-cost-recommender-budget": gcpCostRecommenderBudgetReader,
+	"azure-advisor-budget":        azureAdvisorBudgetReader,
 }
 
 type Kind string
@@ -309,6 +312,56 @@ var Catalogue = []Connector{
 			Hint: "the local path, or drop the file on this page"}},
 		Cannot: "Advisor does not publish its own analysis window as a documented figure; " +
 			"this reader reads whatever the export's own column says and nothing more.",
+	},
+	{
+		ID: "aws-budgets-recommended", Name: "AWS Budgets recommended threshold", Provider: "aws",
+		Kind: ExportDrop, Feeds: "budget_recommendations", Metered: false,
+		Auth:     "none for the reader: it reads a CSV already exported from AWS Budgets",
+		CostNote: "No charge for the export itself, or for reading it.",
+		Note: "AWS Budgets' own recommended threshold, exported to CSV with the team this " +
+			"console already tracks named alongside it. Cited beside the team's real budget " +
+			"on a finops-partner's own packet section, never applied as this console's own " +
+			"budget figure. `@claude`, not measured against a real export: AWS does not " +
+			"publish a literal per-team recommended-budget report, and this reader's own " +
+			"column shape approximates one the way an operator's own budget naming or " +
+			"tagging convention would carry a team into an export.",
+		Doc: "https://docs.aws.amazon.com/cost-management/latest/userguide/budgets-managing-costs.html",
+		Inputs: []Input{{Name: "path", Label: "Folder the recommended-threshold CSV export lands in",
+			Hint: "the local path, or drop the file on this page"}},
+		Cannot: "It cannot invent a team boundary the export does not carry: a row whose own " +
+			"Team column is empty is refused, not guessed. It is never read by a budget or " +
+			"guard check anywhere in this console.",
+	},
+	{
+		ID: "gcp-cost-recommender-budget", Name: "GCP Cost Recommender budget recommendation", Provider: "gcp",
+		Kind: ExportDrop, Feeds: "budget_recommendations", Metered: false,
+		Auth:     "none for the reader: it reads a CSV already exported from the Recommender API",
+		CostNote: "No charge for the export itself, or for reading it.",
+		Note: "Cost Recommender's own budget-shaped recommendation, exported to CSV. Cited " +
+			"beside the team's real budget on a finops-partner's own packet section, never " +
+			"applied as this console's own budget figure. `@claude`, not measured against a " +
+			"real export: the same honest caveat as the AWS reader above.",
+		Doc: "https://cloud.google.com/recommender/docs/recommenders-overview",
+		Inputs: []Input{{Name: "path", Label: "Folder the Recommender CSV export lands in",
+			Hint: "the local path, or drop the file on this page"}},
+		Cannot: "Same limit as the AWS reader: a row with no team column is refused, not " +
+			"guessed, and it is never read by a budget or guard check anywhere in this console.",
+	},
+	{
+		ID: "azure-advisor-budget", Name: "Azure Advisor budget-shaped cost recommendation", Provider: "azure",
+		Kind: ExportDrop, Feeds: "budget_recommendations", Metered: false,
+		Auth:     "none for the reader: it reads a CSV already exported from Advisor",
+		CostNote: "No charge for the export itself, or for reading it.",
+		Note: "Advisor's own budget-shaped cost recommendation, exported to CSV, already " +
+			"monthly (unlike this package's rightsizing-style Advisor reader, this one does " +
+			"not divide an annual figure by twelve). Cited beside the team's real budget on " +
+			"a finops-partner's own packet section, never applied as this console's own " +
+			"budget figure. `@claude`, not measured against a real export.",
+		Doc: "https://learn.microsoft.com/en-us/azure/advisor/advisor-cost-recommendations",
+		Inputs: []Input{{Name: "path", Label: "Folder the Advisor CSV export lands in",
+			Hint: "the local path, or drop the file on this page"}},
+		Cannot: "Same limit as the other two: a row with no team column is refused, not " +
+			"guessed, and it is never read by a budget or guard check anywhere in this console.",
 	},
 	{
 		ID: "saas-seats", Name: "SaaS seat reconciliation", Provider: "saas",

@@ -234,6 +234,12 @@ func run(addr, dir string, scfg stack.Config, gatewayURL string) error {
 	if err := connectors.EnsureLicenceSchema(st.DB()); err != nil {
 		return fmt.Errorf("ensuring the saas-seats reader's schema: %w", err)
 	}
+	// budget_recommendations, unconditionally: the finops-partner's own
+	// packet section reads it on every render regardless of whether a
+	// budget-recommendation connector has ever been pointed at a folder.
+	if err := connectors.EnsureBudgetRecommendationsSchema(st.DB()); err != nil {
+		return fmt.Errorf("ensuring the budget-recommendation readers' schema: %w", err)
+	}
 	if err := estate.SeedBudgets(st.DB()); err != nil {
 		return fmt.Errorf("setting budgets: %w", err)
 	}
