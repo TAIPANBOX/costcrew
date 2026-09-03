@@ -287,6 +287,22 @@ func TestRenameRetiredSkillsUpgradesALegacyRow(t *testing.T) {
 	}
 }
 
+// stakeholder-briefing grants exactly figures-read, channel-post and
+// budgets-read: no less, no more.
+//
+// PARTNER-BUDGETS-RIGHT-SPEC.md's over-grant mutant, worth catching once on
+// the one skill this defect was found on: an equality check, so a mutant
+// that drops budgets-read (reproducing tonight's refusal) and a mutant that
+// adds a right nothing in finops-partner's reads line asks for (over-grant,
+// the opposite direction) are both caught by this same test.
+func TestStakeholderBriefingGrantsExactlyItsThreeRights(t *testing.T) {
+	got := crew.RightsFor([]string{"stakeholder-briefing"}, "active")
+	want := []string{"budgets-read", "channel-post", "figures-read"}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Errorf("RightsFor(stakeholder-briefing) = %v, want %v", got, want)
+	}
+}
+
 // The migration clears what the console invented and leaves what a person
 // recorded.
 func TestClearingFabricatedKeepsARecordedOne(t *testing.T) {

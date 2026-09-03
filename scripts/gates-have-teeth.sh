@@ -816,6 +816,30 @@ run_case $'skills are tools: ai_calls_query drops its table allow-list' \
 	tools/run/ai_calls_query.go \
 	$'if !aiCallsAllowedTables[tb] {' \
 	$'if false {'
+# PARTNER-BUDGETS-RIGHT-SPEC.md, invariant 34: a role family's own reads
+# line is backed by a right the console actually grants. Two mutants, one
+# per direction: dropping budgets-read off stakeholder-briefing reproduces
+# the live failure this invariant fixes (finops-partner's own reads line
+# promises "the team's budgets"), caught by the generic per-family gate;
+# adding a right nothing in that same family's reads line asks for is the
+# opposite fault, over-grant rather than under-grant, caught by the
+# equality check on the one skill this defect was found on.
+run_case $'reads promise: stakeholder-briefing loses budgets-read again' \
+	fail \
+	./internal/crew \
+	$'TestEveryFamilysReadsPromiseIsBackedByARight' \
+	$'does not hold it' \
+	internal/crew/mandate.go \
+	$'"stakeholder-briefing":     {"figures-read", "channel-post", "budgets-read"},' \
+	$'"stakeholder-briefing":     {"figures-read", "channel-post"},'
+run_case $'reads promise: stakeholder-briefing gains a right nothing asked for' \
+	fail \
+	./internal/crew \
+	$'TestStakeholderBriefingGrantsExactlyItsThreeRights' \
+	$'RightsFor(stakeholder-briefing)' \
+	internal/crew/mandate.go \
+	$'"stakeholder-briefing":     {"figures-read", "channel-post", "budgets-read"},' \
+	$'"stakeholder-briefing":     {"figures-read", "channel-post", "budgets-read", "kpi-registry"},'
 
 # B3: an analyst's deliverable ends in options, and only a stamp -- the
 # supervisor's own act, or an owner's on a carried one -- applies one.

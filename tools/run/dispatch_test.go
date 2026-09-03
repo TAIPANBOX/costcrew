@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/TAIPANBOX/costcrew/internal/crew"
+	"github.com/TAIPANBOX/costcrew/internal/estate"
 )
 
 // An analyst without sql-readonly calling charges_query gets the refusal
@@ -135,6 +136,35 @@ func TestALongToolResultIsCutAtTheCap(t *testing.T) {
 	}
 	if !strings.Contains(cutResult, "cut") {
 		t.Errorf("a cut result does not say so: tail is %q", cutResult[len(cutResult)-60:])
+	}
+}
+
+// A stakeholder-briefing analyst calling the budgets tool succeeds.
+//
+// PARTNER-BUDGETS-RIGHT-SPEC.md, reproducing the exact live failure of
+// 2026-09-03: partner-gcp tried this call because finops-partner's own reads
+// line (roles.yaml) says it reads "the team's budgets" -- rendered verbatim
+// into its prompt by deliver.JobDescriptionBlock -- and was refused twice,
+// ending the task blocked with USD 0.1302 spent and no deliverable.
+// rightsForSkill["stakeholder-briefing"] carried no budgets-read. Red first
+// against the code before this fix: outcomeRefused, naming budgets-read.
+func TestAStakeholderBriefingAnalystCallingBudgetsSucceeds(t *testing.T) {
+	db := packetTestDB(t)
+	if _, err := db.Exec(estate.BudgetSchema); err != nil {
+		t.Fatal(err)
+	}
+	a := crew.Analyst{Name: "partner-gcp", State: "active",
+		Skills: []string{"stakeholder-briefing", "unit-economics"}}
+	// The exact skills world.go seeds every partner-* analyst with.
+
+	got := dispatch(context.Background(), db, nil, a, "budgets",
+		json.RawMessage(`{"source":"gcp","period":"2026-08"}`), noBus())
+	if got.Outcome == outcomeRefused {
+		t.Fatalf("refused: %q (needs %s) -- finops-partner's own reads line "+
+			"promises \"the team's budgets\"", got.Text, got.Right)
+	}
+	if got.Outcome != outcomeOK {
+		t.Fatalf("outcome %q, want ok: %s", got.Outcome, got.Text)
 	}
 }
 

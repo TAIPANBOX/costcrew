@@ -56,9 +56,9 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 823 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 91 cases; needs a clean tree; ~5m22s
-./scripts/features-are-bound.sh      # 187 scenarios, both directions
+go test ./...                        # 827 tests, 20 packages
+./scripts/gates-have-teeth.sh        # 93 cases; needs a clean tree; ~PLACEHOLDER~
+./scripts/features-are-bound.sh      # 189 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
@@ -128,6 +128,16 @@ route moved: this fix touches `tools/run`, `tools/bench` and
 touches (`cadence.go`) changes what number an existing route's existing
 template prints, not the route table itself, so invariants 1, 2 and 5's own
 counts are untouched.
+Invariant 36 (PARTNER-BUDGETS-RIGHT-SPEC.md), rebased twice while open:
+past invariant 34 above (#41) and #40's `caught` -> `fail` rename (no case
+count change, 20 renames), then past invariant 35 above (#42, which landed
+under the SAME number 35 this PR had first claimed after the first rebase,
+hence 36 now): moved 598 -> 602 tests (internal/crew gained 3,
+`reads_rights_test.go` plus one in `mandate_test.go`; tools/run gained 1,
+the dispatch-level reproduction) and 75 -> 77 gates-have-teeth.sh cases
+(the two named mutants, one per direction). Feature scenarios 134 -> 136
+(2 new). This PR touches no route and adds none; every invariant's own
+route count is unchanged.
 
 C5 re-measured the same way, with the SAME grep bug this file carried until
 today: 515/68/105 was stated at the time as `main`'s own numbers at #28's
@@ -2078,6 +2088,59 @@ an absent invariant.
     `price display: report a task's worst case without the loop multiplier`
     case plants the same first mutant as a permanent case, expect word
     `fail`.)*
+
+45. **A role family's own reads promise is backed by a right the console
+    actually grants.** `roles.yaml`'s `reads` line is rendered VERBATIM into
+    every one of that family's analysts' prompts
+    (`deliver.JobDescriptionBlock`'s "Reads: ..." line), so a family whose
+    reads line promises something no skill's rights back is a promise the
+    model will try to keep and be refused for. Found live, 2026-09-03
+    (PARTNER-BUDGETS-RIGHT-SPEC.md): `partner-gcp` (skill
+    `stakeholder-briefing`) tried the `budgets` tool because
+    `finops-partner`'s own reads line says "the team's budgets," was refused
+    twice (no `budgets-read`), and the task ended blocked with USD 0.1302
+    spent and no deliverable -- the tool gate worked exactly as designed
+    (invariant 26); the family's own mission and its rights had drifted
+    apart. Fixed by adding the missing right to the one skill responsible in
+    each of the four families this pass found a gap in, never by narrowing
+    the reads text: `stakeholder-briefing` gains `budgets-read`
+    (`finops-partner`, the reported defect); `allocation-rules` gains
+    `export-data` (`chargeback-analyst`'s "allocation for the period ... the
+    unallocated pots"); `decision-framing` gains `kpi-registry`
+    (`executive-reporter`'s "the KPI library"); `peer-comparison` gains
+    `kpi-registry` (`benchmarking-analyst`'s "the estate's KPIs"). Each of
+    the four skills touched is used by exactly one family (checked before
+    touching it), so no sibling family sharing a skill name gained a right
+    its own reads line never asked for. Three families' reads lines stayed
+    genuinely ambiguous after this reading and are marked NOT PROVEN rather
+    than guessed: `governance-analyst`'s "budgets without a team" names no
+    tool that reads budgets that way (neither the `budgets` nor the
+    `variance` tool takes a "missing team" filter); `data-quality-analyst`'s
+    "unallocated share" could equally be a SQL aggregate over `charges`
+    (`sql-readonly`, already held) or the `allocation` tool's own figure
+    (`export-data`, not held); `ai-spend-analyst`'s "ai_calls ... per agent,
+    per model, per unit" names a table no tool in the catalogue reads at all
+    (`charges_query` is scoped to `charges`, `drivers` and `attribution`
+    only, invariant 26), which is a missing TOOL rather than a missing
+    RIGHT and is out of this invariant's own scope.
+    *(gate: `TestEveryFamilysReadsPromiseIsBackedByARight`
+    (`internal/crew/reads_rights_test.go`), the concrete, mechanical version:
+    a hand-reviewed mapping, `readsRequiresRights`, names for every family
+    which of the five rights that gate a catalogue tool (`figures-read` is
+    the unconditional floor and is never listed) its reads line's own words
+    require, read once by hand rather than parsed from the prose
+    mechanically; one sub-test per family the mapping names a requirement
+    for, each independently red-first against the unfixed rights.
+    `TestReadsRightsMappingCoversEveryFamily` holds the mapping's own key set
+    against `roles.yaml`, both ways, so a role family added later and never
+    hand-reviewed here fails loudly rather than silently passing nothing.
+    `TestAStakeholderBriefingAnalystCallingBudgetsSucceeds` (`tools/run`)
+    reproduces the live failure directly through `dispatch()`.
+    `TestStakeholderBriefingGrantsExactlyItsThreeRights` holds the over-grant
+    direction for the one skill this defect was found on: an equality check,
+    so a mutant dropping `budgets-read` and a mutant adding a right nothing
+    in `finops-partner`'s reads line asks for are both caught by the same
+    test. `scripts/gates-have-teeth.sh` plants both mutants.)*
 
 ## Decisions that have no gate yet
 
