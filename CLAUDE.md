@@ -56,7 +56,7 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 534 tests, 20 packages
+go test ./...                        # 536 tests, 20 packages
 ./scripts/gates-have-teeth.sh        # 69 cases; needs a clean tree; ~90s
 ./scripts/features-are-bound.sh      # 119 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
@@ -841,7 +841,9 @@ an absent invariant.
     `TestOwnerOfAnomalyIsUnclaimedWithNeitherOwner`,
     `TestOwnerOfAnomalyFallsBackWhenTheTeamRowHasNoOwner`,
     `TestOwnerOfAnomalyHandlesAQuoteInTheOwnersName`,
-    `TestOwnerOfAnomalyWithNoTaskAtAllIsUnclaimed` (`internal/crew`);
+    `TestOwnerOfAnomalyWithNoTaskAtAllIsUnclaimed`,
+    `TestOwnerOfAnomalyWithNoTeamAtAllFallsBackToTheAnalyst`,
+    `TestOwnerOfAnomalyWithNoTeamAndNoTaskOwnerIsUnclaimed` (`internal/crew`);
     `TestDaysBetweenFloorsToWholeDays`,
     `TestDaysBetweenRefusesUnparseableOrNegative` (`internal/anomaly`);
     `TestAnomalyClosureDaysReportsTheMedianOfTwoClosedAnomalies`,

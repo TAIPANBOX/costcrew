@@ -31,14 +31,16 @@ Feature: The anomaly desk, end to end: the owner is told, and the queue says how
     Then the team's own owner is returned, with a reason naming the team
 
   @test:TestOwnerOfAnomalyFallsBackToTheAnalystsOwner
+  @test:TestOwnerOfAnomalyWithNoTeamAtAllFallsBackToTheAnalyst
   Scenario: Without a named team owner, the analyst's own owner answers
-    Given an anomaly whose team has no row in teams at all
+    Given an anomaly whose team has no row in teams at all, or no team at all
     When the owner lookup runs
     Then the analyst's own owner is returned -- tasks.owner of the task this
       anomaly opened, the same chain B3 already reads for an option's own
       owner -- with a reason saying so
 
   @test:TestOwnerOfAnomalyIsUnclaimedWithNeitherOwner
+  @test:TestOwnerOfAnomalyWithNoTeamAndNoTaskOwnerIsUnclaimed
   Scenario: Neither the team nor the analyst has an owner
     Given an anomaly whose team has no named owner and whose own task
       carries none either

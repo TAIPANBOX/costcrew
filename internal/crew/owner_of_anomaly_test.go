@@ -186,3 +186,40 @@ func TestOwnerOfAnomalyWithNoTaskAtAllIsUnclaimed(t *testing.T) {
 		t.Error("unclaimed still needs a reason")
 	}
 }
+
+// An anomaly with no team at all (the "untagged" case the queue's own
+// template already renders, anomalies.html's caused-by column) skips the
+// team lookup entirely and falls straight to the analyst's own owner --
+// the same fallback as a named team with no row in teams, exercised through
+// the OTHER branch that reaches it.
+func TestOwnerOfAnomalyWithNoTeamAtAllFallsBackToTheAnalyst(t *testing.T) {
+	db := ownerTestDB(t)
+	plantAnomalyWithTeam(t, db, "A-untagged", "")
+	plantTaskForAnomaly(t, db, "A-untagged", "j.ashby")
+
+	owner, reason := crew.OwnerOfAnomaly(db, "A-untagged")
+	if owner != "j.ashby" {
+		t.Errorf("owner = %q, want the analyst's own owner j.ashby", owner)
+	}
+	if strings.TrimSpace(reason) == "" {
+		t.Error("no reason was given for the owner lookup")
+	}
+}
+
+// Both empty at once: no team named, and its own task carries no owner.
+// The unclaimed answer's own reason wording differs from the named-team
+// case above (TestOwnerOfAnomalyIsUnclaimedWithNeitherOwner) -- there is no
+// team to name -- so this is its own path, not a duplicate of that test.
+func TestOwnerOfAnomalyWithNoTeamAndNoTaskOwnerIsUnclaimed(t *testing.T) {
+	db := ownerTestDB(t)
+	plantAnomalyWithTeam(t, db, "A-nothing-at-all", "")
+	plantTaskForAnomaly(t, db, "A-nothing-at-all", "")
+
+	owner, reason := crew.OwnerOfAnomaly(db, "A-nothing-at-all")
+	if owner != "unclaimed" {
+		t.Errorf("owner = %q, want unclaimed", owner)
+	}
+	if strings.TrimSpace(reason) == "" {
+		t.Error("unclaimed still needs a reason")
+	}
+}
