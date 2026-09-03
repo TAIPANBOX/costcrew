@@ -56,9 +56,9 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # PLACEHOLDER tests, 20 packages
-./scripts/gates-have-teeth.sh        # PLACEHOLDER cases; needs a clean tree; ~90s
-./scripts/features-are-bound.sh      # PLACEHOLDER scenarios, both directions
+go test ./...                        # 515 tests, 20 packages
+./scripts/gates-have-teeth.sh        # 68 cases; needs a clean tree; ~90s
+./scripts/features-are-bound.sh      # 105 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
@@ -66,7 +66,7 @@ staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refus
 ```
 
 Counts follow the suite, measured on `feat/cadence-runs-when-a-person-switches-it-on`
-(rebased onto `feat/an-analyst-remembers-what-it-posted` after it merged)
+after rebasing onto main past #27's own merge
 (test count by `go test ./... -list '.*' | grep -c '^Test'` -- test FUNCTIONS, not
 subtests, the convention PR #21, #23 and this file's own `internal/manifest` gate
 already use, not `-v | grep -c '^--- PASS'`, which over-counts anything using
