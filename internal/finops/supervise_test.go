@@ -46,6 +46,15 @@ func superviseTestDB(t *testing.T) (*sql.DB, int) {
 // 1), and the supervisor's pass reads tasks.owner, which crew.FromAnomaly
 // and crew.Approve stamp at creation and plantOption does not.
 func plantPostedOption(t *testing.T, db *sql.DB, sprintID int, desk, owner, class, summary string, savingCents int64, risk string) crew.Option {
+	return plantPostedOptionWithTarget(t, db, sprintID, desk, owner, class, summary, savingCents, risk, "")
+}
+
+// plantPostedOptionWithTarget is plantPostedOption plus a target
+// (DRIVER-WINDOW-SPEC.md section 2's {"start", "end"} window, raw JSON or
+// "" for none): a second function rather than a new plantPostedOption
+// parameter every one of this file's other six call sites would have to
+// grow to match.
+func plantPostedOptionWithTarget(t *testing.T, db *sql.DB, sprintID int, desk, owner, class, summary string, savingCents int64, risk, target string) crew.Option {
 	t.Helper()
 	tres, err := db.Exec(`INSERT INTO tasks
 		(sprint, title, goal, assignee, desk, state, budget_cents, spent_cents, created, updated, owner)
@@ -70,9 +79,9 @@ func plantPostedOption(t *testing.T, db *sql.DB, sprintID int, desk, owner, clas
 		t.Fatal(err)
 	}
 	if _, err := db.Exec(`INSERT INTO artifact_options
-		(artifact, ordinal, class, summary, figure_cents, saving_cents, risk, needs, evidence, state)
-		VALUES (?, 1, ?, ?, 50000, ?, ?, 'nothing', '[]', 'open')`,
-		artID, class, summary, savingCents, risk); err != nil {
+		(artifact, ordinal, class, summary, figure_cents, saving_cents, risk, needs, evidence, target, state)
+		VALUES (?, 1, ?, ?, 50000, ?, ?, 'nothing', '[]', ?, 'open')`,
+		artID, class, summary, savingCents, risk, nullableString(target)); err != nil {
 		t.Fatal(err)
 	}
 	return crew.Option{Artifact: int(artID), Ordinal: 1, Class: class}
@@ -83,8 +92,9 @@ func plantPostedOption(t *testing.T, db *sql.DB, sprintID int, desk, owner, clas
 // applying it and carrying it.
 func TestTheSupervisorDecidesItsOwnClassesAndCarriesTheRest(t *testing.T) {
 	db, sprintID := superviseTestDB(t)
-	recurring := plantPostedOption(t, db, sprintID, "aws", "y.mercer",
-		"driver.recurring", "a weekly batch job", 0, "low")
+	recurring := plantPostedOptionWithTarget(t, db, sprintID, "aws", "y.mercer",
+		"driver.recurring", "a weekly batch job", 0, "low",
+		`{"start": "2026-08-01", "end": "2026-08-30"}`)
 	closeIt := plantPostedOption(t, db, sprintID, "aws", "t.langley",
 		"period.close", "close the books", 500000, "low")
 
@@ -337,6 +347,17 @@ type optSpec struct {
 // specific figure_cents.
 func plantDeliverable(t *testing.T, db *sql.DB, sprintID int, desk, owner, anomalyID string, specs ...optSpec) (artifact int, ordinals []int) {
 	t.Helper()
+	return plantDeliverableWithTargets(t, db, sprintID, desk, owner, anomalyID, nil, specs...)
+}
+
+// plantDeliverableWithTargets is plantDeliverable plus a target
+// (DRIVER-WINDOW-SPEC.md section 2) for specific ordinals (1-based, keyed
+// the same way the returned ordinals slice is indexed): a second function
+// rather than a target field on optSpec, which every optSpec{...} positional
+// literal elsewhere in this file would then have to grow a trailing value
+// to keep compiling.
+func plantDeliverableWithTargets(t *testing.T, db *sql.DB, sprintID int, desk, owner, anomalyID string, targets map[int]string, specs ...optSpec) (artifact int, ordinals []int) {
+	t.Helper()
 	tres, err := db.Exec(`INSERT INTO tasks
 		(sprint, title, goal, assignee, desk, state, budget_cents, spent_cents, anomaly, created, updated, owner)
 		VALUES (?, 'a task', 'a goal', ?, ?, 'active', 0, 0, ?, datetime('now'), datetime('now'), ?)`,
@@ -362,9 +383,10 @@ func plantDeliverable(t *testing.T, db *sql.DB, sprintID int, desk, owner, anoma
 	for i, s := range specs {
 		ordinal := i + 1
 		if _, err := db.Exec(`INSERT INTO artifact_options
-			(artifact, ordinal, class, summary, figure_cents, saving_cents, risk, needs, evidence, state)
-			VALUES (?, ?, ?, ?, ?, ?, ?, 'nothing', '[]', 'open')`,
-			artID, ordinal, s.class, s.summary, s.figureCents, s.savingCents, s.risk); err != nil {
+			(artifact, ordinal, class, summary, figure_cents, saving_cents, risk, needs, evidence, target, state)
+			VALUES (?, ?, ?, ?, ?, ?, ?, 'nothing', '[]', ?, 'open')`,
+			artID, ordinal, s.class, s.summary, s.figureCents, s.savingCents, s.risk,
+			nullableString(targets[ordinal])); err != nil {
 			t.Fatal(err)
 		}
 		ordinals = append(ordinals, ordinal)
@@ -450,7 +472,8 @@ func TestOnlyOneAlternativeOfOneDeliverableIsApplied(t *testing.T) {
 	if err := db.QueryRow(`SELECT COUNT(*) FROM drivers`).Scan(&before); err != nil {
 		t.Fatal(err)
 	}
-	artID, ords := plantDeliverable(t, db, sprintID, "aws", "y.mercer", "",
+	artID, ords := plantDeliverableWithTargets(t, db, sprintID, "aws", "y.mercer", "",
+		map[int]string{2: `{"start": "2026-08-01", "end": "2026-08-30"}`}, // driver.recurring's own window; it is the one that gets applied below
 		optSpec{"driver.one-time", "a one-off migration step", "low", 10000, 0},
 		optSpec{"driver.recurring", "a weekly batch job", "low", 10000, 30000}, // higher saving: ranks first
 	)
@@ -560,7 +583,8 @@ func TestARealAnalystsGuardNeverBlocksACloudFigure(t *testing.T) {
 	if _, err := crew.SeedRoster(db, "installer"); err != nil {
 		t.Fatal(err)
 	}
-	artID, ords := plantDeliverable(t, db, sprintID, "aws", "y.mercer", "",
+	artID, ords := plantDeliverableWithTargets(t, db, sprintID, "aws", "y.mercer", "",
+		map[int]string{1: `{"start": "2026-08-01", "end": "2026-08-30"}`},
 		optSpec{"driver.recurring", "a scheduled batch job", "low", 184000, 0},
 	)
 

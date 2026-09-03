@@ -56,17 +56,17 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 567 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 73 cases; needs a clean tree; ~5m13s, up from ~3m40s at 69
-./scripts/features-are-bound.sh      # 126 scenarios, both directions
+go test ./...                        # 585 tests, 20 packages
+./scripts/gates-have-teeth.sh        # 74 cases; needs a clean tree; ~5m13s, up from ~3m40s at 69
+./scripts/features-are-bound.sh      # 129 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refused PR #19 on two findings the list above never asked for; a staticcheck built for an older Go cannot read this module, so on such a machine CI is the only place it runs
 ```
 
-Counts follow the suite, measured on `feat/the-supervisor-plans-with-a-model`
-after rebasing onto main past #29's own merge
+Counts follow the suite, measured on `fix/a-driver-carries-the-window-the-option-named`
+after branching from `origin/main` past #37's own merge
 (test count by `go test ./... -list '.*' | grep -c '^Test'` -- test FUNCTIONS, not
 subtests, the convention PR #21, #23 and this file's own `internal/manifest` gate
 already use, not `-v | grep -c '^--- PASS'`, which over-counts anything using
@@ -96,6 +96,19 @@ planner-isolation check) and 69 -> 73 gates-have-teeth.sh cases (the four
 named mutants). Feature scenarios 115 -> 126 (11 new). Write routes
 (invariants 2 and 5) moved 34 -> 36 with the two new POST routes;
 invariant 1's GET count (50) is unchanged, since neither new route is one.
+This file's own invariant 34 (DRIVER-WINDOW-SPEC.md) moved 567 -> 585 tests
+(internal/crew gained 8, `options_driverwindow_test.go`; internal/finops
+gained 5, `apply_driverwindow_test.go`, plus `TestApplyDriverRecurringWritesADriversRow`
+in `apply_test.go` rewritten in place rather than counted as new;
+internal/deliver gained 3, `prompt_test.go`; internal/web gained 2, appended
+to the existing `options_test.go`) and 73 -> 74 gates-have-teeth.sh cases
+(the one named mutant this invariant's own gate case plants; the other
+three it names were planted by hand and reverted rather than kept
+permanent, the same shape invariant 27's own history already describes).
+Feature scenarios 126 -> 129 (the three scenarios in
+`features/driver-window.feature`). No route moved: the task page's own
+`/task/{id}` route is unchanged, and the new Window row is conditional
+markup inside it, so invariants 1, 2 and 5's own counts are untouched.
 
 The gates in this repo are Go tests rather than shell scripts, so
 `gates-have-teeth.sh` mutates the PRODUCT and requires the test to go red.
@@ -973,6 +986,76 @@ an absent invariant.
     B4-STEP-TWO-SPEC.md section 6 names: accepting an item without a ref,
     skipping the headroom check, letting `budget_cents` go up, and charging
     the settled cost to nobody.)*
+
+34. **A driver written from an option carries the window the option named,
+    never the wall clock.** DRIVER-WINDOW-SPEC.md.
+    `internal/detect.Driver.Covers` has no periodicity column anywhere -- the
+    window IS the extent of the rhythm -- so a recurring driver applied from
+    an option used to get a one-day window (`Start = End =` the day `Apply`
+    happened to run) and behave, in every number the forecast and the
+    detector produce, exactly like a one-time one while the word "recurring"
+    stayed beside it. Found by Yurii reading `internal/finops/apply.go`
+    while C3 (costcrew#38) landed `ProjectWithDrivers` ("recurring ones
+    repeat by their window").
+
+    `driver.recurring` and `driver.one-time` alone, of every class an
+    analyst's or the supervisor's own deliverable may name, carry a
+    structured `target` (`{"start", "end"}`, `crew.Option.Target
+    json.RawMessage`, the same nullable `artifact_options.target` column
+    C2's own `allocation.rule` target uses, costcrew#31 --
+    `crew.EnsureOptionTarget` migrates an installation from before either
+    existed). `crew.ValidateAndSaveOptions` refuses the WHOLE deliverable's
+    options, the same way an out-of-vocabulary class already does, when
+    `driver.recurring`'s target is absent, malformed, or spans more than 366
+    days end from start; `driver.one-time` needs one only when its own task
+    carries no anomaly ("that day IS the driver, nothing to ask") -- and is
+    refused for carrying one anyway when it does, so a model cannot silently
+    attach JSON this console will never read. `internal/finops.applyDriver`
+    reads the target when the anomaly does not supply the day instead; a
+    `driver.recurring` option, or a `driver.one-time` one with neither an
+    anomaly nor a target, that reaches `Apply` anyway (an option saved
+    before this change, or a caller bypassing the save-time gate) writes no
+    drivers row and `Apply` returns a descriptive error instead of a guess --
+    the same "real error, no side effect" shape this function already held
+    for a task with no desk to write against.
+
+    *(gate: `TestApplyDriverRecurringWritesADriversRow`,
+    `TestApplyDriverOneTimeOnAnAnomalyKeepsTheAnomalysDay`,
+    `TestApplyDriverOneTimeOnAnAnomalyIgnoresAnyTarget`,
+    `TestApplyDriverOneTimeWithNoAnomalyAndATargetWritesItsWindow` for
+    `applyDriver`'s own window rules; `TestApplyDriverRecurringWithNoTargetWritesNoDriversRow`
+    and `TestApplyDriverOneTimeWithNoAnomalyAndNoTargetWritesNoDriversRow`
+    for the "no target reaches Apply, real error, no row" path
+    (`internal/finops`); `TestDriverRecurringWithNoTargetIsRefused`,
+    `TestDriverRecurringWithAValidTargetIsSaved`,
+    `TestDriverOneTimeOnAnAnomalyTaskNeedsNoTarget`,
+    `TestDriverOneTimeWithNoAnomalyAndNoTargetIsRefused`,
+    `TestDriverOneTimeWithNoAnomalyAndAValidTargetIsSaved`,
+    `TestDriverTargetBoundariesAreAccepted` (start equals end, exactly 366
+    days, a window entirely in the past), `TestDriverTargetHostileInputs`
+    (end before start, a five-year window, dates that do not parse, a
+    target on driver.one-time when its own task already has an anomaly),
+    and `TestDriverTargetOversizeIsCaughtByTheWholeBlockCap` for the
+    save-time gate (`internal/crew`); `TestPromptNamesTheDriverTargetShapeForASupervisor`,
+    `TestPromptNamesTheDriverTargetShapeForAnInvestigator`,
+    `TestPromptOmitsTheDriverTargetShapeForARoleWithNeitherDriverClass` for
+    the prompt sentence (`internal/deliver`);
+    `TestTheTaskPageShowsADriverOptionsWindow`,
+    `TestTheTaskPageOmitsTheWindowRowForAnOptionWithNoTarget` for the task
+    page (`internal/web`). `scripts/gates-have-teeth.sh`'s
+    `driver-window: write Start = End = day ignoring the target` case
+    plants exactly the fault DRIVER-WINDOW-SPEC.md section 4 names first:
+    reverting `applyDriver` to `time.Now().UTC()` for both ends of the
+    window regardless of what the option's own target says. Three more
+    mutants that same section names were planted by hand and reverted
+    rather than kept as permanent cases, the same shape invariant 27's own
+    history already describes for this file: accepting a `driver.recurring`
+    option with no target at save time, caught by
+    `TestDriverRecurringWithNoTargetIsRefused`; dropping the 366-day bound,
+    caught by `TestDriverTargetHostileInputs`'s "a five-year window" case;
+    and taking today's date for a `driver.one-time` option on a task with
+    no anomaly even when a target is present, caught by
+    `TestApplyDriverOneTimeWithNoAnomalyAndATargetWritesItsWindow`.)*
 
 ## Decisions that have no gate yet
 

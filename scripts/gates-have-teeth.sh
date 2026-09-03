@@ -1024,6 +1024,22 @@ run_case 'plan-ask: charge the settled cost to nobody' \
 	$'cents := (micros + 9_999) / 10_000' \
 	$'cents := int64(0)'
 
+# DRIVER-WINDOW-SPEC.md section 4's own first-named mutant: "write
+# Start = End = day ignoring the target". applyDriver's whole fix was
+# reading the option's own target instead of the wall clock; replacing the
+# decoded target's own dates with a fixed day (any day but the target's own
+# 2026-08-01/2026-08-30) is the same fault the original bug had, just
+# without needing time.Now() (this file no longer imports "time" at all,
+# and the mutation must still compile on its own).
+run_case 'driver-window: write Start = End = day ignoring the target' \
+	fail \
+	./internal/finops \
+	$'TestApplyDriverRecurringWritesADriversRow' \
+	$'want 2026-08-01 to 2026-08-30' \
+	internal/finops/apply.go \
+	$'\t\tstart, end = tgt.Start, tgt.End' \
+	$'\t\tstart, end = "2026-09-03", "2026-09-03"'
+
 echo
 if [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'

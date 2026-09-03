@@ -246,6 +246,12 @@ func run(addr, dir string, scfg stack.Config, gatewayURL string) error {
 	if err := crew.EnsureOwnershipHistory(st.DB()); err != nil {
 		return fmt.Errorf("ownership history: %w", err)
 	}
+	// driver.recurring's and driver.one-time's own structured target
+	// (DRIVER-WINDOW-SPEC.md section 2), for an installation that has never
+	// seen this column before.
+	if err := crew.EnsureOptionTarget(st.DB()); err != nil {
+		return fmt.Errorf("option target column: %w", err)
+	}
 
 	// More than one person to answer for the estate.
 	// The SAME name SeedRoster stamped, which is "unclaimed" when no -stack-owner
