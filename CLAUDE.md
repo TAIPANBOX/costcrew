@@ -56,7 +56,7 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 540 tests, 20 packages
+go test ./...                        # 541 tests, 20 packages
 ./scripts/gates-have-teeth.sh        # 71 cases; needs a clean tree; ~90s
 ./scripts/features-are-bound.sh      # 108 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
@@ -851,6 +851,13 @@ an absent invariant.
     `TestApplyForecastFreezeUsesTheOptionsSummaryAsTheBasis` in
     `internal/finops`; `TestForecastingSectionShowsDriverLines`,
     `TestForecastingSectionShowsTheMissWithItsMissedDriver`,
+    `TestForecastingSectionShowsTheMissOfAClosedPeriodEvenWhenTheOpenOneIsAlsoFrozen`
+    (the open month is frozen too, the normal case a real installation hits
+    every month, and its own unscored freeze is not the same question as
+    "the most recently CLOSED one" -- reusing one variable for both let the
+    miss of a genuinely closed month disappear the moment the open month
+    was frozen as well, found running the packet against the real seeded
+    estate rather than by any test that existed before it),
     `TestForecastingSectionShowsAMissOfZero` in `internal/deliver`;
     `TestTheForecastPageNamesTheDriversThatMovedTheProjection` in
     `internal/web`. `scripts/gates-have-teeth.sh` plants and catches three

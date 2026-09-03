@@ -80,7 +80,7 @@ func TestForecastingSectionShowsTheMissWithItsMissedDriver(t *testing.T) {
 	})
 
 	got := forecastingSection(db, "aws")
-	if !strings.Contains(got, "miss:") {
+	if !strings.Contains(got, "miss (") {
 		t.Fatalf("forecastingSection does not carry a miss line:\n%s", got)
 	}
 	if !strings.Contains(got, "frozen") || !strings.Contains(got, "actual") || !strings.Contains(got, "difference") {
@@ -88,6 +88,53 @@ func TestForecastingSectionShowsTheMissWithItsMissedDriver(t *testing.T) {
 	}
 	if !strings.Contains(got, "Retroactively found cause") {
 		t.Errorf("forecastingSection does not name the missed driver:\n%s", got)
+	}
+}
+
+// The current, still-open period is frozen too (the normal case: history.go
+// seeds "including the open one" and the seeded estate does the same),
+// so the highest-period freeze is unscored. The miss from the last CLOSED
+// period must still show, not disappear because a newer, unscored freeze
+// exists. Found running the packet against the real seeded estate
+// (tools/packetdump, this PR's own report): onprem's own August packet,
+// with August already frozen mid-month, never once showed a miss for any
+// earlier month.
+func TestForecastingSectionShowsTheMissOfAClosedPeriodEvenWhenTheOpenOneIsAlsoFrozen(t *testing.T) {
+	db := deliverTestDB(t)
+	for d := 1; d <= 20; d++ {
+		day := fmt.Sprintf("2026-01-%02d", d)
+		if _, err := db.Exec(`INSERT INTO charges (source,day,service,team,category,billed_cents)
+			VALUES ('aws',?,'Amazon EC2','test-team','Usage',1000)`, day); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// The open period: some data, so it can be frozen and projected too.
+	if _, err := db.Exec(`INSERT INTO charges (source,day,service,team,category,billed_cents)
+		VALUES ('aws','2026-02-01','Amazon EC2','test-team','Usage',500)`); err != nil {
+		t.Fatal(err)
+	}
+	if err := finops.FreezeAsAt(db, "2026-01", "tester", 10); err != nil {
+		t.Fatal(err)
+	}
+	// The current month, frozen too -- the normal case a real installation
+	// hits every month, not a contrived edge.
+	if err := finops.Freeze(db, "2026-02", "tester"); err != nil {
+		t.Fatal(err)
+	}
+	plantDriver(t, db, world.Driver{
+		Start: "2026-01-15", End: "2026-01-15", Scope: "*",
+		Label: "Retroactively found cause", Kind: "one-time", Source: "aws",
+	})
+
+	got := forecastingSection(db, "aws")
+	if !strings.Contains(got, "for 2026-02") {
+		t.Errorf("forecastingSection does not show the current month's own freeze:\n%s", got)
+	}
+	if !strings.Contains(got, "miss (") {
+		t.Fatalf("forecastingSection dropped the closed month's miss once the open month was also frozen:\n%s", got)
+	}
+	if !strings.Contains(got, "Retroactively found cause") {
+		t.Errorf("forecastingSection does not name the missed driver from the closed month:\n%s", got)
 	}
 }
 

@@ -541,9 +541,19 @@ func forecastingSection(db *sql.DB, desk string) string {
 	amt, basis, lines, projErr := finops.ProjectWithDrivers(db, desk, period)
 	ok := projErr == nil
 
+	// "last" is the most recently frozen period, shown whether or not it
+	// has closed yet (the normal case: the OPEN month is frozen too, the
+	// same "including the open one" shape history.go's own seeding uses).
+	// "scored" is the most recent CLOSED, graded one, tracked separately:
+	// once the open month has its own fresh, unscored freeze, it is always
+	// the highest period, and reusing ONE variable for both questions made
+	// the miss of a genuinely closed month disappear the moment the open
+	// month was frozen too -- found running the packet against the real
+	// seeded estate (this PR's own report), not by any test that existed
+	// before TestForecastingSectionShowsTheMissOfAClosedPeriodEvenWhenTheOpenOneIsAlsoFrozen.
 	frozen, ferr := finops.Forecasts(db, period)
-	var last finops.Forecast
-	haveLast := false
+	var last, scored finops.Forecast
+	haveLast, haveScored := false, false
 	if ferr == nil {
 		for _, f := range frozen {
 			if f.Source != desk {
@@ -551,6 +561,9 @@ func forecastingSection(db *sql.DB, desk string) string {
 			}
 			if !haveLast || f.Period > last.Period {
 				last, haveLast = f, true
+			}
+			if f.HasAct && (!haveScored || f.Period > scored.Period) {
+				scored, haveScored = f, true
 			}
 		}
 	}
@@ -574,21 +587,24 @@ func forecastingSection(db *sql.DB, desk string) string {
 		fmt.Fprintf(&b, "last frozen forecast: %s for %s", last.Forecast, last.Period)
 		if last.HasAct {
 			fmt.Fprintf(&b, ", graded %s (%.1f%% error)\n", last.Grade, last.ErrorPct)
-			// The next month explains the miss, C3-SPEC.md section 1: the
-			// frozen figure against what happened, and whichever registered
-			// drivers the frozen basis never named -- a driver added to the
-			// registry only after the freeze, naming in hindsight what the
-			// gap turned out to be.
-			diff := last.Actual - last.Forecast
-			fmt.Fprintf(&b, "miss: frozen %s, actual %s, difference %s\n", last.Forecast, last.Actual, diff)
-			if missed, merr := finops.Missed(db, desk, last.Period, last.Basis); merr == nil && len(missed) > 0 {
-				b.WriteString("missed drivers:\n")
-				for _, d := range missed {
-					fmt.Fprintf(&b, "  %s (%s, %s to %s)\n", d.Label, d.Kind, d.Start, d.End)
-				}
-			}
 		} else {
 			b.WriteString(", not yet scored\n")
+		}
+	}
+	if haveScored {
+		// The next month explains the miss, C3-SPEC.md section 1: the
+		// frozen figure against what happened, and whichever registered
+		// drivers the frozen basis never named -- a driver added to the
+		// registry only after the freeze, naming in hindsight what the
+		// gap turned out to be.
+		diff := scored.Actual - scored.Forecast
+		fmt.Fprintf(&b, "miss (%s): frozen %s, actual %s, difference %s\n",
+			scored.Period, scored.Forecast, scored.Actual, diff)
+		if missed, merr := finops.Missed(db, desk, scored.Period, scored.Basis); merr == nil && len(missed) > 0 {
+			b.WriteString("missed drivers:\n")
+			for _, d := range missed {
+				fmt.Fprintf(&b, "  %s (%s, %s to %s)\n", d.Label, d.Kind, d.Start, d.End)
+			}
 		}
 	}
 	return b.String()
