@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/TAIPANBOX/costcrew/actions/workflows/ci.yml/badge.svg)](https://github.com/TAIPANBOX/costcrew/actions/workflows/ci.yml)
 ![Go](https://img.shields.io/badge/go-1.27-00ADD8.svg)
-![tests](https://img.shields.io/badge/tests-526-brightgreen.svg)
+![tests](https://img.shields.io/badge/tests-528-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)
 ![Status](https://img.shields.io/badge/enforces-nothing%20by%20design-success.svg)
 
@@ -183,7 +183,7 @@ platform act and a separate decision; neither is done in this repository.
 ## Gates
 
 ```sh
-go test ./...                        # 526 tests, 20 packages
+go test ./...                        # 528 tests, 20 packages
 ./scripts/features-are-bound.sh      # every scenario bound to a named test, both ways
 ./scripts/gates-have-teeth.sh        # 69 cases: each gate is made to fail on purpose
 gofmt -l . && go vet ./...
@@ -208,9 +208,12 @@ service, day, kind and cause, beside the cost per task:
 go run ./tools/bench -dir ./local -skill triage -engine mock
 ```
 
-`-live` calls a real model, needs a real key, and needs `-gateway`: the
-bench's spend is metered through TokenFuse exactly like the crew's, the same
-one call path `tools/run` uses (`internal/deliver.Call`). Without `-live`,
+`-live` calls a real model, needs a real key, and needs `-gateway` and
+`-stack-host` together: the bench's spend is metered through TokenFuse
+exactly like the crew's, the same one call path `tools/run` uses
+(`internal/deliver.Call`), and the agent id it is filed under must name this
+installation's own trust domain rather than the bare package default.
+Without `-live`,
 any engine but `mock`/`mock-oracle` is priced at that model's own rate and
 refused, never called. What it is not: a score on the generated fixture is a
 score on the fixture, not a claim about a real production estate, and it

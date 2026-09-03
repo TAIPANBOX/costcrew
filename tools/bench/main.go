@@ -96,6 +96,14 @@ func run(args []string, stdout, stderr io.Writer) (code int, err error) {
 	gateway := flag.String("gateway", deliver.GatewayEnvDefault(),
 		"TokenFuse gateway for the Anthropic route, e.g. http://127.0.0.1:4177; "+
 			"empty calls api.anthropic.com directly. Falls back to COSTCREW_GATEWAY.")
+	// The runner's own flag, same help text (tools/run/main.go): the agent
+	// id TokenFuse meters is built from it (stack.AgentURI), and a bench
+	// standing in for an installation that runs under some OTHER trust
+	// domain must not mint its agent ids under the bare package default.
+	// Required whenever -gateway is set, the same pairing tools/run's own
+	// openBus already holds between -stack-events and -stack-host
+	// (coordinator review of PR #29, 2026-09-03).
+	host := flag.String("stack-host", "", "the agent:// authority for this installation; must match the console's")
 	if err := flag.CommandLine.Parse(args); err != nil {
 		return 2, nil // flag.CommandLine already wrote its own message to stderr
 	}
@@ -127,6 +135,20 @@ func run(args []string, stdout, stderr io.Writer) (code int, err error) {
 		return 1, err
 	}
 
+	// -gateway needs -stack-host, checked immediately alongside it and
+	// before the store opens: the same pairing tools/run's own openBus
+	// holds between -stack-events and -stack-host, for the same reason --
+	// an agent id minted under the wrong trust domain (or the bare
+	// package default) is not this installation as TokenFuse, or the
+	// console's own bus, would recognise it. One sentence naming both
+	// flags (coordinator review of PR #29, 2026-09-03).
+	if gatewayURL != "" && *host == "" {
+		return 1, fmt.Errorf("-gateway needs -stack-host: an agent id minted under the " +
+			"wrong trust domain is not this installation as TokenFuse would recognise " +
+			"it, which reads as an ordinary call from nowhere rather than as a " +
+			"misconfiguration")
+	}
+
 	// Checked after the two engine-name checks above (a bogus -engine value
 	// is refused for THAT reason, not this one), and before the store is
 	// even opened: no case is selected, no packet is built, nothing is
@@ -156,7 +178,7 @@ func run(args []string, stdout, stderr io.Writer) (code int, err error) {
 	if !anyDriver {
 		return runStampMode(db, stdout, *n, *skill, *engine, int64(*seed))
 	}
-	return runFixtureMode(db, stdout, *n, *skill, *engine, int64(*seed), *maxTok, fresh, *live, gatewayURL)
+	return runFixtureMode(db, stdout, *n, *skill, *engine, int64(*seed), *maxTok, fresh, *live, gatewayURL, *host)
 }
 
 // ensureSeeded brings a fresh -dir up to the same baseline the console's
@@ -238,7 +260,7 @@ func runStampMode(db *sql.DB, w io.Writer, n int, skill, engine string, seed int
 // call created the estate; false means the bench read an existing store
 // rather than seeding one, and says so, in place of running detection
 // against it.
-func runFixtureMode(db *sql.DB, w io.Writer, n int, skill, engine string, seed int64, maxTok int, fresh, live bool, gatewayURL string) (int, error) {
+func runFixtureMode(db *sql.DB, w io.Writer, n int, skill, engine string, seed int64, maxTok int, fresh, live bool, gatewayURL, host string) (int, error) {
 	cases, total, eligible, err := selectKnownCases(db, skill, n, seed)
 	if err != nil {
 		return 1, err
@@ -265,7 +287,7 @@ func runFixtureMode(db *sql.DB, w io.Writer, n int, skill, engine string, seed i
 		}
 
 		if live {
-			results, err := scoreLive(db, cases, engine, model, p, maxTok, gatewayURL)
+			results, err := scoreLive(db, cases, engine, model, p, maxTok, gatewayURL, host)
 			if err != nil {
 				return 1, err
 			}

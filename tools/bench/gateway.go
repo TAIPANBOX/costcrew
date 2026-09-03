@@ -24,21 +24,27 @@ import (
 	"github.com/TAIPANBOX/costcrew/internal/stack"
 )
 
-// gatewayFor builds ONE case's Gateway from the run-wide URL/run id/budget
-// and that case's own analyst. The run id and the budget are the same for
-// every case in one bench invocation: there is no per-case guard a bench
-// case's own price can be checked against the way a crew task's Budget is,
-// so the whole run's own worst case stands in for it, the same "no task
-// guard, use the run figure" fallback GatewayBudgetUSD already gives a
-// caller that passes a zero task guard. The agent id is the one thing that
-// actually varies case to case. Host is always "" here (stack.AgentURI's
-// own default, costcrew.local): the bench has no -stack-host flag of its
-// own, and adding one is out of this step's scope.
-func gatewayFor(url, runID, analystName, budgetUSD string) deliver.Gateway {
+// gatewayFor builds ONE case's Gateway from the run-wide URL/run id/host/
+// budget and that case's own analyst. The run id, the host and the budget
+// are the same for every case in one bench invocation: there is no
+// per-case guard a bench case's own price can be checked against the way a
+// crew task's Budget is, so the whole run's own worst case stands in for
+// it, the same "no task guard, use the run figure" fallback
+// GatewayBudgetUSD already gives a caller that passes a zero task guard.
+// The agent id is the one thing that actually varies case to case.
+//
+// host is now a real argument, never AgentURI's own "" default (coordinator
+// review of PR #29, 2026-09-03): a bare "" reads as costcrew.local
+// regardless of what trust domain the console this bench stands in for
+// actually runs under, so a live run's spend would be filed under an
+// agent id TokenFuse's own trace, and the console's own bus, would not
+// recognise as the same installation. main.go's run() requires -stack-host
+// whenever -gateway is set, before this is ever called.
+func gatewayFor(url, runID, host, analystName, budgetUSD string) deliver.Gateway {
 	return deliver.Gateway{
 		URL:       url,
 		RunID:     runID,
-		AgentID:   stack.AgentURI("", analystName),
+		AgentID:   stack.AgentURI(host, analystName),
 		BudgetUSD: budgetUSD,
 	}
 }
@@ -72,7 +78,7 @@ func budgetUSDFor(worstMicros int64) string {
 // unlike tools/run's spend(), which continues other tasks and marks one
 // blocked on the board, this bench has no board and no per-case retry story
 // to fall back on -- see the report's own NOT PROVEN line.
-func scoreLive(db *sql.DB, cases []knownCase, engine, model string, p engines.Price, maxTok int, gatewayURL string) ([]caseResult, error) {
+func scoreLive(db *sql.DB, cases []knownCase, engine, model string, p engines.Price, maxTok int, gatewayURL, host string) ([]caseResult, error) {
 	worst, err := worstCaseMicros(db, cases, engine, model, p, maxTok)
 	if err != nil {
 		return nil, err
@@ -87,7 +93,7 @@ func scoreLive(db *sql.DB, cases []knownCase, engine, model string, p engines.Pr
 
 	out := make([]caseResult, 0, len(cases))
 	for _, c := range cases {
-		gw := gatewayFor(gatewayURL, runID, c.Analyst.Name, budgetUSD)
+		gw := gatewayFor(gatewayURL, runID, host, c.Analyst.Name, budgetUSD)
 		sent := promptFor(db, c.Anomaly, c.Analyst)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)

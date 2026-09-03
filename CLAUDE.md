@@ -56,9 +56,9 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 526 tests, 20 packages
+go test ./...                        # 528 tests, 20 packages
 ./scripts/gates-have-teeth.sh        # 69 cases; needs a clean tree; ~3m40s, up from ~90s at 67
-./scripts/features-are-bound.sh      # 113 scenarios, both directions
+./scripts/features-are-bound.sh      # 115 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
@@ -82,10 +82,12 @@ branch last updated them by hand (B1a's own merge left this block at 282/48/59
 while its own PR body reported 301/52/70). Invariants 1, 2 and 5's own route
 counts (48/30/30 -> 50/34/34) were also re-measured while touching this file for
 B5, since the new /cadence routes are directly what moved them. B6b (this file's
-own invariant 32) moved 515 -> 526 tests (internal/deliver gained 8, 3 of them
+own invariant 32) moved 515 -> 528 tests (internal/deliver gained 8, 3 of them
 moved from tools/run rather than new; tools/run's own count fell by 2, net of
-one new structural test; tools/bench gained 5) and 67 -> 69 gates-have-teeth.sh
-cases (the second-door mutant, one case per binary).
+one new structural test; tools/bench gained 7, 5 in the first pass and 2 more
+in coordinator review's -stack-host fix) and 67 -> 69 gates-have-teeth.sh
+cases (the second-door mutant, one case per binary). Feature scenarios
+105 -> 115 (8 in the first pass, 2 in the -stack-host fix).
 
 The gates in this repo are Go tests rather than shell scripts, so
 `gates-have-teeth.sh` mutates the PRODUCT and requires the test to go red.
@@ -819,12 +821,24 @@ an absent invariant.
     mints for a crew run) and one budget (the whole run's own worst case,
     the same "no per-task guard, use the run figure" fallback
     `GatewayBudgetUSD` already gives), with a distinct agent id per case
-    (`stack.AgentURI("", analystName)`). `-live` with a real engine and no
+    (`stack.AgentURI(host, analystName)`). `-live` with a real engine and no
     `-gateway` refuses before the store opens, naming the flag; `Call`
     itself refuses before any request when the gateway is on but the run id
     or the agent id would be empty, which covers both binaries at the one
     place that actually builds the request, rather than a duplicated
     preflight check in each.
+
+    Coordinator review of PR #29, 2026-09-03, found one more: the first
+    version minted `host` as `""`, `stack.AgentURI`'s own default
+    (`costcrew.local`) regardless of what trust domain the console this
+    bench stands in for actually runs under, so TokenFuse would have filed a
+    live bench run's spend under an agent id the installation's own bus
+    would not recognise as itself. Fixed by transplanting the runner's own
+    pairing: `-stack-host` (`tools/bench/main.go`, same help text as
+    `tools/run`'s), required whenever `-gateway` is set -- refused before
+    the store opens, naming both flags -- the identical shape `openBus`
+    already holds between `-stack-events` and `-stack-host` in `tools/run`.
+    `gatewayFor` and `scoreLive` both take `host` as a real argument now.
 
     What did NOT move, on purpose: `execute()`, `runBudget`,
     `gatewayHeadersFor` and the bus all stay in `tools/run` -- a run's own
@@ -851,6 +865,11 @@ an absent invariant.
     `TestGatewayForBuildsThePerCaseGateway` and its empty-URL neighbour
     isolate the bench's own per-case builder directly, the same
     "isolate the layer" reasoning invariant 26 already gives.
+    `TestLiveRefusesWithNoStackHost` and `TestLiveWithStackHostMintsTheAgentIdUnderIt`
+    (`tools/bench`) hold the `-stack-host` fix: the fake gateway is never
+    dialled with no `-stack-host`, and with one given the agent id is minted
+    under it, checked by exact string (`agent://example.test/investigator-gcp`)
+    rather than only by prefix.
     `scripts/gates-have-teeth.sh` plants a second `net/http` import (as a
     comment -- a real, unused import would not compile, and would be judged
     BROKEN rather than CAUGHT) under each binary and requires its own

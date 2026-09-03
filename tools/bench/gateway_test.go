@@ -99,7 +99,7 @@ func TestLiveWithGatewaySendsTheThreeFuseHeaders(t *testing.T) {
 
 	dir := t.TempDir()
 	code, out, errOut := runArgs(t, "-dir", dir, "-live", "-skill", "investigate",
-		"-engine", "anthropic", "-gateway", srv.URL, "-n", "5")
+		"-engine", "anthropic", "-gateway", srv.URL, "-stack-host", "gcp.taipanbox.local", "-n", "5")
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stdout: %s stderr: %s", code, out, errOut)
 	}
@@ -110,8 +110,9 @@ func TestLiveWithGatewaySendsTheThreeFuseHeaders(t *testing.T) {
 		if got := h.Get("x-fuse-run-id"); got == "" {
 			t.Errorf("case %d: x-fuse-run-id is empty", i)
 		}
-		if got := h.Get("x-fuse-agent-id"); !strings.HasPrefix(got, "agent://") {
-			t.Errorf("case %d: x-fuse-agent-id = %q, want an agent:// URI", i, got)
+		if got := h.Get("x-fuse-agent-id"); !strings.HasPrefix(got, "agent://gcp.taipanbox.local/") {
+			t.Errorf("case %d: x-fuse-agent-id = %q, want it minted under -stack-host's "+
+				"trust domain (gcp.taipanbox.local), not the default", i, got)
 		}
 		if got := h.Get("x-fuse-budget-usd"); got == "" {
 			t.Errorf("case %d: x-fuse-budget-usd is empty", i)
@@ -153,13 +154,95 @@ func TestLiveWithTriageSkillCallsOnlyTheEligibleCase(t *testing.T) {
 
 	dir := t.TempDir()
 	code, out, errOut := runArgs(t, "-dir", dir, "-live", "-skill", "triage",
-		"-engine", "anthropic", "-gateway", srv.URL, "-n", "5")
+		"-engine", "anthropic", "-gateway", srv.URL, "-stack-host", "gcp.taipanbox.local", "-n", "5")
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stdout: %s stderr: %s", code, out, errOut)
 	}
 	if calls != 1 {
 		t.Errorf("the fake gateway was called %d time(s), want exactly 1 (the one "+
 			"triage-eligible case)", calls)
+	}
+}
+
+// Coordinator review of PR #29, 2026-09-03: gatewayFor minted every agent id
+// under stack.AgentURI's own default ("", meaning costcrew.local) regardless
+// of what trust domain the console this bench stands in for actually runs
+// under, so a live bench run's spend would be filed in TokenFuse under an
+// agent id the console's own installation would not recognise as itself.
+// -stack-host, the runner's own flag (tools/run/main.go), fixes it: required
+// whenever -gateway is set, the same pairing tools/run's own openBus already
+// holds between -stack-events and -stack-host ("an event minted under a
+// trust domain the record plane was not given is refused as foreign").
+//
+// Red first, against the tree before this fix: -stack-host does not exist as
+// a flag, so this fails to compile ("unknown flag" only appears at runtime
+// through flag.ContinueOnError, but the flag literal below is unused code
+// today) -- confirmed by running this file before gatewayFor/main.go changed:
+// runArgs(t, ..., "-stack-host", "example.test") is accepted as an ordinary
+// (currently unvalidated) flag with no effect, so TestLiveWithStackHostMintsTheAgentIdUnderIt
+// failed on the agent id still reading costcrew.local, and
+// TestLiveRefusesWithNoStackHost failed because nothing refused at all
+// (exit 0, not 1).
+func TestLiveRefusesWithNoStackHost(t *testing.T) {
+	t.Setenv("ANTHROPIC_API_KEY", "sk-ant-stub-not-real")
+	called := false
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+	}))
+	defer srv.Close()
+
+	dir := t.TempDir()
+	code, _, errOut := runArgs(t, "-dir", dir, "-live", "-skill", "triage",
+		"-engine", "anthropic", "-gateway", srv.URL)
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1; stderr: %s", code, errOut)
+	}
+	if called {
+		t.Error("the fake gateway was called at all; -gateway with no -stack-host must refuse before the store opens")
+	}
+	for _, want := range []string{"-gateway", "-stack-host"} {
+		if !strings.Contains(errOut, want) {
+			t.Errorf("refusal does not name %q: %s", want, errOut)
+		}
+	}
+	if _, err := os.Stat(dir + "/app.db"); err == nil {
+		t.Error("app.db exists: the store was opened despite -gateway with no -stack-host")
+	}
+}
+
+// With -stack-host given, the agent id is minted under IT, not under
+// AgentURI's own costcrew.local default. -n 5 (both known cases, the
+// shuffle order is not this test's concern) and checked by membership
+// rather than by which case landed first, matching the coordinator's own
+// review, which named agent://example.test/investigator-gcp specifically.
+func TestLiveWithStackHostMintsTheAgentIdUnderIt(t *testing.T) {
+	t.Setenv("ANTHROPIC_API_KEY", "sk-ant-stub-not-real")
+	var gotAgentIDs []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAgentIDs = append(gotAgentIDs, r.Header.Get("x-fuse-agent-id"))
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(fakeAnthropicResponse("cause noted.", 1, 1))
+	}))
+	defer srv.Close()
+
+	dir := t.TempDir()
+	code, out, errOut := runArgs(t, "-dir", dir, "-live", "-skill", "investigate",
+		"-engine", "anthropic", "-gateway", srv.URL, "-stack-host", "example.test", "-n", "5")
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stdout: %s stderr: %s", code, out, errOut)
+	}
+	want := "agent://example.test/investigator-gcp"
+	found := false
+	for _, id := range gotAgentIDs {
+		if id == want {
+			found = true
+		}
+		if !strings.HasPrefix(id, "agent://example.test/") {
+			t.Errorf("x-fuse-agent-id = %q, not minted under -stack-host's domain", id)
+		}
+	}
+	if !found {
+		t.Errorf("no request carried x-fuse-agent-id %q; got %v", want, gotAgentIDs)
 	}
 }
 
@@ -170,8 +253,13 @@ func TestLiveWithTriageSkillCallsOnlyTheEligibleCase(t *testing.T) {
 // where the agent id belongs is caught here directly rather than only via
 // the end-to-end header test above -- the same "isolate the layer" reasoning
 // CLAUDE.md's invariant 26 already gives for wrapWithLimit/refuseUnknownTables.
+//
+// host is now a real argument (coordinator review of PR #29, 2026-09-03):
+// gatewayFor used to hard-code stack.AgentURI's own "" default, which reads
+// as costcrew.local regardless of what trust domain the console this bench
+// stands in for actually runs under.
 func TestGatewayForBuildsThePerCaseGateway(t *testing.T) {
-	gw := gatewayFor("http://127.0.0.1:4177", "bench-9", "investigator-gcp", "0.05")
+	gw := gatewayFor("http://127.0.0.1:4177", "bench-9", "gcp.taipanbox.local", "investigator-gcp", "0.05")
 	if gw.URL != "http://127.0.0.1:4177" {
 		t.Errorf("URL = %q", gw.URL)
 	}
@@ -181,7 +269,7 @@ func TestGatewayForBuildsThePerCaseGateway(t *testing.T) {
 	if gw.BudgetUSD != "0.05" {
 		t.Errorf("BudgetUSD = %q", gw.BudgetUSD)
 	}
-	if want := "agent://costcrew.local/investigator-gcp"; gw.AgentID != want {
+	if want := "agent://gcp.taipanbox.local/investigator-gcp"; gw.AgentID != want {
 		t.Errorf("AgentID = %q, want %q", gw.AgentID, want)
 	}
 }
@@ -191,7 +279,7 @@ func TestGatewayForBuildsThePerCaseGateway(t *testing.T) {
 // the same "empty means off, and off is not an error" rule
 // TestNormalizeGatewayEmptyMeansOff already holds for tools/run.
 func TestGatewayForWithNoURLBuildsAnOffGateway(t *testing.T) {
-	gw := gatewayFor("", "bench-9", "investigator-gcp", "0.05")
+	gw := gatewayFor("", "bench-9", "gcp.taipanbox.local", "investigator-gcp", "0.05")
 	if gw.URL != "" {
 		t.Errorf("URL = %q, want empty", gw.URL)
 	}

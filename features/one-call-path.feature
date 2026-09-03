@@ -39,12 +39,42 @@ Feature: The runner and the bench spend through one door
   # @test:TestLiveWithGatewaySendsTheThreeFuseHeaders
   Scenario: The bench's door carries the run, the agent and the budget
     Given a bench live run scoring the fixture's two known cases, pointed at
-      a fake gateway through -gateway
+      a fake gateway through -gateway and -stack-host
     When each case is scored
     Then the fake server receives x-fuse-run-id, x-fuse-agent-id and
       x-fuse-budget-usd on every request, the run id is the SAME for both
       cases and the agent id DIFFERS between them, because one bench
       invocation is one run and its two cases are two different analysts
+
+  @claude 2026-09-03
+  """
+  gatewayFor mints the agent id with stack.AgentURI("", name), so a live
+  bench run is always attributed under the default trust domain
+  costcrew.local regardless of the console's configured host, and TokenFuse
+  would file the bench's spend under agent ids that do not match the
+  console's own.
+  """
+
+  Coordinator review of PR #29, 2026-09-03, on the scenario above's own first
+  version: it proved the three headers exist but never checked which trust
+  domain the agent id names, and the code minted every one of them under
+  AgentURI's own bare default. The fix is the runner's own pairing,
+  transplanted: -stack-host, required whenever -gateway is set, the same way
+  tools/run's own openBus already requires it whenever -stack-events is set.
+
+  # @test:TestLiveRefusesWithNoStackHost
+  Scenario: -gateway needs -stack-host, the same pairing the runner holds
+    Given -live, -gateway pointed at a fake server, and no -stack-host
+    When the bench starts
+    Then it refuses before the store opens, naming both flags, and the fake
+      server is never even dialled
+
+  # @test:TestLiveWithStackHostMintsTheAgentIdUnderIt
+  Scenario: The agent id is minted under the given host, not the default
+    Given -live, -gateway pointed at a fake server, and -stack-host example.test
+    When a known case is scored
+    Then the fake server receives x-fuse-agent-id agent://example.test/investigator-gcp,
+      never one built under costcrew.local
 
   # @test:TestLiveWithARealEngineAndNoGatewayRefuses
   Scenario: Without the door open, the bench's spend refuses before any call

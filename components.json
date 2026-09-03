@@ -195,6 +195,9 @@
           },
           "skill": {
             "required": false
+          },
+          "stack-host": {
+            "required": false
           }
         }
       },
