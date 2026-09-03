@@ -40,7 +40,7 @@
 <div class="panel">
   <h2>Commitments</h2>
   <div class="body">
-    <p class="note">A discount bought in advance is cheaper per hour and only if you use it. Under {{printf "%.0f%%" .Waterline}} utilisation it costs more than it saves.</p>
+    <p class="note">A discount bought in advance is cheaper per hour and only if you use it. Under {{printf "%.0f%%" .Waterline}} utilisation it costs more than it saves. {{if .CommitmentsReal}}Read from a connector's own commitments.{{else}}Generated: no connector has written a real commitment yet.{{end}}</p>
     <div class="scroll"><table>
       <thead><tr>{{$.SortCommitments.Header "name" "Commitment" "" false}}{{$.SortCommitments.Header "desk" "Desk" "tight" false}}{{$.SortCommitments.Header "used" "Used" "num" false}}{{$.SortCommitments.Header "hourly" "Paid and idle" "num" true}}{{$.SortCommitments.Header "expires" "Expires" "tight" false}}</tr></thead>
       <tbody>{{range .Commitments}}

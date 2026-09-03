@@ -63,6 +63,42 @@ CREATE INDEX IF NOT EXISTS ai_calls_day ON ai_calls(day, team, model);
 CREATE INDEX IF NOT EXISTS ai_calls_agent ON ai_calls(agent, day);
 `
 
+// CommitmentSchema is the FOCUS 1.2 CommitmentDiscount* columns and
+// ChargeCategory=Purchase rows kept when a file carries them (C4-SPEC.md
+// section 2): one row per CommitmentDiscountId, upserted, never one row per
+// day -- a re-import of the same commitment's later Purchase rows converges
+// on that commitment's current state rather than duplicating it.
+//
+// Exported so internal/finops (coverage, utilisation, the expiry calendar,
+// break-even) can ensure the table exists before it queries it, the same
+// defensive db.Exec(Schema) pattern connectors.go's own Load/Save/Test
+// already use for the connections table, without pulling in this whole
+// package's Reader machinery.
+//
+// source is always "ai" today: this reader is TokenFuse's own FOCUS export,
+// and every charges row it derives is source='ai' too (deriveCharges,
+// below); the cloud FOCUS readers this reader's own package comment expects
+// (AWS, Azure, GCP) will write their own desk here once they exist. date_end
+// is read from the row's own ChargePeriodEnd -- not required, not read
+// anywhere else in this file today -- rather than a seventh CommitmentDiscount*
+// column FOCUS 1.2 does not define: a Purchase row's own charge period is a
+// reasonable stand-in for the commitment's active window when one row
+// covers a commitment's whole term, and a later row for the same id simply
+// moves date_end forward on upsert. @claude 2026-09-03.
+const CommitmentSchema = `
+CREATE TABLE IF NOT EXISTS commitments(
+  id TEXT NOT NULL PRIMARY KEY,
+  kind TEXT NOT NULL,
+  status TEXT NOT NULL,
+  quantity REAL NOT NULL,
+  unit TEXT,
+  source TEXT NOT NULL,
+  date_start TEXT NOT NULL,
+  date_end TEXT NOT NULL,
+  monthly_cents INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS commitments_source ON commitments(source);
+`
+
 // EnsureFocusSchema is invariant 11's discipline applied to this reader:
 // every startup step is a migration and every one runs on every start, so a
 // store from before this step gets the provenance column and ai_calls table
@@ -104,6 +140,9 @@ func EnsureFocusSchema(db *sql.DB) error {
 	if _, err := db.Exec(`ALTER TABLE ai_calls ADD COLUMN invoice_id TEXT`); err != nil &&
 		!strings.Contains(err.Error(), "duplicate column name") {
 		return fmt.Errorf("adding ai_calls.invoice_id: %w", err)
+	}
+	if _, err := db.Exec(CommitmentSchema); err != nil {
+		return fmt.Errorf("creating commitments: %w", err)
 	}
 	return nil
 }
@@ -205,6 +244,21 @@ func tokenFuseFocusReader(db *sql.DB, cfg map[string]string, opt ImportOptions) 
 		defer ins.Close()
 	}
 
+	var cins *sql.Stmt
+	if !opt.DryRun {
+		cins, err = tx.Prepare(`INSERT INTO commitments
+			(id, kind, status, quantity, unit, source, date_start, date_end, monthly_cents)
+			VALUES (?,?,?,?,?,?,?,?,?)
+			ON CONFLICT(id) DO UPDATE SET
+			  kind=excluded.kind, status=excluded.status, quantity=excluded.quantity,
+			  unit=excluded.unit, source=excluded.source, date_start=excluded.date_start,
+			  date_end=excluded.date_end, monthly_cents=excluded.monthly_cents`)
+		if err != nil {
+			return "", err
+		}
+		defer cins.Close()
+	}
+
 	sum := newFocusSummary()
 	daysTouched := map[string]bool{}
 	for i, f := range files {
@@ -223,7 +277,7 @@ func tokenFuseFocusReader(db *sql.DB, cfg map[string]string, opt ImportOptions) 
 				return "", err
 			}
 		}
-		local, ferr := processFocusFile(f, ins)
+		local, ferr := processFocusFile(f, ins, cins)
 		if ferr != nil {
 			sum.FileRefusals = append(sum.FileRefusals,
 				fmt.Sprintf("%s: %v", filepath.Base(f), ferr))
@@ -330,7 +384,7 @@ func focusFiles(dir string) ([]string, error) {
 // gzip that will not open, a byte stream the CSV parser cannot make sense
 // of) returns an error, and the caller rolls back this file's savepoint so
 // nothing it inserted survives either.
-func processFocusFile(path string, ins *sql.Stmt) (*focusSummary, error) {
+func processFocusFile(path string, ins, cins *sql.Stmt) (*focusSummary, error) {
 	sum := newFocusSummary()
 
 	var sha string
@@ -414,6 +468,33 @@ func processFocusFile(path string, ins *sql.Stmt) (*focusSummary, error) {
 			continue
 		}
 
+		// ChargeCategory=Purchase is routed here, never into ai_calls: a
+		// commitment purchase is not a model call, and letting it fall
+		// through to the usage path would have deriveCharges sum a
+		// commitment's own price into the desk's "Usage" total -- mutant
+		// (g) in C4-SPEC.md section 4, "count a Purchase row as usage".
+		// focusField returns "" for a column this file's header does not
+		// have, and "" never equals "Purchase", so a file with none of the
+		// six optional columns takes the ai_calls path for every row,
+		// unchanged: "absent columns leave the generated fixture's table
+		// alone" needs no separate header-presence check.
+		if focusField(rec, col, "ChargeCategory") == "Purchase" {
+			crow, flagged, err := parseCommitmentRow(rec, col)
+			if err != nil {
+				sum.refuse(fmt.Sprintf("%s row %d: %v", filepath.Base(path), rowNo, err))
+				continue
+			}
+			sum.acceptCommitment(flagged)
+			if cins != nil {
+				if _, err := cins.Exec(crow.ID, crow.Kind, crow.Status, crow.Quantity,
+					nullIfEmpty(crow.Unit), commitmentSource, crow.Start, crow.End,
+					int64(crow.MonthlyCents)); err != nil {
+					return nil, fmt.Errorf("row %d: writing to commitments: %w", rowNo, err)
+				}
+			}
+			continue
+		}
+
 		row, err := parseFocusRow(rec, col)
 		if err != nil {
 			sum.refuse(fmt.Sprintf("%s row %d: %v", filepath.Base(path), rowNo, err))
@@ -464,6 +545,19 @@ func nullIfEmpty(s string) any {
 
 // -------------------------------------------------------------- row shape
 
+// focusField reads one column of one already-aligned record by name, or ""
+// when this file's header does not carry that column at all: every optional
+// column (x_tool_calls, x_outcome, and now ChargeCategory and the five
+// CommitmentDiscount* columns) is read this way, so a file missing them
+// takes the same path a file that has never heard of them always has.
+func focusField(rec []string, col map[string]int, name string) string {
+	i, ok := col[name]
+	if !ok || i < 0 || i >= len(rec) {
+		return ""
+	}
+	return rec[i]
+}
+
 type focusRow struct {
 	TS, Day                      string
 	Team, Agent, RunID           string
@@ -488,13 +582,7 @@ type focusRow struct {
 // and multiply. A single row's own amount is kept exact in Micros; only
 // deriveCharges rounds, once, on a whole day's SUM.
 func parseFocusRow(rec []string, col map[string]int) (focusRow, error) {
-	field := func(name string) string {
-		i, ok := col[name]
-		if !ok || i < 0 || i >= len(rec) {
-			return ""
-		}
-		return rec[i]
-	}
+	field := func(name string) string { return focusField(rec, col, name) }
 
 	currency := strings.TrimSpace(field("BillingCurrency"))
 	if currency != "USD" {
@@ -567,6 +655,114 @@ func parseFocusRow(rec []string, col map[string]int) (focusRow, error) {
 	}, nil
 }
 
+// ------------------------------------------------------------ commitments
+
+// commitmentSource is the desk every commitment row from this reader is
+// filed under: the same 'ai' deriveCharges already hardcodes for every
+// charges row this reader writes, so a commitment and the desk it covers
+// agree with the charges the coverage computation (internal/finops) divides
+// it by. See CommitmentSchema's own comment for why.
+const commitmentSource = "ai"
+
+// maxCommitmentIDBytes bounds CommitmentDiscountId the same way every other
+// fixed-size thing in this console is bounded: a number a hostile row is
+// checked against, not a hope. A real commitment id is an ARN or a short
+// opaque token, at most a few hundred bytes; this is generous.
+const maxCommitmentIDBytes = 4096
+
+// focusCommitmentStatuses is FOCUS 1.2's own two values for
+// CommitmentDiscountStatus. A status outside this set is not refused --
+// C4-SPEC.md section 4's own hostile case says "kept, flagged" -- because a
+// provider's export using a value this reader has not seen yet is a fact
+// worth keeping, not a reason to lose the whole row.
+var focusCommitmentStatuses = map[string]bool{"Used": true, "Unused": true}
+
+type commitmentRow struct {
+	ID, Kind, Status, Unit string
+	Quantity               float64
+	MonthlyCents           money.Cents
+	Start, End             string // "2006-01-02"
+}
+
+// parseCommitmentRow validates and converts one ChargeCategory=Purchase
+// record into a commitmentRow, or names what was wrong. flagged is true
+// when Status is non-empty and outside focusCommitmentStatuses: the row is
+// still returned with no error, so the caller keeps it exactly as
+// "kept, flagged" asks.
+//
+// BilledCost goes through money.ParseMicros, never float64, the same
+// discipline parseFocusRow's own doc comment holds for the identical
+// reason: mutant (a) in C4-SPEC.md section 4 is exactly this line reverted.
+func parseCommitmentRow(rec []string, col map[string]int) (row commitmentRow, flagged bool, err error) {
+	field := func(name string) string { return focusField(rec, col, name) }
+
+	id := strings.TrimSpace(field("CommitmentDiscountId"))
+	if id == "" {
+		return commitmentRow{}, false, fmt.Errorf(
+			"ChargeCategory is Purchase but CommitmentDiscountId is empty")
+	}
+	if len(id) > maxCommitmentIDBytes {
+		return commitmentRow{}, false, fmt.Errorf(
+			"CommitmentDiscountId is %d bytes, over the %d byte limit", len(id), maxCommitmentIDBytes)
+	}
+
+	currency := strings.TrimSpace(field("BillingCurrency"))
+	if currency != "USD" {
+		return commitmentRow{}, false, fmt.Errorf("currency %q, this reader is USD only", currency)
+	}
+	costStr := strings.TrimSpace(field("BilledCost"))
+	micros, err := money.ParseMicros(costStr)
+	if err != nil {
+		return commitmentRow{}, false, fmt.Errorf("BilledCost %q does not parse as a decimal amount", costStr)
+	}
+	if micros < 0 {
+		return commitmentRow{}, false, fmt.Errorf("BilledCost %q is negative", costStr)
+	}
+
+	startStr := strings.TrimSpace(field("ChargePeriodStart"))
+	if _, err := time.Parse(time.RFC3339, startStr); err != nil {
+		return commitmentRow{}, false, fmt.Errorf("ChargePeriodStart %q does not parse as RFC 3339", startStr)
+	}
+	endStr := strings.TrimSpace(field("ChargePeriodEnd"))
+	if endStr == "" {
+		endStr = startStr // no term given: this row alone is its own window
+	}
+	if _, err := time.Parse(time.RFC3339, endStr); err != nil {
+		return commitmentRow{}, false, fmt.Errorf("ChargePeriodEnd %q does not parse as RFC 3339", endStr)
+	}
+
+	qtyStr := strings.TrimSpace(field("CommitmentDiscountQuantity"))
+	qty, err := strconv.ParseFloat(qtyStr, 64)
+	if err != nil {
+		return commitmentRow{}, false, fmt.Errorf("CommitmentDiscountQuantity %q is not a number", qtyStr)
+	}
+	if qty < 0 {
+		return commitmentRow{}, false, fmt.Errorf("CommitmentDiscountQuantity %q is negative", qtyStr)
+	}
+
+	status := strings.TrimSpace(field("CommitmentDiscountStatus"))
+	flagged = status != "" && !focusCommitmentStatuses[status]
+
+	return commitmentRow{
+		ID:           id,
+		Kind:         strings.TrimSpace(field("CommitmentDiscountType")),
+		Status:       status,
+		Unit:         strings.TrimSpace(field("CommitmentDiscountUnit")),
+		Quantity:     qty,
+		MonthlyCents: micros.Cents(),
+		Start:        dateOf(startStr), End: dateOf(endStr),
+	}, flagged, nil
+}
+
+// dateOf is an RFC 3339 timestamp's own date, the same slicing
+// parseFocusRow's own Day field uses.
+func dateOf(ts string) string {
+	if len(ts) > 10 {
+		return ts[:10]
+	}
+	return ts
+}
+
 func parseFocusTokens(s string, blocked bool) (int64, error) {
 	s = strings.TrimSpace(s)
 	if s == "" {
@@ -599,6 +795,14 @@ type focusSummary struct {
 	Days            map[string]bool // this file's (or this whole import's) days touched
 	FirstTS, LastTS string
 	TotalMicros     money.Micros
+
+	// CommitmentRows and CommitmentFlagged are C4-SPEC.md section 2's own
+	// requirement: the summary says how many rows carried the
+	// CommitmentDiscount* columns, separately from RowsAccepted, because a
+	// commitment row is never an ai_calls row (see the ChargeCategory
+	// routing in processFocusFile).
+	CommitmentRows    int
+	CommitmentFlagged int // of those, status outside focusCommitmentStatuses
 }
 
 func newFocusSummary() *focusSummary {
@@ -620,6 +824,13 @@ func (s *focusSummary) accept(row focusRow) {
 
 func (s *focusSummary) refuse(reason string) { s.Refusals = append(s.Refusals, reason) }
 
+func (s *focusSummary) acceptCommitment(flagged bool) {
+	s.CommitmentRows++
+	if flagged {
+		s.CommitmentFlagged++
+	}
+}
+
 // merge folds a successfully-processed file's summary into the whole
 // import's. Called only when that file returned no error, so what it adds
 // here is exactly what its savepoint just kept.
@@ -639,6 +850,8 @@ func (s *focusSummary) merge(o *focusSummary) {
 		s.LastTS = o.LastTS
 	}
 	s.Refusals = append(s.Refusals, o.Refusals...)
+	s.CommitmentRows += o.CommitmentRows
+	s.CommitmentFlagged += o.CommitmentFlagged
 }
 
 func plural(n int) string {
@@ -663,6 +876,12 @@ func (s *focusSummary) Sentence(dryRun bool) string {
 	// total (four decimals) rather than a total rounded down to nothing.
 	fmt.Fprintf(&b, ", %d row%s, %d distinct agent%s, %s total BilledCost.",
 		s.RowsAccepted, plural(s.RowsAccepted), len(s.Agents), plural(len(s.Agents)), s.TotalMicros)
+	if n := s.CommitmentRows; n > 0 {
+		fmt.Fprintf(&b, " %d commitment row%s carried the CommitmentDiscount* columns.", n, plural(n))
+		if f := s.CommitmentFlagged; f > 0 {
+			fmt.Fprintf(&b, " %d of them with a status outside the FOCUS enumeration (kept).", f)
+		}
+	}
 	if n := len(s.Refusals); n > 0 {
 		verb2 := "refused"
 		if dryRun {

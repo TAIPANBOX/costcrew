@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/TAIPANBOX/costcrew/internal/estate"
+	"github.com/TAIPANBOX/costcrew/internal/money"
 	"github.com/TAIPANBOX/costcrew/internal/store"
 )
 
@@ -892,5 +893,355 @@ func TestTestNamesRowsItWouldRefuse(t *testing.T) {
 	}
 	if !strings.Contains(result, "would be refused") || !strings.Contains(result, "EUR") {
 		t.Errorf("Test() does not name the row it would refuse: %s", result)
+	}
+}
+
+// ------------------------------------------------------------ commitments
+//
+// C4-SPEC.md section 2. Red first, against main before this step: the six
+// columns below did not exist in requiredFocusColumns or anywhere else in
+// this file, so every row -- Purchase included -- went through
+// parseFocusRow and either landed in ai_calls or was refused for missing an
+// agent; there was no "commitments" table for sqlite to have opinions about,
+// so TestCommitmentColumnsFillTheCommitmentsTable failed immediately with
+// "no such table: commitments" and TestPurchaseRowsAreNeverCountedAsUsage
+// failed because the $999 Purchase row landed in ai_calls and inflated the
+// desk's Usage charges by exactly that amount -- both quoted verbatim in
+// the PR body.
+
+// commitmentHeader is focusHeader with the six optional columns this step
+// reads appended: five FOCUS 1.2 CommitmentDiscount* columns and
+// ChargeCategory, the routing column. A file without them (fixtureCSV, and
+// every focusHeader-only test above) never has ChargeCategory equal
+// "Purchase" -- focusField returns "" for a column absent from the header --
+// so it takes the ai_calls path unchanged; that absence-is-safe property is
+// exactly what TestAbsentCommitmentColumnsLeaveTheCommitmentsTableAlone
+// checks directly, on fixtureCSV itself.
+const commitmentHeader = focusHeader +
+	",ChargeCategory,CommitmentDiscountId,CommitmentDiscountType," +
+	"CommitmentDiscountStatus,CommitmentDiscountQuantity,CommitmentDiscountUnit"
+
+// commitmentUsageRowFields is one ordinary usage row under commitmentHeader:
+// focusRowFields' 26 fields plus ChargeCategory=Usage and five empty
+// CommitmentDiscount* fields, so a file that DOES carry the six columns
+// still reads its non-Purchase rows exactly like one that never heard of
+// them.
+func commitmentUsageRowFields() []string {
+	return append(focusRowFields(), "Usage", "", "", "", "", "")
+}
+
+// commitmentRowFields is one ChargeCategory=Purchase row: the AI-call-shaped
+// columns are left blank (parseCommitmentRow never reads x_agent_id or the
+// token columns; only parseFocusRow does, and a Purchase row never reaches
+// it), and the six columns commitmentHeader adds carry the commitment's own
+// state.
+func commitmentRowFields(id, kind, status, qty, unit, billedCost, start, end string) []string {
+	return []string{
+		billedCost, billedCost, "USD", start, end, "commitment purchase",
+		"Anthropic", "Anthropic", "Anthropic", "Reserved Capacity", "AI",
+		"", "", "sub-1", "", "", "", "", "", "", "", "false", "", "", "", "0",
+		"Purchase", id, kind, status, qty, unit,
+	}
+}
+
+func writeCommitmentFile(t *testing.T, dir, name string, rows ...[]string) {
+	t.Helper()
+	var b strings.Builder
+	b.WriteString(commitmentHeader + "\n")
+	for _, r := range rows {
+		b.WriteString(strings.Join(r, ","))
+		b.WriteString("\n")
+	}
+	writeFocusFile(t, dir, name, b.String())
+}
+
+func assertNoCommitmentRows(t *testing.T, db *sql.DB) {
+	t.Helper()
+	var n int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM commitments`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 0 {
+		t.Errorf("%d commitment row(s) were written despite the row being refused", n)
+	}
+}
+
+// TestCommitmentColumnsFillTheCommitmentsTable is C4-SPEC.md section 4's
+// primary case: "importing a FOCUS file with commitment columns fills
+// commitments and the summary says so".
+func TestCommitmentColumnsFillTheCommitmentsTable(t *testing.T) {
+	dir := t.TempDir()
+	writeCommitmentFile(t, dir, "good.csv",
+		commitmentUsageRowFields(),
+		commitmentRowFields("cud-gcp-1", "cud", "Used", "700", "normalized-hours",
+			"460.000000", "2026-01-01T00:00:00Z", "2027-01-01T00:00:00Z"),
+	)
+	msg, db, err := importFrom(t, dir)
+	if err != nil {
+		t.Fatalf("Import: %v (%s)", err, msg)
+	}
+	if !strings.Contains(msg, "1 commitment row") {
+		t.Errorf("the summary does not say how many commitment rows carried the columns: %s", msg)
+	}
+
+	var n int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM commitments`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("commitments has %d row(s), want 1", n)
+	}
+	var kind, status, unit, source, start, end string
+	var qty float64
+	var cents int64
+	if err := db.QueryRow(`SELECT kind, status, quantity, unit, source, date_start, date_end,
+			monthly_cents FROM commitments WHERE id='cud-gcp-1'`).
+		Scan(&kind, &status, &qty, &unit, &source, &start, &end, &cents); err != nil {
+		t.Fatal(err)
+	}
+	if kind != "cud" || status != "Used" || qty != 700 || unit != "normalized-hours" {
+		t.Errorf("got (%q,%q,%v,%q), want (cud,Used,700,normalized-hours)", kind, status, qty, unit)
+	}
+	if source != "ai" {
+		t.Errorf("source = %q, want ai", source)
+	}
+	if start != "2026-01-01" || end != "2027-01-01" {
+		t.Errorf("got dates (%s,%s), want (2026-01-01,2027-01-01)", start, end)
+	}
+	if cents != 46000 {
+		t.Errorf("monthly_cents = %d, want 46000 ($460.00)", cents)
+	}
+
+	// The ordinary usage row beside it still went through the normal path.
+	var calls int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM ai_calls`).Scan(&calls); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 1 {
+		t.Errorf("ai_calls has %d row(s), want 1: the usage row beside the Purchase row", calls)
+	}
+}
+
+// TestAbsentCommitmentColumnsLeaveTheCommitmentsTableAlone imports the
+// existing golden fixture, which has never heard of ChargeCategory or any
+// CommitmentDiscount* column, and requires commitments to stay empty:
+// "absent columns leave the generated fixture's table alone".
+func TestAbsentCommitmentColumnsLeaveTheCommitmentsTableAlone(t *testing.T) {
+	st := openFocusStore(t)
+	db := st.DB()
+	dir := copyIntoDir(t, fixtureCSV)
+	configureFocus(t, db, dir)
+	if _, err := Import(db, "tokenfuse-focus", false, ImportOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	assertNoCommitmentRows(t, db)
+}
+
+// TestPurchaseRowsAreNeverCountedAsUsage is C4-SPEC.md section 4's mutant
+// (g): a Purchase row counted as usage. The commitment row's own BilledCost
+// ($999) dwarfs the one usage row's ($0.05, 5 cents); if the routing in
+// processFocusFile were dropped, the Purchase row would fall through to
+// parseFocusRow (refused there for carrying no agent and no tokens, in
+// which case ai_calls would still be 1 row and this test would already
+// catch the regression) or, were parseCommitmentRow's own row simply left
+// unrouted and ai_calls-shaped fields backfilled, would land in the derived
+// Usage charges and multiply the desk's total by nearly 20 000x. Either way
+// this test is sensitive to the mutant gates-have-teeth.sh plants:
+// commenting out the `== "Purchase"` routing check.
+func TestPurchaseRowsAreNeverCountedAsUsage(t *testing.T) {
+	dir := t.TempDir()
+	writeCommitmentFile(t, dir, "good.csv",
+		commitmentUsageRowFields(), // $0.05, 5 cents
+		commitmentRowFields("aws-sp-1", "savings-plan", "Used", "1", "hours",
+			"999.000000", "2026-09-02T00:00:00Z", "2027-09-02T00:00:00Z"),
+	)
+	msg, db, err := importFrom(t, dir)
+	if err != nil {
+		t.Fatalf("Import: %v (%s)", err, msg)
+	}
+
+	var calls int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM ai_calls`).Scan(&calls); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 1 {
+		t.Fatalf("ai_calls has %d row(s), want 1: the Purchase row must never reach it", calls)
+	}
+	var usageCents int64
+	if err := db.QueryRow(`SELECT COALESCE(SUM(billed_cents),0) FROM charges
+		WHERE provenance='tokenfuse-focus' AND category='Usage'`).Scan(&usageCents); err != nil {
+		t.Fatal(err)
+	}
+	if usageCents != 5 {
+		t.Errorf("Usage charges sum to %d cents, want 5: the $999 Purchase row (%s) leaked into usage",
+			money.Cents(usageCents), msg)
+	}
+	var commitmentN int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM commitments`).Scan(&commitmentN); err != nil {
+		t.Fatal(err)
+	}
+	if commitmentN != 1 {
+		t.Errorf("commitments has %d row(s), want 1", commitmentN)
+	}
+}
+
+// TestCommitmentBoundaries is C4-SPEC.md section 4's boundary list for this
+// reader: a commitment with zero quantity, and an expiry today (accepted
+// exactly like any other date -- ExpiringWithin's own <= comparison, tested
+// in internal/finops, is what makes "today" the edge that must count).
+func TestCommitmentBoundaries(t *testing.T) {
+	t.Run("zero quantity is accepted, not refused", func(t *testing.T) {
+		dir := t.TempDir()
+		writeCommitmentFile(t, dir, "good.csv",
+			commitmentRowFields("new-1", "cud", "Unused", "0", "normalized-hours",
+				"120.000000", "2026-09-01T00:00:00Z", "2027-09-01T00:00:00Z"),
+		)
+		msg, db, err := importFrom(t, dir)
+		if err != nil {
+			t.Fatalf("Import: %v (%s)", err, msg)
+		}
+		var n int
+		var qty float64
+		if err := db.QueryRow(`SELECT COUNT(*), COALESCE(MIN(quantity),-1) FROM commitments
+			WHERE id='new-1'`).Scan(&n, &qty); err != nil {
+			t.Fatal(err)
+		}
+		if n != 1 {
+			t.Fatalf("a zero-quantity commitment was refused rather than kept: %s", msg)
+		}
+		if qty != 0 {
+			t.Errorf("quantity = %v, want 0", qty)
+		}
+	})
+
+	t.Run("an expiry today is kept as today, not shifted", func(t *testing.T) {
+		dir := t.TempDir()
+		writeCommitmentFile(t, dir, "good.csv",
+			commitmentRowFields("today-1", "reserved", "Used", "1", "hours",
+				"50.000000", "2026-01-01T00:00:00Z", "2026-09-02T00:00:00Z"),
+		)
+		_, db, err := importFrom(t, dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var end string
+		if err := db.QueryRow(`SELECT date_end FROM commitments WHERE id='today-1'`).Scan(&end); err != nil {
+			t.Fatal(err)
+		}
+		if end != "2026-09-02" {
+			t.Errorf("date_end = %q, want 2026-09-02", end)
+		}
+	})
+}
+
+// TestCommitmentHostileInputs is C4-SPEC.md section 4's hostile list for
+// this reader: a negative quantity, a status string outside the FOCUS
+// enumeration, and a 1 MB id.
+func TestCommitmentHostileInputs(t *testing.T) {
+	t.Run("negative quantity is refused", func(t *testing.T) {
+		dir := t.TempDir()
+		writeCommitmentFile(t, dir, "bad.csv",
+			commitmentRowFields("neg-1", "cud", "Used", "-4", "normalized-hours",
+				"120.000000", "2026-09-01T00:00:00Z", "2027-09-01T00:00:00Z"),
+		)
+		msg, db, err := importFrom(t, dir)
+		if err != nil {
+			t.Fatalf("Import returned a hard error: %v", err)
+		}
+		if !strings.Contains(msg, "negative") {
+			t.Errorf("the refusal does not say negative: %s", msg)
+		}
+		assertNoCommitmentRows(t, db)
+	})
+
+	t.Run("a status outside the FOCUS enumeration is kept and flagged", func(t *testing.T) {
+		dir := t.TempDir()
+		writeCommitmentFile(t, dir, "good.csv",
+			commitmentRowFields("weird-1", "cud", "PartiallyUsed", "10", "normalized-hours",
+				"200.000000", "2026-09-01T00:00:00Z", "2027-09-01T00:00:00Z"),
+		)
+		msg, db, err := importFrom(t, dir)
+		if err != nil {
+			t.Fatalf("Import: %v (%s)", err, msg)
+		}
+		var n int
+		var status string
+		if err := db.QueryRow(`SELECT COUNT(*), MIN(status) FROM commitments WHERE id='weird-1'`).
+			Scan(&n, &status); err != nil {
+			t.Fatal(err)
+		}
+		if n != 1 {
+			t.Fatalf("an unrecognised status was dropped rather than kept: %s", msg)
+		}
+		if status != "PartiallyUsed" {
+			t.Errorf("status = %q, want the literal unrecognised value kept, not normalised", status)
+		}
+		if !strings.Contains(msg, "outside the FOCUS enumeration") {
+			t.Errorf("the summary does not flag the unrecognised status: %s", msg)
+		}
+	})
+
+	t.Run("a 1 MB id is refused", func(t *testing.T) {
+		hugeID := strings.Repeat("x", 1_100_000)
+		dir := t.TempDir()
+		writeCommitmentFile(t, dir, "bad.csv",
+			commitmentRowFields(hugeID, "cud", "Used", "10", "normalized-hours",
+				"200.000000", "2026-09-01T00:00:00Z", "2027-09-01T00:00:00Z"),
+		)
+		msg, db, err := importFrom(t, dir)
+		if err != nil {
+			t.Fatalf("Import returned a hard error: %v", err)
+		}
+		if !strings.Contains(msg, "byte limit") {
+			t.Errorf("the refusal does not name the byte limit: %s", msg)
+		}
+		assertNoCommitmentRows(t, db)
+	})
+
+	t.Run("ChargeCategory Purchase with no CommitmentDiscountId is refused, not silently dropped", func(t *testing.T) {
+		dir := t.TempDir()
+		writeCommitmentFile(t, dir, "bad.csv",
+			commitmentRowFields("", "cud", "Used", "10", "normalized-hours",
+				"200.000000", "2026-09-01T00:00:00Z", "2027-09-01T00:00:00Z"),
+		)
+		msg, db, err := importFrom(t, dir)
+		if err != nil {
+			t.Fatalf("Import returned a hard error: %v", err)
+		}
+		if !strings.Contains(msg, "CommitmentDiscountId is empty") {
+			t.Errorf("the refusal does not name the missing id: %s", msg)
+		}
+		assertNoCommitmentRows(t, db)
+		var calls int
+		if err := db.QueryRow(`SELECT COUNT(*) FROM ai_calls`).Scan(&calls); err != nil {
+			t.Fatal(err)
+		}
+		if calls != 0 {
+			t.Errorf("ai_calls has %d row(s); an id-less Purchase row must not fall through to it", calls)
+		}
+	})
+}
+
+// TestCommitmentCostIsNeverParsedThroughFloat64 mirrors
+// TestCostIsNeverParsedThroughFloat64 for parseCommitmentRow's own BilledCost
+// parse.
+func TestCommitmentCostIsNeverParsedThroughFloat64(t *testing.T) {
+	dir := t.TempDir()
+	writeCommitmentFile(t, dir, "good.csv",
+		commitmentRowFields("precise-1", "cud", "Used", "1", "hours",
+			"0.000249", "2026-09-01T00:00:00Z", "2027-09-01T00:00:00Z"),
+	)
+	_, db, err := importFrom(t, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cents int64
+	if err := db.QueryRow(`SELECT monthly_cents FROM commitments WHERE id='precise-1'`).
+		Scan(&cents); err != nil {
+		t.Fatal(err)
+	}
+	if cents != 0 {
+		t.Errorf("monthly_cents = %d, want 0 ($0.000249 rounds to zero cents on its own row, "+
+			"the same half-away-from-zero rule money.ParseMicros.Cents() applies everywhere else)", cents)
 	}
 }

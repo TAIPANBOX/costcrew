@@ -1782,6 +1782,103 @@ an absent invariant.
     by its window instead of dividing once after; and grading the largest
     miss's own figure against a freshly recomputed live projection instead
     of the one that was actually frozen.)*
+33. **A Purchase row is never usage, and a commitment's coverage and
+    utilisation are read from the store, never generated, once any real
+    commitment exists.** C4-SPEC.md. `@yurii 2026-09-02`: "більш повною
+    мірою замінити людей на цих посадах" is the ask; "він має сам не
+    купувати" is the boundary this invariant holds for the one class that
+    was always going to test it, `purchase`. The FOCUS reader
+    (`internal/connectors/tokenfusefocus.go`) now routes `ChargeCategory`,
+    when a file's header carries it, before ever calling `parseFocusRow`:
+    a `Purchase` row's own `CommitmentDiscountId`, `CommitmentDiscountType`,
+    `CommitmentDiscountStatus`, `CommitmentDiscountQuantity` and
+    `CommitmentDiscountUnit` are kept in a new `commitments` table
+    (`CommitmentSchema`, upserted by id) and the row never reaches
+    `ai_calls` at all -- the routing IS the guarantee that a commitment's
+    own price cannot inflate a desk's derived Usage charges, not a filter
+    applied after the fact. A file with none of the six optional columns
+    (`ChargeCategory` plus the five above) needs no separate presence
+    check: `focusField` already returns `""` for a column absent from the
+    header, and `""` never equals `"Purchase"`, so every row takes the
+    unchanged `ai_calls` path.
+
+    `internal/finops/commitments.go` reads that table: `Coverage` is
+    committed spend over eligible spend per desk and month (`money.Pct` on
+    two whole-cent integers, never a dollars-first, coarser-rounded
+    intermediate); `CommitmentUtilisation` is used over committed per
+    commitment, over 100% being a real, healthy reading rather than a
+    fault; `ExpiringCommitments` is the 90-day calendar, inclusive of an
+    expiry today; `BreakEvens` ranks every real commitment by its own
+    monthly saving (largest first), an exact integer-cents ceiling
+    division, `OK=false` naming a candidate that never breaks even rather
+    than printing a negative or a divide-by-zero month count. `eligibleCents`
+    is desk-aware: `world.ResourceKind`'s own compute/database/accelerator
+    classification for a cloud desk, every usage charge for the ai desk --
+    the desk this reader's own `deriveCharges` always writes to -- because
+    an LLM API call is not a compute, database or accelerator RESOURCE the
+    way a rightsizing candidate is, but a committed-spend agreement with a
+    model provider can still cover it. `Commitments` is the adapter the
+    SaaS page's own Commitments panel (`internal/web/practice.go`) reads
+    instead of `world.Commitments` directly: real rows, mapped into
+    `world.Commitment`'s own shape so the existing template and its sort
+    comparators need no change, once any exist; the generated waterline
+    otherwise -- the same "real data first" switch `finops.AIUnits` already
+    gives the AI page over `world.AIUnits`. `internal/deliver/packet.go`'s
+    new `commitmentsSection`, gated on `commitment-modelling` or
+    `waterline-tracking` (the commitment analyst's own skills), carries
+    coverage, utilisation, the calendar and break-even into the task
+    packet, top ten candidates ranked by saving with an "and N more" line,
+    omitted entirely -- not a header over nothing -- until a connector has
+    written a real commitment.
+
+    `purchase`'s owner is `"nobody"` in `roles.yaml` (unchanged by this
+    step: the commitment-analyst family already named it under `hands_up`)
+    and `crew.MayDecide` refuses it before an `Owner` field is even read,
+    for every role including the literal `"owner"` link, so
+    `internal/finops/apply.go`'s table has no case for it: applying a
+    `purchase` option marks the STAMP applied (a person recorded a
+    decision) and performs no side effect, the same "text only" shape
+    `allocation.rule` and `budget.set` already have.
+    *(gate: `TestCommitmentColumnsFillTheCommitmentsTable`,
+    `TestAbsentCommitmentColumnsLeaveTheCommitmentsTableAlone`,
+    `TestPurchaseRowsAreNeverCountedAsUsage`, `TestCommitmentBoundaries`
+    (zero quantity accepted, an expiry today kept as today),
+    `TestCommitmentHostileInputs` (a negative quantity refused, a status
+    outside the FOCUS enumeration kept and flagged in the import summary, a
+    1 MB id refused, a Purchase row with no id refused rather than falling
+    through to `ai_calls`), `TestCommitmentCostIsNeverParsedThroughFloat64`
+    in `internal/connectors`; `TestCoverageIsCommittedOverEligiblePerDeskAndMonth`,
+    `TestCoverageOnACloudDeskCountsOnlyComputeDatabaseAndAccelerator`,
+    `TestCoverageRefusesADeskWithNoEligibleSpend`,
+    `TestCoverageDoesNotRoundThroughDollarsFirst`,
+    `TestUtilisationIsUsedOverCommittedPerCommitment`,
+    `TestUtilisationOfAZeroQuantityCommitmentDoesNotCrash`,
+    `TestExpiryCalendarListsWithinNinetyDaysNotBeyond`,
+    `TestBreakEvenMonthsForAKnownFixture`,
+    `TestBreakEvenNeverForACommitmentThatCostsMoreThanOnDemand`,
+    `TestCommitmentsFallsBackToTheGeneratedWaterline`,
+    `TestCommitmentsReadsRealRowsOnceAnyExist`, `TestHasRealCommitmentsIsFalseOnAFreshStoreTrueOnceOneExists`,
+    `TestAsOfDayIsTheLatestChargeDay` in `internal/finops`;
+    `TestCommitmentsSectionAppears`, `TestCommitmentsSectionListsAnExpiryWithinNinetyDays`,
+    `TestCommitmentsSectionCapsCandidatesAtTenWithAndNMore`,
+    `TestCommitmentsSectionIsAbsentWithNoRealData`,
+    `TestCommitmentsSectionIsSkippedForAnalystsWithoutTheSkill` in
+    `internal/deliver`; `TestTheSaaSPageReadsARealCommitment` in
+    `internal/web`, end to end through the actual HTTP surface, the same
+    proof `TestTheAIPageReadsARealImport` already gives the AI page's own
+    switch; `TestApplyingPurchaseHasNoSideEffect` in `internal/finops`,
+    which also checks `crew.MayDecide` directly for `"owner"`,
+    `"supervisor"` and `"commitments"`.
+    `scripts/gates-have-teeth.sh` plants three mutants, named in
+    C4-SPEC.md section 4: computing coverage by rounding both sides to the
+    nearest whole dollar before dividing rather than `money.Pct`'s own
+    direct cents ratio (invisible on round-hundred fixtures, which is why
+    `TestCoverageDoesNotRoundThroughDollarsFirst` uses 333/1000 rather than
+    reusing the coverage test's own 150000/200000); disabling the
+    `ChargeCategory == "Purchase"` routing check, so a commitment's price
+    reaches `ai_calls`; and giving `purchase` a real case in
+    `applySideEffect` (a `driver.one-time`-shaped one, the cheapest real
+    side effect that table already has an example of).)*
 
 ## Decisions that have no gate yet
 

@@ -118,6 +118,11 @@ func Packet(db *sql.DB, t crew.Task, a crew.Analyst, hideDriver bool) string {
 			sections = append(sections, s)
 		}
 	}
+	if HasString(a.Skills, "commitment-modelling", "waterline-tracking") {
+		if s := commitmentsSection(db); s != "" {
+			sections = append(sections, s)
+		}
+	}
 
 	// C9-SPEC.md section 2: "the three figures per source with the
 	// thresholds and which is crossed." Never scoped to the task's own
@@ -1161,4 +1166,95 @@ func noticeStatus(deadline, today string) string {
 		return ""
 	}
 	return " (already passed)"
+}
+
+// ------------------------------------------------------------ commitments
+
+// commitmentsCandidateCap is C4-SPEC.md section 2's own words, "top ten
+// candidates with 'and N more'": the break-even list is bounded the same
+// shape driversSection already bounds an unbounded registry, so a store
+// holding many real commitments cannot itself grow the packet past a
+// reasonable size.
+const commitmentsCandidateCap = 10
+
+// commitmentsSection is real coverage, utilisation, the expiry calendar and
+// break-even for the commitment analyst (C4-SPEC.md), reading only what a
+// connector has actually written to the store's own commitments table.
+// Absent entirely -- not a header over nothing, the rule every other
+// section in this file already holds -- until finops.HasRealCommitments is
+// true: the generated waterline (world.Commitments) is not this analyst's
+// evidence, and a packet that quoted it would be handing the model figures
+// nobody measured.
+func commitmentsSection(db *sql.DB) string {
+	real, err := finops.HasRealCommitments(db)
+	if err != nil || !real {
+		return ""
+	}
+	period, err := finops.OpenPeriod(db)
+	if err != nil || period == "" {
+		return ""
+	}
+	cov, err := finops.Coverage(db, period)
+	if err != nil || len(cov) == 0 {
+		return ""
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "Commitments (%s)\n", period)
+	b.WriteString("coverage: committed spend over eligible spend, per desk\n")
+	for _, c := range cov {
+		if c.OK {
+			fmt.Fprintf(&b, "  %-8s %5.1f%%  (%s committed of %s eligible)\n",
+				c.Source, c.Pct, c.CommittedCents, c.EligibleCents)
+		} else {
+			fmt.Fprintf(&b, "  %-8s refused: no eligible spend to be a percentage of "+
+				"(%s committed)\n", c.Source, c.CommittedCents)
+		}
+	}
+
+	if util, uerr := finops.CommitmentUtilisation(db, period); uerr == nil && len(util) > 0 {
+		b.WriteString("\nutilisation: used over committed, per commitment\n")
+		for _, u := range util {
+			if u.OK {
+				fmt.Fprintf(&b, "  %-16s %6.1f%%  (%s a month, expires %s)\n",
+					u.ID, u.Pct, u.MonthlyCents, u.End)
+			} else {
+				fmt.Fprintf(&b, "  %-16s refused: this commitment costs nothing a month\n", u.ID)
+			}
+		}
+	}
+
+	if asOf, aerr := finops.AsOfDay(db); aerr == nil && asOf != "" {
+		if exp, eerr := finops.ExpiringCommitments(db, 90, asOf); eerr == nil && len(exp) > 0 {
+			fmt.Fprintf(&b, "\nExpiring in the next 90 days (as of %s)\n", asOf)
+			for _, e := range exp {
+				fmt.Fprintf(&b, "  %-16s %s, %s desk, expires %s\n", e.ID, e.Kind, e.Source, e.End)
+			}
+		}
+	}
+
+	if be, berr := finops.BreakEvens(db, period); berr == nil && len(be) > 0 {
+		b.WriteString("\nBuy or wait: each candidate's own price against the on-demand run rate " +
+			"it would cover, largest saving first\n")
+		shown := 0
+		for _, r := range be {
+			if shown >= commitmentsCandidateCap {
+				break
+			}
+			if r.OK {
+				fmt.Fprintf(&b, "  %-16s buy: %s a month saved, %d month(s) to break even "+
+					"(%s committed vs %s on-demand)\n",
+					r.ID, r.MonthlySavingCents, r.Months, r.MonthlyCents, r.OnDemandCents)
+			} else {
+				fmt.Fprintf(&b, "  %-16s wait: on-demand (%s) does not exceed the committed "+
+					"price (%s); never breaks even\n", r.ID, r.OnDemandCents, r.MonthlyCents)
+			}
+			shown++
+		}
+		if len(be) > shown {
+			fmt.Fprintf(&b, "and %d more\n", len(be)-shown)
+		}
+	}
+
+	return b.String()
 }
