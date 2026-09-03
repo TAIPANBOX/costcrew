@@ -1039,6 +1039,23 @@ run_case 'plan-ask: charge the settled cost to nobody' \
 	internal/crew/plan_ledger.go \
 	$'cents := (micros + 9_999) / 10_000' \
 	$'cents := int64(0)'
+# C2-SPEC.md section 4's own named mutant, "accept a target-less
+# allocation.rule": invariant 33 (CLAUDE.md). allocation.rule alone, of
+# every class an analyst's deliverable may name, carries a structured
+# target (rule_id, method, share), and crew.ValidateAndSaveOptions refuses
+# the class's option whole when that target is absent. Disabling the `if
+# o.Class == "allocation.rule"` guard is exactly the sentence's own fault:
+# the save-time gate stops checking the one class it exists to check, and a
+# target-less allocation.rule option is written to artifact_options
+# unrefused.
+run_case 'C2: accept a target-less allocation.rule' \
+	fail \
+	./internal/crew \
+	$'TestAllocationRuleWithNoTargetIsRefused' \
+	$'allocation.rule with no target was accepted' \
+	internal/crew/options.go \
+	$'\t\tif o.Class == "allocation.rule" {' \
+	$'\t\tif false && o.Class == "allocation.rule" {'
 
 echo
 if [ -n "$(git status --porcelain)" ]; then

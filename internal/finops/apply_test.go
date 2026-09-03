@@ -26,6 +26,14 @@ func applyTestDB(t *testing.T) *sql.DB {
 	if err := crew.EnsureArtifactProvenance(db); err != nil {
 		t.Fatal(err)
 	}
+	// analysts, so queueShowbackTasks (period.close's own statement half,
+	// C2-SPEC.md section 2) has a roster to check "reporter-<desk>" against,
+	// matching what main.go always guarantees before Apply can be reached in
+	// production: crew.EnsureOwnershipHistory already creates this table on
+	// every start, ahead of anything that could apply an option.
+	if _, err := db.Exec(crew.RosterSchema); err != nil {
+		t.Fatal(err)
+	}
 	return db
 }
 

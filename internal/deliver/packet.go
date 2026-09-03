@@ -24,6 +24,7 @@ package deliver
 import (
 	"database/sql"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -113,6 +114,15 @@ func Packet(db *sql.DB, t crew.Task, a crew.Analyst, hideDriver bool) string {
 		if s := unitEconomicsSection(db); s != "" {
 			sections = append(sections, s)
 		}
+	}
+	// closePackSection is C2-SPEC.md section 2's own section, appended here
+	// -- after the anomaly-related sections above, before memory below --
+	// deliberately: "yields before memory, after the anomaly" is that spec's
+	// own words for this exact position, and BoundBytes below trims from the
+	// END of the joined sections, so a section's place in this list IS its
+	// place in line to be cut.
+	if s := closePackSection(db, a, t); s != "" {
+		sections = append(sections, s)
 	}
 
 	// ownHistorySection is MEMORY (B8-SPEC.md section 2) and is appended
@@ -715,5 +725,109 @@ func unitEconomicsSection(db *sql.DB) string {
 		fmt.Fprintf(&b, "cost with no outcome header, said rather than invented, for: %s\n",
 			strings.Join(noOutcome, ", "))
 	}
+	return b.String()
+}
+
+// ------------------------------------------------------------ the close pack
+
+// C2-SPEC.md: a chargeback analyst's last three days of the month.
+// `@yurii 2026-09-02`, the ask this section serves: "більш повною мірою
+// замінити людей на цих посадах" -- a chargeback analyst's own words for the
+// job, "reconcile, allocate, freeze, send the statements, answer the
+// arguments."
+
+// periodInTitle finds a YYYY-MM period inside a task's own title -- the
+// same shape finops.Months and finops.Allocate already use as a period key.
+// The chargeback-analyst family's single roles.yaml cadence line, "weekly,
+// and the close pack monthly", covers two different kinds of task on the
+// SAME analyst, and only the title tells this packet builder which one it
+// is looking at: a period-naming title is the close pack, anything else is
+// the family's own ordinary weekly work.
+var periodInTitle = regexp.MustCompile(`\d{4}-\d{2}`)
+
+// closePackSection is the chargeback-analyst family's own packet section
+// (C2-SPEC.md section 2): allocation by method and team, coverage,
+// unallocated cost with the rule ids that produced it, the true-up since
+// the last close, and the invoice reconciliation once charges.invoice_id
+// carries anything for the period -- one sentence saying it does not,
+// otherwise. Empty, additively, when the role is not chargeback-analyst or
+// the title names no period, the same rule every other section in this
+// file already holds for a condition that does not apply.
+func closePackSection(db *sql.DB, a crew.Analyst, t crew.Task) string {
+	role, ok := crew.RoleForDesk(a.Name, a.Desk)
+	if !ok || role.Family != "chargeback-analyst" {
+		return ""
+	}
+	period := periodInTitle.FindString(t.Title)
+	if period == "" {
+		return ""
+	}
+
+	alloc, err := finops.Allocate(db, period)
+	if err != nil {
+		return ""
+	}
+	rules, err := finops.Rules(db)
+	if err != nil {
+		return ""
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "The close pack, %s\n", period)
+
+	b.WriteString("\nAllocation rules in effect (method by desk and category)\n")
+	for _, r := range rules {
+		fmt.Fprintf(&b, "rule %d: %s / %s -> %s\n", r.ID, r.Source, r.Category, finops.MethodNote(r.Method))
+	}
+
+	b.WriteString("\nBy team: direct, allocated, loaded\n")
+	for _, tc := range alloc.Teams {
+		fmt.Fprintf(&b, "%s / %s: %s direct, %s allocated, %s loaded\n",
+			tc.Source, tc.Team, tc.Direct, tc.Allocated, tc.Loaded())
+	}
+	fmt.Fprintf(&b, "coverage: %.1f%%\n", alloc.Coverage)
+
+	fmt.Fprintf(&b, "\nUnallocated: %s\n", alloc.Unallocated)
+	if pots, perr := finops.UnallocatedPots(db, period); perr == nil {
+		for _, p := range pots {
+			ruleName := "no rule"
+			if p.RuleID != 0 {
+				ruleName = fmt.Sprintf("rule %d", p.RuleID)
+			}
+			fmt.Fprintf(&b, "%s / %s: %s, %s (%s)\n", p.Source, p.Category, p.Amount, ruleName, p.Reason)
+		}
+	}
+
+	b.WriteString("\nTrue-up since the last close\n")
+	if trueUp, _, terr := finops.TrueUpFor(db, period); terr == nil {
+		switch {
+		case len(trueUp) > 0:
+			for _, tu := range trueUp {
+				fmt.Fprintf(&b, "%s / %s: %s then, %s now (%s)\n",
+					tu.Source, tu.Team, tu.Frozen, tu.Now, tu.Delta)
+			}
+		default:
+			if frozen, ferr := finops.FrozenPeriod(db, period); ferr == nil && frozen.Closed {
+				b.WriteString("nothing has moved since the close.\n")
+			} else {
+				b.WriteString("no previous close to true up against.\n")
+			}
+		}
+	}
+
+	b.WriteString("\nInvoice reconciliation\n")
+	if invoices, uncovered, has, ierr := finops.InvoiceReconciliation(db, period); ierr == nil {
+		if !has {
+			b.WriteString("no invoice column is loaded.\n")
+		} else {
+			for _, inv := range invoices {
+				fmt.Fprintf(&b, "invoice %s: %s\n", inv.InvoiceID, inv.Amount)
+			}
+			if uncovered != 0 {
+				fmt.Fprintf(&b, "not tied to any invoice: %s\n", uncovered)
+			}
+		}
+	}
+
 	return b.String()
 }

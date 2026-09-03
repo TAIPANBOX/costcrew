@@ -9,6 +9,7 @@ import (
 	"github.com/TAIPANBOX/costcrew/internal/anomaly"
 	"github.com/TAIPANBOX/costcrew/internal/crew"
 	"github.com/TAIPANBOX/costcrew/internal/finops"
+	"github.com/TAIPANBOX/costcrew/internal/money"
 	"github.com/TAIPANBOX/costcrew/internal/world"
 )
 
@@ -123,6 +124,20 @@ func (s *Server) chargeback(w http.ResponseWriter, r *http.Request) {
 	}
 	trueUp, _, _ := finops.TrueUpFor(s.db, p)
 
+	// C2-SPEC.md section 2: "the chargeback page shows the last close pack's
+	// figures beside the live ones." The last CLOSE overall, not necessarily
+	// of the period being viewed -- viewing an open month is exactly when
+	// there is nothing of its own to freeze yet, and the most recent close is
+	// the only figure a reader can compare it against.
+	var lastClose finops.Period
+	var haveLastClose bool
+	if closedPeriods, cerr := finops.ClosedPeriods(s.db); cerr == nil && len(closedPeriods) > 0 {
+		if lc, lerr := finops.FrozenPeriod(s.db, closedPeriods[0]); lerr == nil {
+			lastClose, haveLastClose = lc, true
+		}
+	}
+	liveTotal := live.Direct + live.Shared
+
 	sp := readSort(r, "loaded", true)
 	applySort(live.Teams, sp, map[string]func(x, y finops.TeamCost) int{
 		"desk":   func(x, y finops.TeamCost) int { return cmpString(x.Source, y.Source) },
@@ -143,16 +158,19 @@ func (s *Server) chargeback(w http.ResponseWriter, r *http.Request) {
 
 	s.render(w, tplChargeback, struct {
 		shell
-		P          finops.Period
-		A          finops.Allocation
-		TrueUp     []finops.TrueUp
-		Months     []string
-		Period     string
-		CanAct     bool
-		Sort       sortSpec
-		SortTrueUp sortSpec
+		P             finops.Period
+		A             finops.Allocation
+		TrueUp        []finops.TrueUp
+		Months        []string
+		Period        string
+		CanAct        bool
+		Sort          sortSpec
+		SortTrueUp    sortSpec
+		LastClose     finops.Period
+		HaveLastClose bool
+		LiveTotal     money.Cents
 	}{s.shellFor(r, "Chargeback", "chargeback"), frozen, live, trueUp,
-		months, p, u.May("operator"), sp, tp})
+		months, p, u.May("operator"), sp, tp, lastClose, haveLastClose, liveTotal})
 }
 
 func (s *Server) closePeriod(w http.ResponseWriter, r *http.Request) {

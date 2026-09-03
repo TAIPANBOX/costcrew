@@ -51,10 +51,18 @@ type Option struct {
 	Risk        string
 	Needs       string
 	Evidence    []string
-	State       OptionState
-	DecidedBy   string
-	DecidedAt   string
-	Reason      string
+	// Target is a class-specific structured target, carried verbatim as the
+	// raw JSON object the deliverable's options block named -- empty for
+	// every class but allocation.rule (C2-SPEC.md section 2). Kept generic
+	// here rather than typed ({rule_id, method, share}) because that type
+	// belongs to internal/finops, which already imports this package: the
+	// reverse import would cycle. internal/finops.applySideEffect decodes it
+	// with its own local type when it actually calls SetRule.
+	Target    json.RawMessage
+	State     OptionState
+	DecidedBy string
+	DecidedAt string
+	Reason    string
 }
 
 // Recorder used below is guard.go's: this package already declares it, the
@@ -83,13 +91,14 @@ var optionsFence = regexp.MustCompile("(?s)```options[ \\t]*\\r?\\n(.*?)```")
 // a JSON string that merely looked numeric and float64 would have silently
 // rounded 123.6 instead of refusing it.
 type rawOption struct {
-	Class       string      `json:"class"`
-	Summary     string      `json:"summary"`
-	FigureCents json.Number `json:"figure_cents"`
-	SavingCents json.Number `json:"saving_cents"`
-	Risk        string      `json:"risk"`
-	Needs       string      `json:"needs"`
-	Evidence    []string    `json:"evidence"`
+	Class       string          `json:"class"`
+	Summary     string          `json:"summary"`
+	FigureCents json.Number     `json:"figure_cents"`
+	SavingCents json.Number     `json:"saving_cents"`
+	Risk        string          `json:"risk"`
+	Needs       string          `json:"needs"`
+	Evidence    []string        `json:"evidence"`
+	Target      json.RawMessage `json:"target"`
 }
 
 // ParseOptions extracts and structurally validates the trailing options
@@ -152,6 +161,7 @@ func ParseOptions(body string) (opts []Option, found bool, reason string) {
 			Risk:        r.Risk,
 			Needs:       r.Needs,
 			Evidence:    append([]string(nil), r.Evidence...),
+			Target:      normalizedTarget(r.Target),
 			State:       OptionOpen,
 		})
 	}
@@ -171,6 +181,73 @@ func centsOf(n json.Number) (int64, error) {
 		return 0, fmt.Errorf("must be a whole number of cents, not %q", n.String())
 	}
 	return v, nil
+}
+
+// normalizedTarget treats an absent field and a literal JSON null the same
+// way: both mean "no target", and a caller checking len(Target) == 0 should
+// not have to also know that json.RawMessage("null") is non-empty bytes.
+func normalizedTarget(raw json.RawMessage) json.RawMessage {
+	if len(strings.TrimSpace(string(raw))) == 0 || strings.TrimSpace(string(raw)) == "null" {
+		return nil
+	}
+	return raw
+}
+
+// allocationRuleTarget is allocation.rule's own structured target
+// (C2-SPEC.md section 2), decoded generically here rather than with
+// internal/finops's Method type: internal/finops already imports this
+// package (apply.go), so the reverse import would cycle. Method is checked
+// here only for being present at all; the specific set of valid method
+// strings is finops.SetRule's own switch, checked when the option is
+// actually applied, the same way an unknown rule id is (see this file's
+// validateAllocationRuleTarget comment).
+type allocationRuleTarget struct {
+	RuleID json.Number `json:"rule_id"`
+	Method string      `json:"method"`
+	Share  *float64    `json:"share"`
+}
+
+// targetMaxBytes bounds the target sub-object on its own terms, the same way
+// optionsBlockMaxBytes bounds the whole block: a 1 MB target is already
+// refused by that outer cap (a target cannot exceed the block it sits
+// inside), but this gives the reason its own name rather than a generic
+// "block too large" when the target itself is what bloated it.
+const targetMaxBytes = 4 * 1024
+
+// validateAllocationRuleTarget is C2-SPEC.md section 2's save-time gate for
+// allocation.rule alone: "absent target refused with the reason". Only
+// structural and range checks live here -- whether rule_id actually names a
+// rule this practice has, and whether method is one finops.SetRule accepts,
+// both need internal/finops and are refused there instead, when the option
+// is actually applied (the class already degrades gracefully to a no-op
+// when it has nothing to act on, the same "recorded only" shape every other
+// unwired class has, so a target this function passed but finops later
+// cannot use fails loudly at apply time rather than silently at save time).
+func validateAllocationRuleTarget(raw json.RawMessage) (reason string) {
+	if len(raw) > targetMaxBytes {
+		return fmt.Sprintf("allocation.rule's target is %d bytes, over the %d byte limit",
+			len(raw), targetMaxBytes)
+	}
+	if len(raw) == 0 {
+		return "allocation.rule needs a target naming the rule and the method " +
+			`("target": {"rule_id": ..., "method": ..., "share": ...}); none was given`
+	}
+	var tgt allocationRuleTarget
+	if err := json.Unmarshal(raw, &tgt); err != nil {
+		return "allocation.rule's target is not a valid JSON object: " + err.Error()
+	}
+	id, err := tgt.RuleID.Int64()
+	if err != nil || id <= 0 {
+		return fmt.Sprintf("allocation.rule's target.rule_id %q is not a positive whole number",
+			tgt.RuleID.String())
+	}
+	if strings.TrimSpace(tgt.Method) == "" {
+		return "allocation.rule's target names no method"
+	}
+	if tgt.Share != nil && (*tgt.Share < 0 || *tgt.Share > 1) {
+		return fmt.Sprintf("allocation.rule's target.share %v is not between 0 and 1", *tgt.Share)
+	}
+	return ""
 }
 
 // ValidClassesFor is the class vocabulary one role's deliverable may name:
@@ -293,19 +370,57 @@ func ValidateAndSaveOptions(db *sql.DB, artifactID int, roleName, body string, r
 			journalOptionRefused(rec, roleName, artifactID, reason)
 			return true, reason, nil
 		}
+		// allocation.rule alone carries a structured target (C2-SPEC.md
+		// section 2): "the one class the B3 review left recorded-only for
+		// lack of a target gains one". Checked here, inside the same
+		// whole-deliverable validation pass, so a bad target refuses the
+		// deliverable's options exactly the way an out-of-vocabulary class
+		// already does -- nothing is written, the reason is journaled once.
+		if o.Class == "allocation.rule" {
+			if reason := validateAllocationRuleTarget(o.Target); reason != "" {
+				journalOptionRefused(rec, roleName, artifactID, reason)
+				return true, reason, nil
+			}
+		}
 	}
 
 	for _, o := range opts {
 		ev, _ := json.Marshal(o.Evidence)
+		var target any
+		if len(o.Target) > 0 {
+			target = string(o.Target)
+		}
 		if _, err := db.Exec(`INSERT INTO artifact_options
-			(artifact, ordinal, class, summary, figure_cents, saving_cents, risk, needs, evidence, state)
-			VALUES (?,?,?,?,?,?,?,?,?,?)`,
+			(artifact, ordinal, class, summary, figure_cents, saving_cents, risk, needs, evidence, target, state)
+			VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
 			artifactID, o.Ordinal, o.Class, o.Summary, o.FigureCents, o.SavingCents,
-			o.Risk, o.Needs, string(ev), string(OptionOpen)); err != nil {
+			o.Risk, o.Needs, string(ev), target, string(OptionOpen)); err != nil {
 			return false, "", err
 		}
 	}
 	return false, "", nil
+}
+
+// EnsureOptionTarget adds artifact_options.target for an installation
+// migrated from before allocation.rule carried a structured target
+// (C2-SPEC.md section 2). CREATE TABLE IF NOT EXISTS does nothing to a
+// table that already exists (Schema's own header comment, roster.go's
+// ensureRoster), so a console started before this column existed needs the
+// ALTER too; the duplicate-column error is the normal path on every start
+// after the first, the same convention EnsureOwnershipHistory and
+// connectors.EnsureFocusSchema already hold for their own added columns.
+// Every option saved before this reads back with an absent Target, exactly
+// as before: the column is nullable and the zero value is what "no target"
+// already means.
+func EnsureOptionTarget(db *sql.DB) error {
+	if _, err := db.Exec(Schema); err != nil {
+		return err
+	}
+	if _, err := db.Exec("ALTER TABLE artifact_options ADD COLUMN target TEXT"); err != nil &&
+		!strings.Contains(err.Error(), "duplicate column") {
+		return fmt.Errorf("adding artifact_options.target: %w", err)
+	}
+	return nil
 }
 
 func journalOptionRefused(rec Recorder, roleName string, artifactID int, reason string) {
@@ -323,8 +438,9 @@ func journalOptionRefused(rec Recorder, roleName string, artifactID int, reason 
 func Options(db *sql.DB, artifactID int) ([]Option, error) {
 	rows, err := db.Query(`SELECT artifact, ordinal, class, COALESCE(summary,''),
 		figure_cents, saving_cents, COALESCE(risk,''), COALESCE(needs,''),
-		COALESCE(evidence,''), state, COALESCE(decided_by,''), COALESCE(decided_at,''),
-		COALESCE(reason,'') FROM artifact_options WHERE artifact=? ORDER BY ordinal`, artifactID)
+		COALESCE(evidence,''), COALESCE(target,''), state, COALESCE(decided_by,''),
+		COALESCE(decided_at,''), COALESCE(reason,'')
+		FROM artifact_options WHERE artifact=? ORDER BY ordinal`, artifactID)
 	if err != nil {
 		return nil, err
 	}
@@ -353,8 +469,8 @@ func GetOption(db *sql.DB, artifactID, ordinal int) (Option, error) {
 func OpenOptionsForSprint(db *sql.DB, sprintID int) ([]Option, error) {
 	rows, err := db.Query(`SELECT o.artifact, o.ordinal, o.class, COALESCE(o.summary,''),
 		o.figure_cents, o.saving_cents, COALESCE(o.risk,''), COALESCE(o.needs,''),
-		COALESCE(o.evidence,''), o.state, COALESCE(o.decided_by,''), COALESCE(o.decided_at,''),
-		COALESCE(o.reason,'')
+		COALESCE(o.evidence,''), COALESCE(o.target,''), o.state, COALESCE(o.decided_by,''),
+		COALESCE(o.decided_at,''), COALESCE(o.reason,'')
 		FROM artifact_options o
 		JOIN artifacts a ON a.id = o.artifact
 		JOIN tasks t ON t.id = a.task
@@ -373,8 +489,8 @@ func OpenOptionsForSprint(db *sql.DB, sprintID int) ([]Option, error) {
 func CarriedOptionsFor(db *sql.DB, sprintID int, owner string) ([]Option, error) {
 	rows, err := db.Query(`SELECT o.artifact, o.ordinal, o.class, COALESCE(o.summary,''),
 		o.figure_cents, o.saving_cents, COALESCE(o.risk,''), COALESCE(o.needs,''),
-		COALESCE(o.evidence,''), o.state, COALESCE(o.decided_by,''), COALESCE(o.decided_at,''),
-		COALESCE(o.reason,'')
+		COALESCE(o.evidence,''), COALESCE(o.target,''), o.state, COALESCE(o.decided_by,''),
+		COALESCE(o.decided_at,''), COALESCE(o.reason,'')
 		FROM artifact_options o
 		JOIN artifacts a ON a.id = o.artifact
 		JOIN tasks t ON t.id = a.task
@@ -391,16 +507,19 @@ func scanOptions(rows *sql.Rows) ([]Option, error) {
 	var out []Option
 	for rows.Next() {
 		var o Option
-		var evidence string
+		var evidence, target string
 		var state string
 		if err := rows.Scan(&o.Artifact, &o.Ordinal, &o.Class, &o.Summary,
-			&o.FigureCents, &o.SavingCents, &o.Risk, &o.Needs, &evidence, &state,
+			&o.FigureCents, &o.SavingCents, &o.Risk, &o.Needs, &evidence, &target, &state,
 			&o.DecidedBy, &o.DecidedAt, &o.Reason); err != nil {
 			return nil, err
 		}
 		o.State = OptionState(state)
 		if evidence != "" {
 			_ = json.Unmarshal([]byte(evidence), &o.Evidence)
+		}
+		if target != "" {
+			o.Target = json.RawMessage(target)
 		}
 		out = append(out, o)
 	}
@@ -499,8 +618,8 @@ func LiveRivalsOf(db *sql.DB, opt Option) ([]Option, error) {
 	}
 	rows, err := db.Query(`SELECT o.artifact, o.ordinal, o.class, COALESCE(o.summary,''),
 		o.figure_cents, o.saving_cents, COALESCE(o.risk,''), COALESCE(o.needs,''),
-		COALESCE(o.evidence,''), o.state, COALESCE(o.decided_by,''), COALESCE(o.decided_at,''),
-		COALESCE(o.reason,'')
+		COALESCE(o.evidence,''), COALESCE(o.target,''), o.state, COALESCE(o.decided_by,''),
+		COALESCE(o.decided_at,''), COALESCE(o.reason,'')
 		FROM artifact_options o
 		JOIN artifacts a ON a.id = o.artifact
 		JOIN tasks t2 ON t2.id = a.task
