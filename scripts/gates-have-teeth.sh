@@ -936,6 +936,11 @@ run_case 'due: skip the switch check' \
 # SAME source line to a different fault and is judged against a DIFFERENT
 # test, so the two cases never collide on a shared tree: run_case restores
 # with git between every one.
+# sofar*windowDays/windowDays is sofar, exactly, for any windowDays >= 1 (the
+# only value daysBetween ever returns): a mutation that still COMPILES
+# (windowDays stays referenced, so nothing is left unused) while dividing the
+# window straight back out, which is what "applied once, un-extended across
+# its own window" amounts to in this line.
 run_case 'forecast: a recurring driver applies its effect once, un-extended' \
 	fail \
 	./internal/finops \
@@ -943,7 +948,7 @@ run_case 'forecast: a recurring driver applies its effect once, un-extended' \
 	$'want 30.00' \
 	internal/finops/forecast.go \
 	$'effect = money.Cents(int64(sofar) * int64(windowDays) / int64(landed))' \
-	$'effect = sofar'
+	$'effect = money.Cents(int64(sofar) * int64(windowDays) / int64(windowDays))'
 
 run_case 'forecast: a driver rate rounds to the cent before its window multiplies it' \
 	fail \
