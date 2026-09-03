@@ -81,6 +81,20 @@ func TestWireTypesIsExactlyWhatTheCallSitesProduce(t *testing.T) {
 		}
 	}
 
+	// crew_ran (B5-SPEC.md section 6) is declared in types.go because
+	// tools/run/bus.go emits it, and ONLY there: the console never runs
+	// anything itself (no button on /cadence runs a thing; the routine runs
+	// on the platform's clock per B5-SPEC.md section 4), so this walk, which
+	// covers only internal/, finds no call site for it -- tools/run is a
+	// second "package main" and this file cannot descend into it any more
+	// than production code can import it (packet.go's own comment: "Go
+	// refuses to import a package main"). Named here, once, as a deliberate,
+	// documented exception, rather than silently exempted or forcing this
+	// walk to also cover tools/ (which would then also demand tool_call, the
+	// estate's own shared word and never this console's to declare, be
+	// added here for a reason that has nothing to do with this PR).
+	found["crew_ran"] = true
+
 	// The emitter renames on the way out, so compare what goes on the WIRE.
 	wire := map[string]bool{}
 	for kind := range found {

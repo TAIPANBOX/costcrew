@@ -195,6 +195,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /explainers/commission", s.commissionExplainer)
 	s.mux.HandleFunc("POST /explainers/{id}/publish", s.explainerAction("publish"))
 	s.mux.HandleFunc("POST /explainers/{id}/return", s.explainerAction("return"))
+	s.mux.HandleFunc("GET /cadence", s.cadencePage)
+	s.mux.HandleFunc("POST /cadence", s.setCadence)
 	s.mux.HandleFunc("GET /sprint/plan", s.planPage)
 	s.mux.HandleFunc("POST /sprint/plan", s.approvePlan)
 	s.mux.HandleFunc("POST /sprint/{id}/close", s.closeSprint)

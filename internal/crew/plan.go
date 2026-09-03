@@ -283,10 +283,33 @@ func proposeBlocked(db *sql.DB, p *Plan) error {
 // last posted deliverable is older than its cadence counted back from the
 // sprint's start, or it has never posted; on-request is never due on its
 // own. One item per sprint, never one per day.
+//
+// B5-SPEC.md section 3 point 2: the body moved to CadenceDue, exported, so
+// this is now a thin wrapper. The plan and the runner's `-due` mode call the
+// SAME function so the page, the plan and the runner cannot disagree about
+// what is due.
 func proposeCadenceDue(db *sql.DB, p *Plan, roster []Analyst, start string, spent map[string]money.Cents) error {
+	items, err := CadenceDue(db, roster, start, spent)
+	if err != nil {
+		return err
+	}
+	p.Items = append(p.Items, items...)
+	return nil
+}
+
+// CadenceDue is section 2 item 3's source, exported (B5-SPEC.md section 3
+// point 2) so `tools/run`'s `-due` mode and the console's `/cadence` page
+// build the due list through the exact same routing, pricing-guard and
+// headroom logic Propose already uses -- never a second, hand-kept copy that
+// could drift from it. db and roster are what Propose already loaded; start
+// is the date cadence is measured against ("today" for the runner and the
+// console, the sprint's own start date for a plan); spent is this month's
+// spend per analyst (crew.SpendInMonth).
+func CadenceDue(db *sql.DB, roster []Analyst, start string, spent map[string]money.Cents) ([]PlanItem, error) {
+	var items []PlanItem
 	cutoffBase, perr := time.Parse("2006-01-02", start)
 	if perr != nil {
-		return nil // no parseable sprint start: nothing is measured due against it
+		return nil, nil // no parseable date: nothing is measured due against it
 	}
 	for _, a := range roster {
 		if a.State != "active" {
@@ -309,7 +332,7 @@ func proposeCadenceDue(db *sql.DB, p *Plan, roster []Analyst, start string, spen
 
 		lastPosted, everPosted, err := lastPostedDate(db, a.Name)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		due := !everPosted
 		if everPosted {
@@ -334,18 +357,18 @@ func proposeCadenceDue(db *sql.DB, p *Plan, roster []Analyst, start string, spen
 		why := fmt.Sprintf("%s cadence, last posted %s", word, when)
 
 		if headroomOf(a, spent) <= 0 {
-			p.Items = append(p.Items, PlanItem{
+			items = append(items, PlanItem{
 				Title: title, Goal: mission, Assignee: "supervisor", Desk: "management",
 				Budget: 0, Why: why + fmt.Sprintf("; %s skipped: no headroom this month", a.Name),
 			})
 			continue
 		}
-		p.Items = append(p.Items, PlanItem{
+		items = append(items, PlanItem{
 			Title: title, Goal: mission, Assignee: a.Name, Desk: a.Desk,
 			Budget: a.PerTask, Why: why,
 		})
 	}
-	return nil
+	return items, nil
 }
 
 // lastPostedDate is the newest artifacts.stamped for a posted deliverable

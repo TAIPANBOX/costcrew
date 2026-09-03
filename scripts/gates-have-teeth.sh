@@ -893,6 +893,38 @@ run_case 'memory: history is prepended instead of appended, so it no longer yiel
 	$'if s := ownHistorySection(db, a, t.Desk); s != "" {\n\t\t\tsections = append(sections, s)\n\t\t}' \
 	$'if s := ownHistorySection(db, a, t.Desk); s != "" {\n\t\t\tsections = append([]string{s}, sections...)\n\t\t}'
 
+# B5-SPEC.md section 7's named mutant, "skip the switch check": invariant 31
+# (CLAUDE.md), "no clock-driven run spends without the console's switch AND
+# the ceiling, both a person's act". The switch is read and checked TWICE on
+# purpose (duePreflight, before anything is priced, and again in dueExecute,
+# right before the first call, so a person turning it off mid-run still
+# stops it) -- both checks read as the identical source line
+# `if !enabled {`, and apply_edits replaces one occurrence per triple, so the
+# same triple is given twice to disable both; disabling only one still
+# leaves the other catching the fault.
+#
+# The test's fixture gives cadence.ceiling_cents a generous, nonzero value
+# WHILE THE SWITCH IS OFF, deliberately: a zero ceiling is "off" by another
+# name (section 2) and would refuse a live run on its own, which would make
+# this case pass for the wrong reason. @measured 2026-09-03, planting this
+# exact mutation by hand: without the nonzero ceiling the case still turned
+# red, but on a DIFFERENT assertion (the ceiling-refusal message, not "the
+# switch off was accepted"), because a zero ceiling refuses independently of
+# the switch. With the nonzero ceiling the mutation is unambiguous: a sprint
+# and a task are actually created ("cadence-due: 1 task(s) created..."),
+# proving the run proceeded past the switch entirely.
+run_case 'due: skip the switch check' \
+	fail \
+	./tools/run \
+	$'TestDueWithTheSwitchOffExitsTwoAndCreatesNothing' \
+	$'-due with the switch off was accepted' \
+	tools/run/due.go \
+	$'if !enabled {' \
+	$'if !enabled && false {' \
+	tools/run/due.go \
+	$'if !enabled {' \
+	$'if !enabled && false {'
+
 echo
 if [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'

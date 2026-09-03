@@ -1,0 +1,73 @@
+{{define "content"}}
+<p class="crumb"><a href="/sprints">Sprints</a> / cadence</p>
+<header class="page">
+  <h1>Cadence</h1>
+  <p>The crew does nothing on its own. Two switches both have to be on before a clock-driven run spends a cent: the platform's own (the CronJob or the routine, still suspended) and this one. No button on this page runs anything; the routine runs on the platform's clock.</p>
+</header>
+
+<div class="tiles">
+  <div class="tile"><div class="k">Switch</div><div class="v">{{if .Enabled}}On{{else}}Off{{end}}</div><div class="s">{{if .ChangedBy}}set by {{.ChangedBy}} on {{.ChangedAt}}{{else}}never set{{end}}</div></div>
+  <div class="tile"><div class="k">Ceiling</div><div class="v">{{.Ceiling}}</div><div class="s">the most one due-run may spend</div></div>
+  <div class="tile"><div class="k">Due today</div><div class="v">{{len .Rows}}</div><div class="s">worst case {{.TotalWorst}}{{if .OverCeiling}}, over the ceiling{{end}}</div></div>
+</div>
+
+{{if .CanAct}}
+<form class="action" method="post" action="/cadence">
+  <input type="hidden" name="csrf" value="{{.CSRF}}">
+  <div class="row">
+    <label><input type="checkbox" name="enabled" value="on" style="width:auto" {{if .Enabled}}checked{{end}}> Cadence is on</label>
+  </div>
+  <div class="row">
+    <label for="ceiling">Ceiling (USD, e.g. 25.00)</label>
+    <input type="text" id="ceiling" name="ceiling" value="{{.Ceiling}}">
+  </div>
+  <p class="note">Turning this on means the next time the platform's own routine fires (still suspended today), it may spend up to the ceiling above on whatever is cadence-due that day. Turning it off, or setting the ceiling to 0.00, means the routine spends nothing even if the platform un-suspends it.</p>
+  <div class="row"><button type="submit">Save</button></div>
+</form>
+{{end}}
+
+<div class="panel">
+  <h2>What is due today, and what it would cost at worst</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Analyst</th><th>Title</th><th>Cadence</th><th>Last posted</th><th class="num">Worst case</th></tr></thead>
+    <tbody>
+    {{range .Rows}}
+      <tr>
+        <td>{{if .Analyst}}<a href="/staff/{{.Analyst}}">{{.Analyst}}</a>{{else}}<span class="note">unassigned</span>{{end}}</td>
+        <td><strong>{{.Title}}</strong><span class="sub">{{.Why}}</span></td>
+        <td>{{.Cadence}}</td>
+        <td>{{if .LastPosted}}{{.LastPosted}}{{else}}never posted{{end}}</td>
+        <td class="num">{{if .Priced}}{{.Worst}}{{else}}&mdash;{{end}}</td>
+      </tr>
+    {{else}}
+      <tr><td colspan="5" class="empty">Nothing is cadence-due today.</td></tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>The last three runs</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>When</th><th>Sprint</th><th class="num">Tasks run</th><th class="num">Refused</th><th class="num">Cost</th><th>Switched on by</th></tr></thead>
+    <tbody>
+    {{range .Ran}}
+      <tr>
+        <td>{{.When}}</td>
+        <td>{{.Sprint}}</td>
+        <td class="num">{{.TasksRun}}</td>
+        <td class="num">{{.TasksRefused}}</td>
+        <td class="num">{{.Cost}}</td>
+        <td>{{.SwitchedOnBy}}</td>
+      </tr>
+    {{else}}
+      <tr><td colspan="6" class="empty">No cadence run has been recorded yet.</td></tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+</div>
+{{end}}

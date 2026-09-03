@@ -56,16 +56,17 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 488 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 67 cases; needs a clean tree; ~90s
-./scripts/features-are-bound.sh      # 102 scenarios, both directions
+go test ./...                        # PLACEHOLDER tests, 20 packages
+./scripts/gates-have-teeth.sh        # PLACEHOLDER cases; needs a clean tree; ~90s
+./scripts/features-are-bound.sh      # PLACEHOLDER scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refused PR #19 on two findings the list above never asked for; a staticcheck built for an older Go cannot read this module, so on such a machine CI is the only place it runs
 ```
 
-Counts follow the suite, measured on `feat/an-analyst-remembers-what-it-posted`
+Counts follow the suite, measured on `feat/cadence-runs-when-a-person-switches-it-on`
+(rebased onto `feat/an-analyst-remembers-what-it-posted` after it merged)
 (test count by `go test ./... -list '.*' | grep -c '^Test'` -- test FUNCTIONS, not
 subtests, the convention PR #21, #23 and this file's own `internal/manifest` gate
 already use, not `-v | grep -c '^--- PASS'`, which over-counts anything using
@@ -73,7 +74,9 @@ already use, not `-v | grep -c '^--- PASS'`, which over-counts anything using
 `grep -c '^run_case' scripts/gates-have-teeth.sh`; `grep -rc Scenario: features/*.feature`;
 2026-09-03); nothing here keeps them current automatically, so they lag whichever
 branch last updated them by hand (B1a's own merge left this block at 282/48/59
-while its own PR body reported 301/52/70).
+while its own PR body reported 301/52/70). Invariants 1, 2 and 5's own route
+counts (48/30/30 -> 50/34/34) were also re-measured while touching this file for
+B5, since the new /cadence routes are directly what moved them.
 
 The gates in this repo are Go tests rather than shell scripts, so
 `gates-have-teeth.sh` mutates the PRODUCT and requires the test to go red.
@@ -94,13 +97,13 @@ an absent invariant.
    `/logout`, `/healthz` and `/static/` genuinely answer anybody; `/signup` is
    open only while nobody can administer the installation (invariant 10); and
    `/calendar` and `/stats` are aliases that redirect to a guarded page.
-   *(gate: `TestEveryRouteRequiresASession`, which walks all 48 GET routes
+   *(gate: `TestEveryRouteRequiresASession`, which walks all 50 GET routes
    registered in `server.go`. Its regexp is anchored to the registration and
    not to the string `HandleFunc`, because it once fired on a route named in a
    COMMENT, and a gate that fires on prose gets deleted the first week.)*
 
 2. **A viewer may read and export, and may write nothing.**
-   *(gate: `TestAViewerCannotWrite`, all 30 write routes against a real viewer
+   *(gate: `TestAViewerCannotWrite`, all 34 write routes against a real viewer
    session with a real CSRF token. It requires THE role refusal by its wording,
    not any refusal: accepting any message made it pass on 26 of 27 routes whose
    handlers happened to complain about something else first.)*
@@ -124,7 +127,7 @@ an absent invariant.
 5. **Every write route refuses a request without a valid CSRF token.** The
    check is in five places, not one: `s.checked` and four handlers with their
    own copy.
-   *(gate: `TestEveryWriteRouteChecksCSRF`, 30 routes with an empty token and
+   *(gate: `TestEveryWriteRouteChecksCSRF`, 34 routes with an empty token and
    with a wrong one, requiring the CSRF wording specifically. Until
    2026-08-23 this was one route of thirty-three.)*
 
@@ -723,6 +726,64 @@ an absent invariant.
     the analyst; an option's fate line dropped; the drivers window kept at
     90 days; and memory prepended instead of appended, so it is protected
     rather than trimmed first.)*
+
+31. **No clock-driven run spends without the console's switch AND the
+    ceiling, both a person's act.** B5-SPEC.md. The cluster ships
+    `costcrew-crew` as a suspended CronJob (`stack-k8s/manifests/49-costcrew.yaml`)
+    and stack-single has no routine for it at all today (`@claude`
+    2026-09-03: read looking for one, per the spec's own instruction to read
+    it; none exists, contrary to what a cursory read of that manifest's
+    comment history might suggest -- the comment there only cites
+    `costcrew-crew` as PRECEDENT for `idryx-detect`'s own shape). Flipping
+    stack-k8s's `suspend: true` is a platform act and stays one; this
+    invariant is about the SECOND switch, inside the store, that a routine
+    firing on the platform's clock still has to clear. `tools/run -due`
+    refuses unless `crew.CadenceSettings` reads `cadence.enabled` on, re-read
+    a second time immediately before creating or running anything (a person
+    switching it off between the two must still stop the run), and never
+    creates a sprint or a task when it refuses. The ceiling it runs under is
+    the SMALLER of `-ceiling` and the console's own `cadence.ceiling_cents`
+    (default 0, which is off by another name), named together in every
+    refusal so a person reading the log knows which one bound it. `/cadence`
+    is the only writer of the switch (`crew.SetCadence`, journaled as
+    `cadence_set` with the actor, the same way `budgets_set` already is); the
+    runner only ever reads it. The due list itself comes from
+    `crew.CadenceDue`, exported from `plan.go`'s own `proposeCadenceDue` so
+    the plan, the console page and the runner route through one function and
+    cannot disagree about what is due, and pricing (`deliver.WorstCaseMicros`,
+    `deliver.EstimateWorstCase`) is likewise one shared formula so the
+    console's preview price and the runner's own preflight price cannot
+    drift apart -- `internal/web` cannot import `tools/run` to call its
+    `price()` directly, the same "package main" restriction B7 already
+    documents for `internal/deliver`.
+    *(gate: `TestDueWithTheSwitchOffExitsTwoAndCreatesNothing`,
+    `TestDueRefusesBeforeAnyCallWhenWorstExceedsTheCeiling`,
+    `TestDueDryRunPrintsAndWritesNothing`, `TestDueLiveCreatesRunsAndEmitsCrewRan`,
+    `TestASecondDueLiveTheSameDayIsIdempotent`,
+    `TestDueRunsWhenTheCeilingExactlyEqualsTheWorstCase`,
+    `TestDueRefusesWhenCadenceCeilingCentsIsZero`,
+    `TestDueRefusesANegativeCeilingFlag`, `TestDueOnGarbageSettingsRefusesAsOff`,
+    `TestDueRefusesWhenTheSwitchIsFlippedOffBetweenPreflightAndExecution` and
+    `TestCrewRanCostSumsMicrosBeforeAnyRounding` in `tools/run`;
+    `TestCadenceDueMatchesWhatProposeAlreadyProducesForCadence`,
+    `TestCadenceDueNeverListsAnOnRequestAnalyst`,
+    `TestCadenceSettingsDefaultsToOff`, `TestSetCadenceThenCadenceSettingsRoundTrips`,
+    `TestSetCadenceRefusesANegativeCeiling` and
+    `TestCadenceSettingsOnGarbageReadsAsOff` in `internal/crew`;
+    `TestCadenceGETRendersTheSwitchAndTheDueList`,
+    `TestCadencePOSTFlipsTheSwitchAndJournalsTheActor`,
+    `TestCadencePOSTRefusesAViewer`, `TestCadencePOSTRefusesANegativeCeiling`
+    and `TestCadenceShowsTheLastThreeCrewRanEvents` in `internal/web`.
+    `scripts/gates-have-teeth.sh`'s `due: skip the switch check` case plants
+    the mutant named in B5-SPEC.md section 7 on the SOURCE LINE both the
+    preflight and the re-read share (`if !enabled {`, disabled in both
+    places at once, because disabling only one leaves the other catching
+    it); the other three named mutants -- comparing the worst case against
+    `-ceiling` alone, rounding cost per task before summing, and emitting
+    `crew_ran` before the run instead of after -- were planted by hand and
+    reverted rather than kept as permanent cases, each caught by one of the
+    tests above, the same shape invariant 27's own history already
+    describes for this repository.)*
 
 ## Decisions that have no gate yet
 
