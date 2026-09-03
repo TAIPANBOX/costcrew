@@ -40,6 +40,7 @@ Feature: The executive reporter's fortnight is four numbers and why each moved
       names it at all
 
   @test:TestExecutiveSaysNoPreviousPeriodForTheFirstPeriod
+  @test:TestExecutiveSectionSaysNoPreviousPeriodForTheFirstPeriod
   Scenario: The estate's first period has nothing to compare against
     Given an estate with exactly one month of charges
     When the executive reporter's packet is built

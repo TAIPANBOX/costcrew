@@ -124,6 +124,47 @@ func TestExecutiveSectionShowsARefusedKPIAsRefusedNeverZero(t *testing.T) {
 	}
 }
 
+// Boundary, C8-SPEC.md section 4 / features/executive-pack.feature "The
+// estate's first period has nothing to compare against": internal/finops's
+// own TestExecutiveSaysNoPreviousPeriodForTheFirstPeriod holds this at the
+// SOURCE, Executive()'s own HasPeriod flag, before any rendering happens.
+// The scenario's own words are about the PACKET though -- "the executive
+// reporter's packet is built ... each of the four figures says 'no
+// previous period'" -- and HasPeriod alone does not prove
+// executiveFigureLine ever reaches the branch that prints those words, so
+// this test calls Packet() itself rather than Executive().
+func TestExecutiveSectionSaysNoPreviousPeriodForTheFirstPeriod(t *testing.T) {
+	db := deliverTestDB(t)
+	plantCharge(t, db, "aws", "2026-01-15", "Amazon EC2", "ml-platform", 10000)
+
+	got := Packet(db, execReporterTask(), execReporterAnalyst(), false)
+
+	// allocation-coverage and unallocated-share both have a real value on
+	// one charge in one month (unallocated-share only refuses when a
+	// period has NO cost at all): with no previous month to compare
+	// against, both must read the boundary's own words, never a delta
+	// computed against nothing.
+	if n := strings.Count(got, "(no previous period)"); n != 2 {
+		t.Errorf("the packet says \"(no previous period)\" %d times on the estate's first "+
+			"period, want exactly 2 (allocation-coverage and unallocated-share, the two "+
+			"figures this one-charge fixture gives a value to):\n%s", n, got)
+	}
+	// agent-attribution (no AI-sourced charge in this fixture) and
+	// cost-per-outcome (always, until C7) are refused instead: the Blocked
+	// check in executiveFigureLine runs BEFORE HasPeriod is ever
+	// consulted, so a refused figure reads "refused", never "no previous
+	// period", on ANY period -- the scenario's own words describe the
+	// figures that actually compute, and TestExecutiveSectionShowsARefusedKPIAsRefusedNeverZero
+	// already holds the refusal-not-zero half of that separately.
+	if n := strings.Count(got, ": refused,"); n != 2 {
+		t.Errorf("the packet refuses %d figures on the estate's first period, want exactly "+
+			"2 (agent-attribution and cost-per-outcome):\n%s", n, got)
+	}
+	if strings.Contains(got, "was ") {
+		t.Errorf("the packet computes a delta against a period that does not exist:\n%s", got)
+	}
+}
+
 // The desk whose spend moved most (aws, +40000 against gcp's +2000) is the
 // one whose posted explanation reaches the pack.
 func TestExecutiveSectionShowsTheLastExplanationOnTheDeskThatMovedMost(t *testing.T) {
@@ -169,6 +210,16 @@ func TestExecutiveSectionFallsThroughADeskWithNoPostedExplanation(t *testing.T) 
 }
 
 // Hostile, C8-SPEC.md section 4: "an explanation body of 1 MB (trimmed)".
+//
+// The two checks this test used to end with (the packet's own 12 KiB cap,
+// and fewer than 1000 'x' characters) both hold vacuously on a packet with
+// no executiveSection at all: with nothing built from the huge body,
+// len(got) is trivially under the cap and the 'x' count is trivially under
+// 1000, so neither line ever proved a trim ran. The checks below require
+// EVIDENCE the section was built at all (the explanation's own title) and
+// pin the actual mechanism spec section 2 names -- "first 200 bytes" -- by
+// requiring exactly that many of the body's 'x' characters to survive as
+// one run, no more.
 func TestExecutiveSectionTrimsAOneMegabyteExplanationBody(t *testing.T) {
 	db := twoDeskThreeMonthDB(t)
 	taskID := plantMemoryTask(t, db, "aws", "A very long explanation")
@@ -176,6 +227,17 @@ func TestExecutiveSectionTrimsAOneMegabyteExplanationBody(t *testing.T) {
 	plantPostedArtifact(t, db, taskID, "investigator-aws", huge, "2026-02-20T10:00:00Z")
 
 	got := Packet(db, execReporterTask(), execReporterAnalyst(), false)
+
+	if !strings.Contains(got, "A very long explanation") {
+		t.Fatalf("the packet does not carry the 1 MB explanation's own title, so nothing "+
+			"below would prove a trim ran rather than the whole entry being dropped:\n%.2000s", got)
+	}
+	if !strings.Contains(got, strings.Repeat("x", 200)) {
+		t.Errorf("the packet does not carry the explanation's first 200 bytes intact, C8-SPEC.md section 2's own words")
+	}
+	if strings.Contains(got, strings.Repeat("x", 201)) {
+		t.Errorf("the packet carries more than 200 bytes of the explanation body: not trimmed to spec")
+	}
 	if len(got) > packetMaxBytes {
 		t.Fatalf("a 1 MB explanation body blew the packet's own 12 KiB cap: %d bytes", len(got))
 	}
