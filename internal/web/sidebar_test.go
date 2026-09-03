@@ -38,7 +38,30 @@ import (
 // unchanged in kind and gets slightly worse in degree, which was already
 // true before this page existed and is not re-measured again here.
 //
-// The test holds the INPUTS that produced 952, because Go cannot lay out CSS.
+// A person could not find Rightsizing (C5) at all: the page existed and
+// nothing in the sidebar led to it. `@yurii 2026-09-03`, looking at the site's
+// own screenshot of that page: "я не бачу в боковому меню вкладки такої Right
+// Sizing. Так і не зміг знайти." So the 28th link is his call, made, and this
+// budget moves with it rather than the link going in under a stale number.
+//
+// @measured, the in-app browser against a real console on a fresh store,
+// 2026-09-03 (`nav.scrollHeight` against `nav.clientHeight`, plus the last
+// link's own `getBoundingClientRect().bottom`, at five viewport heights):
+//
+//	viewport 1020  content 980  slack 40  own scrollbar no
+//	viewport 1000  content 980  slack 20  own scrollbar no
+//	viewport  990  content 992            own scrollbar YES
+//	viewport  975  content 992            own scrollbar YES
+//	viewport  950  content 992            own scrollbar YES
+//
+// So one link costs 28px, and the window height at which the trap returns
+// moved from about 964px to about 992px. Everybody already below that older
+// figure was already scrolling and is unaffected; the band this change costs
+// is a viewport between 964 and 992 pixels tall. The structural answer is
+// still fewer destinations, and it is still his call, now with the price of
+// one link measured rather than estimated.
+//
+// The test holds the INPUTS that produced 980, because Go cannot lay out CSS.
 // It is therefore a budget, not a rendering: it catches the regression that
 // actually happens, which is a link being added or a padding growing back.
 func TestTheSidebarFitsAWindow(t *testing.T) {
@@ -56,15 +79,15 @@ func TestTheSidebarFitsAWindow(t *testing.T) {
 		got   int
 		limit int
 	}{
-		{"links in the sidebar", links, 27},
+		{"links in the sidebar", links, 28},
 		{"group labels", groups, 6},
 		{"nav a padding-top", pxIn(t, css, `nav a \{[^}]*padding: (\d+)px`), 3},
 		{"nav .group padding-top", pxIn(t, css, `nav \.group \{[^}]*padding: (\d+)px`), 9},
 		{"nav padding-top", pxIn(t, css, `\nnav \{[^}]*padding: (\d+)px`), 12},
 	} {
 		if c.got > c.limit {
-			t.Errorf("%s is %d, budget %d: the sidebar was measured at 936px "+
-				"with these values and a 1020px window has 84px of slack. Over "+
+			t.Errorf("%s is %d, budget %d: the sidebar was measured at 980px "+
+				"with these values and a 1020px window has 40px of slack. Over "+
 				"the budget it grows its own scrollbar, which resets on every "+
 				"page load and puts a different link under the cursor",
 				c.what, c.got, c.limit)
