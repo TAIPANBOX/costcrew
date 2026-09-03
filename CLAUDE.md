@@ -56,9 +56,9 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 851 tests, 20 packages
+go test ./...                        # 852 tests, 20 packages
 ./scripts/gates-have-teeth.sh        # 95 cases; needs a clean tree; @measured 2026-09-03, 95 passed 0 failed on three separate runs (5m50s and 6m23s on the rebased tree)
-./scripts/features-are-bound.sh      # 202 scenarios, both directions
+./scripts/features-are-bound.sh      # 203 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
@@ -190,16 +190,33 @@ Invariant 47 (C8-LEADERSHIP-SPEC.md): this branch forked from `origin/main`
 before costcrew#45's own invariant landed; once fetched, it had taken 46, so
 this one is 47 rather than colliding with it, the exact contingency the spec
 itself named before either PR existed. Moved 844 -> 851 tests (`internal/web`
-gained 7, `leadership_test.go`) and 94 -> 95 gates-have-teeth.sh cases (the
-one named mutant this invariant's own gate case plants -- the template's
-value slot printing `Numeric` unconditionally; the other two the spec names
--- a draft leadership pack listed alongside the published ones, and a
-publish control rendered inside the per-pack loop -- were planted by hand
-and reverted rather than kept as permanent cases, the same shape invariant 27's
-own history already describes). Feature scenarios 195 -> 202 (the seven
+gained 7, `leadership_test.go`) and 94 -> 95 gates-have-teeth.sh cases (one
+permanent case, retargeted in coordinator review -- see the paragraph below
+-- plus two more the spec names, planted by hand and reverted rather than
+kept as permanent cases: a draft leadership pack listed alongside the
+published ones, and a publish control rendered inside the per-pack loop,
+the same shape invariant 27's own history already describes). Feature scenarios 195 -> 202 (the seven
 scenarios in `features/leadership.feature`). GET routes 57 -> 58 (the one
 route this branch adds, `/leadership`); no write route anywhere in it, so
 invariants 2 and 5's own route counts are unchanged.
+
+Re-measured again 2026-09-03 after coordinator review of PR #51: the review
+found the defect invariant 47's own paragraph above now describes --
+`printf "%.1f" .Numeric` collapsing a real cost-per-outcome reading to
+"0.0" -- so `Value`/`PrevValue` replace `Numeric`/`PrevNumeric` in the
+template and the paragraph above was rewritten in place to match rather
+than left describing code that no longer exists (the one exception to this
+file's usual "append, do not rewrite" convention: the property a reader
+needs here is what the CODE does today, not a record of what it used to
+do, since the wrong version is not merely superseded but actively
+misleading about how invariant 47's own guard now works). 851 -> 852 tests
+(`internal/web` gained 1,
+`TestTheLeadershipPageShowsASmallCostPerOutcomeWithoutLosingItsDigits`);
+95 gates-have-teeth.sh cases, unchanged in COUNT -- the one permanent case
+was retargeted at the new fault in place rather than a second one being
+added, the same shape invariant 38's own "rank by current cost" retarget
+already describes. Feature scenarios 202 -> 203 (one new, in the same
+file). No route moved.
 
 The gates in this repo are Go tests rather than shell scripts, so
 `gates-have-teeth.sh` mutates the PRODUCT and requires the test to go red.
@@ -2298,11 +2315,36 @@ an absent invariant.
 
     The page shows the four `ExecutiveFigure`s as real tiles, in
     `executiveKPIIDs` order, each one's own value slot holding
-    `{{if .HasVal}}` the KPI's `Numeric` and `Unit` `{{else}}` its `Blocked`
-    sentence `{{end}}` -- the same Blocked-before-HasVal guard invariant 36
-    already holds for the packet's own `executiveFigureLine`, now at the
-    page, with `Numeric` and `PrevNumeric` never printed unless `HasVal` /
-    `PrevHasVal` is true. The period line reads "Period P, beside PREV." or,
+    `{{if .HasVal}}` the KPI's own `Value` and `Unit` `{{else}}` its
+    `Blocked` sentence `{{end}}` -- the same Blocked-before-HasVal guard
+    invariant 36 already holds for the packet's own `executiveFigureLine`,
+    now at the page. `Value`, not a reformatted `Numeric`: found in review
+    of this PR's own first version, which printed every figure through
+    `printf "%.1f" .Numeric`, right for the three percentages
+    (allocation-coverage, unallocated-share, agent-attribution) and wrong
+    for cost-per-outcome, a small MONEY figure -- a real $0.02 collapsed to
+    "0.0" through that verb, a real reading arriving through the VALUE
+    branch and reading exactly like the refusal the OTHER branch already
+    guards against. The KPI library already decided each figure's own
+    precision (`fmt.Sprintf` for the percentages, `money.Micros.String`'s
+    own two-or-four-decimal choice for cost-per-outcome); the page prints
+    that string rather than reformatting the float. `Numeric` and
+    `PrevNumeric` keep their own purpose unchanged -- the float the delta
+    arithmetic and the `HasVal`/`PrevHasVal` guards need, Go's own zero
+    value on a refusal exactly as invariant 36's own comment on
+    `ExecutiveFigure` already explains -- and are simply never the thing
+    printed any more. `PrevValue string`, new on `finops.ExecutiveFigure`
+    (`internal/finops/kpi.go`), carries the previous period's own `Value`
+    the identical way; set in `Executive()` in the SAME block that already
+    sets `PrevNumeric` from it, so the two can never disagree about which
+    period's string is which. The delta line is the one figure this
+    template still formats itself, because it is COMPUTED
+    (`Numeric - PrevNumeric`) rather than read off a KPI's own string -- the
+    library never wrote a string for a difference of two of its own numbers
+    -- and it prints with `%+.2f`, not `%+.1f`: a one-cent move on
+    cost-per-outcome is a real change, and `%+.1f` would round it away to
+    "+0.0", the identical fault from the other side (a real move collapsed,
+    not a refusal skipped). The period line reads "Period P, beside PREV." or,
     on the estate's very first period, "Period P; no previous period." Below
     the tiles, one sentence names the tiles and the packs as two different
     questions (invariant 13, figures reconcile), so a leader who sees a tile
@@ -2322,6 +2364,13 @@ an absent invariant.
     refuses on the seeded estate before any AI import; the assertion is
     scoped to that one tile's own markup, since a page-wide search for "0.0"
     would also match an ordinary number like "90.0"),
+    `TestTheLeadershipPageShowsASmallCostPerOutcomeWithoutLosingItsDigits`
+    (the `Value`/`PrevValue` regression itself: one `ai_calls` row per
+    period, one outcome each, priced so `perOutcome` lands on an EXACT
+    known figure -- $0.02 current, $0.03 previous -- proving `Value`,
+    `PrevValue` and the delta all keep their own digits at once; the
+    refusal test above cannot catch this, since its own fixture never
+    reaches the `HasVal=true` branch at all),
     `TestTheLeadershipPageSaysNoPreviousPeriodForTheFirstPeriod`
     (`startSingleMonth`, the same four-schema, one-row shape
     `internal/finops/executive_test.go`'s own `estateSchemaOnlyDB` and
@@ -2344,21 +2393,33 @@ an absent invariant.
     all in `leadership_test.go`). `TestPagesRenderTheSameTwice`
     (`internal/web/owners_test.go`) gained `/leadership` on its own path
     list.
-    `scripts/gates-have-teeth.sh`'s "leadership page: show a refused KPI as
-    zero" case plants this step's own named mutant: the template's value
-    slot mutated to print `Numeric` unconditionally, dropping the `HasVal`
-    branch that guards it -- `@measured` 2026-09-03, caught by
-    `TestTheLeadershipPageShowsARefusedKPIAsRefusedNeverZero`, whose scoped
-    tile shows `<div class="v refused">0.0</div>` in place of the refusal
-    sentence. Two more mutants were planted by hand and reverted rather than
-    kept as permanent cases: `leadership.go`'s pack filter dropping its
+    `scripts/gates-have-teeth.sh`'s "leadership page: reformat a KPI value
+    instead of printing its own string" case plants the regression this
+    fix closes, reverting both the value and previous-value lines from
+    `.Value`/`.PrevValue` back to `printf "%.1f" .Numeric`/`.PrevNumeric`
+    -- `@measured` 2026-09-03, caught by
+    `TestTheLeadershipPageShowsASmallCostPerOutcomeWithoutLosingItsDigits`,
+    whose scoped tile shows `<div class="v">0.0 USD/outcome</div>` and
+    `previous: 0.0 USD/outcome` in place of "0.02"/"0.03". This case
+    replaced an earlier one, "show a refused KPI as zero" -- the original
+    named mutant (print `Numeric` unconditionally, dropping the `HasVal`
+    branch) has no `.Numeric` left in the value slot to target once the fix
+    landed, and the property it stood for is now this one instead: not
+    "never print the raw float without a guard" but "never reformat a
+    figure the library already formatted."
+
+    Three more mutants were planted by hand and reverted rather than kept
+    as permanent cases: `leadership.go`'s pack filter dropping its
     `State != "published"` half, so a draft leadership pack is listed
     alongside the published ones, caught by
-    `TestTheLeadershipPageListsOnlyPublishedLeadershipPacks`; and a publish
+    `TestTheLeadershipPageListsOnlyPublishedLeadershipPacks`; a publish
     form added inside `leadership.html`'s own `{{range .Packs}}` block,
     caught by `TestTheLeadershipPageHasNoControlsEvenForAnOperator` only
-    after that test was strengthened to plant a pack first, per that test's
-    own comment above.)*
+    after that test was strengthened to plant a pack first (its own comment
+    says why); and the delta line alone reverted to `%+.1f`, leaving
+    `.Value`/`.PrevValue` fixed, caught by
+    `TestTheLeadershipPageShowsASmallCostPerOutcomeWithoutLosingItsDigits`'s
+    own delta assertion, `change: -0.0 USD/outcome` in place of "-0.01".)*
 
 ## Decisions that have no gate yet
 

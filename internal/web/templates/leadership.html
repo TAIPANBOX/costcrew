@@ -9,9 +9,17 @@
   {{range .Figures}}
   <div class="tile" id="figure-{{.ID}}">
     <div class="k">{{.Name}}</div>
-    <div class="v{{if not .HasVal}} refused{{end}}">{{if .HasVal}}{{printf "%.1f" .Numeric}}{{if .Unit}} {{.Unit}}{{end}}{{else}}{{.Blocked}}{{end}}</div>
-    <div class="s">{{if .PrevHasVal}}previous: {{printf "%.1f" .PrevNumeric}}{{if .Unit}} {{.Unit}}{{end}}{{else if .HasPeriod}}previous period refused: {{.PrevBlocked}}{{else}}no previous period{{end}}</div>
-    {{if .HasDelta}}<div class="s">change: {{printf "%+.1f" .Delta}}{{if .Unit}} {{.Unit}}{{end}}</div>{{end}}
+    <div class="v{{if not .HasVal}} refused{{end}}">{{if .HasVal}}{{.Value}}{{if .Unit}} {{.Unit}}{{end}}{{else}}{{.Blocked}}{{end}}</div>
+    <div class="s">{{if .PrevHasVal}}previous: {{.PrevValue}}{{if .Unit}} {{.Unit}}{{end}}{{else if .HasPeriod}}previous period refused: {{.PrevBlocked}}{{else}}no previous period{{end}}</div>
+    {{/* Delta is the one figure on this page this template formats itself,
+         because it is COMPUTED (Numeric minus PrevNumeric) rather than read
+         off a KPI's own pre-formatted string -- the library never wrote a
+         string for a difference of two of its own numbers. %+.2f, not
+         %.1f: a one-cent move on cost-per-outcome is a real change and
+         %+.1f would round it away to "+0.0", the exact "reads as a zero"
+         fault this page exists to refuse, just arrived at from the other
+         side (a real move collapsed, not a refusal skipped). */}}
+    {{if .HasDelta}}<div class="s">change: {{printf "%+.2f" .Delta}}{{if .Unit}} {{.Unit}}{{end}}</div>{{end}}
   </div>
   {{end}}
 </div>

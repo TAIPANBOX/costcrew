@@ -8,7 +8,6 @@ package web_test
 // exists).
 
 import (
-	"fmt"
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
@@ -95,6 +94,27 @@ func plantRealAIAttribution(t *testing.T, h *harness, period string) {
 	}
 }
 
+// plantCostPerOutcomeCall gives cost-per-outcome a real, KNOWN value for
+// one month: one ai_calls row, not blocked, carrying an outcome (the
+// property CostPerOutcome/OutcomeCountsByAgent actually count), so
+// perOutcome is exactly billedMicros (one call, one outcome, no division
+// remainder). billedMicros=20000 is $0.02, chosen because it is the exact
+// figure this invariant's own PR review found rendering as "0.0" -- under
+// 10000 micros' own boundary in money.Micros.String() would print four
+// decimals instead of two and prove a different thing.
+func plantCostPerOutcomeCall(t *testing.T, h *harness, month, fileTag string, billedMicros int64) {
+	t.Helper()
+	day := month + "-10"
+	if _, err := h.st.DB().Exec(`INSERT INTO ai_calls
+		(file_sha256, row_no, ts, day, agent, model, tokens_in, tokens_out,
+		 billed_microusd, blocked, basis, outcome)
+		VALUES (?, 1, ?, ?, 'agent://costcrew.test/investigator-aws', 'claude-haiku-4-5',
+		        100, 50, ?, 0, 'settled', 'case_resolved')`,
+		fileTag, day+"T12:00:00Z", day, billedMicros); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // figureTile scopes an assertion to one tile's own markup, so a "0.0"
 // check (or any other) cannot pass by accident on a DIFFERENT tile or on
 // the page's static prose. Bounded by whichever comes first: the NEXT
@@ -171,10 +191,15 @@ func TestTheLeadershipPageShowsTheFourFiguresForTheLatestPeriod(t *testing.T) {
 			t.Fatalf("%s has no value on this fixture; this test cannot prove the page shows "+
 				"a real number for it (Blocked: %q)", id, f.Blocked)
 		}
-		want := fmt.Sprintf("%.1f", f.Numeric)
+		// f.Value, not a re-derived fmt.Sprintf("%.1f", f.Numeric): the KPI
+		// library already chose each figure's own precision (agent-attribution
+		// is "%.0f", allocation-coverage and unallocated-share are "%.1f"),
+		// and the page prints that string rather than reformatting the float,
+		// so this test's own expectation must come from the same source of
+		// truth the page reads, not from a format verb this test invents.
 		tile := figureTile(t, body, id)
-		if !strings.Contains(tile, want) {
-			t.Errorf("the %s tile does not carry its own value %q:\n%s", id, want, tile)
+		if !strings.Contains(tile, f.Value) {
+			t.Errorf("the %s tile does not carry its own value %q:\n%s", id, f.Value, tile)
 		}
 	}
 
@@ -184,6 +209,104 @@ func TestTheLeadershipPageShowsTheFourFiguresForTheLatestPeriod(t *testing.T) {
 	if !strings.Contains(body, "the numbers now") || !strings.Contains(body, "what the analyst said then") {
 		t.Errorf("the leadership page does not distinguish the tiles from the packs in its own "+
 			"words (\"the numbers now\" / \"what the analyst said then\"):\n%s", body)
+	}
+}
+
+// Found in review of this PR: the template printed every figure through
+// printf "%.1f" .Numeric, which is right for the three percentages
+// (allocation-coverage, unallocated-share, agent-attribution) and wrong for
+// cost-per-outcome, a small MONEY figure. A real 0.02 USD/outcome
+// (money.Micros' own String(), two decimals below a cent's worth of scale)
+// rounded through %.1f reads "0.0" -- a real reading arriving through the
+// VALUE branch reading exactly like the refusal this invariant already
+// guards against, just from the other side of the same guard. Cost per
+// outcome refuses on the plain seeded estate (the previous test's own
+// point), so that fixture alone can never red this: it needs a store where
+// the figure genuinely COMPUTES to a sub-ten-cent value.
+//
+// Both periods are planted, with DIFFERENT small values (0.02 current,
+// 0.03 previous), so this proves Value, PrevValue AND the delta line all
+// keep their own digits: %.1f would print "0.0" for both readings and
+// "+0.0" for a delta of -0.01, and %+.1f specifically (rather than %+.2f)
+// would still lose that same delta even after Value/PrevValue are fixed,
+// which is why this one test is what proves every one of the three fixes
+// together rather than three separate ones.
+//
+// Run against this branch's own HEAD BEFORE this fix (the template still
+// printing printf "%.1f" .Numeric/.PrevNumeric/%+.1f .Delta): red, `go test
+// -run TestTheLeadershipPageShowsASmallCostPerOutcomeWithoutLosingItsDigits ./internal/web/...`
+// --
+//
+//	leadership_test.go: the cost-per-outcome tile does not carry its own current value "0.02":
+//	    <div class="v">0.0 USD/outcome</div>
+//	leadership_test.go: the cost-per-outcome tile does not carry its own previous value "0.03":
+//	    previous: 0.0 USD/outcome
+//	leadership_test.go: the cost-per-outcome tile does not carry its own delta "-0.01":
+//	    change: -0.0 USD/outcome
+//
+// (the PR body carries this transcript verbatim, captured before the fix landed.)
+func TestTheLeadershipPageShowsASmallCostPerOutcomeWithoutLosingItsDigits(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner1", "owner-password-2026")
+
+	_, period, previous, err := finops.Executive(h.st.DB())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if previous == "" {
+		t.Fatal("the seeded estate reports no previous period; this test needs one to prove " +
+			"PrevValue and the delta line too")
+	}
+	plantCostPerOutcomeCall(t, h, period, "leadership-test-cpo-current", 20000)    // $0.02
+	plantCostPerOutcomeCall(t, h, previous, "leadership-test-cpo-previous", 30000) // $0.03
+
+	figs, _, _, err := finops.Executive(h.st.DB())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cpo finops.ExecutiveFigure
+	found := false
+	for _, f := range figs {
+		if f.ID == "cost-per-outcome" {
+			cpo, found = f, true
+		}
+	}
+	if !found {
+		t.Fatalf("Executive() named no cost-per-outcome figure")
+	}
+	if !cpo.HasVal || !cpo.PrevHasVal {
+		t.Fatalf("cost-per-outcome did not compute for both periods on this fixture "+
+			"(HasVal=%v PrevHasVal=%v Blocked=%q); this test cannot prove anything about "+
+			"digits that were never rendered", cpo.HasVal, cpo.PrevHasVal, cpo.Blocked)
+	}
+	if cpo.Value != "0.02" {
+		t.Fatalf("cost-per-outcome.Value = %q, want \"0.02\": this fixture's own arithmetic "+
+			"did not land where the test assumed", cpo.Value)
+	}
+	if cpo.PrevValue != "0.03" {
+		t.Fatalf("cost-per-outcome.PrevValue = %q, want \"0.03\"", cpo.PrevValue)
+	}
+
+	status, body, _ := h.get(t, "/leadership")
+	if status != 200 {
+		t.Fatalf("GET /leadership = %d, want 200", status)
+	}
+	tile := figureTile(t, body, "cost-per-outcome")
+	if !strings.Contains(tile, "0.02") {
+		t.Errorf("the cost-per-outcome tile does not carry its own current value \"0.02\":\n%s", tile)
+	}
+	if !strings.Contains(tile, "previous: 0.03") {
+		t.Errorf("the cost-per-outcome tile does not carry its own previous value \"0.03\":\n%s", tile)
+	}
+	if !strings.Contains(tile, "-0.01") {
+		t.Errorf("the cost-per-outcome tile does not carry its own delta \"-0.01\":\n%s", tile)
+	}
+	// The specific fault this test exists to catch, named directly: neither
+	// reading may have been rounded away to a bare "0.0" doing duty for a
+	// real, nonzero figure.
+	if strings.Contains(tile, ">0.0 ") || strings.Contains(tile, "previous: 0.0 ") || strings.Contains(tile, "-0.0 ") {
+		t.Errorf("the cost-per-outcome tile shows a rounded-away \"0.0\" standing in for a "+
+			"real reading:\n%s", tile)
 	}
 }
 

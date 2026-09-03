@@ -393,6 +393,14 @@ type ExecutiveFigure struct {
 
 	PrevHasVal  bool // the previous period's OWN KPI had a value, not a refusal
 	PrevNumeric float64
+	// PrevValue is the previous period's own KPI.Value string, set only when
+	// PrevHasVal -- the same "print the library's own string, not a
+	// reformatted float" reason a renderer reads .Value for the CURRENT
+	// period (KPI is embedded, so that one needs no field of its own).
+	// C8-LEADERSHIP-SPEC.md's own page found this the hard way: %.1f on
+	// Numeric collapses a real cost-per-outcome of 0.02 to "0.0", which is
+	// exactly the "reads as a zero" fault invariant 47 exists to refuse.
+	PrevValue   string
 	PrevBlocked string // the previous period's own refusal, when PrevHasVal is false
 
 	Delta    float64
@@ -446,6 +454,7 @@ func Executive(db *sql.DB) (figures []ExecutiveFigure, period, previous string, 
 			if pk.HasVal {
 				if n, perr := strconv.ParseFloat(pk.Value, 64); perr == nil {
 					f.PrevHasVal = true
+					f.PrevValue = pk.Value
 					f.PrevNumeric = n
 				}
 			}

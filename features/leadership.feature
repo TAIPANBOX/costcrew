@@ -29,6 +29,15 @@ Feature: The leadership page names itself, shows four live figures, and reads on
     Then that tile carries the refusal's own sentence and its own markup
       contains no "0.0"
 
+  @test:TestTheLeadershipPageShowsASmallCostPerOutcomeWithoutLosingItsDigits
+  Scenario: A small real figure keeps its own digits, never rounded away to a zero
+    Given cost per business outcome computed for both the current and the
+      previous period, each a real value under ten cents
+    When a signed-in person opens the leadership page
+    Then the tile carries both values and the delta between them, exactly
+      as the KPI library itself wrote them, with no reading rounded away to
+      "0.0"
+
   @test:TestTheLeadershipPageSaysNoPreviousPeriodForTheFirstPeriod
   Scenario: The estate's first period has nothing to compare against
     Given a store with exactly one month of charges
