@@ -962,6 +962,68 @@ run_case 'run: live.go grows a second net/http door' \
 	$'package main' \
 	$'package main\n\n// net/http, planted only by gates-have-teeth.sh'
 
+# B4-STEP-TWO-SPEC.md section 6's four named mutants, plan-ask: the four
+# checks crew.ValidatePlanAnswer holds are each collapsed to one boolean
+# gate for exactly this reason (see plan_ask.go's own comment on
+# refInvalid) -- three of the four bullets section 3 names (ref in range,
+# headroom, budget only down) would otherwise need TWO simultaneous edits
+# each to defeat, because a second, independent check happens to catch the
+# same fault; one line, mutated to a tautology that still references every
+# identifier it reads (so the mutation compiles), is what makes each of
+# these a single triple instead of two.
+#
+# "Accept an item without a ref": refInvalid is forced false while ref,
+# refErr and n all stay referenced. The deterministic plan in this test has
+# exactly one item, so the accepted-but-invalid ref (0, from the empty
+# json.Number ParseInt refuses) indexes deterministic.Items[-1] two lines
+# later and panics -- a caught fault by any measure (go test exits
+# non-zero), and an honest one: skipping the ref check does not quietly
+# accept the item, it corrupts the very next line.
+run_case 'plan-ask: accept an item without a ref' \
+	fail \
+	./internal/crew \
+	$'TestAnItemWithNoRefIsRefusedWhole' \
+	$'index out of range' \
+	internal/crew/plan_ask.go \
+	$'refInvalid := refErr != nil || ref < 1 || ref > int64(n)' \
+	$'refInvalid := false && (refErr != nil || ref < 1 || ref > int64(n))'
+
+# "Skip the headroom check": the SAME mutation shape, on the OTHER gate
+# section 3 names, "assignee has headroom this month".
+run_case 'plan-ask: skip the headroom check' \
+	fail \
+	./internal/crew \
+	$'TestARouteToAnAnalystWithNoHeadroomIsRefused' \
+	$'expected a refusal for no headroom left' \
+	internal/crew/plan_ask.go \
+	$'if headroomOf(a, spent) <= 0 {' \
+	$'if false && headroomOf(a, spent) <= 0 {'
+
+# "Let budget_cents go up": section 2's own words, "budget_cents may only go
+# down"; section 3's own words, "at most the deterministic item's budget".
+run_case 'plan-ask: let budget_cents go up' \
+	fail \
+	./internal/crew \
+	$'TestABudgetRaisedAboveTheDeterministicItemIsRefused' \
+	$'expected a refusal for a budget raised above the deterministic item' \
+	internal/crew/plan_ask.go \
+	$'if budget > det.Budget {' \
+	$'if false && budget > det.Budget {'
+
+# "Charge the cost to nobody": SettlePlanAsk's own rounding, "up, never
+# down" (the same rule SettleLiveSpend already holds), replaced with a flat
+# zero -- the call still happened, the row still gets written, and the
+# figure a person reads says nothing was spent. micros stays referenced (the
+# INSERT's own argument list), so this compiles.
+run_case 'plan-ask: charge the settled cost to nobody' \
+	fail \
+	./internal/crew \
+	$'TestSettlePlanAskLandsInSpendInMonthForSupervisor' \
+	$'want 0.01' \
+	internal/crew/plan_ledger.go \
+	$'cents := (micros + 9_999) / 10_000' \
+	$'cents := int64(0)'
+
 # C4-SPEC.md section 4's three named mutants.
 
 # (a) "compute coverage with floats": rounding both sides to the nearest
