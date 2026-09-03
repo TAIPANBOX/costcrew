@@ -856,7 +856,8 @@ an absent invariant.
     `TestTellingTheOwnerNeverChangesTheAnomalysOwnState`,
     `TestTheQueuePageShowsTheOwnerAndWhetherItToldThem`,
     `TestTheAnomalyPageSaysHowLongItHasBeenOpen`,
-    `TestTheAnomalyPageSaysHowLongItTookToClose` (`internal/web`).
+    `TestTheAnomalyPageSaysHowLongItTookToClose`,
+    `TestDirectExplainDoesNotFalselyMarkTheQueueTold` (`internal/web`).
     `scripts/gates-have-teeth.sh`'s `anomaly desk: emit before the post
     instead of after` case plants exactly that -- moving
     `tellOwnerAnomalyExplained` ahead of `crew.Post` so it fires
@@ -866,18 +867,39 @@ an absent invariant.
     "after a REFUSED second post: 2 anomaly_explained events, want still
     1"); the same case's edit to the existing `options: an analyst's Post
     applies an option` case moved its anchor onto this step's own
-    `tellOwnerAnomalyExplained` call without changing what it proves. Two
-    more mutants were planted by hand and reverted rather than kept as
-    permanent cases, each caught by one of the tests above, the same shape
-    invariants 27 and 31's own history already describes for this
-    repository: computing the closed side of a day count from the moment of
-    measurement (SQLite's `now`) instead of the stored `closed_at`
-    (@measured 2026-09-03: red on "median days = 54, want 4 (median of 2
-    and 6)" -- 54 being the real elapsed days to the moment the test ran,
-    proving the mutation read the wrong clock rather than the stored fact);
-    and dropping the reason from the owner lookup, returning `""` on every
-    path (@measured 2026-09-03: red on "no reason was given for the owner
-    lookup" and "reason \"\" does not say which team decided it").)*
+    `tellOwnerAnomalyExplained` call without changing what it proves.
+    `scripts/gates-have-teeth.sh`'s `anomaly desk: told matches the event
+    name alone, not its owner field` case plants a second, real bug found in
+    review of this step's first version: `toldAnomalies` matched
+    `Event=="anomaly_explained"` alone, which `internal/anomaly`'s own
+    pre-existing, spec-unchanged `"anomaly_"+state` emit also fires on every
+    Explain/Dismiss/Accept, including the pre-existing direct
+    `POST /anomalies/{id}/explain` route -- which needs no task, team,
+    deliverable or owner lookup at all, and never carries an `owner` field.
+    A direct explain on an untagged, unassigned anomaly rendered
+    Owner="unclaimed" and Told="told" on the same row at once; requiring the
+    `owner` field non-empty, not the event name alone, fixes it.
+    `TestDirectExplainDoesNotFalselyMarkTheQueueTold` (@measured 2026-09-03:
+    dropping the field check reds on "the queue marks this anomaly \"told\"
+    even though no owner was ever notified") is both the regression test and
+    the gate's own subject. Two more mutants were planted by hand and
+    reverted rather than kept as permanent cases, each caught by one of the
+    tests above, the same shape invariants 27 and 31's own history already
+    describes for this repository: computing the closed side of a day count
+    from the moment of measurement (SQLite's `now`) instead of the stored
+    `closed_at` (@measured 2026-09-03: red on "median days = 54, want 4
+    (median of 2 and 6)" -- 54 being the real elapsed days to the moment the
+    test ran, proving the mutation read the wrong clock rather than the
+    stored fact) -- `@claude` 2026-09-03: this stands in for C1-SPEC.md
+    section 4's own words, "compute closure from `updated` instead of
+    `closed_at`"; no `updated` column exists anywhere on `anomalies` (only
+    `detected_at` and `closed_at`, and nothing ever adds one), so that
+    literal mutant cannot be planted on this schema, and this is a related
+    but different fault (the wrong TIME SOURCE, not the wrong COLUMN) rather
+    than the one the spec names; and dropping the reason from the owner
+    lookup, returning `""` on every path (@measured 2026-09-03: red on "no
+    reason was given for the owner lookup" and "reason \"\" does not say
+    which team decided it").)*
 
 ## Decisions that have no gate yet
 

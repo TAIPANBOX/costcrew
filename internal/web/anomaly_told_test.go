@@ -302,3 +302,51 @@ func TestTheAnomalyPageSaysHowLongItTookToClose(t *testing.T) {
 			fragment(body, "Closed", 300))
 	}
 }
+
+// A blocking finding from review of this PR's first version: toldAnomalies
+// matched on the event name "anomaly_explained" alone, which
+// internal/anomaly's own pre-existing, spec-unchanged state-transition emit
+// (anomaly.go's transition, unchanged by this PR) also uses on every
+// Explain/Dismiss/Accept -- including the pre-existing direct
+// POST /anomalies/{id}/explain route, which needs no task, team, deliverable
+// or owner lookup at all. Only tellOwnerAnomalyExplained's own emission
+// carries an "owner" field; the pre-existing one never does. An anomaly
+// explained directly, with nobody ever told, must not read "told".
+func TestDirectExplainDoesNotFalselyMarkTheQueueTold(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+
+	// No team, no task, no artifact: exactly the direct-explain path
+	// C1-SPEC.md section 3 leaves unchanged, and exactly the review
+	// finding's own reproduction.
+	plantAnomalyForTelling(t, h, "A-direct-explain", "", 1)
+
+	page := "/anomalies/A-direct-explain"
+	code, loc := h.post(t, page+"/explain", url.Values{
+		"reason": {"looked at it directly, no deliverable involved"},
+		"csrf":   {h.csrf(t, page)},
+	})
+	if code != 303 || strings.Contains(loc, "msg=") {
+		t.Fatalf("the direct explain was refused: %d %s", code, loc)
+	}
+
+	// Confirm the pre-existing emit actually fired, and that it carries no
+	// owner field, before checking what the queue makes of it -- otherwise
+	// this test could pass for the wrong reason.
+	got := anomalyExplainedFor(t, h, "A-direct-explain")
+	if got == nil {
+		t.Fatal("internal/anomaly's own pre-existing emit did not fire on Explain: this test no longer exercises the shared-event-name case it is named for")
+	}
+	if _, hasOwner := got["owner"]; hasOwner {
+		t.Fatalf("the direct-explain event unexpectedly carries an owner field: %v", got)
+	}
+
+	_, body, _ := h.get(t, "/anomalies")
+	row := fragment(body, "A-direct-explain", 800)
+	if !strings.Contains(row, "unclaimed") {
+		t.Errorf("owner should read unclaimed (no team, no task):\n%s", row)
+	}
+	if strings.Contains(row, ">told<") {
+		t.Error(`the queue marks this anomaly "told" even though no owner was ever notified -- direct explain shares anomaly_explained's event name but carries no owner`)
+	}
+}

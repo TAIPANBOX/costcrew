@@ -22,12 +22,23 @@ type anomalyRow struct {
 	Told  bool
 }
 
-// toldAnomalies is every anomaly id an anomaly_explained event has already
-// named, read from the journal the way /cadence reads crew_ran
+// toldAnomalies is every anomaly id THIS STEP'S OWN event has already told
+// an owner about, read from the journal the way /cadence reads crew_ran
 // (internal/web/cadence.go): a generous tail, filtered by kind. This
 // console is the only writer of the event this page reads back, so a tail
 // generous enough to outrun a day's postings is enough to outrun a day's
 // worth of "told" marks too.
+//
+// Event name alone is not enough: internal/anomaly's own pre-existing
+// state-transition emit ("anomaly_"+state, anomaly.go, unchanged by this
+// step) fires the SAME event name, "anomaly_explained", on every
+// Explain/Dismiss/Accept -- including the pre-existing direct
+// POST /anomalies/{id}/explain route, which needs no task, team,
+// deliverable or owner lookup at all. Only tellOwnerAnomalyExplained's own
+// emission carries a non-empty "owner" field, so that is what distinguishes
+// "an owner was actually told" from "an anomaly happened to change state".
+// Found in review: a direct-explain on an anomaly with no team and no task
+// rendered Owner="unclaimed" and Told="told" on the same row at once.
 func (s *Server) toldAnomalies() map[string]bool {
 	told := map[string]bool{}
 	tail, err := s.st.JournalTail(2000)
@@ -36,6 +47,9 @@ func (s *Server) toldAnomalies() map[string]bool {
 	}
 	for _, rec := range tail {
 		if rec.Event != "anomaly_explained" {
+			continue
+		}
+		if stringField(rec.Data, "owner") == "" {
 			continue
 		}
 		if id := stringField(rec.Data, "anomaly"); id != "" {

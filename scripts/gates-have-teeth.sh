@@ -817,6 +817,22 @@ run_case 'anomaly desk: emit before the post instead of after' \
 	$'\t\t\terr = crew.Post(s.db, id, u.Username, "owner")\n\t\t\tif err == nil {\n\t\t\t\t// C1-SPEC.md section 2: AFTER the post has actually\n\t\t\t\t// succeeded, never before -- a refused post (an artifact\n\t\t\t\t// already posted) must tell nobody anything, because it did\n\t\t\t\t// not happen.\n\t\t\t\ts.tellOwnerAnomalyExplained(id)\n\t\t\t}' \
 	$'\t\t\ts.tellOwnerAnomalyExplained(id)\n\t\t\terr = crew.Post(s.db, id, u.Username, "owner")'
 
+# Review of this PR's first version found toldAnomalies matching on the
+# event name "anomaly_explained" alone, a false positive: internal/anomaly's
+# own pre-existing, spec-unchanged state-transition emit fires that same
+# name on every Explain/Dismiss/Accept, including the pre-existing direct
+# POST /anomalies/{id}/explain route, which has no owner to tell at all.
+# Dropping the "owner" field check reintroduces exactly that: a direct
+# explain, with nobody ever told, reads "told" again.
+run_case 'anomaly desk: told matches the event name alone, not its owner field' \
+	fail \
+	./internal/web \
+	$'TestDirectExplainDoesNotFalselyMarkTheQueueTold' \
+	$'even though no owner was ever notified' \
+	internal/web/anomaly_told.go \
+	$'\t\tif rec.Event != "anomaly_explained" {\n\t\t\tcontinue\n\t\t}\n\t\tif stringField(rec.Data, "owner") == "" {\n\t\t\tcontinue\n\t\t}\n\t\tif id := stringField(rec.Data, "anomaly"); id != "" {' \
+	$'\t\tif rec.Event != "anomaly_explained" {\n\t\t\tcontinue\n\t\t}\n\t\tif id := stringField(rec.Data, "anomaly"); id != "" {'
+
 # B7: the bench (tools/bench) scores a named cause against the truth a
 # generated fixture's registry already knows, and it can only prove
 # anything if the cause it checks was actually hidden first. B7-SPEC.md
