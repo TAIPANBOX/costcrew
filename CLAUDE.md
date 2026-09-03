@@ -56,8 +56,8 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 536 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 69 cases; needs a clean tree; ~90s
+go test ./...                        # 537 tests, 20 packages
+./scripts/gates-have-teeth.sh        # 70 cases; needs a clean tree; ~90s
 ./scripts/features-are-bound.sh      # 119 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
@@ -79,6 +79,18 @@ counts (48/30/30 -> 50/34/34) were also re-measured while touching this file for
 B5, since the new /cadence routes are directly what moved them; C1 added no
 route (the owner column, the told mark and the queue time line all live on
 routes that already existed), so those three counts are untouched here.
+Re-measured again, same day, fixing review of this PR's first version (test
+count 536 -> 537, cases 69 -> 70; the one new test and the one new
+gates-have-teeth.sh case both belong to the blocking fix invariant 32 now
+describes). `@claude` 2026-09-03: `grep -c '^run_case'` and the runtime
+`teeth: N passed` line disagree by exactly one, both before and after this
+fix (measured directly: the unmodified branch tip reports 69 cases by grep
+and "68 passed, 0 failed" at runtime; this fix's tree reports 70 and "69
+passed, 0 failed") -- one case in the file, not one of this fix's two,
+appears not to execute. Not investigated further here: this predates the
+fix in this PR and the counts above follow this file's own documented
+convention (`grep -c`), the same one PR #21, #23 and B1a's own history
+already used.
 
 The gates in this repo are Go tests rather than shell scripts, so
 `gates-have-teeth.sh` mutates the PRODUCT and requires the test to go red.
