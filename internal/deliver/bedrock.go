@@ -1,6 +1,12 @@
-package main
+package deliver
 
 // Amazon Bedrock, through Converse.
+//
+// Moved from tools/run/bedrock.go (B6B-SPEC.md): the WHY-CONVERSE and
+// WHY-NO-KEY reasoning below is carried verbatim, unchanged, because nothing
+// about this engine's own design is what this step touches. tools/run keeps
+// a one-line wrapper (bedrockRequest and callBedrock both stayed unexported
+// names there) so bedrock_test.go needed no change at all.
 //
 // WHY CONVERSE AND NOT InvokeModel
 //
@@ -65,7 +71,7 @@ func bedrockRequest(model, prompt string, maxTok int) *bedrockruntime.ConverseIn
 	}
 }
 
-func callBedrock(ctx context.Context, model, prompt string, maxTok int) (callResult, error) {
+func callBedrock(ctx context.Context, model, prompt string, maxTok int) (Result, error) {
 	// The region is not defaulted. Bedrock prices differ by region and the
 	// price table in internal/engines is keyed to eu-central-1, so a call that
 	// silently landed somewhere else would be bounded by the wrong number.
@@ -75,23 +81,23 @@ func callBedrock(ctx context.Context, model, prompt string, maxTok int) (callRes
 		region = strings.TrimSpace(os.Getenv("AWS_DEFAULT_REGION"))
 	}
 	if region == "" {
-		return callResult{}, fmt.Errorf(
+		return Result{}, fmt.Errorf(
 			"AWS_REGION is not set in this process: Bedrock prices differ by region " +
 				"and the bound this run reserved is for the region the price table names")
 	}
 
 	cfg, err := awscfg.LoadDefaultConfig(ctx, awscfg.WithRegion(region))
 	if err != nil {
-		return callResult{}, fmt.Errorf("the AWS credential chain did not resolve: %w", err)
+		return Result{}, fmt.Errorf("the AWS credential chain did not resolve: %w", err)
 	}
 	out, err := bedrockruntime.NewFromConfig(cfg).Converse(ctx, bedrockRequest(model, prompt, maxTok))
 	if err != nil {
-		return callResult{}, fmt.Errorf("bedrock refused %s: %w", model, err)
+		return Result{}, fmt.Errorf("bedrock refused %s: %w", model, err)
 	}
 
 	msg, ok := out.Output.(*types.ConverseOutputMemberMessage)
 	if !ok {
-		return callResult{}, fmt.Errorf("bedrock answered with no message for %s", model)
+		return Result{}, fmt.Errorf("bedrock answered with no message for %s", model)
 	}
 	var b strings.Builder
 	for _, block := range msg.Value.Content {
@@ -100,17 +106,17 @@ func callBedrock(ctx context.Context, model, prompt string, maxTok int) (callRes
 		}
 	}
 	if strings.TrimSpace(b.String()) == "" {
-		return callResult{}, fmt.Errorf("bedrock answered %s with an empty message", model)
+		return Result{}, fmt.Errorf("bedrock answered %s with an empty message", model)
 	}
 	// Usage is what the ledger records. Missing counters are an error rather
 	// than a zero: a call recorded as costing nothing is how a bill grows out
 	// of a column of zeroes, which this console exists to catch elsewhere.
 	if out.Usage == nil || out.Usage.InputTokens == nil || out.Usage.OutputTokens == nil {
-		return callResult{}, fmt.Errorf(
+		return Result{}, fmt.Errorf(
 			"bedrock answered %s without usage counters, so what the call cost "+
 				"cannot be recorded and recording it as free would be a lie", model)
 	}
-	return callResult{
+	return Result{
 		Text:      b.String(),
 		InTokens:  int(*out.Usage.InputTokens),
 		OutTokens: int(*out.Usage.OutputTokens),
