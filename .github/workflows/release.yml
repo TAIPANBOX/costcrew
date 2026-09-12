@@ -40,6 +40,11 @@ jobs:
     # a pull request by `image-build` below.
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read      # a job-level block replaces the workflow's, and checkout needs this
+      packages: write
+      id-token: write
+      attestations: write
     steps:
       # Pinned by SHA rather than by tag, matching ci.yml in this repository. A
       # tag on somebody else's action is a mutable reference to code that runs
@@ -80,6 +85,7 @@ jobs:
       # rather than running an amd64 toolchain under QEMU, which is what makes
       # a Go multi-arch build cost seconds instead of minutes.
       - name: build and push
+        id: push
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
@@ -92,6 +98,30 @@ jobs:
             org.opencontainers.image.version=${{ github.ref_name }}
           cache-from: type=gha,scope=costcrew
           cache-to: type=gha,mode=max,scope=costcrew
+
+      # The image is signed by digest and its provenance attested, keyless. A
+      # stranger verifies with
+      #   cosign verify ghcr.io/taipanbox/costcrew:<tag> \
+      #     --certificate-identity-regexp '^https://github.com/TAIPANBOX/costcrew/\.github/workflows/release\.yml@refs/tags/v' \
+      #     --certificate-oidc-issuer https://token.actions.githubusercontent.com
+      #   gh attestation verify oci://ghcr.io/taipanbox/costcrew:<tag> -R TAIPANBOX/costcrew
+      #
+      # Keyless: the certificate names this workflow at this tag, so there is no
+      # signing key to leak and nothing to rotate. The image reference here is
+      # the literal lowercase `taipanbox`, not the owner-lowercasing step above:
+      # the organisation is always TAIPANBOX and the two happen to agree, but
+      # this line does not depend on that step having run first.
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: v3.1.3
+      - name: sign the image by digest, keyless
+        run: cosign sign --yes "ghcr.io/taipanbox/costcrew@${{ steps.push.outputs.digest }}"
+      - name: provenance attestation for the image
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ghcr.io/taipanbox/costcrew
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
 
       # What was published, said in the run's own log. A workflow that pushes an
       # image and prints nothing leaves "which digest is this tag" answerable
@@ -145,3 +175,61 @@ jobs:
           platforms: linux/arm64
           push: false
           cache-from: type=gha,scope=costcrew
+
+  # A GitHub Release for every tag, carrying an SBOM and a provenance
+  # attestation of this build even though nothing binary is attached: the
+  # image above is signed and attested on its own, in its own job, and this
+  # is the record a stranger lands on from the tag itself rather than from a
+  # registry pull. Tag-only, same as `image`: a pull request proves this file
+  # parses and its steps are spelled right, never that it can publish.
+  release:
+    name: release page
+    needs: image
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: SBOM of this build, SPDX
+        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        with:
+          path: .
+          format: spdx-json
+          output-file: dist/sbom.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+      - name: SBOM of this build, CycloneDX
+        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        with:
+          path: .
+          format: cyclonedx-json
+          output-file: dist/sbom.cyclonedx.json
+          upload-artifact: false
+          upload-release-assets: false
+      - name: provenance attestation for the SBOMs
+        id: provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/*
+      - name: the provenance bundle as a release asset too
+        run: cp "${{ steps.provenance.outputs.bundle-path }}" dist/provenance.intoto.jsonl
+      # A Release for every tag: --verify-tag aborts when the tag is not on
+      # the remote; the notes are generated from the merged pull requests
+      # until this plane writes its own for a given tag.
+      - name: release page
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Create the Release, or upload into one that already exists: the tags
+          # cut before this job existed got their Release objects by hand on
+          # 2026-09-12, and a re-dispatch against one of them must add the
+          # assets rather than fail on a page that is already there.
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            gh release upload "${GITHUB_REF_NAME}" dist/* --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" dist/* \
+              --verify-tag --title "${GITHUB_REF_NAME}" --generate-notes
+          fi

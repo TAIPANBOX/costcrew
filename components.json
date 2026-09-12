@@ -15,6 +15,7 @@
   ],
   "schema": "taipanbox.dev/components/v1",
   "repo": "TAIPANBOX/costcrew",
+  "distribution": "ghcr.io/taipanbox/costcrew",
   "components": [
     {
       "name": "costcrew",
