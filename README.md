@@ -156,6 +156,21 @@ shared bus. Two flags carry the whole integration: `-stack-events` names the
 NDJSON file, and the name IS the integration because genaryx keys a read offset
 off the stem; `-stack-host` sets the `agent://` authority.
 
+## Verify the image
+
+Every release is signed keyless with Sigstore and carries a build-provenance
+attestation and an SBOM. With `cosign` and `gh` installed:
+
+```sh
+cosign verify ghcr.io/taipanbox/costcrew:<tag> \
+  --certificate-identity-regexp '^https://github.com/TAIPANBOX/costcrew/\.github/workflows/release\.yml@refs/tags/v' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+gh attestation verify oci://ghcr.io/taipanbox/costcrew:<tag> -R TAIPANBOX/costcrew
+```
+
+Releases before the next tag have none of this: `v0.1.0` and `v0.2.0` predate
+it, as `v0.2.0`'s own Release notes already say.
+
 ## Cadence
 
 `tools/run -due` takes only cadence-due work, under a ceiling, and refuses
