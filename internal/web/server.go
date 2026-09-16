@@ -54,6 +54,13 @@ type Server struct {
 	// permissive one, and internal/web/planning.go's own comment on
 	// askPlan says so again where the refusal actually fires.
 	gateway string
+
+	// behindTLS is -behind-tls (invariant 49): true means a TLS-terminating
+	// proxy sits in front of this process, the shape -addr's own help text
+	// recommends, so every cookie this server issues is marked Secure even
+	// though r.TLS is nil on every request this process itself sees. See
+	// setCookie, the one place that decision is made.
+	behindTLS bool
 }
 
 // Stack is the optional wiring into the governance plane.
@@ -70,6 +77,9 @@ type Stack struct {
 	// and tools/bench both validate -gateway with). Empty switches the
 	// plan-ask feature's spending off; see Server.gateway.
 	Gateway string
+	// BehindTLS is -behind-tls: true when a TLS-terminating proxy sits in
+	// front of this process (invariant 49). See Server.behindTLS.
+	BehindTLS bool
 }
 
 // New builds the console. A zero Stack means the governance plane is switched
@@ -82,7 +92,8 @@ func New(st *store.Store, au *auth.Auth, sk Stack) *Server {
 	s := &Server{st: st, au: au, db: st.DB(), rec: sk.Recorder, host: host,
 		eventsPath: sk.EventsPath, passports: sk.Passports,
 		passportFor: sk.PassportFor,
-		delegate:    sk.Delegation, gateway: sk.Gateway, mux: http.NewServeMux()}
+		delegate:    sk.Delegation, gateway: sk.Gateway,
+		behindTLS: sk.BehindTLS, mux: http.NewServeMux()}
 	s.routes()
 	return s
 }
@@ -253,14 +264,33 @@ func (s *Server) sessionToken(r *http.Request) string {
 	return ""
 }
 
+// setCookie is the one call site in this package that reaches
+// http.SetCookie, so the Secure decision (invariant 49) is made in exactly
+// one place rather than copied at every cookie this server issues.
+// TestEveryCookieGoesThroughOneSecurePosture (web_test) requires that it stay
+// the only one: a second call site would be a cookie -behind-tls never
+// reaches.
+//
+// r.TLS != nil is true only when this process terminated the TLS connection
+// itself. The documented deployment (-addr's own help text: put a proxy in
+// front for TLS) never does that; this process then only ever sees plain
+// HTTP on loopback and r.TLS is nil on every request, even though the
+// browser's own connection to the proxy is HTTPS. -behind-tls (Server.
+// behindTLS) is the operator's explicit statement that such a proxy is
+// there, so a cookie is marked Secure on that fact alone rather than on
+// what this process itself happened to see.
+func (s *Server) setCookie(w http.ResponseWriter, r *http.Request, c *http.Cookie) {
+	c.Secure = s.behindTLS || r.TLS != nil
+	http.SetCookie(w, c)
+}
+
 func (s *Server) setSession(w http.ResponseWriter, r *http.Request, token string) {
-	http.SetCookie(w, &http.Cookie{
+	s.setCookie(w, r, &http.Cookie{
 		Name:     auth.SessionCookie,
 		Value:    token,
 		Path:     "/",
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		Secure:   r.TLS != nil,
 		MaxAge:   auth.SessionHours * 3600,
 	})
 }
@@ -459,7 +489,7 @@ func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 	_ = s.au.EndSession(s.sessionToken(r))
-	http.SetCookie(w, &http.Cookie{Name: auth.SessionCookie, Value: "", Path: "/", MaxAge: -1})
+	s.setCookie(w, r, &http.Cookie{Name: auth.SessionCookie, Value: "", Path: "/", MaxAge: -1})
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 

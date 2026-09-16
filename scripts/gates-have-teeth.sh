@@ -1448,6 +1448,21 @@ run_case 'documents: a named document that is neither in the tree nor a specific
 	$'`docs/stack-connection.md` says what this console writes' \
 	$'`docs/stack-connections.md` says what this console writes'
 
+# Invariant 49: -behind-tls has to reach every cookie's own Secure bit, not
+# merely be read and then forgotten. This mutant is the regression the whole
+# flag exists to prevent: dropping it from setCookie's own decision reverts
+# Secure to r.TLS != nil alone, which is nil on every request this process
+# sees behind the documented proxy-in-front deployment (-addr's own help
+# text), so the session cookie would silently stop being Secure again.
+run_case 'behind-tls: drop the flag from the cookie'"'"'s own Secure decision' \
+	fail \
+	./internal/web \
+	$'TestLoginOverPlainHTTPIsSecureWhenBehindTLS' \
+	$'want true' \
+	internal/web/server.go \
+	$'\tc.Secure = s.behindTLS || r.TLS != nil' \
+	$'\tc.Secure = r.TLS != nil'
+
 echo
 if [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'

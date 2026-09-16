@@ -97,6 +97,18 @@ func DemoMode() bool {
 	return false
 }
 
+// BehindTLSEnvDefault backs -behind-tls's default with COSTCREW_BEHIND_TLS,
+// the same shape deliver.GatewayEnvDefault backs -gateway with: a deployment
+// that always runs the same way can set it once in the environment rather
+// than on every invocation's command line.
+func BehindTLSEnvDefault() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("COSTCREW_BEHIND_TLS"))) {
+	case "1", "true", "yes":
+		return true
+	}
+	return false
+}
+
 // ----------------------------------------------------------------- password
 
 func derive(password string, salt []byte, algo string) (string, error) {

@@ -81,14 +81,23 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 854 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 96 cases; needs a clean tree; @measured 2026-09-03, 96 passed 0 failed after #52 added the 96th case; the earlier 95-case harness passed on four separate runs (5m50s, 6m23s and 6m33s)
-./scripts/features-are-bound.sh      # 203 scenarios, both directions
+go test ./...                        # 858 tests, 20 packages
+./scripts/gates-have-teeth.sh        # 97 cases; needs a clean tree
+./scripts/features-are-bound.sh      # 207 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refused PR #19 on two findings the list above never asked for; a staticcheck built for an older Go cannot read this module, so on such a machine CI is the only place it runs
 ```
+
+Invariant 49 (a cookie is Secure when a TLS proxy in front is what actually
+terminates it, section "Read before you change anything" of this branch's
+own PR) added 4 tests (`internal/web/behind_tls_test.go`) and one
+`gates-have-teeth.sh` case, and no route: 854 -> 858 tests, 96 -> 97 cases,
+203 -> 207 scenarios (`features/behind-tls.feature`, new), 58 GET routes and
+36 write routes unchanged, re-measured on this branch with the three
+commands this block already names; `go test ./...` @measured 2026-09-16,
+about 2m9s total (`internal/web` alone: 128.2s).
 
 Invariant 48 (this file's own document references) added 2 tests
 (`internal/manifest/documents_test.go`) and one `gates-have-teeth.sh` case,
@@ -2485,6 +2494,36 @@ an absent invariant.
     is enough to fail, since the gate reads prose and cannot tell a citation
     from an example. Hence the wording here, and hence the harness case
     mutating a real citation rather than adding a fictional one.)*
+
+49. **A cookie is marked Secure when it actually needs to be, not only when
+    this process happens to see the TLS handshake itself.** `setSession`
+    read `Secure: r.TLS != nil`, and `-addr`'s own help text has always said
+    to put a proxy in front for TLS. In that documented shape this process
+    only ever sees plain HTTP on loopback: `r.TLS` is nil on every request it
+    handles, even though the browser's own connection to the proxy is HTTPS
+    end to end, so the session cookie was never Secure in the deployment
+    this binary recommends. `-behind-tls` (and its environment twin,
+    `COSTCREW_BEHIND_TLS`, backing its default the same way `-gateway` falls
+    back to `COSTCREW_GATEWAY`) is the operator's explicit statement that
+    such a proxy is there; it does not read `X-Forwarded-Proto` or any other
+    caller-controlled header, because a header a stranger can set is not
+    something a Secure decision should trust unless something else is known
+    to strip it first, and nothing here does. Every cookie this server
+    issues now goes through one helper, `Server.setCookie`, so the decision
+    is made in exactly one place: `c.Secure = s.behindTLS || r.TLS != nil`.
+    Off by default, which keeps today's behaviour unchanged.
+    *(gate: `TestLoginOverPlainHTTPIsSecureWhenBehindTLS` (the flag reaches
+    the session cookie over plain HTTP),
+    `TestLoginOverPlainHTTPStaysInsecureWithoutBehindTLS` (the negative
+    control: unset, nothing changes),
+    `TestEveryCookieCarriesSecureUnderTheFlag` (every cookie the server
+    sets over signup, login and logout, not only the session one), and
+    `TestEveryCookieGoesThroughOneSecurePosture`, which walks
+    `internal/web`'s own non-test source for `http.SetCookie` call sites and
+    requires exactly one, so a future cookie added anywhere in this package
+    cannot skip the flag by construction. `scripts/gates-have-teeth.sh`'s
+    `behind-tls: drop the flag from the cookie's own Secure decision` case
+    plants the regression this invariant exists to prevent.)*
 
 ## Decisions that have no gate yet
 
