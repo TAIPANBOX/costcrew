@@ -146,7 +146,10 @@ go install github.com/TAIPANBOX/costcrew/cmd/costcrew@latest
 costcrew -data ./local
 ```
 
-It listens on `127.0.0.1:8321` and expects a proxy in front of it for TLS. The
+It listens on `127.0.0.1:8321` and expects a proxy in front of it for TLS.
+Set `-behind-tls` when you do: this process then only ever sees plain HTTP
+from that proxy, and without the flag its cookies would never be marked
+Secure even though the browser's own connection is HTTPS end to end. The
 first account created at `/signup` becomes the admin of that installation, so
 make one before you hand anybody the address.
 

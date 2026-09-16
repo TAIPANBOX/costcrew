@@ -36,8 +36,21 @@ import (
 )
 
 func main() {
-	addr := flag.String("addr", "127.0.0.1:8321", "listen address; loopback by default, put a proxy in front for TLS")
+	addr := flag.String("addr", "127.0.0.1:8321", "listen address; loopback by default, put a proxy in front for TLS and set -behind-tls")
 	dir := flag.String("data", ".", "directory for the database, the journal and the signing key")
+
+	// Invariant 49. -addr's own help text says to put a proxy in front for
+	// TLS; in that shape this process only ever sees plain HTTP on loopback,
+	// so r.TLS is nil on every request it handles even though the browser's
+	// own connection to the proxy is HTTPS end to end. Without this flag the
+	// session cookie was never marked Secure in exactly the deployment this
+	// binary documents as the recommended one.
+	behindTLS := flag.Bool("behind-tls", auth.BehindTLSEnvDefault(),
+		"mark every cookie this console issues Secure, regardless of what TLS "+
+			"this process itself terminates; set this together with -addr's own "+
+			"advice to put a TLS-terminating proxy in front, because this process "+
+			"then only ever sees plain HTTP and would otherwise never mark a "+
+			"cookie Secure. Falls back to COSTCREW_BEHIND_TLS.")
 
 	// The governance stack is off until somebody points it somewhere. Nothing
 	// is emitted by default, because a product that starts writing into a
@@ -100,7 +113,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("costcrew: %v", err)
 	}
-	if err := run(*addr, *dir, cfg, gatewayURL); err != nil {
+	if err := run(*addr, *dir, cfg, gatewayURL, *behindTLS); err != nil {
 		log.Fatalf("costcrew: %v", err)
 	}
 }
@@ -193,7 +206,7 @@ func abs(p string) string {
 	return p
 }
 
-func run(addr, dir string, scfg stack.Config, gatewayURL string) error {
+func run(addr, dir string, scfg stack.Config, gatewayURL string, behindTLS bool) error {
 	st, err := store.Open(dir)
 	if err != nil {
 		return fmt.Errorf("opening the store in %s: %w", dir, err)
@@ -434,12 +447,27 @@ func run(addr, dir string, scfg stack.Config, gatewayURL string) error {
 		log.Print("CostCrew: no -gateway configured; the supervisor's plan-ask cannot spend " +
 			"and will refuse every ask with one sentence")
 	}
+
+	// Invariant 49: said out loud, the same way the gateway posture above is,
+	// because a cookie's Secure bit is a security property and not one a
+	// deployment should have to grep the flags to discover.
+	if behindTLS {
+		log.Print("CostCrew: -behind-tls set; every cookie is marked Secure regardless of " +
+			"what TLS this process itself terminates. A browser reaching this address " +
+			"directly over plain HTTP, localhost excepted, will drop every cookie it is " +
+			"given, and nobody will be able to sign in.")
+	} else {
+		log.Print("CostCrew: -behind-tls not set; a cookie is marked Secure only when this " +
+			"process itself terminates TLS, which -addr's own recommended deployment " +
+			"(a proxy in front) never does -- set -behind-tls there")
+	}
 	srv := &http.Server{
 		Addr: addr,
 		Handler: web.New(st, au, web.Stack{
 			Recorder: rec, Host: scfg.Host, EventsPath: scfg.EventsPath,
 			Passports: em.WritePassports, PassportFor: em.PassportFor,
 			Delegation: em.Delegation, Gateway: gatewayURL,
+			BehindTLS: behindTLS,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}

@@ -1448,6 +1448,53 @@ run_case 'documents: a named document that is neither in the tree nor a specific
 	$'`docs/stack-connection.md` says what this console writes' \
 	$'`docs/stack-connections.md` says what this console writes'
 
+# Invariant 49: -behind-tls has to reach every cookie's own Secure bit, not
+# merely be read and then forgotten. This mutant is the regression the whole
+# flag exists to prevent: dropping it from setCookie's own decision reverts
+# Secure to r.TLS != nil alone, which is nil on every request this process
+# sees behind the documented proxy-in-front deployment (-addr's own help
+# text), so the session cookie would silently stop being Secure again.
+run_case 'behind-tls: drop the flag from the cookie'"'"'s own Secure decision' \
+	fail \
+	./internal/web \
+	$'TestLoginOverPlainHTTPIsSecureWhenBehindTLS' \
+	$'want true' \
+	internal/web/server.go \
+	$'\tc.Secure = s.behindTLS || r.TLS != nil' \
+	$'\tc.Secure = r.TLS != nil'
+
+# Fable finding 3 on invariant 49: the OTHER half of the same line was
+# untested. Dropping r.TLS != nil (leaving only s.behindTLS) is invisible to
+# every test that talks plain HTTP, since r.TLS is nil there regardless of
+# the flag; only a real TLS handshake exercises this half, and
+# TestLoginOverRealTLSIsSecureWithoutTheFlag (httptest.NewTLSServer) is the
+# one test in this suite that terminates one. @measured: the four tests that
+# existed before this one all still PASS against this exact mutant.
+run_case 'behind-tls: drop r.TLS from the cookie'"'"'s own Secure decision' \
+	fail \
+	./internal/web \
+	$'TestLoginOverRealTLSIsSecureWithoutTheFlag' \
+	$'want true' \
+	internal/web/server.go \
+	$'\tc.Secure = s.behindTLS || r.TLS != nil' \
+	$'\tc.Secure = s.behindTLS'
+
+# Fable finding 2 on invariant 49: TestEveryCookieGoesThroughOneSecurePosture
+# used to count only the literal "http.SetCookie(", which a header written
+# directly never contains. Planting the escape in cadencePage -- deliberately
+# NOT signup, login or logout, the three routes TestEveryCookieCarriesSecureUnderTheFlag
+# already enumerates -- proves the source walk catches a stray cookie
+# anywhere in the package, not only on the three routes another test already
+# watches.
+run_case 'behind-tls: a stray Set-Cookie header outside setCookie' \
+	fail \
+	./internal/web \
+	$'TestEveryCookieGoesThroughOneSecurePosture' \
+	$'want 0' \
+	internal/web/cadence.go \
+	$'func (s *Server) cadencePage(w http.ResponseWriter, r *http.Request) {\n\tu := s.guard(w, r)\n\tif u == nil {\n\t\treturn\n\t}\n' \
+	$'func (s *Server) cadencePage(w http.ResponseWriter, r *http.Request) {\n\tu := s.guard(w, r)\n\tif u == nil {\n\t\treturn\n\t}\n\tw.Header().Add("Set-Cookie", "evil=1")\n'
+
 echo
 if [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'

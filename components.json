@@ -33,6 +33,9 @@
           },
           "COSTCREW_GATEWAY": {
             "required": false
+          },
+          "COSTCREW_BEHIND_TLS": {
+            "required": false
           }
         },
         "flags": {
@@ -43,6 +46,9 @@
             "required": false
           },
           "gateway": {
+            "required": false
+          },
+          "behind-tls": {
             "required": false
           },
           "stack-events": {
