@@ -8,12 +8,15 @@ package web_test
 // in that documented shape the session cookie was never Secure.
 
 import (
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -52,15 +55,23 @@ func authOnly(t *testing.T, behindTLS bool) *httptest.Server {
 // used here: net/http/cookiejar enforces the Secure attribute itself (it
 // will not replay a Secure cookie over a plain http:// origin), which would
 // make a bug in THIS server's own Secure bit invisible behind the jar's.
-func noRedirectClient() *http.Client {
-	return &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error {
+//
+// It starts from srv.Client() rather than a bare &http.Client{}: for a plain
+// httptest.Server that is the same as the zero value, but for
+// httptest.NewTLSServer (finding 3, TestLoginOverRealTLSIsSecureWithoutTheFlag)
+// it is the one client configured to trust that server's own self-signed
+// certificate, so the same helper serves both kinds of server.
+func noRedirectClient(srv *httptest.Server) *http.Client {
+	c := *srv.Client()
+	c.CheckRedirect = func(*http.Request, []*http.Request) error {
 		return http.ErrUseLastResponse
-	}}
+	}
+	return &c
 }
 
 func rawGet(t *testing.T, srv *httptest.Server, path string) string {
 	t.Helper()
-	resp, err := noRedirectClient().Get(srv.URL + path)
+	resp, err := noRedirectClient(srv).Get(srv.URL + path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +85,7 @@ func rawGet(t *testing.T, srv *httptest.Server, path string) string {
 
 func rawPostForm(t *testing.T, srv *httptest.Server, path string, form url.Values) *http.Response {
 	t.Helper()
-	resp, err := noRedirectClient().PostForm(srv.URL+path, form)
+	resp, err := noRedirectClient(srv).PostForm(srv.URL+path, form)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -191,10 +202,23 @@ func TestEveryCookieCarriesSecureUnderTheFlag(t *testing.T) {
 
 // A future cookie added anywhere in this package must go through setCookie,
 // the one place -behind-tls's Secure decision is made, or -behind-tls would
-// simply never reach it. This walks the package's own non-test source for
-// http.SetCookie call sites the same way guarded_test.go and web_test.go
-// walk it for routes and CSRF checks, and requires there to be exactly one:
-// the one inside setCookie itself.
+// simply never reach it. This is a TEST asserting that today's source holds
+// that shape, not a compiler-enforced guarantee (invariant 49's own wording
+// was softened to match, Fable finding 2): it walks the package's own
+// non-test source with go/parser and go/ast, the same way guarded_test.go
+// and web_test.go walk it textually for routes and CSRF checks, and requires
+// two things neither of which a plain grep for the literal "http.SetCookie("
+// caught (Fable finding 2, both measured against this exact test before this
+// fix): exactly one occurrence of the bare identifier SetCookie -- which
+// also catches an alias, `sc := http.SetCookie; sc(w, c)`, the same
+// SelectorExpr as a direct call -- and zero occurrences of the literal
+// header name "Set-Cookie", which catches a handler writing the header
+// directly, `w.Header().Add("Set-Cookie", c.String())`, bypassing
+// http.SetCookie (and this package's own setCookie) entirely. Parsing rather
+// than a plain string count is also why a comment mentioning "http.SetCookie"
+// in prose, such as this file's or setCookie's own doc comment, does not
+// count: go/ast never walks into a *ast.CommentGroup's text as an Ident or a
+// BasicLit.
 func TestEveryCookieGoesThroughOneSecurePosture(t *testing.T) {
 	entries, err := filepath.Glob("*.go")
 	if err != nil {
@@ -203,19 +227,82 @@ func TestEveryCookieGoesThroughOneSecurePosture(t *testing.T) {
 	if len(entries) == 0 {
 		t.Fatal("no .go file found in internal/web; this scan measured nothing")
 	}
-	count := 0
+	identCount, literalCount := 0, 0
+	fset := token.NewFileSet()
 	for _, f := range entries {
 		if strings.HasSuffix(f, "_test.go") {
 			continue
 		}
-		b, err := os.ReadFile(f)
+		file, err := parser.ParseFile(fset, f, nil, parser.SkipObjectResolution)
 		if err != nil {
-			t.Fatal(err)
+			t.Fatalf("parsing %s: %v", f, err)
 		}
-		count += strings.Count(string(b), "http.SetCookie(")
+		ast.Inspect(file, func(n ast.Node) bool {
+			switch x := n.(type) {
+			case *ast.Ident:
+				if x.Name == "SetCookie" {
+					identCount++
+				}
+			case *ast.BasicLit:
+				if x.Kind == token.STRING {
+					if v, err := strconv.Unquote(x.Value); err == nil && strings.EqualFold(v, "Set-Cookie") {
+						literalCount++
+					}
+				}
+			}
+			return true
+		})
 	}
-	if count != 1 {
-		t.Errorf("found %d call site(s) of http.SetCookie in internal/web's own source, want exactly 1 "+
-			"(inside Server.setCookie); a second call site is a cookie -behind-tls never reaches", count)
+	if identCount != 1 {
+		t.Errorf("found %d occurrence(s) of the identifier SetCookie in internal/web's own "+
+			"non-test source, want exactly 1 (inside Server.setCookie); a second one -- a direct "+
+			"call or an alias such as `sc := http.SetCookie` -- is a cookie -behind-tls never reaches",
+			identCount)
+	}
+	if literalCount != 0 {
+		t.Errorf("found %d occurrence(s) of the literal \"Set-Cookie\" in internal/web's own "+
+			"non-test source, want 0; a handler writing the header directly (for example "+
+			"w.Header().Add(\"Set-Cookie\", ...)) sets a cookie -behind-tls never reaches", literalCount)
+	}
+}
+
+// (e) Even with the flag off, a real TLS handshake this process itself
+// terminates marks the cookie Secure through r.TLS != nil alone: the branch
+// setCookie's own comment describes ("r.TLS != nil is true only when this
+// process terminated the TLS connection itself") but that no test before
+// this one actually exercised -- every other case here talks over plain
+// HTTP, where r.TLS is always nil regardless of -behind-tls, so a mutant
+// dropping the r.TLS half of `c.Secure = s.behindTLS || r.TLS != nil`
+// (leaving only s.behindTLS) passed all four of them (Fable finding 3,
+// measured). httptest.NewTLSServer is the one place in this suite that
+// actually terminates TLS.
+func TestLoginOverRealTLSIsSecureWithoutTheFlag(t *testing.T) {
+	dir := t.TempDir()
+	st, err := store.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { st.Close() })
+	au, err := auth.New(st, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewTLSServer(web.New(st, au, web.Stack{
+		Host: "costcrew.test", Recorder: st.AsRecorder(), BehindTLS: false,
+	}))
+	t.Cleanup(srv.Close)
+
+	signUpRaw(t, srv, "owner", "owner-password-2026").Body.Close()
+
+	resp := rawPostForm(t, srv, "/login", url.Values{
+		"username": {"owner"}, "password": {"owner-password-2026"},
+		"csrf": {csrfFrom(t, srv, "/login")},
+	})
+	defer resp.Body.Close()
+
+	c := sessionCookie(t, resp, "POST /login over a real TLS handshake")
+	if !c.Secure {
+		t.Errorf("session cookie from a login this process itself TLS-terminated, "+
+			"-behind-tls off: Secure=%v, want true (r.TLS != nil)", c.Secure)
 	}
 }

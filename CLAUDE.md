@@ -81,8 +81,8 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 858 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 97 cases; needs a clean tree
+go test ./...                        # 860 tests, 20 packages
+./scripts/gates-have-teeth.sh        # 99 cases; needs a clean tree
 ./scripts/features-are-bound.sh      # 207 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
@@ -98,6 +98,21 @@ own PR) added 4 tests (`internal/web/behind_tls_test.go`) and one
 36 write routes unchanged, re-measured on this branch with the three
 commands this block already names; `go test ./...` @measured 2026-09-16,
 about 2m9s total (`internal/web` alone: 128.2s).
+
+A Fable 5.1 review of that same PR found five findings (report in the PR
+body) and this file's own invariant 49 text was rewritten in place rather
+than appended beside, for the same reason PR #51's review of invariant 47
+already gives: the property a reader needs is what today's gate actually
+measures, not a record of an overclaim ("cannot skip the flag by
+construction") that no longer describes it. The fixes added 2 more tests
+(`TestLoginOverRealTLSIsSecureWithoutTheFlag`, `internal/web`, finding 3;
+`TestBehindTLSLogNamesThePlainHTTPCookieDrop`, `cmd/costcrew`, finding 1)
+and 2 more `gates-have-teeth.sh` cases (one per new test, plus
+`TestEveryCookieGoesThroughOneSecurePosture` itself hardened in place
+rather than duplicated, finding 2), and no route or scenario: 858 -> 860
+tests, 97 -> 99 cases, 207 scenarios and 58/36 routes unchanged, all
+re-measured on this branch with the three commands this block already
+names.
 
 Invariant 48 (this file's own document references) added 2 tests
 (`internal/manifest/documents_test.go`) and one `gates-have-teeth.sh` case,
@@ -2511,19 +2526,46 @@ an absent invariant.
     to strip it first, and nothing here does. Every cookie this server
     issues now goes through one helper, `Server.setCookie`, so the decision
     is made in exactly one place: `c.Secure = s.behindTLS || r.TLS != nil`.
-    Off by default, which keeps today's behaviour unchanged.
+    Off by default, which keeps today's behaviour unchanged. An operator who
+    sets the flag and is still reached over plain HTTP directly (no proxy, or
+    a browser pointed straight at `-addr`) is told so on the same "set" log
+    line: a browser drops a Secure cookie from a non-localhost `http://`
+    origin, so login would answer 303 to itself forever with nothing in the
+    log or the page explaining why (Fable review, finding 1).
     *(gate: `TestLoginOverPlainHTTPIsSecureWhenBehindTLS` (the flag reaches
     the session cookie over plain HTTP),
     `TestLoginOverPlainHTTPStaysInsecureWithoutBehindTLS` (the negative
     control: unset, nothing changes),
     `TestEveryCookieCarriesSecureUnderTheFlag` (every cookie the server
-    sets over signup, login and logout, not only the session one), and
-    `TestEveryCookieGoesThroughOneSecurePosture`, which walks
-    `internal/web`'s own non-test source for `http.SetCookie` call sites and
-    requires exactly one, so a future cookie added anywhere in this package
-    cannot skip the flag by construction. `scripts/gates-have-teeth.sh`'s
-    `behind-tls: drop the flag from the cookie's own Secure decision` case
-    plants the regression this invariant exists to prevent.)*
+    sets over signup, login and logout, not only the session one),
+    `TestLoginOverRealTLSIsSecureWithoutTheFlag` (a real `httptest.NewTLSServer`
+    handshake marks the cookie Secure through `r.TLS != nil` alone, the half
+    of the OR no other test here exercises, since every other case talks
+    plain HTTP where `r.TLS` is nil regardless of the flag -- added after
+    Fable review found a mutant dropping this half, `c.Secure = s.behindTLS`,
+    passed the first three tests outright, finding 3), and
+    `TestEveryCookieGoesThroughOneSecurePosture`, which walks `internal/web`'s
+    own non-test source with `go/ast` and requires exactly one occurrence of
+    the bare identifier `SetCookie` and zero of the literal `"Set-Cookie"`.
+    This is a TEST asserting today's source holds that shape, not a
+    compiler-enforced guarantee: Fable review found the original version, a
+    plain count of the literal `http.SetCookie(`, defeated by
+    `w.Header().Add("Set-Cookie", ...)` (an entirely different literal) and
+    by `sc := http.SetCookie; sc(w, c)` (no `(` immediately after the text it
+    counted) -- both measured passing the old test outright, finding 2 -- and
+    a determined enough rewrite (string concatenation building the header
+    name at runtime, for one) could still defeat this version the same way;
+    it catches the mutations a reasonable accident produces, not every
+    mutation a search for one could construct.
+    `TestBehindTLSLogNamesThePlainHTTPCookieDrop` (`cmd/costcrew`) holds the
+    log sentence above. `scripts/gates-have-teeth.sh`'s
+    `behind-tls: drop the flag from the cookie's own Secure decision`,
+    `behind-tls: drop r.TLS from the cookie's own Secure decision` and
+    `behind-tls: a stray Set-Cookie header outside setCookie` cases plant the
+    three regressions this invariant exists to prevent, the last one planted
+    in `cadencePage` specifically -- not signup, login or logout, the three
+    routes `TestEveryCookieCarriesSecureUnderTheFlag` already enumerates --
+    to prove the source walk catches a stray cookie anywhere in the package.)*
 
 ## Decisions that have no gate yet
 

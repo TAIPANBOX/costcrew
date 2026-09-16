@@ -2,15 +2,21 @@
 
 Feature: A cookie is marked Secure when a TLS proxy is what a browser actually talks to
 
-  @claude 2026-09-16
-  """
-  The documented deployment (cmd/costcrew/main.go's own -addr help text: put a
-  proxy in front for TLS) means this process only ever sees plain HTTP on
-  loopback. The session cookie's Secure bit was read from r.TLS != nil alone,
-  which is nil on every request in exactly that shape, so the cookie was never
-  Secure in the deployment this binary recommends. -behind-tls is the
-  operator's explicit statement that such a proxy is there.
-  """
+  # @claude 2026-09-16
+  # The documented deployment (cmd/costcrew/main.go's own -addr help text: put
+  # a proxy in front for TLS) means this process only ever sees plain HTTP on
+  # loopback. The session cookie's Secure bit was read from r.TLS != nil
+  # alone, which is nil on every request in exactly that shape, so the cookie
+  # was never Secure in the deployment this binary recommends. -behind-tls is
+  # the operator's explicit statement that such a proxy is there.
+  #
+  # Fable finding 4: a `"""` docstring is Gherkin syntax for a step argument,
+  # and cannot stand alone under a Feature-level tag with no step above it; a
+  # real runner would refuse a file shaped that way, even though this repo's
+  # own grep-based binding gate (scripts/features-are-bound.sh) does not
+  # parse Gherkin and never noticed. A comment, which is legal anywhere in a
+  # Gherkin document, carries the same words without claiming a syntax this
+  # file does not actually use.
 
   @test:TestLoginOverPlainHTTPIsSecureWhenBehindTLS
   Scenario: -behind-tls marks the session cookie Secure even over plain HTTP

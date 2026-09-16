@@ -453,7 +453,9 @@ func run(addr, dir string, scfg stack.Config, gatewayURL string, behindTLS bool)
 	// deployment should have to grep the flags to discover.
 	if behindTLS {
 		log.Print("CostCrew: -behind-tls set; every cookie is marked Secure regardless of " +
-			"what TLS this process itself terminates")
+			"what TLS this process itself terminates. A browser reaching this address " +
+			"directly over plain HTTP, localhost excepted, will drop every cookie it is " +
+			"given, and nobody will be able to sign in.")
 	} else {
 		log.Print("CostCrew: -behind-tls not set; a cookie is marked Secure only when this " +
 			"process itself terminates TLS, which -addr's own recommended deployment " +
