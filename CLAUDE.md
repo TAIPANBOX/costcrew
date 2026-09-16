@@ -2572,6 +2572,23 @@ an absent invariant.
 Written here so that "it holds" and "something holds it" stay different
 sentences.
 
+- **`internal/web` is not run under the race detector, and the reason is
+  measured, not assumed.** CI runs `-race` on crew, stack, anomaly and
+  manifest ("where it is cheap"). Measured 2026-09-16: one web test takes
+  0.8 s clean and 14 to 16 s under `-race`, and the profile is not the
+  test's own code: `modernc.org/sqlite`'s transpiled C under the race
+  runtime's `checkptr` and `__tsan` instrumentation (schema creation per
+  test), with scrypt a distant second (a race-only cut of the scrypt work
+  factor changed nothing, measured the same day). 858 web tests at that
+  cost is more than three hours, so a race run of the web suite did not
+  finish in 40 minutes locally. What that leaves unproven: a data race
+  inside the HTTP handlers under concurrent requests. What bounds it: the
+  handlers share state through the store, whose own package is race-tested,
+  and no web handler starts a goroutine of its own (grep `go func` under
+  `internal/web`: none in non-test code). A cheaper race run of web would
+  need a memory store behind the same interface, which is a design change,
+  not a test change.
+
 - **The console never reaches the network, unless `-gateway` is configured for
   the supervisor's own planning calls.** True by default, and true unqualified
   before this step: the only outbound HTTP client in the repo used to be
