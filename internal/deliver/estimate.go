@@ -77,9 +77,44 @@ func LoopsFor(engine string) int {
 	return 1
 }
 
+// ToolCatalogueTokens is the one-token-per-byte bound on the tool catalogue
+// tools/run's tool loop sends as `tools` on every round but the last
+// (tools/run/loop.go, anthropicTools()/openAITools() in tools/run/tools.go),
+// for the two engines that loop; 0 for every other engine, which is sent no
+// catalogue at all. costcrew#67: the packet was in the estimate and the
+// catalogue was not, and the provider bills it as input tokens on every
+// round it is sent.
+//
+// Two pinned figures rather than a rendering, because this package cannot
+// import "package main" to render the catalogue itself (the restriction
+// MaxToolRounds above already lives with), and the /cadence preview
+// (EstimateWorstCase) must move by exactly the bytes price() moves by or
+// invariant 44 re-opens. tools/run's TestTheToolCatalogueBoundIsWhatTheRunnerActuallySends
+// renders the real catalogue and requires these to equal its byte length,
+// both directions: adding a tool turns that test red with the new figure
+// in its message, which is the moment to move the constant.
+const (
+	// @measured TestTheToolCatalogueBoundIsWhatTheRunnerActuallySends 2026-09-18
+	anthropicToolCatalogueBytes = 4190
+	// @measured TestTheToolCatalogueBoundIsWhatTheRunnerActuallySends 2026-09-18
+	openAIToolCatalogueBytes = 4538
+)
+
+func ToolCatalogueTokens(engine string) int {
+	switch engine {
+	case "anthropic":
+		return anthropicToolCatalogueBytes
+	case "openrouter":
+		return openAIToolCatalogueBytes
+	}
+	return 0
+}
+
 // EstimateWorstCase prices one task for one analyst the way tools/run's own
 // price() does -- the packet's bytes, the prompt built around them, and the
-// engine's published rate -- and then reserves it the way tools/run's own
+// engine's published rate, plus, for an engine that loops, the tool
+// catalogue the loop sends on every round (ToolCatalogueTokens) -- and then
+// reserves it the way tools/run's own
 // execute() does: one call's own bound, times LoopsFor(a.Engine). It does
 // not know or care about a task's own per-task guard (tools/run's price()
 // layers that comparison on top for its own Verdict/Refused fields); this
@@ -108,6 +143,6 @@ func EstimateWorstCase(db *sql.DB, t crew.Task, a crew.Analyst, maxOutputTokens 
 	}
 	pk := Packet(db, t, a, false)
 	promptTokens := Tokens(Prompt(t, a, estimateDate, pk))
-	oneCall := WorstCaseMicros(promptTokens, maxOutputTokens, p)
+	oneCall := WorstCaseMicros(promptTokens+ToolCatalogueTokens(a.Engine), maxOutputTokens, p)
 	return oneCall * int64(LoopsFor(a.Engine)), model, true
 }

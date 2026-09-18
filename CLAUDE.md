@@ -81,9 +81,9 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 863 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 102 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 210 scenarios, both directions
+go test ./...                        # 878 tests, 20 packages
+./scripts/gates-have-teeth.sh        # 108 cases; needs a clean tree
+./scripts/features-are-bound.sh      # 219 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
@@ -126,6 +126,18 @@ block already names. The same pull request corrects `components.json`'s
 sentence about `costcrew-recon` (costcrew#68): it reconciles the generated
 ledger and reads no cloud account, and no AWS or GCP billing reader exists
 here yet.
+
+Invariant 51 (the charge recorded is the gateway's settlement, costcrew#67)
+and the second half of invariant 44 (the tool catalogue in the worst case)
+added 15 tests (`internal/deliver/settlement_test.go`, 5;
+`internal/deliver/estimate_test.go`, 1; `tools/run/settlement_test.go`, 6;
+`tools/run/catalogue_bound_test.go`, 2; `internal/web/planning_ask_test.go`,
+1), 6 `gates-have-teeth.sh` cases (five `fail`, one `pass`) and 9 scenarios
+(`features/settled-by-the-gateway.feature`, new, 8; one appended to
+`features/priced-what-it-reserves.feature`), and no route: 863 -> 878
+tests, 102 -> 108 cases, 210 -> 219 scenarios, 58 GET routes unchanged,
+re-measured on this branch with the three commands this block already
+names.
 
 Invariant 48 (this file's own document references) added 2 tests
 (`internal/manifest/documents_test.go`) and one `gates-have-teeth.sh` case,
@@ -471,6 +483,13 @@ an absent invariant.
     right: a test can only prove what it describes.
     @measured 2026-08-24, a full run: router 0.2342, board 0.24, crew page
     3871.35 -> 3871.59.)*
+
+    costcrew#67 (2026-09-18): "what the run cost" is the gateway's own
+    settlement of each call when there is one, not this repository's
+    arithmetic on the provider's token counts; invariant 51 holds that. The
+    rounding rule here is unchanged and now rounds the settlement: it lands
+    in `tasks.live_micros` in micros and `SettleLiveSpend` rounds the run
+    once, up, exactly as before.
 
 19. **Nothing may move the sidebar under the cursor.** Three attempts, and the
     middle one made it worse, so all three are written down in the CSS itself.
@@ -2226,6 +2245,34 @@ an absent invariant.
     case plants the same first mutant as a permanent case, expect word
     `fail`.)*
 
+    costcrew#67 (2026-09-18) found the second gap in the same figure: the
+    bound counted the prompt and the output cap and nothing else, while the
+    two looping engines send the whole tool catalogue (`anthropicTools()` /
+    `openAITools()`, `tools/run/tools.go`) as `tools` on every round but the
+    last, billed as input tokens: 2874 input tokens were settled for a
+    prompt the estimate had bounded at about 2833. `estimate.CatalogueTokens`
+    (`deliver.ToolCatalogueTokens(engine)`: the byte length of the rendered
+    array, one token per byte, 0 for an engine outside the loop) now enters
+    `e.WorstMicros` beside `PromptTokens`, in `price()` and in
+    `EstimateWorstCase` alike, so `reservedWorstCase` and the `/cadence`
+    preview both cover what is actually sent; the bound counts the catalogue
+    on the last round too, which sends none, one catalogue's worth of slack
+    in the safe direction. The two figures are constants in
+    `internal/deliver`, pinned both ways by
+    `TestTheToolCatalogueBoundIsWhatTheRunnerActuallySends` (`tools/run`),
+    because this package cannot render a catalogue that lives in "package
+    main"; adding a tool turns that test red with the new figure in its
+    message. What is still NOT bounded: the growth of the conversation from
+    round to round (each round re-sends every prior message and every tool
+    result, capped at `toolResultMaxBytes` each); the 6x loop multiplier is
+    the only cover for it. *(gate, added:
+    `TestTheWorstCaseCoversTheToolCatalogueTheLoopActuallySends` (`tools/run`,
+    the bound against the real rendered catalogue, anthropic and openrouter,
+    bedrock unchanged), `TestTheToolCatalogueBoundIsWhatTheRunnerActuallySends`,
+    `TestEstimateWorstCaseCountsTheToolCatalogueForALoopingEngine`
+    (`internal/deliver`); `scripts/gates-have-teeth.sh`'s `price display:
+    the tool catalogue is dropped from the worst case` case.)*
+
 45. **A role family's own reads promise is backed by a right the console
     actually grants.** `roles.yaml`'s `reads` line is rendered VERBATIM into
     every one of that family's analysts' prompts
@@ -2626,6 +2673,107 @@ an absent invariant.
     walk to the enum rather than to one literal: moving `info` to `low` at
     the same site is a `pass` case, so a gate that merely pinned the word
     `info` would be reported OVEREAGER.)*
+
+51. **The charge a run records is the gateway's own settlement of each
+    call, and the estimate is only ever the reservation.** costcrew#67.
+    Found on the appliance proving run of 2026-09-17: `costcrew-run -live
+    -only 294` priced the task's worst case at 0.0115, the gateway settled
+    the one real `claude-sonnet-5` call at 0.05811 (`GET /v1/runs` on the
+    crew gateway, the Cloud's `/v1/units` agreeing), and the runner printed
+    `Spent 0.0116 of a 0.15 ceiling` and booked that figure to the board.
+    Nothing here had ever read a response header: `run.total()`,
+    `tasks.live_micros`, the `tool_call` event's `cost_micros` and the
+    supervisor's `plan_asks` row all carried `deliver.ActualMicros`, the
+    provider's token counts at THIS repository's own price table, which is
+    an estimate of a bill and not the bill. The gateway answers every
+    metered 2xx with three headers (tokenfuse `crates/gateway/src/proxy.rs`;
+    the names are frozen in that repository's compatibility contract):
+    `x-fuse-cost-usd`, THIS call's settled cost; `x-fuse-spent-usd`, the
+    RUN's cumulative spend as its ledger sees it; `x-fuse-price`, `known` or
+    `fallback`. `deliver.ParseSettlement` (`internal/deliver/settlement.go`)
+    reads them into `deliver.Settlement`, carried on every `Result` and on
+    every tool-loop round and folded per task by `AddRound` (a task is
+    settled only when EVERY round of it was), and `deliver.Charge` is the
+    one function every recording site reads: the settlement when the call
+    was settled, the caller's own priced figure otherwise. `@decided
+    2026-09-18`: the per-call charge is `x-fuse-cost-usd`, never
+    `x-fuse-spent-usd`: this runner shares ONE run id across every task of
+    an invocation (`bus.run`) and runs four at once (`atOnce`), so the
+    cumulative header would book task N with every earlier task's calls,
+    the overstatement invariant 18 exists to prevent; the cumulative figure
+    is read only for the summary line, as the largest value seen. The 5x
+    itself is the gateway's fallback price for a model its book does not
+    list (tokenfuse#305, that repository's fix): this console records the
+    settlement, names `x-fuse-price: fallback` on the console line when it
+    sees it, and does not correct the price. Money never passes through
+    float64 (invariant 25): a header value goes through `money.ParseMicros`
+    behind a stricter shape check (digits and one dot only, at most 32
+    bytes, at most 1,000,000 USD), and a value that is missing, empty,
+    duplicated, signed, non-numeric, negative or absurd is ABSENT, never a
+    charge and never a panic; the runner then prices the call itself and
+    the line says `priced by the runner: no settlement header`. The
+    reservation stays the estimate (invariant 44); `settle` books the
+    settlement even above what was reserved, so the next `reserve` is
+    checked against what was actually spent and the ceiling holds forward.
+
+    Where it says nothing: it does not re-price the reservation at the
+    gateway's rate, so up to `atOnce` tasks already in flight can together
+    overshoot the ceiling by their settlements minus their reservations
+    (the gateway's own `x-fuse-budget-usd` bound is what holds that, at its
+    prices); it does not say what the charge is when a 200 fails to parse
+    (nothing is saved and nothing is booked, as before, though the gateway
+    billed it); it does not cover OpenRouter and Bedrock, which go direct
+    and are always priced by the runner; it does not cover `tools/bench`,
+    whose live score still prints the runner's own price and writes nothing
+    (invariant 29); and it does not fix the price book (tokenfuse#305).
+    *(gate: `TestTheChargeRecordedIsTheGatewaysSettlement` (`tools/run`, the
+    incident replayed: the issue's own 2874/200 call settled at 0.058110
+    against the runner's 3/15, `tasks.live_micros`, `run.total()`, the
+    console line and the bus event all reading 58110);
+    `TestTheSummaryLineReadsTheSettledTotalAndTheGatewaysOwnRunTotal`;
+    `TestFourTasksUnderOneRunIdAreNotOverCountedByTheCumulativeHeader` (four
+    tasks at once, a cumulative header, each charged 5310 and the board 3
+    cents, not 4 per-call and not 6 cumulative);
+    `TestAHostileSettlementFallsBackToTheRunnersOwnPriceAndSaysSo`;
+    `TestWithNoGatewayTheChargeIsTheRunnersOwnPriceAndTheLineSaysSo` (the
+    negative control: a direct call is unchanged);
+    `TestASettlementAboveTheReservationStillCountsAgainstTheCeiling`;
+    `TestParseSettlementReadsTheGatewaysOwnThreeHeaders`,
+    `TestHostileSettlementHeadersNeverPanicAndNeverBecomeACharge` (the
+    parser over fourteen hostile shapes, a megabyte included),
+    `TestCallAnthropicCarriesTheGatewaysSettlementOnItsResult`,
+    `TestAddRoundSettlesATaskOnlyWhenEveryRoundWas`,
+    `TestChargeIsTheSettlementWhenSettledAndTheCallersOwnPriceOtherwise`
+    (`internal/deliver`);
+    `TestAskPlanRecordsTheGatewaysSettlementNotItsOwnPrice` (`internal/web`).
+    @measured `go test ./tools/run -run
+    'TestTheWorstCaseCoversTheToolCatalogue|TestTheChargeRecorded|TestTheSummaryLine|TestFourTasksUnderOneRunId|TestAHostileSettlement|TestWithNoGatewayTheCharge|TestASettlementAboveTheReservation'
+    -count=1` and `go test ./internal/web -run
+    TestAskPlanRecordsTheGatewaysSettlement -count=1` 2026-09-18, against
+    `cb90412` before this file's own product code existed: `the worst case
+    0.0381 does not cover the 4190-byte tool catalogue the loop sends on
+    every round: want 0.0506`; `tasks.live_micros = 11622, want 58110: the
+    gateway settled the call at 0.05811 and the runner reported its own
+    estimate as the charge`; the summary line printed `Spent 0.0116 of a
+    0.15 ceiling.` where the fixed line names the settlement and the
+    gateway's own run total; `task 1 recorded 15 micros; the gateway
+    settled its own call at 5310 ...` and `the board carries 1 cents for a
+    run that cost 0.021240, want 3`; every hostile-header subtest printed
+    `cost 0.0000  (worst 0.0010)`, missing the `priced by the runner: no
+    settlement header` words the fixed line carries; the no-gateway control
+    printed the same missing words; `the second task was let through (2
+    calls, err <nil>)`; and `plan_asks recorded 420 micros and 1 cents; the
+    gateway settled the ask at 0.058110 (58110 micros, 6 cents) and the
+    console booked its own estimate`. D1 to D6, R1 and the two amended
+    `internal/deliver` estimate tests are red by compile at that same base
+    (`undefined: ParseSettlement`, `undefined: deliver.ToolCatalogueTokens`,
+    and their neighbours), the weaker form section 5 of the spec names for
+    an API the change itself adds.
+    `scripts/gates-have-teeth.sh` plants the header ignored, the cumulative
+    header read per task, an absurd value accepted and a settlement rounded
+    to cents per call, each as a `fail` case, and a widened byte cap as the
+    `pass` case, so the hostile gate is held to the property and not to the
+    literal 32.)*
 
 ## Decisions that have no gate yet
 

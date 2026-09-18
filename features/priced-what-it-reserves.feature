@@ -63,3 +63,22 @@ Feature: The number a person reads before setting a ceiling is the number the ru
     When the console's /cadence page prices it for preview
     Then the worst case it would show is the reserved figure, loops
       included, not one call's own bound
+
+  @claude 2026-09-18
+  costcrew#67, the other half: the packet was inside the estimate and the
+  tool catalogue was not. The two looping engines send the whole catalogue
+  on every round but the last, and the provider bills it as input tokens:
+  2874 input tokens were settled for a prompt the estimate had bounded at
+  about 2833. What is still not bounded, beyond the loop multiplier, is the
+  growth of the conversation from round to round.
+
+  @test:TestTheWorstCaseCoversTheToolCatalogueTheLoopActuallySends
+  @test:TestTheToolCatalogueBoundIsWhatTheRunnerActuallySends
+  @test:TestEstimateWorstCaseCountsTheToolCatalogueForALoopingEngine
+  Scenario: The worst case covers the tool catalogue the loop actually sends
+    Given a task priced for an engine that loops through the tool catalogue
+    When its worst case is worked out, by the runner or by the console's
+      cadence preview
+    Then the catalogue's own bytes are counted beside the prompt's at the
+      input rate, an engine outside the loop is priced exactly as before,
+      and the figure the preview shows is the figure the runner reserves

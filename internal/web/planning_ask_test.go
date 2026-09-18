@@ -42,7 +42,14 @@ import (
 // before startWithGateway wires the server's URL in, but its CONTENT is not
 // known until after the store is seeded, since it has to reference a real
 // ref from whatever the fixture happened to produce this run.
-type planAnswer struct{ body string }
+type planAnswer struct {
+	body string
+	// headers is set on the response before the body is written, costcrew#67:
+	// a gateway settlement on the supervisor's own planning call must be
+	// recorded exactly like a crew task's, so W1 needs a fake gateway that
+	// can carry the three x-fuse-* headers on this same fixture.
+	headers map[string]string
+}
 
 // fakePlanGateway answers every call with a.body, read fresh per request, in
 // the same Anthropic-shaped JSON tools/run/due_test.go's own
@@ -51,6 +58,9 @@ func fakePlanGateway(t *testing.T, a *planAnswer) *httptest.Server {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+		for k, v := range a.headers {
+			w.Header().Set(k, v)
+		}
 		esc := strings.ReplaceAll(strings.ReplaceAll(a.body, `\`, `\\`), `"`, `\"`)
 		esc = strings.ReplaceAll(esc, "\n", `\n`)
 		fmt.Fprintf(w, `{"content":[{"type":"text","text":"%s"}],`+
@@ -530,5 +540,50 @@ func TestAskPlanShowsZeroItemsAsNothingThisSprint(t *testing.T) {
 	}
 	if strings.Contains(body, "The call was refused") {
 		t.Errorf("zero items must not read as a refusal: %s", trimTo(body, 4000))
+	}
+}
+
+// TestAskPlanRecordsTheGatewaysSettlementNotItsOwnPrice is W1, costcrew#67:
+// the console's one spending route, the supervisor's own planning call,
+// must be charged the gateway's settlement when it sent one, not the
+// console's own estimate -- the same fault the issue found on the runner,
+// on this console's own spending route. The answer itself is a refused one
+// (TestAskPlanShowsARefusedAnswerWhole's own fixture): SettlePlanAsk books
+// the actual cost on every outcome, refused included.
+func TestAskPlanRecordsTheGatewaysSettlementNotItsOwnPrice(t *testing.T) {
+	answer := &planAnswer{
+		body: "```plan\n" +
+			`{"items": [{"assignee": "supervisor", "budget_cents": 100, "why": "invented"}]}` +
+			"\n```",
+		headers: map[string]string{
+			"x-fuse-cost-usd":  "0.058110",
+			"x-fuse-spent-usd": "0.058110",
+			"x-fuse-price":     "fallback",
+		},
+	}
+	srv := fakePlanGateway(t, answer)
+	h := startWithGateway(t, srv.URL)
+	t.Setenv("ANTHROPIC_API_KEY", "sk-ant-stub-not-real")
+	h.signUp(t, "owner", "owner-password-2026")
+
+	_, getBody, _ := h.get(t, "/sprint/plan")
+	form := planFormFields(t, getBody)
+	form.Set("csrf", h.csrf(t, "/sprint/plan"))
+
+	code, body := postBody(t, h, "/sprint/plan/ask", form)
+	if code != http.StatusOK {
+		t.Fatalf("POST /sprint/plan/ask = %d, want 200:\n%s", code, trimTo(body, 2000))
+	}
+
+	var micros, cents int64
+	if err := h.st.DB().QueryRow(
+		`SELECT micros, cents FROM plan_asks ORDER BY id DESC LIMIT 1`,
+	).Scan(&micros, &cents); err != nil {
+		t.Fatal(err)
+	}
+	if micros != 58110 || cents != 6 {
+		t.Errorf("plan_asks recorded %d micros and %d cents; the gateway settled the ask "+
+			"at 0.058110 (58110 micros, 6 cents) and the console booked its own estimate",
+			micros, cents)
 	}
 }

@@ -85,6 +85,11 @@ type roundResult struct {
 	InTokens  int
 	OutTokens int
 	Calls     []requestedCall
+	// Settlement is what the gateway said THIS round cost (deliver.Settlement);
+	// zero-valued on a direct call. Set on every 200 that parsed, including
+	// the "no text and no tool" error path below: a round the gateway billed
+	// is charged as billed even when it produced nothing readable.
+	Settlement deliver.Settlement
 }
 
 // roundCostMicros moved to internal/deliver as ActualMicros (B6B-SPEC.md),
@@ -234,7 +239,11 @@ func anthropicRound(ctx context.Context, model string, messages []anthropicMsg,
 		return roundResult{}, nil, fmt.Errorf("anthropic's answer did not parse: %w", err)
 	}
 
-	rr := roundResult{InTokens: out.Usage.InputTokens, OutTokens: out.Usage.OutputTokens}
+	var st deliver.Settlement
+	if gw.URL != "" {
+		st = deliver.ParseSettlement(resp.Header)
+	}
+	rr := roundResult{InTokens: out.Usage.InputTokens, OutTokens: out.Usage.OutputTokens, Settlement: st}
 	var text strings.Builder
 	for _, c := range out.Content {
 		switch c.Type {
@@ -258,6 +267,7 @@ func anthropicToolLoop(ctx context.Context, db, roDB *sql.DB, e estimate, prompt
 	messages := []anthropicMsg{{Role: "user", Content: []anthropicBlock{{Type: "text", Text: prompt}}}}
 	var totalIn, totalOut int
 	var totalActual int64
+	var acc deliver.Settlement
 
 	for round := 1; round <= maxToolRounds; round++ {
 		var tools []map[string]any
@@ -268,7 +278,15 @@ func anthropicToolLoop(ctx context.Context, db, roDB *sql.DB, e estimate, prompt
 		totalIn += rr.InTokens
 		totalOut += rr.OutTokens
 		totalActual += roundCostMicros(rr.InTokens, rr.OutTokens, e.Price)
-		res := callResult{InTokens: totalIn, OutTokens: totalOut, ActualMicros: totalActual}
+		// Round one IS the accumulator; every later round is folded in, so a
+		// task is settled only when every one of its rounds was
+		// (deliver.Settlement.AddRound).
+		if round == 1 {
+			acc = rr.Settlement
+		} else {
+			acc = acc.AddRound(rr.Settlement)
+		}
+		res := callResult{InTokens: totalIn, OutTokens: totalOut, ActualMicros: totalActual, Settlement: acc}
 		if err != nil {
 			return res, err
 		}
@@ -290,7 +308,7 @@ func anthropicToolLoop(ctx context.Context, db, roDB *sql.DB, e estimate, prompt
 	}
 	// Unreachable in practice: round==maxToolRounds sends no tools, so the
 	// model cannot ask for one and rr.Calls is always empty by then.
-	return callResult{InTokens: totalIn, OutTokens: totalOut, ActualMicros: totalActual},
+	return callResult{InTokens: totalIn, OutTokens: totalOut, ActualMicros: totalActual, Settlement: acc},
 		fmt.Errorf("the tool loop ran past its round cap without an answer")
 }
 

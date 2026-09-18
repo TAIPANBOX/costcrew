@@ -229,20 +229,40 @@ func execute(ctx context.Context, db, roDB *sql.DB, e estimate, maxTok int, run 
 	}
 	sent := prompt(e.Task, e.Analyst, time.Now().Format("2006-01-02"), e.Packet)
 	res, err := runToolLoop(ctx, db, roDB, e, sent, maxTok, gh, e.Analyst, b)
+	// The charge is the gateway's settlement when there is one, the runner's
+	// own price otherwise (deliver.Charge, invariant 51), on BOTH paths: a
+	// task that failed after a billed round still cost that round. It is
+	// booked against the ceiling as-is even above the reservation, so the
+	// next reserve() is checked against what was actually spent.
+	charge := res.ChargeMicros()
+	run.settle(reserveMicros, charge)
+	run.noteSettlement(res.Settlement)
 	if err != nil {
-		run.settle(reserveMicros, res.ActualMicros)
 		return err
 	}
-	run.settle(reserveMicros, res.ActualMicros)
 
 	if err := saveDraft(db, e, res, b); err != nil {
 		return err
 	}
 
-	fmt.Printf("  %-22s %-14s %-10s in %5d out %5d  cost %s  (worst %s)\n",
+	fmt.Printf("  %-22s %-14s %-10s in %5d out %5d  cost %s %s  (worst %s)\n",
 		trim(e.Task.Title, 22), e.Analyst.Name, trim(e.Engine, 10),
-		res.InTokens, res.OutTokens, usd(res.ActualMicros), usd(e.WorstMicros))
+		res.InTokens, res.OutTokens, usd(charge), chargeBasis(res.Settlement), usd(e.WorstMicros))
 	return nil
+}
+
+// chargeBasis is the per-task console line's own word on where the figure
+// beside it came from. Exactly two texts, and one more clause only when the
+// gateway priced the model at its fallback rate (tokenfuse#305): a person
+// reading "0.0581" next to a worst case of "0.0116" is owed the reason.
+func chargeBasis(s deliver.Settlement) string {
+	if !s.Settled {
+		return "priced by the runner: no settlement header"
+	}
+	if s.PriceBasis == "fallback" {
+		return "settled by the gateway at its fallback price (x-fuse-price: fallback)"
+	}
+	return "settled by the gateway"
 }
 
 // saveDraft writes what the model produced and what it cost.
@@ -309,9 +329,12 @@ func saveDraft(db *sql.DB, e estimate, res callResult, b bus) error {
 	// by crew.SettleLiveSpend: rounding a fifth of a cent up per call recorded
 	// 0.56 for a run that billed 0.2337, and rounding per task recorded the
 	// same, because there is one call per task.
+	//
+	// The figure is the gateway's settlement when the call was settled, the
+	// runner's own price otherwise: deliver.Charge, invariant 51.
 	if _, err := db.Exec(`UPDATE tasks
 		SET live_micros = live_micros + ?, updated = datetime('now')
-		WHERE id = ?`, res.ActualMicros, e.Task.ID); err != nil {
+		WHERE id = ?`, res.ChargeMicros(), e.Task.ID); err != nil {
 		return err
 	}
 	// And tell the estate. Last, and its failure is reported rather than
@@ -339,6 +362,38 @@ type runBudget struct {
 	ceilingMicros int64
 	reserved      int64 // in flight, at worst case
 	spent         int64 // settled, at what it actually cost
+
+	// What the gateway said, over the whole run (invariant 51): how many
+	// tasks reached settle, how many of those the gateway settled, and the
+	// largest x-fuse-spent-usd seen, which is the gateway's own view of the
+	// run's total because every task of one invocation shares one run id.
+	charged, settled  int
+	gatewaySpent      int64
+	gatewaySpentKnown bool
+}
+
+// noteSettlement records one task's settlement for the summary line. Called
+// once per execute() that reached settle, on the success and the error path
+// alike, right after settle.
+func (r *runBudget) noteSettlement(s deliver.Settlement) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.charged++
+	if s.Settled {
+		r.settled++
+	}
+	if s.RunSpentKnown {
+		r.gatewaySpentKnown = true
+		if s.RunSpentMicros > r.gatewaySpent {
+			r.gatewaySpent = s.RunSpentMicros
+		}
+	}
+}
+
+func (r *runBudget) settlement() (settled, charged int, gatewaySpent int64, known bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.settled, r.charged, r.gatewaySpent, r.gatewaySpentKnown
 }
 
 // reserve takes the worst case out of the ceiling before the call is made.
@@ -520,8 +575,16 @@ func spend(db, roDB *sql.DB, ests []estimate, maxTok int, cap money.Cents, only 
 		return fmt.Errorf("settling what the run cost: %w", err)
 	}
 
-	fmt.Printf("\n%d of %d done, %d blocked. Spent %s of a %s ceiling.\n",
-		done, len(todo), blocked, usd(run.total()), cap)
+	settled, charged, gwSpent, gwKnown := run.settlement()
+	if gwKnown {
+		fmt.Printf("\n%d of %d done, %d blocked. Spent %s of a %s ceiling: %d of %d task(s) settled by the "+
+			"gateway, whose own run total is %s.\n",
+			done, len(todo), blocked, usd(run.total()), cap, settled, charged, usd(gwSpent))
+	} else {
+		fmt.Printf("\n%d of %d done, %d blocked. Spent %s of a %s ceiling: %d of %d task(s) settled by the "+
+			"gateway, the rest priced by the runner (no settlement header).\n",
+			done, len(todo), blocked, usd(run.total()), cap, settled, charged)
+	}
 	fmt.Printf("The board now carries %s against these tasks, which is that "+
 		"total rounded up to whole cents.\n", booked)
 	fmt.Printf("Every deliverable is a DRAFT. Nothing is published until a person stamps it.\n")

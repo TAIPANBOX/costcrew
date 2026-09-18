@@ -410,7 +410,11 @@ func (s *Server) askPlan(w http.ResponseWriter, r *http.Request) {
 	}
 
 	price, _ := engines.PriceFor(sup.Engine, model) // known good: PlanWorstCase already confirmed priced
-	actualMicros := deliver.WorstCaseMicros(res.InTokens, res.OutTokens, price)
+	// The gateway's own settlement when it sent one, this console's own
+	// arithmetic otherwise (deliver.Charge, invariant 51): plan_asks feeds
+	// SpendInMonth, so an estimate booked here is the same fault costcrew#67
+	// found on the runner, on the console's one spending route.
+	actualMicros := deliver.Charge(res.Settlement, deliver.WorstCaseMicros(res.InTokens, res.OutTokens, price))
 
 	// AskRawAnswer is set on every branch, accepted included: it is not only
 	// what a refusal shows, it is also the /sprint/plan/approve-model form's

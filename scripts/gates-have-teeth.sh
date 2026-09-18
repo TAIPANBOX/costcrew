@@ -1530,6 +1530,68 @@ run_case 'shared bus: a move to another legal severity is not a fault' \
 	$'opt.Rec.Emit("generated_estate_replaced", opt.Actor, "info", map[string]any{' \
 	$'opt.Rec.Emit("generated_estate_replaced", opt.Actor, "low", map[string]any{'
 
+# costcrew#67, invariant 51: the charge recorded is the gateway's settlement,
+# never the runner's own estimate of the bill. The first fault is the incident
+# itself (the header ignored, the runner's own price booked); the second reads
+# the RUN's cumulative header as this call's own, which coincides with the
+# right figure on a one-call run and overstates every multi-task run; the
+# third accepts an absurd value; the fourth rounds a settlement to cents per
+# call before the run is summed, the exact fault invariant 18 already holds
+# against the runner's own figures.
+run_case 'settlement: the header is ignored and the runner'"'"'s own price is booked' \
+	fail \
+	./tools/run \
+	$'TestTheChargeRecordedIsTheGatewaysSettlement' \
+	$'reported its own estimate as the charge' \
+	internal/deliver/settlement.go \
+	$'\tif s.Settled {\n\t\treturn s.SettledMicros\n\t}\n\treturn priced' \
+	$'\tif false && s.Settled {\n\t\treturn s.SettledMicros\n\t}\n\treturn priced'
+run_case 'settlement: the run'"'"'s cumulative header is read as this call'"'"'s own' \
+	fail \
+	./tools/run \
+	$'TestFourTasksUnderOneRunIdAreNotOverCountedByTheCumulativeHeader' \
+	$'settled its own call at 5310' \
+	internal/deliver/settlement.go \
+	$'if m, ok := parseFuseUSD(oneHeader(h, HeaderFuseCostUSD)); ok {' \
+	$'if m, ok := parseFuseUSD(oneHeader(h, HeaderFuseSpentUSD)); ok {'
+run_case 'settlement: an absurd value becomes a charge' \
+	fail \
+	./internal/deliver \
+	$'TestHostileSettlementHeadersNeverPanicAndNeverBecomeACharge' \
+	$'became a charge' \
+	internal/deliver/settlement.go \
+	$'if m < 0 || int64(m) > MaxSettlementMicros {' \
+	$'if m < 0 {'
+run_case 'settlement: rounded to cents per call before the run is summed' \
+	fail \
+	./tools/run \
+	$'TestFourTasksUnderOneRunIdAreNotOverCountedByTheCumulativeHeader' \
+	$'want 3' \
+	internal/deliver/settlement.go \
+	$'\tif s.Settled {\n\t\treturn s.SettledMicros\n\t}' \
+	$'\tif s.Settled {\n\t\treturn int64(money.Micros(s.SettledMicros).Cents()) * 10_000\n\t}'
+# And the other half of the same issue, invariant 44: the tool catalogue the
+# loop sends on every round but the last is dropped from the bound again.
+run_case 'price display: the tool catalogue is dropped from the worst case' \
+	fail \
+	./tools/run \
+	$'TestTheWorstCaseCoversTheToolCatalogueTheLoopActuallySends' \
+	$'does not cover the' \
+	tools/run/main.go \
+	$'e.WorstMicros = deliver.WorstCaseMicros(e.PromptTokens+e.CatalogueTokens, maxTok, p)' \
+	$'e.WorstMicros = deliver.WorstCaseMicros(e.PromptTokens, maxTok, p)'
+# And the non-fault: widening the byte cap on a header value is a judgement
+# about the wire, not a fault; the hostile-input gate must hold the PROPERTY
+# (a megabyte is refused, a sign is refused) and not pin the literal 32.
+run_case 'settlement: a wider byte cap on the header value is not a fault' \
+	pass \
+	./internal/deliver \
+	$'TestHostileSettlementHeadersNeverPanicAndNeverBecomeACharge' \
+	$'' \
+	internal/deliver/settlement.go \
+	$'const maxFuseUSDBytes = 32' \
+	$'const maxFuseUSDBytes = 64'
+
 echo
 if [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'
