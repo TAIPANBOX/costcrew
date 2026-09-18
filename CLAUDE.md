@@ -81,8 +81,8 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 878 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 108 cases; needs a clean tree
+go test ./...                        # 879 tests, 20 packages
+./scripts/gates-have-teeth.sh        # 110 cases; needs a clean tree
 ./scripts/features-are-bound.sh      # 219 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
@@ -2549,16 +2549,32 @@ an absent invariant.
     renamed, moved or deleted while the sentence pointing at it stayed
     behind, and that is what this refuses. The gate deliberately does not
     check that the document says what the sentence claims, which nothing
-    mechanical can.
+    mechanical can. A URL is not a name this repository owes: a link into
+    another repository is that repository's business, whether it stands bare
+    or as the destination of a Markdown link whose text reads like a filename,
+    and it is blanked out before the matcher runs. That was the gate's stated
+    intent from the start and not its behaviour until 2026-09-18: the matcher
+    read raw bytes, a URL's own path ends in `.md` and satisfies its character
+    class, and the first README that linked straight to a public record in
+    another repository was refused as a dangling document and had to be
+    reworded to link to the repository instead of the file.
     *(gate: `TestEveryDocumentThisRepositoryNamesCanBeFound`, over CLAUDE.md
     and README.md, and `TestTheSpecificationsAreGivenAnAddress`, which holds
     the header section itself so the exemption cannot outlive the explanation
-    a reader is sent to. Go comments are not scanned on purpose: they cite the
-    same specifications several hundred times over and would report a
-    filename where the stale thing is a sentence.
-    `scripts/gates-have-teeth.sh`'s `documents: a named document that is
-    neither in the tree nor a specification` case plants the fault that
-    actually happened, in miniature: one letter added to
+    a reader is sent to;
+    `TestALinkToAnotherRepositorysDocumentIsNotThisGatesBusiness` holds the
+    URL rule on one piece of prose carrying every shape at once, red first on
+    the raw-bytes matcher with the URL tails named verbatim. Go comments are
+    not scanned on purpose: they cite the same specifications several hundred
+    times over and would report a filename where the stale thing is a
+    sentence.
+    `scripts/gates-have-teeth.sh`'s `documents: a full URL to another
+    repository, bare and as a link` case requires the gate to pass on both
+    URL shapes planted into a real citation, and `documents: a dangling bare
+    name right after a URL is still caught` requires the blanking to stop at
+    the URL and never swallow the sentence beside it. Its `documents: a named
+    document that is neither in the tree nor a specification` case plants the
+    fault that actually happened, in miniature: one letter added to
     `docs/stack-connection.md` in this file's own first paragraph, so a real
     citation becomes a name nobody can open. @measured 2026-09-03, both tests
     run red against their own faults before this gate existed: the first on a
