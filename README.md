@@ -10,7 +10,7 @@
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)
 ![Status](https://img.shields.io/badge/enforces-nothing%20by%20design-success.svg)
 
-<img src="docs/architecture.png" alt="costcrew architecture: cloud, SaaS and model bills arrive through connectors, a two-sided detector ranks findings by money, a named analyst works one under a spend guard, a person stamps the draft, and what is posted becomes allocation, a closed period and a general ledger export" width="960">
+<img src="docs/architecture.png" alt="costcrew architecture: cloud, SaaS and model bills arrive through connectors, marked reading or specified for which ones actually read data today, a two-sided detector ranks findings by money, a named analyst works one under a spend guard, a person stamps the draft, and what is posted becomes allocation, a closed period and a general ledger export" width="960">
 
 </div>
 
@@ -200,6 +200,52 @@ otherwise passes `costcrew-run`.
 
 Flipping stack-k8s's `suspend`, or adding a stack-single routine, is a
 platform act and a separate decision; neither is done in this repository.
+
+## Measured on a box behind a home router (2026-09-17)
+
+stack-single v1.1.3 ran `ghcr.io/taipanbox/costcrew:v0.2.0` on a Debian 13
+mini PC behind a home router, beside a gateway door of its own
+(`tokenfuse:v1.0.1`, unit `finops`, attributed by the
+`agent://customer.example/*` prefix), `-stack-host customer.example`,
+passports with an owner, the console on loopback. First start seeded the
+usual fixture estate (about 48,700 rows, 39 analysts).
+
+The crew called a real model through that door. `costcrew-run -live -only
+294` under a 0.10 USD cap made one real `claude-sonnet-5` call, settled by
+the gateway at 0.05811 USD; two tool calls were refused (`budgets-read` not
+granted); then the gateway's own monthly cap answered `402 unit 'finops'
+monthly budget exceeded`. Under a 0.004 USD cap, a second task was refused
+before any call went through. The gateway wrote `unit_cap_exceeded` (high)
+and `breaker_tripped` to its own events file; this console's own
+`tool_call` and practice events landed on `costcrew.ndjson`; the notifier
+mailed the crew's anomalies with the owner line read from the passport; the
+record plane sealed the crew's decisions beside the customer agents' own.
+
+Two defects turned up, both already fixed on `main` and neither in
+`v0.2.0`:
+
+- **The runner's own estimate was not the bill.** It printed `Spent 0.0116`
+  (its worst case) where the gateway had settled the same call at 0.05811,
+  about five times more, because the gateway's price book had no
+  `claude-sonnet-5` row and priced it at the fallback rate. Issue #67,
+  fixed by #71 (`a91edb8`): the charge recorded is now `x-fuse-cost-usd`,
+  the gateway's own settlement, never this repository's own estimate.
+- **A FOCUS import that should have replaced the generated estate refused
+  itself instead.** `generated_estate_replaced` was journaled with an
+  empty severity, outside the shared envelope's closed enum, so the whole
+  import rolled back, even though the FOCUS reader had already parsed the
+  box's own export cleanly (277 rows, 4 agents, 0.07 total billed cost).
+  Issue #66, fixed by #70 (`cb90412`, invariant 50).
+
+Still open: no AWS or GCP billing reader exists yet, so the board worked
+the generated estate and the box's AI spend alone (#68); `v0.2.0` predates
+the console's `-gateway` flag, dropped from the command for this run (#69).
+
+**Not proven by this run:** the crew at its ordinary cadence rather than by
+hand; a board carrying real cloud bills; the FOCUS import, severity fixed,
+run again against a live box. Full detail:
+[`estate-gates/PROVEN.md`](https://github.com/TAIPANBOX/estate-gates/blob/main/PROVEN.md),
+rows dated 2026-09-17.
 
 ## Gates
 
