@@ -1448,6 +1448,30 @@ run_case 'documents: a named document that is neither in the tree nor a specific
 	$'`docs/stack-connection.md` says what this console writes' \
 	$'`docs/stack-connections.md` says what this console writes'
 
+# A link into another repository is that repository's business: its own path
+# ends in `.md` and satisfies the matcher's character class, which is exactly
+# how the first real citation of that shape (2026-09-18) was refused as a
+# dangling document. The gate must let a full URL through, both as a bare
+# address and as the destination of a Markdown link whose text reads like a
+# filename, while the dangling bare name beside a URL is still caught: the
+# blanking stops at whitespace and never swallows the sentence.
+run_case 'documents: a full URL to another repository, bare and as a link' \
+	pass \
+	./internal/manifest \
+	$'TestEveryDocumentThisRepositoryNamesCanBeFound' \
+	$'' \
+	CLAUDE.md \
+	$'`docs/stack-connection.md` says what this console writes' \
+	$'`docs/stack-connection.md` (the run is in https://github.com/TAIPANBOX/estate-gates/blob/main/PROVEN.md and in [estate-gates/PROVEN.md](https://github.com/TAIPANBOX/estate-gates/blob/main/PROVEN.md)) says what this console writes'
+run_case 'documents: a dangling bare name right after a URL is still caught' \
+	fail \
+	./internal/manifest \
+	$'TestEveryDocumentThisRepositoryNamesCanBeFound' \
+	$'nobody can open' \
+	CLAUDE.md \
+	$'`docs/stack-connection.md` says what this console writes' \
+	$'https://github.com/TAIPANBOX/estate-gates/blob/main/PROVEN.md and `docs/stack-connections.md` says what this console writes'
+
 # Invariant 49: -behind-tls has to reach every cookie's own Secure bit, not
 # merely be read and then forgotten. This mutant is the regression the whole
 # flag exists to prevent: dropping it from setCookie's own decision reverts
