@@ -243,9 +243,9 @@ the console's `-gateway` flag, dropped from the command for this run (#69).
 
 **Not proven by this run:** the crew at its ordinary cadence rather than by
 hand; a board carrying real cloud bills; the FOCUS import, severity fixed,
-run again against a live box. Full detail:
-[`estate-gates/PROVEN.md`](https://github.com/TAIPANBOX/estate-gates/blob/main/PROVEN.md),
-rows dated 2026-09-17.
+run again against a live box. Full detail, rows dated 2026-09-17, in the
+estate-gates repository's own PROVEN record:
+[github.com/TAIPANBOX/estate-gates](https://github.com/TAIPANBOX/estate-gates).
 
 ## Gates
 
