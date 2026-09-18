@@ -24,6 +24,7 @@ import (
 	"github.com/TAIPANBOX/costcrew/internal/finops"
 	"github.com/TAIPANBOX/costcrew/internal/history"
 	"github.com/TAIPANBOX/costcrew/internal/money"
+	"github.com/TAIPANBOX/costcrew/internal/stack"
 	"github.com/TAIPANBOX/costcrew/internal/store"
 	"github.com/TAIPANBOX/costcrew/internal/web"
 	"github.com/TAIPANBOX/costcrew/internal/world"
@@ -61,6 +62,37 @@ func startWith(t *testing.T, withHistory bool) *harness {
 }
 
 func startFull(t *testing.T, withHistory bool, eventsPath string) *harness {
+	t.Helper()
+	return startFullRec(t, withHistory, eventsPath, func(st *store.Store) anomaly.Recorder {
+		return st.AsRecorder()
+	})
+}
+
+// startOnTheBus is start(t) with the console's recorder teed onto a real
+// stack emitter, exactly as cmd/costcrew/main.go wires it once -stack-events
+// is given: store.Tee(st.AsRecorder(), em). Every other harness here records
+// into the hash chain alone, and the chain writes whatever severity it is
+// handed, an empty one included; only the emitter refuses one. That
+// difference is how the FOCUS import that replaces the generated estate
+// stayed green in this suite while the appliance's own was refused whole
+// (costcrew#66). Returns the path of the events file the bus writes.
+func startOnTheBus(t *testing.T) (*harness, string) {
+	t.Helper()
+	events := filepath.Join(t.TempDir(), "costcrew.ndjson")
+	h := startFullRec(t, true, events, func(st *store.Store) anomaly.Recorder {
+		em, err := stack.Open(stack.Config{EventsPath: events, Host: "costcrew.test"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { em.Close() })
+		return store.Tee(st.AsRecorder(), em)
+	})
+	return h, events
+}
+
+// startFullRec is the one seeding sequence every harness above shares; wire
+// builds the recorder the server records into, given the store it opened.
+func startFullRec(t *testing.T, withHistory bool, eventsPath string, wire func(*store.Store) anomaly.Recorder) *harness {
 	t.Helper()
 	dir := t.TempDir()
 	st, err := store.Open(dir)
@@ -135,7 +167,7 @@ func startFull(t *testing.T, withHistory bool, eventsPath string) *harness {
 	// The chain records the work here as it does in production. A harness
 	// with no recorder cannot see whether a decision was written down.
 	srv := httptest.NewServer(web.New(st, au, web.Stack{
-		Host: "costcrew.test", EventsPath: eventsPath, Recorder: st.AsRecorder(),
+		Host: "costcrew.test", EventsPath: eventsPath, Recorder: wire(st),
 	}))
 	t.Cleanup(srv.Close)
 

@@ -97,3 +97,38 @@ Feature: What this console puts on the shared bus is something the estate can re
     Then it refuses, because an event minted under a domain the record plane
       was not given is refused as foreign and counted, and on a live cluster a
       whole namespace of events read as a quiet night that way
+
+  # costcrew#66, measured 2026-09-17 on the appliance proving run (image
+  # v0.2.0 beside stack-single v1.1.3): POST /connectors/tokenfuse-focus/import
+  # with replace-generated=yes, the store still holding the fixture, redirected
+  # with "journaling the generated estate's replacement: severity \"\" is not
+  # one of info, low, medium, high, critical". The transaction rolled back, the
+  # store kept its 19550 generated charges, and a real FOCUS export from the
+  # box's own gateway could not land on the board. The reader was fine (its
+  # /test read 277 rows and 4 agents); only the journaling of the replacement
+  # failed, and only on a console wired to the bus, which no test had built.
+
+  # @test:TestReplacingTheGeneratedEstateLandsWhenTheConsoleIsOnTheBus
+  Scenario: A real FOCUS export lands on a console that is on the bus
+    Given a console wired to the shared bus and still holding the generated estate
+    When an operator imports a FOCUS export with replace-generated=yes
+    Then the import lands: the generated charges are gone, the real ones are
+      there, and the bus carries the replacement with severity info, credited
+      to the operator
+
+  # @test:TestReplacingTheGeneratedEstateIsJournaledWithASeverityTheBusAccepts
+  Scenario: Replacing the generated estate is journaled with a severity the bus accepts
+    Given the FOCUS reader handed the recorder the console actually wires, the
+      hash chain teed with the stack emitter
+    When it replaces the generated estate
+    Then generated_estate_replaced goes out as info, the chain has the entry
+      too, and the import is committed rather than rolled back
+
+  # @test:TestEveryWireTypeIsEmittedWithASeverityTheEnvelopeAccepts
+  Scenario: Every wire type this console declares is emitted with a severity the envelope accepts
+    Given every emit call site in the repository, its severity resolved from
+      the source
+    When each kind and severity pair is handed to the real emitter
+    Then none is refused, every declared wire type was reached by the walk, and
+      a severity the walk cannot resolve fails by name rather than being
+      skipped

@@ -81,9 +81,9 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 860 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 99 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 207 scenarios, both directions
+go test ./...                        # 863 tests, 20 packages
+./scripts/gates-have-teeth.sh        # 102 cases; needs a clean tree
+./scripts/features-are-bound.sh      # 210 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
@@ -113,6 +113,19 @@ rather than duplicated, finding 2), and no route or scenario: 858 -> 860
 tests, 97 -> 99 cases, 207 scenarios and 58/36 routes unchanged, all
 re-measured on this branch with the three commands this block already
 names.
+
+Invariant 50 (every wire type goes out with a severity the envelope
+accepts, costcrew#66) added 3 tests
+(`internal/stack/severities_test.go`,
+`internal/connectors/replace_generated_bus_test.go`,
+`internal/web/on_the_bus_test.go`), 3 `gates-have-teeth.sh` cases (two
+`fail`, one `pass`) and 3 scenarios in `features/shared-bus.feature`, and no
+route: 860 -> 863 tests, 99 -> 102 cases, 207 -> 210 scenarios, 58 GET
+routes unchanged, re-measured on this branch with the three commands this
+block already names. The same pull request corrects `components.json`'s
+sentence about `costcrew-recon` (costcrew#68): it reconciles the generated
+ledger and reads no cloud account, and no AWS or GCP billing reader exists
+here yet.
 
 Invariant 48 (this file's own document references) added 2 tests
 (`internal/manifest/documents_test.go`) and one `gates-have-teeth.sh` case,
@@ -2566,6 +2579,53 @@ an absent invariant.
     in `cadencePage` specifically -- not signup, login or logout, the three
     routes `TestEveryCookieCarriesSecureUnderTheFlag` already enumerates --
     to prove the source walk catches a stray cookie anywhere in the package.)*
+
+50. **Every wire type this console declares is emitted with a severity the
+    shared envelope accepts.** agent-passport SPEC 6.1's `severity` is a
+    closed enum (info, low, medium, high, critical); `stack.Emitter.Emit`
+    refuses a value outside it, and the hash chain (`store.AsRecorder`)
+    writes whatever it is handed, an empty value included. Two call sites
+    were outside the enum at v0.2.0: the FOCUS reader journaled
+    `generated_estate_replaced` with `""`, and `crew.journalOptionRefused`
+    journaled `option_refused` with `"warn"`. The first was found on the
+    appliance proving run of 2026-09-17 (costcrew#66): on a console teed
+    onto the bus (`cmd/costcrew/main.go`, `store.Tee(st.AsRecorder(), em)`)
+    the emit failed inside the reader's own transaction, the reader returned
+    the refusal, the deferred rollback undid the whole import, and a real
+    FOCUS export could not land on the board while the reader's own `/test`
+    had read it fine (277 rows, 4 agents). Every test had handed that reader
+    the chain alone, a fixture too convenient for the defect to exist in.
+    The second reaches only the chain today (`tools/run` hands
+    `ValidateAndSaveOptions` its `b.rec`, never the bus) and was found by
+    the gate below on its first run. `generated_estate_replaced` now goes
+    out as `info` (a fixture retired because real rows arrived is
+    information, not a warning) and `option_refused` as `low` (the move
+    `guard.go` already made for "warning": one level above info, since
+    nothing was spent and nothing was changed).
+    *(gate: `TestEveryWireTypeIsEmittedWithASeverityTheEnvelopeAccepts`
+    (`internal/stack/severities_test.go`), a `go/ast` walk over every
+    non-test file under `internal/`, `tools/` and `cmd/`: each `Emit` call
+    site's kind and severity are resolved from the source (a literal, a
+    local variable's assignments, a helper's parameter through its callers,
+    a package-level function's own returns, a typed constant set) and every
+    (kind, severity) pair is handed to a real `Emitter`; a refused pair, a
+    declared wire type no site reached, and a shape the walk cannot resolve
+    each fail by name rather than being skipped. It is a reading of today's
+    source, the same limit invariant 49 states for its own walk, not a
+    compiler-enforced guarantee.
+    `TestReplacingTheGeneratedEstateIsJournaledWithASeverityTheBusAccepts`
+    (`internal/connectors`) runs the replacement through the production tee
+    and requires the import committed and the bus line `info`, credited to
+    the operator; `TestReplacingTheGeneratedEstateLandsWhenTheConsoleIsOnTheBus`
+    (`internal/web`, through `startOnTheBus`, the first harness in that
+    suite whose recorder is the tee) replays the appliance's own POST and
+    requires the redirect clean, the generated rows gone and the real ones
+    present. All three were red on the unfixed code, the walk naming both
+    sites at once. `scripts/gates-have-teeth.sh` plants both faults exactly
+    as they were and requires the walk to catch each by name, and holds the
+    walk to the enum rather than to one literal: moving `info` to `low` at
+    the same site is a `pass` case, so a gate that merely pinned the word
+    `info` would be reported OVEREAGER.)*
 
 ## Decisions that have no gate yet
 
