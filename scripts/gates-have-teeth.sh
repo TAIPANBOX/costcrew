@@ -1495,6 +1495,41 @@ run_case 'behind-tls: a stray Set-Cookie header outside setCookie' \
 	$'func (s *Server) cadencePage(w http.ResponseWriter, r *http.Request) {\n\tu := s.guard(w, r)\n\tif u == nil {\n\t\treturn\n\t}\n' \
 	$'func (s *Server) cadencePage(w http.ResponseWriter, r *http.Request) {\n\tu := s.guard(w, r)\n\tif u == nil {\n\t\treturn\n\t}\n\tw.Header().Add("Set-Cookie", "evil=1")\n'
 
+# Invariant 50: every wire type is emitted with a severity the envelope
+# accepts. The two faults below are the two that existed at v0.2.0, planted
+# back exactly as they were: the FOCUS reader journaling the generated
+# estate's replacement with "" (costcrew#66, the import refused whole on the
+# appliance), and option_refused going out as "warn". The gate is the
+# call-site walk in internal/stack, which resolves each site's severity from
+# the source and hands it to the real emitter.
+run_case 'shared bus: generated_estate_replaced journaled with no severity' \
+	fail \
+	./internal/stack \
+	$'TestEveryWireTypeIsEmittedWithASeverityTheEnvelopeAccepts' \
+	$'generated_estate_replaced' \
+	internal/connectors/tokenfusefocus.go \
+	$'opt.Rec.Emit("generated_estate_replaced", opt.Actor, "info", map[string]any{' \
+	$'opt.Rec.Emit("generated_estate_replaced", opt.Actor, "", map[string]any{'
+run_case 'shared bus: option_refused journaled with a severity outside the enum' \
+	fail \
+	./internal/stack \
+	$'TestEveryWireTypeIsEmittedWithASeverityTheEnvelopeAccepts' \
+	$'option_refused' \
+	internal/crew/options.go \
+	$'rec.Emit("option_refused", roleName, "low", map[string]any{' \
+	$'rec.Emit("option_refused", roleName, "warn", map[string]any{'
+# And the non-fault: a move to another of the five is a judgement about how
+# loud the event is, not a fault, so the walk must not fire on it. Without
+# this the gate could be pinning one literal and pass the two cases above.
+run_case 'shared bus: a move to another legal severity is not a fault' \
+	pass \
+	./internal/stack \
+	$'TestEveryWireTypeIsEmittedWithASeverityTheEnvelopeAccepts' \
+	$'' \
+	internal/connectors/tokenfusefocus.go \
+	$'opt.Rec.Emit("generated_estate_replaced", opt.Actor, "info", map[string]any{' \
+	$'opt.Rec.Emit("generated_estate_replaced", opt.Actor, "low", map[string]any{'
+
 echo
 if [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'

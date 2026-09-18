@@ -563,7 +563,16 @@ func journalOptionRefused(rec Recorder, roleName string, artifactID int, reason 
 	if rec == nil {
 		return
 	}
-	_ = rec.Emit("option_refused", roleName, "warn", map[string]any{
+	// "low", not "warn": the shared envelope's severity is a closed enum
+	// (info, low, medium, high, critical) and "warn" is not in it, the same
+	// hole guard.go closed for "warning". Today this reaches only the hash
+	// chain (tools/run hands ValidateAndSaveOptions its b.rec, never the
+	// bus), so nothing refused it; option_refused is a declared wire type
+	// all the same, and the walk in internal/stack/severities_test.go holds
+	// every one of those to the enum. One level above info because a task
+	// returned to its analyst is something its owner may want to notice, and
+	// no higher because nothing was spent and nothing was changed.
+	_ = rec.Emit("option_refused", roleName, "low", map[string]any{
 		"artifact": artifactID, "reason": reason,
 	}, nil)
 }

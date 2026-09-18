@@ -308,7 +308,17 @@ func tokenFuseFocusReader(db *sql.DB, cfg map[string]string, opt ImportOptions) 
 			return "", err
 		}
 		if wipe && opt.Rec != nil {
-			if err := opt.Rec.Emit("generated_estate_replaced", opt.Actor, "", map[string]any{
+			// "info", never "": the shared envelope's severity is a closed
+			// enum and the stack emitter refuses a value outside it. This
+			// line passed "" from the day it was written, and every test
+			// handed it the hash chain, which writes an empty severity
+			// without complaint; on a console teed onto the bus the emit
+			// failed, this function returned the refusal, and the deferred
+			// rollback undid the whole import (costcrew#66, measured on the
+			// appliance 2026-09-17: a real FOCUS export could not land). A
+			// fixture being retired because real rows arrived is information,
+			// not a warning.
+			if err := opt.Rec.Emit("generated_estate_replaced", opt.Actor, "info", map[string]any{
 				"connector": "tokenfuse-focus",
 				"tables":    "charges (provenance IS NULL)," + strings.Join(generatedTables, ","),
 			}, nil); err != nil {
