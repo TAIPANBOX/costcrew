@@ -1,5 +1,14 @@
 // Command recon prints the console's planes against the ledger they are
 // derived from. It is a reading tool, not a gate: the gate is a Go test.
+//
+// The ledger is the GENERATED one, world.Generate(), and the planes are the
+// fixture's own utilisation rows, SaaS licences and commitments. This binary
+// opens no store, reads no cloud account and makes no network call; its
+// imports are fmt and two of this module's own packages, and that is the
+// whole of what it can reach. It was once described, in components.json and
+// in the architecture dossier, as a read-only report of a cloud account
+// (costcrew#68); the cloud FOCUS readers that would let a real customer
+// estate reach the crew are separate, later work.
 package main
 
 import (

@@ -234,7 +234,7 @@
       },
       "declared": {
         "role": {
-          "value": "reads a cloud account read-only and reports what it found",
+          "value": "reconciles the generated estate's own planes (utilisation rows, SaaS seats, commitments) against the generated ledger, world.Generate(), for the last full month, and prints where they do not add up; it opens no store, reads no cloud account and makes no network call (its only imports are fmt, internal/money and internal/world). No AWS or GCP billing reader exists in this repository yet; the two folder readers that would make a real customer estate reach the crew are tracked in costcrew#68",
           "why": "as above"
         }
       }

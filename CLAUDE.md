@@ -122,7 +122,10 @@ accepts, costcrew#66) added 3 tests
 `fail`, one `pass`) and 3 scenarios in `features/shared-bus.feature`, and no
 route: 860 -> 863 tests, 99 -> 102 cases, 207 -> 210 scenarios, 58 GET
 routes unchanged, re-measured on this branch with the three commands this
-block already names.
+block already names. The same pull request corrects `components.json`'s
+sentence about `costcrew-recon` (costcrew#68): it reconciles the generated
+ledger and reads no cloud account, and no AWS or GCP billing reader exists
+here yet.
 
 Invariant 48 (this file's own document references) added 2 tests
 (`internal/manifest/documents_test.go`) and one `gates-have-teeth.sh` case,
