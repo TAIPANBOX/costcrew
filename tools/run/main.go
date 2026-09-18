@@ -106,6 +106,13 @@ type estimate struct {
 	Priced  bool
 
 	PromptTokens int
+	// CatalogueTokens is the tool catalogue's own bytes, sent as `tools` on
+	// every round but the last for an engine on the tool loop (loop.go) and
+	// billed as input tokens; 0 outside the loop. Counted beside
+	// PromptTokens in WorstMicros: costcrew#67 found the packet inside the
+	// bound and the catalogue outside it, 2874 input tokens settled against
+	// a prompt bounded at about 2833. deliver.ToolCatalogueTokens.
+	CatalogueTokens int
 	// MICRO-dollars, a millionth of a dollar, which is what the TokenFuse wire
 	// already uses. Not cents.
 	//
@@ -268,6 +275,7 @@ func price(db *sql.DB, t crew.Task, a crew.Analyst, maxTok int) estimate {
 	// rebuilt by execute(): see estimate.Packet's own comment for why.
 	e.Packet = packet(db, t, a)
 	e.PromptTokens = tokens(prompt(t, a, "0000-00-00", e.Packet))
+	e.CatalogueTokens = deliver.ToolCatalogueTokens(a.Engine)
 
 	metered, known := engines.Metered(a.Engine)
 	if !known {
@@ -305,7 +313,7 @@ func price(db *sql.DB, t crew.Task, a crew.Analyst, maxTok int) estimate {
 	// directly, per PRICE-DISPLAY-SPEC.md, 2026-09-03: see that function's
 	// own comment for why a second copy of the multiplier is exactly what
 	// broke here the first time.
-	e.WorstMicros = deliver.WorstCaseMicros(e.PromptTokens, maxTok, p)
+	e.WorstMicros = deliver.WorstCaseMicros(e.PromptTokens+e.CatalogueTokens, maxTok, p)
 
 	// The guard is in cents and the estimate is in micros, so the comparison
 	// happens in micros. Converting the other way would floor the estimate to
@@ -435,6 +443,10 @@ func report(db *sql.DB, ests []estimate, maxTok int, cap money.Cents, hasCap boo
 	fmt.Println()
 	fmt.Printf("How the worst case is built: the prompt is this task and its analyst's\n")
 	fmt.Printf("brief, bounded at one token per byte, which no tokeniser can exceed.\n")
+	fmt.Printf("An engine on the tool loop (anthropic, openrouter) also sends the tool\n")
+	fmt.Printf("catalogue on every round, %d or %d bytes, counted at the same rule, and\n",
+		deliver.ToolCatalogueTokens("anthropic"), deliver.ToolCatalogueTokens("openrouter"))
+	fmt.Printf("the whole call is reserved %d times over for the loop's rounds.\n", maxToolRounds)
 	fmt.Printf("The output is the full %d token cap at the\n", maxTok)
 	fmt.Printf("model's output price, because how long an answer runs is not known\n")
 	fmt.Printf("before it is asked for.\n\n")

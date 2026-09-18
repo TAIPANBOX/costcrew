@@ -91,7 +91,18 @@ type Result struct {
 	InTokens     int
 	OutTokens    int
 	ActualMicros int64
+	// Settlement is what the gateway said this call cost (settlement.go).
+	// Zero-valued on every path that did not go through a gateway: the
+	// direct Anthropic endpoint, OpenRouter, Bedrock. Embedded, so a caller
+	// reads res.Settled and res.SettledMicros directly.
+	Settlement
 }
+
+// ChargeMicros is Charge over this result's own settlement and its own
+// ActualMicros, for the callers (the tool loops) that populate ActualMicros.
+// Call itself never populates ActualMicros (see the comment above), so a
+// single-shot caller passes its own priced figure to Charge instead.
+func (r Result) ChargeMicros() int64 { return Charge(r.Settlement, r.ActualMicros) }
 
 // GatewayRefusal marks an error that came from the GATEWAY refusing a call
 // over budget (an HTTP 402), never from the call merely failing. Renamed,
@@ -255,6 +266,12 @@ func callAnthropic(ctx context.Context, model, prompt string, maxTok int, gw Gat
 	if err := json.Unmarshal(raw, &out); err != nil {
 		return Result{}, fmt.Errorf("anthropic's answer did not parse: %w", err)
 	}
+	// Read only when gw.URL != "": a 402 or non-200 never reaches this point,
+	// and the direct api.anthropic.com endpoint sends no x-fuse-* header.
+	var st Settlement
+	if gw.URL != "" {
+		st = ParseSettlement(resp.Header)
+	}
 	var text strings.Builder
 	for _, c := range out.Content {
 		if c.Type == "text" {
@@ -279,9 +296,10 @@ func callAnthropic(ctx context.Context, model, prompt string, maxTok int, gw Gat
 			out.StopReason, where, out.Usage.OutputTokens)
 	}
 	return Result{
-		Text:      text.String(),
-		InTokens:  out.Usage.InputTokens,
-		OutTokens: out.Usage.OutputTokens,
+		Text:       text.String(),
+		InTokens:   out.Usage.InputTokens,
+		OutTokens:  out.Usage.OutputTokens,
+		Settlement: st,
 	}, nil
 }
 

@@ -141,7 +141,8 @@ func TestEstimateWorstCaseReturnsTheReservedFigureNotOneCallsOwnBound(t *testing
 		t.Fatal("no published price for the fixture's own engine/model")
 	}
 	pk := deliver.Packet(db, task, a, false)
-	oneCall := deliver.WorstCaseMicros(deliver.Tokens(deliver.Prompt(task, a, "0000-00-00", pk)), 2000, p)
+	// +deliver.ToolCatalogueTokens(a.Engine): the catalogue the loop sends, costcrew#67.
+	oneCall := deliver.WorstCaseMicros(deliver.Tokens(deliver.Prompt(task, a, "0000-00-00", pk))+deliver.ToolCatalogueTokens(a.Engine), 2000, p)
 	if oneCall <= 0 {
 		t.Fatal("the fixture's own one-call worst case is zero")
 	}
@@ -164,6 +165,8 @@ func TestEstimateWorstCaseReturnsTheReservedFigureNotOneCallsOwnBound(t *testing
 // engine outside the tool loop, tools/run/loop.go's runToolLoop) never
 // makes more than one call per execute(), so the multiplier here must be a
 // no-op, 1x, not a second bound layered on top of the first.
+// bedrock is sent no tool catalogue, so ToolCatalogueTokens is 0 here and
+// this stays exactly one call's own bound.
 func TestEstimateWorstCaseIsUnchangedForASingleCallEngine(t *testing.T) {
 	st, err := store.Open(t.TempDir())
 	if err != nil {
@@ -193,5 +196,57 @@ func TestEstimateWorstCaseIsUnchangedForASingleCallEngine(t *testing.T) {
 		t.Errorf("EstimateWorstCase = %d for a single-call engine, want %d unchanged "+
 			"(bedrock never enters the tool loop, so the multiplier must be a no-op "+
 			"here)", worst, oneCall)
+	}
+}
+
+// D6, costcrew#67: the /cadence preview (EstimateWorstCase) must move by
+// the tool catalogue's own bytes for a looping engine, exactly like
+// price()'s own e.WorstMicros -- both read the same
+// deliver.ToolCatalogueTokens, or invariant 44 re-opens.
+func TestEstimateWorstCaseCountsTheToolCatalogueForALoopingEngine(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	db := st.DB()
+
+	task := crew.Task{Title: "Explain the move", Goal: "say what happened"}
+	a := crew.Analyst{Name: "a", State: "active", Engine: "anthropic", Skills: []string{"anomaly-triage"}}
+
+	cat := deliver.ToolCatalogueTokens("anthropic")
+	if cat <= 0 {
+		t.Fatalf("ToolCatalogueTokens(\"anthropic\") = %d, want > 0", cat)
+	}
+	if or := deliver.ToolCatalogueTokens("openrouter"); or <= cat {
+		t.Errorf("ToolCatalogueTokens(\"openrouter\") = %d, want more than anthropic's %d "+
+			"(the OpenAI wrapper is longer per tool by construction)", or, cat)
+	}
+	if got := deliver.ToolCatalogueTokens("bedrock"); got != 0 {
+		t.Errorf("ToolCatalogueTokens(\"bedrock\") = %d, want 0: bedrock is sent no catalogue at all", got)
+	}
+	if got := deliver.ToolCatalogueTokens("a-name-from-nowhere"); got != 0 {
+		t.Errorf("ToolCatalogueTokens(\"a-name-from-nowhere\") = %d, want 0", got)
+	}
+
+	p, ok := engines.PriceFor(a.Engine, engines.DefaultModel(a.Engine))
+	if !ok {
+		t.Fatal("no published price for the fixture's own engine/model")
+	}
+	pk := deliver.Packet(db, task, a, false)
+	promptTokens := deliver.Tokens(deliver.Prompt(task, a, "0000-00-00", pk))
+
+	worst, _, priced := deliver.EstimateWorstCase(db, task, a, 2000)
+	if !priced {
+		t.Fatal("the fixture came back unpriced")
+	}
+	want := 6 * deliver.WorstCaseMicros(promptTokens+cat, 2000, p)
+	if worst != want {
+		t.Errorf("EstimateWorstCase = %d, want %d (6 x one call's own bound over the "+
+			"prompt PLUS the catalogue)", worst, want)
+	}
+	if noCatalogue := 6 * deliver.WorstCaseMicros(promptTokens, 2000, p); worst == noCatalogue {
+		t.Errorf("EstimateWorstCase = %d equals the prompt-only figure %d: the catalogue "+
+			"is not being counted at all", worst, noCatalogue)
 	}
 }

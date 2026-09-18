@@ -189,6 +189,28 @@ bus; see `features/through-the-gateway.feature` for the full account and
 `docs/stack-connection.md` for what TokenFuse proved separately, against a
 real budget push, before this runner ever called it.
 
+## Settled by the gateway
+
+Built 2026-09-18, costcrew#67. Every metered call the gateway answers carries
+three response headers: `x-fuse-cost-usd`, this call's own settled cost;
+`x-fuse-spent-usd`, the run's cumulative spend as the gateway's ledger sees
+it; `x-fuse-price`, `known` or `fallback`. The runner now records the FIRST
+as the task's charge (`tasks.live_micros`, the run's own total, the
+`tool_call` event's `cost_micros`) and keeps its own estimate only as the
+reservation. The per-task line says which figure it is: `settled by the
+gateway`, or `priced by the runner: no settlement header` when the call
+went direct (OpenRouter, Bedrock, no `-gateway`) or the header could not be
+read; a model the gateway priced from its fallback rate rather than its
+book says `at its fallback price (x-fuse-price: fallback)`. The summary line
+reads the settled total and, when the gateway said one, its own run total,
+read as the largest cumulative value seen. Each task is charged its own
+call: four tasks run at once under one run id, so the cumulative header is
+never booked per task. A header that is missing, empty, signed, not a
+number, negative or above a million dollars is treated as absent, never as
+a charge. The worst case now also counts the tool catalogue the loop sends
+on every round; what it still does not count is the conversation's growth
+from round to round beyond the loop multiplier.
+
 ## What this is not
 
 It is not needed for the pilot. The build in `~/Desktop/CostCrew-for-Tania` is

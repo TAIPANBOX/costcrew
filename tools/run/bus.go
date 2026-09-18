@@ -61,8 +61,11 @@ func (b bus) toolCall(e estimate, res callResult) error {
 		"model":         e.Model,
 		"input_tokens":  res.InTokens,
 		"output_tokens": res.OutTokens,
-		"cost_micros":   res.ActualMicros,
+		"cost_micros":   res.ChargeMicros(),
 		"worst_micros":  e.WorstMicros,
+		"priced_micros": res.ActualMicros, // the runner's own price, kept beside the charge for reconciliation
+		"settled":       res.Settled,
+		"price_basis":   res.PriceBasis,
 	}, nil)
 }
 
