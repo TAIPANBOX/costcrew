@@ -157,8 +157,8 @@ The `costcrew` console accepts `-gateway` for its own planning calls and
 `-behind-tls` from `v0.2.1` onward. The `v0.2.0` image has neither console
 flag: passing `-gateway` to that image exits with `flag provided but not
 defined`. The `costcrew-run` binary in `v0.2.0` already accepts its separate
-`-gateway` flag. Pin `ghcr.io/taipanbox/costcrew:v0.2.1` when using the console
-flags.
+`-gateway` flag. Pin `ghcr.io/taipanbox/costcrew:v0.2.2` for the console flags
+and complete release assets.
 
 Inside the stack, `./up.sh --with-finops` from
 [stack-up](https://github.com/TAIPANBOX/stack-up) brings it up wired to the
@@ -168,8 +168,9 @@ off the stem; `-stack-host` sets the `agent://` authority.
 
 ## Verify the image
 
-Every release is signed keyless with Sigstore and carries a build-provenance
-attestation and an SBOM. With `cosign` and `gh` installed:
+Images from `v0.2.1` are signed keyless with Sigstore and carry build-provenance
+attestations. The `v0.2.2` Release adds SPDX and CycloneDX SBOMs with a
+provenance bundle. With `cosign` and `gh` installed:
 
 ```sh
 cosign verify ghcr.io/taipanbox/costcrew:<tag> \
@@ -178,8 +179,9 @@ cosign verify ghcr.io/taipanbox/costcrew:<tag> \
 gh attestation verify oci://ghcr.io/taipanbox/costcrew:<tag> -R TAIPANBOX/costcrew
 ```
 
-`v0.2.1` is the first signed and attested image with these release assets.
-`v0.1.0` and `v0.2.0` predate them, as `v0.2.0`'s own Release notes say.
+`v0.2.1` is the first signed and attested image, but its Release has no assets
+because SBOM generation failed. `v0.2.2` is the first Release with all three
+assets. `v0.1.0` and `v0.2.0` predate image signing and attestations.
 
 ## Cadence
 
