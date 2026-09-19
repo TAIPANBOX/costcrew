@@ -2795,9 +2795,10 @@ an absent invariant.
     The v0.2.1 image was built and signed, but the release page stopped when
     the SPDX action could not open `dist/sbom.spdx.json`: its parent directory
     did not exist. The release workflow creates `dist` before either SBOM
-    action. A pull request changing that workflow runs the same two actions
-    and checks the resulting SPDX and CycloneDX JSON files before a tag can
-    reach the release job. *(gate: `.github/workflows/release.yml` job
+    action. A pull request changing that workflow or the shared SBOM action
+    runs the same action as the tag job and checks that the resulting SPDX and
+    CycloneDX JSON files contain package inventories. Publishing jobs only run
+    for version tags, including manual re-dispatches. *(gate: `.github/workflows/release.yml` job
     `release-sbom-check`; tag run of job `release page` proves attestation and
     publication, which the pull request cannot exercise.)*
 

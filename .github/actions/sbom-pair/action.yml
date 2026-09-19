@@ -1,0 +1,29 @@
+name: generate and validate release SBOMs
+description: Produce the two release SBOMs in dist and reject missing or empty inventories.
+runs:
+  using: composite
+  steps:
+    - name: prepare SBOM output directory
+      shell: bash
+      run: mkdir -p dist
+    - name: SBOM of this build, SPDX
+      uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+      with:
+        path: .
+        format: spdx-json
+        output-file: dist/sbom.spdx.json
+        upload-artifact: false
+        upload-release-assets: false
+    - name: SBOM of this build, CycloneDX
+      uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+      with:
+        path: .
+        format: cyclonedx-json
+        output-file: dist/sbom.cyclonedx.json
+        upload-artifact: false
+        upload-release-assets: false
+    - name: validate both SBOM files
+      shell: bash
+      run: |
+        jq -e '.spdxVersion and (.packages | length > 1)' dist/sbom.spdx.json >/dev/null
+        jq -e '.bomFormat == "CycloneDX" and (.components | length > 0)' dist/sbom.cyclonedx.json >/dev/null
