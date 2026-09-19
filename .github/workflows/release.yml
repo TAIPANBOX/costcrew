@@ -180,6 +180,40 @@ jobs:
           push: false
           cache-from: type=gha,scope=costcrew
 
+  # Exercise the SBOM action and its output paths before a release tag uses
+  # them. The v0.2.1 release job failed after scanning because dist/ did not
+  # exist; image-build alone could not catch a release-page failure.
+  release-sbom-check:
+    name: release SBOM check
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: prepare SBOM output directory
+        run: mkdir -p dist
+      - name: SBOM of this build, SPDX
+        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        with:
+          path: .
+          format: spdx-json
+          output-file: dist/sbom.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+      - name: SBOM of this build, CycloneDX
+        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        with:
+          path: .
+          format: cyclonedx-json
+          output-file: dist/sbom.cyclonedx.json
+          upload-artifact: false
+          upload-release-assets: false
+      - name: validate both SBOM files
+        run: |
+          jq -e '.spdxVersion and .packages' dist/sbom.spdx.json >/dev/null
+          jq -e '.bomFormat == "CycloneDX" and .components' dist/sbom.cyclonedx.json >/dev/null
+
   # A GitHub Release for every tag, carrying an SBOM and a provenance
   # attestation of this build even though nothing binary is attached: the
   # image above is signed and attested on its own, in its own job, and this
@@ -197,6 +231,8 @@ jobs:
       attestations: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: prepare SBOM output directory
+        run: mkdir -p dist
       - name: SBOM of this build, SPDX
         uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
         with:
