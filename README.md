@@ -153,6 +153,13 @@ Secure even though the browser's own connection is HTTPS end to end. The
 first account created at `/signup` becomes the admin of that installation, so
 make one before you hand anybody the address.
 
+The `costcrew` console accepts `-gateway` for its own planning calls and
+`-behind-tls` from `v0.2.1` onward. The `v0.2.0` image has neither console
+flag: passing `-gateway` to that image exits with `flag provided but not
+defined`. The `costcrew-run` binary in `v0.2.0` already accepts its separate
+`-gateway` flag. Pin `ghcr.io/taipanbox/costcrew:v0.2.1` when using the console
+flags.
+
 Inside the stack, `./up.sh --with-finops` from
 [stack-up](https://github.com/TAIPANBOX/stack-up) brings it up wired to the
 shared bus. Two flags carry the whole integration: `-stack-events` names the
@@ -171,8 +178,8 @@ cosign verify ghcr.io/taipanbox/costcrew:<tag> \
 gh attestation verify oci://ghcr.io/taipanbox/costcrew:<tag> -R TAIPANBOX/costcrew
 ```
 
-Releases before the next tag have none of this: `v0.1.0` and `v0.2.0` predate
-it, as `v0.2.0`'s own Release notes already say.
+`v0.2.1` is the first signed and attested image with these release assets.
+`v0.1.0` and `v0.2.0` predate them, as `v0.2.0`'s own Release notes say.
 
 ## Cadence
 
