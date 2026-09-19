@@ -5,7 +5,7 @@ go 1.27
 toolchain go1.27.0
 
 require (
-	github.com/TAIPANBOX/agent-stack-go v1.0.1
+	github.com/TAIPANBOX/agent-stack-go v1.0.2
 	github.com/aws/aws-sdk-go-v2 v1.45.1
 	github.com/aws/aws-sdk-go-v2/config v1.33.2
 	github.com/aws/aws-sdk-go-v2/service/bedrockruntime v1.60.0
