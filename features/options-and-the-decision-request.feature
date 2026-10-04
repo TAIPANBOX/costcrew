@@ -84,3 +84,78 @@ Feature: An analyst offers options; the supervisor decides what it can; the owne
     When the supervisor's pass runs
     Then the option is carried to the owner instead of applied: the figure
       alone makes it a key decision
+
+  # The owner is asked rarely: only for key decisions and for anything that
+  # reaches people. The supervisor's job description gives it option.select
+  # for options inside the analysts' own classes, so choosing among an
+  # analyst's options is the supervisor's own act while the figure is small.
+  # @decided 2026-10-04 (applying the 2026-09-02 rule to analyst-owned classes)
+
+  @test:TestTheSupervisorSelectsAnAnalystClassOptionWithinTAnomaly
+  Scenario: The supervisor selects among an analyst's own options without asking the owner
+    Given a deliverable whose option is in a class the analyst link owns,
+      recommendation.rightsizing, with a figure inside the roles.yaml
+      T.anomaly threshold
+    When the supervisor's pass runs
+    Then the supervisor applies it as its own act, decided_by supervisor,
+      and no decision request is written to the owner for it
+
+  @test:TestTheSupervisorsSelectionOfAnAnalystClassCarriesItsSideEffect
+  Scenario: Selecting an analyst's option does what the option says, as the supervisor
+    Given a deliverable whose option dismisses an open anomaly, inside
+      T.anomaly
+    When the supervisor's pass runs
+    Then the anomaly is dismissed, the option records the supervisor as who
+      decided it, and the owner is not asked
+
+  @test:TestAnAnalystClassOptionOverTAnomalyIsCarried
+  Scenario: A figure above T.anomaly still goes to the owner, whoever owns the class
+    Given an analyst-class option whose figure is one cent over T.anomaly
+    When the supervisor's pass runs
+    Then the option is carried to its owner as a decision request and
+      nothing is applied
+
+  @test:TestAnAnalystClassOptionExactlyAtTAnomalyIsApplied
+  Scenario: A figure exactly at T.anomaly is inside it
+    Given an analyst-class option whose figure equals T.anomaly
+    When the supervisor's pass runs
+    Then the supervisor applies it, the same boundary its own classes have
+
+  @test:TestOwnerAndNobodyClassOptionsStayCarriedWithinTAnomaly
+  Scenario: What reaches people or commits money is never the supervisor's to select
+    Given small options in classes the owner holds (period.close,
+      budget.set) and in classes nobody in the crew decides (purchase,
+      infra.change, vendor.negotiate)
+    When the supervisor's pass runs
+    Then every one is carried to the owner and none is applied
+
+  @test:TestSelectingAnAnalystOptionResolvesItsHandsUpAlternative
+  Scenario: Selecting one alternative resolves the others of the same choice
+    Given one deliverable offering a rightsizing option and, as the
+      alternative, a purchase
+    When the supervisor selects the rightsizing option
+    Then the purchase is marked not_chosen, never applied and never asked
+      about separately
+
+  @test:TestAContradictedAnalystOptionIsStillCarriedToTheOwner
+  Scenario: Two analysts who disagree are the owner's one question, not the ranking's
+    Given two deliverables naming different causes for the same anomaly,
+      both inside T.anomaly
+    When the supervisor's pass runs
+    Then neither is applied, both are carried in one decision request, and
+      the anomaly stays open
+
+  @test:TestASecondOptionOnAnAnomalyTheSupervisorAlreadyDecidedIsCarried
+  Scenario: An anomaly is settled once per pass
+    Given one deliverable dismissing an anomaly and another explaining the
+      same anomaly, both inside T.anomaly
+    When the supervisor's pass runs
+    Then the dismissal is applied, the explanation is carried to its owner,
+      and the pass finishes instead of aborting on the closed anomaly
+
+  @test:TestSupervisorMaySelectReadsOptionSelectFromTheJobDescription
+  Scenario: The supervisor's authority over analyst options is what roles.yaml says
+    Given roles.yaml listing option.select in the supervisor's decides_alone
+    When option.select is taken out of that list
+    Then the supervisor may no longer select analyst-class options, and its
+      own classes remain its own

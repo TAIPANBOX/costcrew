@@ -270,9 +270,9 @@ func plantAnomalyRow(t *testing.T, db *sql.DB, id string) {
 // roles.yaml's own hands_to_owner_conditions, "any question two analysts
 // answer differently on the same evidence", makes this one question rather
 // than two, and one question is one decision request. Neither side is ever
-// applied: anomaly.explain is not in the supervisor's own decides_alone
-// list, so the ordinary per-deliverable rule already carries both, with or
-// without a contradiction. Named for the mutant in this PR's report that
+// applied, though anomaly.explain is an analyst class the supervisor selects
+// inside T.anomaly (option.select): a contradiction is carried whatever the
+// figure, and the ranking never settles it. Named for the mutant in this PR's report that
 // ignores artifact identity in the contradiction check -- see the next test
 // for the property that mutant actually breaks.
 func TestContradictingOptionsAreCarriedAsOneQuestion(t *testing.T) {
@@ -288,7 +288,7 @@ func TestContradictingOptionsAreCarriedAsOneQuestion(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(pass.Applied) != 0 {
-		t.Fatalf("applied %d, want 0: anomaly.explain is never the supervisor's own class", len(pass.Applied))
+		t.Fatalf("applied %d, want 0: two analysts disagreeing is never settled by the supervisor", len(pass.Applied))
 	}
 	if len(pass.Carried) != 2 {
 		t.Fatalf("carried %d, want 2 (both sides of the disagreement)", len(pass.Carried))
@@ -307,9 +307,18 @@ func TestContradictingOptionsAreCarriedAsOneQuestion(t *testing.T) {
 }
 
 // And options that agree, or that sit on different anomalies, are not a
-// contradiction: they are carried (or applied) independently, each on its
-// own deliverable's terms, and land in as many decision requests as they
-// have distinct owners.
+// contradiction: they are not linked into one question. Each is decided on
+// its own deliverable's terms.
+//
+// This test used to assert that both agreeing options were carried, in two
+// decision requests, with the reason that "anomaly.explain is not in the
+// supervisor's own decides_alone list". That reason was the defect fixed
+// beside it: option.select IS in that list, for options inside the analysts'
+// own classes, so an anomaly.explain inside T.anomaly is the supervisor's to
+// select. What stays true, and is asserted here, is that agreeing does not
+// link the two: the first is applied, and the second, which would now move an
+// anomaly the pass has already explained, is carried on its own to its own
+// owner, with no "answered differently" note.
 func TestAgreeingOptionsOnTheSameAnomalyAreNotLinked(t *testing.T) {
 	db, sprintID := superviseTestDB(t)
 	plantAnomalyRow(t, db, "A-agree")
@@ -322,16 +331,18 @@ func TestAgreeingOptionsOnTheSameAnomalyAreNotLinked(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// anomaly.explain is not in the supervisor's own decides_alone list
-	// (only anomaly.accept is), so two options that agree are carried, not
-	// applied: this test's own point is that agreeing does not link them,
-	// not that agreeing makes them the supervisor's to decide.
-	if len(pass.Carried) != 2 {
-		t.Fatalf("carried %d, want 2", len(pass.Carried))
+	if len(pass.Applied) != 1 || len(pass.Carried) != 1 {
+		t.Fatalf("applied %d, carried %d, want 1 and 1: the first explanation is the "+
+			"supervisor's to select, the second is not applied on top of it",
+			len(pass.Applied), len(pass.Carried))
 	}
-	if len(pass.Requests) != 2 {
-		t.Fatalf("wrote %d decision requests, want 2: two independent deliverables with "+
-			"two different owners, not one linked question", len(pass.Requests))
+	if len(pass.Requests) != 1 || pass.Requests[0].Owner != "t.langley" {
+		t.Fatalf("requests %v, want one, for t.langley alone: two agreeing analysts are "+
+			"not one linked question", pass.Requests)
+	}
+	body := decisionRequestBodyFor(t, db, sprintID, "t.langley")
+	if strings.Contains(body, "answered differently on anomaly") {
+		t.Errorf("agreeing options are read as a disagreement:\n%s", body)
 	}
 }
 
@@ -402,9 +413,14 @@ func plantDeliverableWithTargets(t *testing.T, db *sql.DB, sprintID int, desk, o
 func TestOptionsWithinOneDeliverableNeverContradict(t *testing.T) {
 	db, sprintID := superviseTestDB(t)
 	plantAnomalyRow(t, db, "A-one-deliverable")
+	// Over T.anomaly, so the whole choice is carried to the owner and a
+	// request body exists to read: inside it the supervisor selects the
+	// top-ranked alternative itself (option.select), which this test used
+	// to count as carried for the wrong reason.
+	over := tAnomalyCents(t) + 1
 	artID, ords := plantDeliverable(t, db, sprintID, "aws", "y.mercer", "A-one-deliverable",
-		optSpec{"anomaly.explain", "a scheduled batch job", "low", 10000, 0},
-		optSpec{"anomaly.explain", "a runaway process, unrelated", "low", 10000, 0},
+		optSpec{"anomaly.explain", "a scheduled batch job", "low", over, 0},
+		optSpec{"anomaly.explain", "a runaway process, unrelated", "low", over, 0},
 	)
 
 	pass, err := finops.Supervise(db, sprintID, nil)

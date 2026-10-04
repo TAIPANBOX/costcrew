@@ -258,8 +258,12 @@ const (
 //   - the literal link name "analyst" or "supervisor": a coarse check
 //     against the class's own Owner field, with no family-specific
 //     narrowing. "supervisor" also happens to match the supervisor's own
-//     role entry below, and the two agree by construction: the supervisor's
-//     decides_alone list contains only classes it owns outright.
+//     role entry below, and the two agree by construction for the classes
+//     the supervisor owns outright. They do NOT answer "may the supervisor
+//     select an option of an analyst-owned class": that is
+//     SupervisorMaySelect, which reads option.select from the job
+//     description, and this check keeps its coarse meaning for its other
+//     callers.
 //   - a role family or roster name (e.g. "investigator" or
 //     "investigator-aws"), resolved via RoleFor and checked against that
 //     family's own decides_alone list, which is narrower than "every class
@@ -300,6 +304,43 @@ func MayDecide(role, class string) (bool, string) {
 		}
 	}
 	return false, fmt.Sprintf("%s does not decide %s alone; it hands up to the %s", r.Family, class, c.Owner)
+}
+
+// SupervisorMaySelect answers whether the supervisor's own pass may apply an
+// option of class without asking the owner, and if not, why. It is the one
+// question finops.Supervise asks, and it reads roles.yaml for the answer:
+//
+//   - a class the supervisor owns outright is its to decide (MayDecide's own
+//     answer, unchanged);
+//   - a class the ANALYST link owns is the supervisor's to select only
+//     because its job description lists option.select in decides_alone
+//     ("option.select for options inside the analysts' own classes"), so
+//     taking that entry out of roles.yaml makes the supervisor carry again;
+//   - a class the owner holds, or that nobody in the crew decides, is not.
+//
+// MayDecide("supervisor", class) is a coarse check on the class's owner field
+// and keeps that meaning for its other callers; this is the narrower question
+// with the job description's own word in it. It says nothing about the
+// figure: the T.anomaly gate is the caller's.
+func SupervisorMaySelect(class string) (bool, string) {
+	c, ok := ClassFor(class)
+	if !ok {
+		return false, fmt.Sprintf("%q is not a decision class this practice defines", class)
+	}
+	if c.Owner != "analyst" {
+		return MayDecide("supervisor", class)
+	}
+	r, ok := RoleFor("supervisor")
+	if !ok {
+		return false, "roles.yaml has no supervisor job description"
+	}
+	for _, id := range r.DecidesAlone {
+		if id == "option.select" {
+			return true, ""
+		}
+	}
+	return false, fmt.Sprintf(
+		"%s is the analysts' to decide and the supervisor's job description does not list option.select", class)
 }
 
 // Escalates answers who role would hand class up to, when it may not decide
