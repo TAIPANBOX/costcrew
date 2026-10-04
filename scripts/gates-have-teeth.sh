@@ -353,14 +353,14 @@ run_case $'thresholds: a threshold goes back to being a draft' \
 	internal/crew/roles.yaml \
 	$'provenance: "@decided 2026-10-04, the draft value kept"' \
 	$'provenance: "@claude 2026-09-02, draft"'
-run_case $'thresholds: a provenance carries the owner'"'"'s name as its marker' \
+run_case $'thresholds: a provenance names somebody as its marker' \
 	fail \
 	./internal/crew \
 	$'TestRolesAreBound' \
 	$'is not a recognised provenance' \
 	internal/crew/roles.yaml \
 	$'provenance: "@decided 2026-10-04, halved from the draft'"'"'s USD 5,000"' \
-	$'provenance: "@yurii 2026-10-04"'
+	$'provenance: "@owner 2026-10-04"'
 run_case $'thresholds: the loader accepts any provenance at all' \
 	fail \
 	./internal/crew \

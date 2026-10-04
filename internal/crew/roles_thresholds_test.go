@@ -104,7 +104,7 @@ func TestTheFiveThresholdsTheOwnerKeptKeepTheirValues(t *testing.T) {
 
 // Red first (by compile: crew.ValidProvenance does not exist before this
 // change). The vocabulary is `@claude`, `@decided YYYY-MM-DD` and
-// `@measured <how> YYYY-MM-DD`; `@yurii` is refused because a public
+// `@measured <how> YYYY-MM-DD`; a marker that names the owner is refused because a public
 // repository carries paraphrased decisions, never the owner's name as a marker.
 func TestProvenanceVocabulary(t *testing.T) {
 	good := []string{
@@ -122,7 +122,7 @@ func TestProvenanceVocabulary(t *testing.T) {
 	bad := map[string]string{
 		"empty":                        "",
 		"blank":                        "   ",
-		"the owner's name as a marker": "@yurii 2026-10-04",
+		"the owner's name as a marker": "@owner 2026-10-04",
 		"decided with no date":         "@decided",
 		"decided with a word as date":  "@decided tomorrow",
 		"decided with an impossible":   "@decided 2026-13-45",
@@ -131,7 +131,7 @@ func TestProvenanceVocabulary(t *testing.T) {
 		"leading space":                " @decided 2026-10-04",
 		"claude lookalike":             "@claudex 2026-09-02",
 		"decided lookalike":            "@decidedly 2026-10-04",
-		"newline smuggling a second":   "@decided 2026-10-04\n@yurii 2026-10-04",
+		"newline smuggling a second":   "@decided 2026-10-04\n@owner 2026-10-04",
 		"control character":            "@decided 2026-10-04\x00",
 		"no marker at all":             "the owner decided this",
 		"far too long":                 "@decided 2026-10-04, " + strings.Repeat("x", 500),
@@ -187,7 +187,7 @@ func runRolesGateOn(t *testing.T, path string) (string, error) {
 // threshold claiming the owner's name, or claiming nothing, passed it.
 func TestRolesAreBoundRefusesAThresholdWithAnUnrecognisedProvenance(t *testing.T) {
 	cases := map[string]string{
-		"the owner's name as a marker": `provenance: "@yurii 2026-10-04"`,
+		"the owner's name as a marker": `provenance: "@owner 2026-10-04"`,
 		"no marker at all":             `provenance: "decided by somebody"`,
 		"a decided with no date":       `provenance: "@decided"`,
 	}
