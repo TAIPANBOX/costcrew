@@ -45,6 +45,7 @@
           <dt>Needs</dt><dd>{{.Needs}}</dd>
           {{if .Reason}}<dt>Reason</dt><dd>{{.Reason}}</dd>{{end}}
           {{if .DecidedBy}}<dt>Decided by</dt><dd>{{.DecidedBy}} · {{.DecidedAt}}</dd>{{end}}
+          {{if .OnBehalfOf}}<dt>On behalf of</dt><dd>owner {{.OnBehalfOf}}: {{.BehalfReason}}</dd>{{end}}
         </dl>
         <hr style="border:none;border-top:1px solid var(--line-soft);margin:10px 0">
         {{end}}

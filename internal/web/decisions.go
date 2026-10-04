@@ -74,15 +74,49 @@ func (s *Server) decisionPage(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	// Answered options, newest decisions last: each says who answered and,
+	// when it was an admin for the owner, on whose behalf and why.
+	answered, err := crew.AnsweredOptionsFor(s.db, sprintID, owner)
+	if err != nil {
+		http.Error(w, "store unavailable", http.StatusInternalServerError)
+		return
+	}
+	done := make([]answeredOptionView, 0, len(answered))
+	for _, o := range answered {
+		taskID, _ := crew.TaskOfArtifact(s.db, o.Artifact)
+		done = append(done, answeredOptionView{
+			optionView{o, money.Cents(o.FigureCents), money.Cents(o.SavingCents), driverWindow(o)}, taskID,
+			o.DecidedBy == owner && o.OnBehalfOf == "",
+		})
+	}
+
 	s.render(w, tplDecision, struct {
 		shell
 		Sprint    int
 		Owner     string
 		Body      template.HTML
 		Options   []decisionOptionView
+		Answered  []answeredOptionView
 		CanAnswer bool
+		// ForOther is true when the viewer may answer but is not the owner:
+		// an admin's emergency path. The form then asks for the reason the
+		// answer needs, and says whose behalf it will be on.
+		ForOther       bool
+		BehalfMaxBytes int
 	}{s.shellFor(r, "Decision request", "sprints"), sprintID, owner,
-		renderBody(art.Body), rows, mayAnswerFor(u, owner)})
+		renderBody(art.Body), rows, done, mayAnswerFor(u, owner), answersForOther(u, owner),
+		crew.BehalfReasonMaxBytes})
+}
+
+// answeredOptionView is one option a person has already answered, with
+// whether the answer was the owner's own.
+type answeredOptionView struct {
+	optionView
+	TaskID int
+	// ByOwner is true when the owner this request is addressed to stamped it
+	// themselves, so the card can say so rather than leave it to be inferred
+	// from a username.
+	ByOwner bool
 }
 
 // optionAction is the owner's stamp: apply calls finops.Apply as the acting
@@ -144,10 +178,24 @@ func (s *Server) optionAction(kind string) http.HandlerFunc {
 			return
 		}
 
+		// Whose stamp this is. The owner's own answer needs nothing and is
+		// marked as the owner's. Anybody else who got past mayAnswerFor is an
+		// admin, and an admin answering for an owner who is not themselves
+		// must say why: that is the emergency path, kept, and never silent.
+		ans := crew.OwnerAnswer(u.Username)
+		if answersForOther(u, owner) {
+			reason, rerr := crew.ValidBehalfReason(r.PostFormValue("behalf_reason"))
+			if rerr != nil {
+				redirectMsg(w, r, back, "you are answering for "+owner+", so a reason is needed: "+rerr.Error())
+				return
+			}
+			ans = crew.AdminAnswerFor(u.Username, owner, reason)
+		}
+
 		if kind == "apply" {
-			err = finops.Apply(s.db, opt, u.Username, s.rec)
+			err = finops.ApplyAs(s.db, opt, ans, s.rec)
 		} else {
-			err = crew.MarkOptionRefused(s.db, artID, ordinal, u.Username, r.PostFormValue("reason"))
+			err = crew.RefuseOption(s.db, artID, ordinal, ans, r.PostFormValue("reason"), s.rec)
 		}
 		if err != nil {
 			s.done(w, r, back, err)
@@ -159,6 +207,14 @@ func (s *Server) optionAction(kind string) http.HandlerFunc {
 		}
 		redirectMsg(w, r, back, "")
 	}
+}
+
+// answersForOther is whether a viewer who may answer a request addressed to
+// owner would be answering for somebody else: they are not the owner. Only an
+// admin can be in that position (mayAnswerFor lets nobody else in), and an
+// admin who is the owner answers as the owner.
+func answersForOther(u *auth.User, owner string) bool {
+	return mayAnswerFor(u, owner) && u.Username != owner
 }
 
 // mayAnswerFor is section 5's "only the owner's stamp": the same shape

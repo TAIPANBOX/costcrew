@@ -81,9 +81,9 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 929 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 145 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 255 scenarios, both directions
+go test ./...                        # 952 tests, 20 packages
+./scripts/gates-have-teeth.sh        # 155 cases; needs a clean tree
+./scripts/features-are-bound.sh      # 278 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
@@ -154,6 +154,15 @@ began `@claude`, which was true of the draft and is the defect's own mirror;
 it now asserts the provenance is in the vocabulary. Numbered 56 because
 invariants 54 and 55 are the last on `main`; the two pull requests that
 follow this one on the same day take 57 and 58.
+Invariant 58 (an admin's answer for an owner is never silent) added 23
+tests (`internal/web/decisions_behalf_test.go`, 13;
+`internal/crew/answer_test.go`, 6; `internal/finops/apply_behalf_test.go`, 4),
+10 `gates-have-teeth.sh` cases (nine `fail`, one `pass`) and 23 scenarios
+(`features/admin-answers-for-owner.feature`, new), and no route: 918 -> 941
+tests, 136 -> 146 cases, 244 -> 267 scenarios, 58 GET routes and 36 write
+routes unchanged, re-measured on this branch with the three commands this
+block already names. Numbered 58 because invariants 56 and 57 are on the two
+pull requests opened before this one on the same day.
 
 Invariant 53 (the supervisor selects among the analysts' own options)
 added 10 tests (`internal/finops/supervise_analystclass_test.go`, 8;
@@ -3064,6 +3073,86 @@ an absent invariant.
     boundary tests read the threshold from the data and follow it wherever
     it goes, which says nothing about where it is). Eight `fail` cases and
     one `pass` case in `gates-have-teeth.sh`.)*
+58. **An admin may answer a decision addressed to somebody else, and it is
+    never silent.** `@decided 2026-10-04`: `mayAnswerFor`
+    (`internal/web/decisions.go`) lets the request's own owner or any admin
+    apply or refuse a carried option, and that stays, as an emergency path (an
+    owner on leave, an owner who has left). Until now nothing recorded that a
+    stamp was not the owner's: the option said `decided_by` the admin and read
+    the same as an answer from the person it was asked of, and a refusal a
+    person made was not journaled at all (the only producer of
+    `option_refused` was the save-time gate). Now an answer is a
+    `crew.Answer`, which says whose stamp it is. The owner's own answer
+    (the viewer's username is the request's owner, admin or not) needs no
+    reason and is marked `answered_as` `owner`. An admin who is not that owner
+    must give a reason, in a form field that appears only for them
+    (`behalf_reason`): required, trimmed, at most `crew.BehalfReasonMaxBytes`
+    (500) bytes, refused rather than truncated when over, valid text with no
+    control character other than a newline or a tab, no line or paragraph
+    separator, no text-direction override, and not only zero-width
+    characters (`crew.ValidBehalfReason`, the one function). Markup is not
+    refused: it is stored as typed and every page that shows it escapes it.
+    A refusal still needs its own reason for refusing, so an admin refusing
+    for an owner gives two.
+
+    The check is below the handler as well as in it: `Answer.Validate` runs
+    first in `finops.ApplyAs` and `crew.RefuseOption`, so a caller that forgot
+    the handler's check still changes nothing without a reason, side effect
+    included (`finops.Apply`, the supervisor's own act, is `ApplyAs` with no
+    answer marking). What is then recorded, for both apply and refuse: the
+    option (`artifact_options.on_behalf_of` and `behalf_reason`, new columns,
+    `crew.EnsureOptionBehalf` for an installation from before, empty for every
+    old answer and for every owner's own), the journal entry and the bus event
+    (`option_applied` at `info`, `option_refused` at `low`: the payload carries
+    `answered_by`, `answered_as` and, only for an admin's answer for somebody
+    else, `on_behalf_of` and `on_behalf_reason`), and the decision card, which
+    gained an "Answered" panel saying "answered by the owner, X" or "X
+    answered on behalf of owner Y" with the reason, and the task page's option
+    list, which says "On behalf of". The marking is in the event payload and
+    not in the envelope's own `on_behalf_of` field on purpose: that field is
+    a delegation chain whose entries must be `agent://` or `user://` URIs
+    (agent-passport SPEC 5.1), and a console username is neither. The journal
+    recorder writes the same key top-level when the chain is passed, so the
+    journal reads `on_behalf_of` either way.
+
+    What this does not do: it does not check that the class is one an admin
+    should answer (there was never a class check on this path and none is added);
+    it does not tell the owner that somebody answered for them, beyond the card
+    they would see and the entry in the journal; and an owner who is also an
+    admin answers as the owner, by username, whatever the role they hold.
+    *(gate: `TestAnAdminAnsweringForAnotherOwnerMustGiveAReason`,
+    `TestAnAdminRefusingForAnotherOwnerMustGiveAReasonToo`,
+    `TestAnAdminAnswerWithAReasonIsMarkedOnBehalfOfTheOwner`,
+    `TestAnAdminRefusalWithAReasonIsMarkedOnBehalfOfTheOwner`,
+    `TestAnOwnersOwnAnswerCarriesNoOnBehalfOf`,
+    `TestAnOwnersOwnRefusalIsJournaledAsTheOwnersAndCarriesNoOnBehalfOf`,
+    `TestAnAdminAnsweringTheirOwnDecisionIsTheOwner`,
+    `TestAnOperatorWhoIsNotTheOwnerIsStillRefusedWhateverReasonTheyGive`,
+    `TestAnOnBehalfReasonIsCappedPlainAndEscaped` (nine hostile shapes, the
+    cap exactly, and markup stored as text and rendered escaped on two
+    pages), `TestTheReasonFieldAppearsOnlyWhenAnsweringForSomeoneElse`,
+    `TestTheDecisionCardNamesWhoAnsweredAndForWhom`,
+    `TestAnOnBehalfAnswerStillNeedsTheCSRFToken`,
+    `TestBothAnswerEventsReachTheBusWithTheirMarking` (a console teed onto the
+    bus, so the emitter's own severity check is what a line in the file
+    proves) in `internal/web`; `TestBehalfReasonIsRequiredCappedAndPlain`,
+    `TestAnAnswerValidatesItsOwnShape`,
+    `TestRefuseOptionMarksAndJournalsWhoAnsweredAndForWhom`,
+    `TestRefuseOptionOnBehalfWithNoReasonChangesNothing`,
+    `TestAnswerDataAddsNothingForTheSupervisor`,
+    `TestEnsureOptionBehalfAddsTheColumnsSafelyTwice` in `internal/crew`;
+    `TestApplyAsRefusesAnAnswerOnBehalfWithNoReasonBeforeAnySideEffect`,
+    `TestApplyAsOnBehalfOfAnOwnerMarksTheOptionAndTheEvent`,
+    `TestApplyAsAnOwnersOwnAnswerCarriesNoOnBehalfOf`,
+    `TestApplyForTheSupervisorAddsNoAnswerFields` in `internal/finops`.
+    Held from outside this change: `TestEveryWriteRouteChecksCSRF` (the two
+    option routes are unchanged) and invariant 50's walk,
+    `TestEveryWireTypeIsEmittedWithASeverityTheEnvelopeAccepts`, which reads
+    the new `option_refused` emit site. Nine `fail` cases and one `pass` case
+    in `gates-have-teeth.sh`, each undoing one piece: the handler's reason
+    check, the owner-versus-other split in both directions, the validator, the
+    cap, the reason in the event, the refusal's journal entry, the card's
+    wording and the refusal event's severity.)*
 
 ## Decisions that have no gate yet
 

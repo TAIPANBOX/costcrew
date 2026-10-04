@@ -297,6 +297,12 @@ func run(addr, dir string, scfg stack.Config, gatewayURL, gatewayOpenAIURL strin
 	if err := crew.EnsureOptionTarget(st.DB()); err != nil {
 		return fmt.Errorf("option target column: %w", err)
 	}
+	// Who an option's answer was given on behalf of, and why, for the one
+	// case that carries both: an admin answering a request addressed to an
+	// owner who is somebody else.
+	if err := crew.EnsureOptionBehalf(st.DB()); err != nil {
+		return fmt.Errorf("option on-behalf columns: %w", err)
+	}
 
 	// More than one person to answer for the estate.
 	// The SAME name SeedRoster stamped, which is "unclaimed" when no -stack-owner
