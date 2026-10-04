@@ -43,37 +43,44 @@ never:
 # gated list scripts/roles-are-bound.sh and MayDecide both use.
 never_full_text: "commit money, change a resource, contact a vendor, send a message to a person outside the crew, invent a number it was not given, or act on a task somebody blocked."
 
+# The seven thresholds were drafted `@claude 2026-09-02` and decided
+# `@decided 2026-10-04`: the two money thresholds were halved (T.anomaly
+# USD 5,000 to USD 2,500, T.urgent USD 25,000 to USD 12,500) and the other five
+# kept their draft values. Each provenance below is one of `@claude`,
+# `@decided YYYY-MM-DD` or `@measured <how> YYYY-MM-DD`: crew.ValidProvenance
+# refuses anything else at load, and scripts/roles-are-bound.sh holds the same
+# vocabulary from the shell.
 thresholds:
   - name: "T.anomaly"
     meaning: "excess above which an analyst hands an explanation up instead of closing it"
-    value: "USD 5,000 per anomaly"
-    value_cents: 500000
-    provenance: "@claude 2026-09-02, draft"
+    value: "USD 2,500 per anomaly"
+    value_cents: 250000
+    provenance: "@decided 2026-10-04, halved from the draft's USD 5,000"
   - name: "T.firstpass"
     meaning: "first-pass acceptance below which an analyst goes on probation"
     value: "80% over two sprints"
-    provenance: "@claude 2026-09-02, draft"
+    provenance: "@decided 2026-10-04, the draft value kept"
   - name: "T.stale"
     meaning: "days without a charge on a source before data quality reports it"
     value: "3"
-    provenance: "@claude 2026-09-02, draft"
+    provenance: "@decided 2026-10-04, the draft value kept"
   - name: "T.stale_days"
     meaning: "days a halt may last before the owner is told"
     value: "7"
-    provenance: "@claude 2026-09-02, draft"
+    provenance: "@decided 2026-10-04, the draft value kept"
   - name: "T.untagged"
     meaning: "unallocated share above which data quality reports it"
     value: "10% of the desk's month"
-    provenance: "@claude 2026-09-02, draft"
+    provenance: "@decided 2026-10-04, the draft value kept"
   - name: "T.migration"
     meaning: "overrun above plan that the migration watch hands up"
     value: "15%"
-    provenance: "@claude 2026-09-02, draft"
+    provenance: "@decided 2026-10-04, the draft value kept"
   - name: "T.urgent"
     meaning: "money at stake that lets the supervisor ask outside the weekly rhythm"
-    value: "USD 25,000"
-    value_cents: 2500000
-    provenance: "@claude 2026-09-02, draft"
+    value: "USD 12,500"
+    value_cents: 1250000
+    provenance: "@decided 2026-10-04, halved from the draft's USD 25,000"
 
 # 35 decision classes. `agent.*` is one class, not five: section 3 of
 # ROLES-2026-09.md itself names the roster action that way ("the roster

@@ -256,8 +256,8 @@ func TestNeverFullTextAndThresholdFor(t *testing.T) {
 	if th.Value == "" || th.Provenance == "" {
 		t.Errorf("T.anomaly: value %q, provenance %q, want both set", th.Value, th.Provenance)
 	}
-	if !strings.HasPrefix(th.Provenance, "@claude") {
-		t.Errorf("T.anomaly's provenance is %q, want it marked @claude: B1A-SPEC.md section 5 says the draft values are mine", th.Provenance)
+	if err := crew.ValidProvenance(th.Provenance); err != nil {
+		t.Errorf("T.anomaly's provenance is not in the vocabulary: %v", err)
 	}
 	if _, ok := crew.ThresholdFor("T.no-such-threshold"); ok {
 		t.Error(`ThresholdFor("T.no-such-threshold") found something`)

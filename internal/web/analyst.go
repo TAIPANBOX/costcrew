@@ -75,7 +75,7 @@ var cannotEver = []string{
 type classRef struct {
 	ID      string
 	Changes string
-	UpTo    string // "up to T.anomaly: USD 5,000 per anomaly", or empty
+	UpTo    string // "up to T.anomaly: USD 2,500 per anomaly", or empty
 }
 
 func classRefs(ids []string) []classRef {

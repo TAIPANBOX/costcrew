@@ -610,9 +610,9 @@ func TestARealAnalystsGuardNeverBlocksACloudFigure(t *testing.T) {
 	}
 	got := mustGetOption(t, db, artID, ords[0])
 	if got.State != crew.OptionApplied {
-		t.Fatalf("state %q, want applied: 184000 is under T.anomaly (500000) and "+
+		t.Fatalf("state %q, want applied: 184000 is under T.anomaly (%d) and "+
 			"driver.recurring is the supervisor's own class -- a real analyst's "+
-			"unrelated LLM-spend guard must never gate a cloud figure", got.State)
+			"unrelated LLM-spend guard must never gate a cloud figure", got.State, tAnomalyCents(t))
 	}
 	if len(pass.Applied) != 1 {
 		t.Fatalf("applied %d, want 1", len(pass.Applied))
