@@ -28,6 +28,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/TAIPANBOX/costcrew/internal/money"
 	"sync"
@@ -48,18 +49,20 @@ type callResult = deliver.Result
 // gatewayConfig is this INVOCATION's gateway setup: the same for every call a
 // run makes, built once from -gateway, -stack-host and -ceiling.
 //
-// An empty URL means the gateway is off, and the Anthropic route calls
-// api.anthropic.com exactly as it did before this file knew a gateway
-// existed. Only the Anthropic route uses this: OpenRouter and Bedrock keep
-// calling their own hosts directly, because TokenFuse speaks the Anthropic
-// Messages API at /v1/messages and nothing OpenAI-shaped.
+// An empty URL and an empty OpenAIURL mean the gateway is off, and every
+// route calls its vendor directly exactly as it did before this file knew a
+// gateway existed. With either set, a call goes through the gateway that
+// fronts its engine's wire (URL: Anthropic, OpenAIURL: OpenAI, which is what
+// OpenRouter speaks) or is refused; it is never sent direct (deliver.
+// Gateway.RouteFor). Bedrock has no route and is refused when a gateway is on.
 type gatewayConfig struct {
-	URL        string      // normalized: http(s) only, no trailing slash
+	URL        string      // normalized: http(s) only, no trailing slash; fronts the Anthropic wire
+	OpenAIURL  string      // the same, for the gateway that fronts the OpenAI wire
 	Host       string      // this installation's trust domain, for the agent id
 	CeilingUSD money.Cents // the run's ceiling, i.e. -ceiling parsed
 }
 
-func (g gatewayConfig) on() bool { return g.URL != "" }
+func (g gatewayConfig) on() bool { return g.URL != "" || g.OpenAIURL != "" }
 
 // gatewayHeaders is what ONE call tells TokenFuse: who is asking, on whose
 // run, and what it may spend. Built fresh per call because the budget is the
@@ -78,6 +81,7 @@ type gatewayHeaders = deliver.Gateway
 func gatewayHeadersFor(cfg gatewayConfig, runID, analystName string, taskGuard money.Cents) gatewayHeaders {
 	return gatewayHeaders{
 		URL:       cfg.URL,
+		OpenAIURL: cfg.OpenAIURL,
 		RunID:     runID,
 		AgentID:   stack.AgentURI(cfg.Host, analystName),
 		BudgetUSD: gatewayBudgetUSD(cfg.CeilingUSD, taskGuard),
@@ -111,27 +115,56 @@ func normalizeGateway(raw string) (string, error) {
 	return deliver.NormalizeGateway(raw)
 }
 
-// directCallsNotice is the one line a run prints when -gateway is set and
-// some of its work is on an engine the gateway cannot front. Not an error and
-// not silent: OpenRouter and Bedrock keep calling their own hosts directly
-// until TokenFuse grows an OpenAI-shaped route, and a person watching the run
-// should be told that is happening rather than notice its absence from a
-// trace later.
-func directCallsNotice(gatewayOn bool, todo []estimate) string {
-	if !gatewayOn {
-		return ""
+// normalizeGatewayOpenAI is normalizeGateway for -gateway-openai.
+func normalizeGatewayOpenAI(raw string) (string, error) {
+	return deliver.NormalizeGatewayOpenAI(raw)
+}
+
+// gatewayOpenAIEnvDefault backs -gateway-openai's default with
+// COSTCREW_GATEWAY_OPENAI, read through internal/deliver for the reason
+// gatewayEnvDefault is.
+func gatewayOpenAIEnvDefault() string {
+	return deliver.GatewayOpenAIEnvDefault()
+}
+
+// noRouteRefusal is the preflight that replaced directCallsNotice. That
+// function said, in one line, that calls on openrouter and bedrock "go
+// direct" while -gateway was set, and then made them, so a run pointed at a
+// metering gateway spent outside it with a note beside the bill. Now a run
+// with any gateway configured refuses, before the first call, when any task
+// in it is on an engine no configured gateway fronts, and names the tasks'
+// engines and the setting that would give them a route. "" means every task
+// has one (or no gateway is on, and every call is direct, as before).
+func noRouteRefusal(gw gatewayConfig, todo []estimate) error {
+	if !gw.on() {
+		return nil
 	}
-	n := 0
+	probe := deliver.Gateway{URL: gw.URL, OpenAIURL: gw.OpenAIURL}
+	counts := map[string]int{}
+	var order []string
+	var first error
 	for _, e := range todo {
-		if e.Engine != "anthropic" {
-			n++
+		if _, err := probe.RouteFor(e.Engine); err != nil {
+			if counts[e.Engine] == 0 {
+				order = append(order, e.Engine)
+			}
+			counts[e.Engine]++
+			if first == nil {
+				first = err
+			}
 		}
 	}
-	if n == 0 {
-		return ""
+	if first == nil {
+		return nil
 	}
-	return fmt.Sprintf("%d call(s) on openrouter/bedrock go direct: TokenFuse "+
-		"has no OpenAI-shaped route yet.\n", n)
+	var parts []string
+	for _, eng := range order {
+		parts = append(parts, fmt.Sprintf("%d on %s", counts[eng], eng))
+	}
+	return fmt.Errorf("a gateway is configured and %s have no gateway route, so the run is "+
+		"refused before the first call rather than sending them direct: %w; "+
+		"narrow the run with -engine to the engines the gateway fronts",
+		strings.Join(parts, ", "), first)
 }
 
 // parseGatewayRefusal reads TokenFuse's 402 body into the sentence a person
@@ -238,6 +271,16 @@ func execute(ctx context.Context, db, roDB *sql.DB, e estimate, maxTok int, run 
 	run.settle(reserveMicros, charge)
 	run.noteSettlement(res.Settlement)
 	if err != nil {
+		// A task that stopped is not a task that cost nothing (costcrew#82):
+		// the run's ceiling above already counts what the rounds that were
+		// billed cost, and the board must carry the same figure. saveDraft,
+		// which books a finished task's charge, is never reached from here,
+		// so this is the only place the unfinished one is recorded.
+		if charge > 0 {
+			if e2 := recordCharge(db, e.Task.ID, charge); e2 != nil {
+				fmt.Fprintf(os.Stderr, "  could not record the charge of the stopped task %d: %v\n", e.Task.ID, e2)
+			}
+		}
 		return err
 	}
 
@@ -332,9 +375,7 @@ func saveDraft(db *sql.DB, e estimate, res callResult, b bus) error {
 	//
 	// The figure is the gateway's settlement when the call was settled, the
 	// runner's own price otherwise: deliver.Charge, invariant 51.
-	if _, err := db.Exec(`UPDATE tasks
-		SET live_micros = live_micros + ?, updated = datetime('now')
-		WHERE id = ?`, res.ChargeMicros(), e.Task.ID); err != nil {
+	if err := recordCharge(db, e.Task.ID, res.ChargeMicros()); err != nil {
 		return err
 	}
 	// And tell the estate. Last, and its failure is reported rather than
@@ -345,6 +386,18 @@ func saveDraft(db *sql.DB, e estimate, res callResult, b bus) error {
 		fmt.Fprintf(os.Stderr, "  the bus refused this call's event: %v\n", err)
 	}
 	return nil
+}
+
+// recordCharge adds one call's (or one task's) charge, in micro-dollars, to
+// the task's live_micros: the one statement both a finished task (saveDraft)
+// and a stopped one (execute's error path) book through, so the two cannot
+// come to record money differently. One statement, because four tasks run at
+// once and SQLite reads the row's old value for the SET expression.
+func recordCharge(db *sql.DB, taskID int, micros int64) error {
+	_, err := db.Exec(`UPDATE tasks
+		SET live_micros = live_micros + ?, updated = datetime('now')
+		WHERE id = ?`, micros, taskID)
+	return err
 }
 
 // runBudget is the ceiling, held for the whole run.
@@ -480,16 +533,13 @@ func spend(db, roDB *sql.DB, ests []estimate, maxTok int, cap money.Cents, only 
 	for _, e := range todo {
 		worst += reservedWorstCase(e)
 	}
+	if err := noRouteRefusal(gw, todo); err != nil {
+		return err
+	}
 	fmt.Printf("LIVE. %d task(s), worst case %s, ceiling %s.\n", len(todo), usd(worst), cap)
 	if worst > run.ceilingMicros {
 		return fmt.Errorf("the worst case is %s and the ceiling is %s: refused "+
 			"before the first call", usd(worst), cap)
-	}
-	// Said once, not per call: an operator watching a run of forty tasks does
-	// not need forty identical lines to learn that OpenRouter and Bedrock are
-	// bypassing the gateway they just pointed this run at.
-	if msg := directCallsNotice(gw.on(), todo); msg != "" {
-		fmt.Print(msg)
 	}
 	fmt.Println()
 
@@ -578,8 +628,18 @@ func spend(db, roDB *sql.DB, ests []estimate, maxTok int, cap money.Cents, only 
 	settled, charged, gwSpent, gwKnown := run.settlement()
 	if gwKnown {
 		fmt.Printf("\n%d of %d done, %d blocked. Spent %s of a %s ceiling: %d of %d task(s) settled by the "+
-			"gateway, whose own run total is %s.\n",
+			"gateway, whose own run total is %s.",
 			done, len(todo), blocked, usd(run.total()), cap, settled, charged, usd(gwSpent))
+		// The gateway's own ledger is the bill. When it is higher than what
+		// this run booked, a call it settled never reached this runner (a
+		// response lost in transit, a task that failed before a header could
+		// be read): say so beside the figure rather than let the smaller
+		// number stand as the whole of what was spent (costcrew#82).
+		if gwSpent > run.total() {
+			fmt.Printf(" The gateway's total is %s more than this run booked: a call it settled "+
+				"never reached this runner.", usd(gwSpent-run.total()))
+		}
+		fmt.Println()
 	} else {
 		fmt.Printf("\n%d of %d done, %d blocked. Spent %s of a %s ceiling: %d of %d task(s) settled by the "+
 			"gateway, the rest priced by the runner (no settlement header).\n",

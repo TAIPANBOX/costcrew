@@ -17,6 +17,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/TAIPANBOX/costcrew/internal/deliver"
 	"github.com/TAIPANBOX/costcrew/internal/money"
 )
 
@@ -164,7 +165,7 @@ func TestA402WithANonJSONBodyStillProducesAReadableRefusal(t *testing.T) {
 // gatewayHeaders -> Gateway ("one gateway type" replacing two). Every other
 // test in this file stays here unedited: gatewayHeaders is now a type alias
 // of deliver.Gateway, so execute(), gatewayConfig, estimate, normalizeGateway,
-// directCallsNotice, gatewayBudgetUSD and gatewayEnvDefault all still
+// gatewayBudgetUSD and gatewayEnvDefault all still
 // resolve locally exactly as they did before this move.
 
 // -gateway accepts only http(s), and refuses before any call rather than
@@ -196,24 +197,52 @@ func TestNormalizeGatewayEmptyMeansOff(t *testing.T) {
 	}
 }
 
-// OpenRouter and Bedrock have no route through the gateway yet, and that must
-// be said once per run, with the count, rather than happening in silence.
-func TestEnginesTheGatewayCannotFrontAreCalledDirectAndSaidSo(t *testing.T) {
+// This test used to be TestEnginesTheGatewayCannotFrontAreCalledDirectAndSaidSo
+// and asserted that a run with -gateway set sent its openrouter and bedrock
+// calls straight to their own hosts, with one line saying how many. That
+// behaviour was the defect: the line was printed and the calls were made, so
+// a run pointed at a metering gateway spent outside it. A gateway that is
+// configured and does not front a task's engine now refuses the run before
+// the first call, naming the engines and the setting that would give them a
+// route.
+func TestAnEngineNoConfiguredGatewayFrontsRefusesTheRunBeforeTheFirstCall(t *testing.T) {
 	todo := []estimate{
 		{Engine: "anthropic"}, {Engine: "openrouter"}, {Engine: "bedrock"}, {Engine: "anthropic"},
+		{Engine: "openrouter"},
 	}
-	msg := directCallsNotice(true, todo)
-	if !strings.Contains(msg, "2") {
-		t.Errorf("message %q does not name the count of 2 direct calls", msg)
+	anthropicOnly := gatewayConfig{URL: "http://a.invalid"}
+	err := noRouteRefusal(anthropicOnly, todo)
+	if err == nil {
+		t.Fatal("a run with -gateway set and tasks on openrouter and bedrock was let through")
 	}
-	if !strings.Contains(msg, "direct") {
-		t.Errorf("message %q does not say these calls go direct", msg)
+	for _, want := range []string{"2 on openrouter", "1 on bedrock", "before the first call", "-gateway-openai"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("the refusal %q does not say %q", err, want)
+		}
 	}
-	if got := directCallsNotice(false, todo); got != "" {
-		t.Errorf("with no -gateway at all, got %q: nothing should be said about direct calls", got)
+	if !errors.Is(err, deliver.ErrNoGatewayRoute) {
+		t.Errorf("the refusal does not wrap deliver.ErrNoGatewayRoute: %v", err)
 	}
-	if got := directCallsNotice(true, []estimate{{Engine: "anthropic"}}); got != "" {
-		t.Errorf("with nothing to bypass, got %q: a line saying 0 calls go direct is noise", got)
+
+	// With the OpenAI-shaped gateway too, openrouter has a route; bedrock
+	// never does.
+	both := gatewayConfig{URL: "http://a.invalid", OpenAIURL: "http://o.invalid"}
+	err = noRouteRefusal(both, todo)
+	if err == nil || !strings.Contains(err.Error(), "1 on bedrock") || strings.Contains(err.Error(), "openrouter") {
+		t.Errorf("with both gateways only bedrock may be refused, got: %v", err)
+	}
+
+	// The engines a configured gateway fronts are not refused.
+	if err := noRouteRefusal(both, []estimate{{Engine: "anthropic"}, {Engine: "openrouter"}}); err != nil {
+		t.Errorf("anthropic and openrouter with both gateways were refused: %v", err)
+	}
+	// An OpenAI-shaped gateway alone does not front an anthropic task.
+	if err := noRouteRefusal(gatewayConfig{OpenAIURL: "http://o.invalid"}, []estimate{{Engine: "anthropic"}}); err == nil {
+		t.Error("an anthropic task with only an OpenAI-shaped gateway configured was let through")
+	}
+	// With no gateway at all every call is direct, as before, and nothing is said.
+	if err := noRouteRefusal(gatewayConfig{}, todo); err != nil {
+		t.Errorf("with no gateway at all, got %v: nothing should be refused", err)
 	}
 }
 

@@ -73,3 +73,41 @@ Feature: The charge a run records is what the gateway settled, and the estimate 
     When the gateway settles it
     Then the settlement, not the console's own estimate, is what lands in
       the supervisor's spend for the month
+
+  # costcrew#82: a task stopped mid-run is not a task that cost nothing.
+  @test:TestAStoppedTaskRecordsWhatTheGatewaySettledForItsRounds
+  Scenario: A task the gateway stopped keeps the charge of every round it settled
+    Given a task whose first two rounds the gateway settled at 0.10 each and
+      whose third round it refused with 402
+    When the task stops
+    Then the task records 0.20, the run's ceiling counts 0.20, and the
+      reservation comes back, on the Anthropic wire and the OpenAI wire alike
+
+  @test:TestARunStoppedMidTaskBooksTheSettledMoneyOnTheBoardAndLeadsWithIt
+  Scenario: The board and the headline carry the settled money after a stop
+    Given the same run, stopped by the gateway's 402
+    When the run ends
+    Then the headline leads with 0.20 as spent and as the gateway's own run
+      total, and the board carries 0.20 against the task instead of 0.00
+
+  @test:TestTheHeadlineSaysWhenTheGatewaysTotalIsHigherThanWhatWasBooked
+  Scenario: A gateway total above what was booked is said beside the figure
+    Given a gateway whose own run total is higher than the settlements that
+      reached the runner
+    When the run ends
+    Then the headline names the difference and says a call it settled never
+      reached this runner
+
+  @test:TestAStoppedTaskWithNoSettledRoundBooksNothing
+  Scenario: A task that stopped before any round answered books nothing
+    Given a task whose first call the gateway refused
+    When the task stops
+    Then nothing is recorded for it and nothing is invented
+
+  @test:TestARoundThatAnsweredWithoutAHeaderStillMakesTheTaskPricedByTheRunner
+  Scenario: A round with no settlement still makes the task the runner's own price
+    Given a task whose first round was settled and whose second round
+      answered with no settlement header at all
+    When the task finishes
+    Then the charge is the runner's own price over both rounds, never the
+      gateway's figure for one round mixed with the runner's for the other

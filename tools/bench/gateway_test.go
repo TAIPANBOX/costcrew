@@ -259,7 +259,7 @@ func TestLiveWithStackHostMintsTheAgentIdUnderIt(t *testing.T) {
 // as costcrew.local regardless of what trust domain the console this bench
 // stands in for actually runs under.
 func TestGatewayForBuildsThePerCaseGateway(t *testing.T) {
-	gw := gatewayFor("http://127.0.0.1:4177", "bench-9", "gcp.taipanbox.local", "investigator-gcp", "0.05")
+	gw := gatewayFor("http://127.0.0.1:4177", "", "bench-9", "gcp.taipanbox.local", "investigator-gcp", "0.05")
 	if gw.URL != "http://127.0.0.1:4177" {
 		t.Errorf("URL = %q", gw.URL)
 	}
@@ -279,8 +279,84 @@ func TestGatewayForBuildsThePerCaseGateway(t *testing.T) {
 // the same "empty means off, and off is not an error" rule
 // TestNormalizeGatewayEmptyMeansOff already holds for tools/run.
 func TestGatewayForWithNoURLBuildsAnOffGateway(t *testing.T) {
-	gw := gatewayFor("", "bench-9", "gcp.taipanbox.local", "investigator-gcp", "0.05")
+	gw := gatewayFor("", "", "bench-9", "gcp.taipanbox.local", "investigator-gcp", "0.05")
 	if gw.URL != "" {
 		t.Errorf("URL = %q, want empty", gw.URL)
+	}
+}
+
+// An openrouter engine speaks the OpenAI wire, and the bench's -live with only
+// the Anthropic-shaped -gateway would reach openrouter.ai directly: the second,
+// unmetered path -live exists to refuse. It refuses, before the store opens,
+// naming the flag that would give the engine a route.
+func TestLiveOpenRouterWithOnlyAnAnthropicGatewayRefusesBeforeTheStoreOpens(t *testing.T) {
+	t.Setenv("OPENROUTER_API_KEY", "sk-or-stub-not-real")
+	called := false
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { called = true }))
+	defer srv.Close()
+
+	dir := t.TempDir()
+	code, _, errOut := runArgs(t, "-dir", dir, "-live", "-skill", "triage",
+		"-engine", "openrouter", "-gateway", srv.URL, "-stack-host", "gcp.taipanbox.local")
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1; stderr: %s", code, errOut)
+	}
+	if called {
+		t.Error("the Anthropic-shaped gateway was called for an openrouter engine")
+	}
+	for _, want := range []string{"openrouter", "-gateway-openai"} {
+		if !strings.Contains(errOut, want) {
+			t.Errorf("refusal does not name %q: %s", want, errOut)
+		}
+	}
+	if _, err := os.Stat(dir + "/app.db"); err == nil {
+		t.Error("app.db exists: the store was opened before the route was checked")
+	}
+}
+
+// With the OpenAI-shaped gateway, the bench's live call goes to its
+// /v1/chat/completions carrying the same three x-fuse-* headers.
+func TestLiveOpenRouterThroughTheOpenAIGatewaySendsTheFuseHeaders(t *testing.T) {
+	t.Setenv("OPENROUTER_API_KEY", "sk-or-stub-not-real")
+	var paths []string
+	var heads []http.Header
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.URL.Path)
+		heads = append(heads, r.Header.Clone())
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"choices":[{"message":{"content":"cause noted."}}],` +
+			`"usage":{"prompt_tokens":1,"completion_tokens":1}}`))
+	}))
+	defer srv.Close()
+
+	dir := t.TempDir()
+	code, out, errOut := runArgs(t, "-dir", dir, "-live", "-skill", "triage",
+		"-engine", "openrouter", "-gateway-openai", srv.URL, "-stack-host", "gcp.taipanbox.local")
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stdout: %s stderr: %s", code, out, errOut)
+	}
+	if len(paths) != 1 || paths[0] != "/v1/chat/completions" {
+		t.Fatalf("the OpenAI-shaped gateway saw %v, want exactly one /v1/chat/completions", paths)
+	}
+	h := heads[0]
+	for _, k := range []string{"x-fuse-run-id", "x-fuse-agent-id", "x-fuse-budget-usd"} {
+		if h.Get(k) == "" {
+			t.Errorf("%s is empty on the OpenAI-shaped request", k)
+		}
+	}
+	if got := h.Get("x-fuse-agent-id"); !strings.HasPrefix(got, "agent://gcp.taipanbox.local/") {
+		t.Errorf("x-fuse-agent-id = %q, want it under -stack-host's domain", got)
+	}
+}
+
+// -gateway-openai is validated like -gateway, before the store opens.
+func TestLiveRefusesANonHTTPOpenAIGatewayURLBeforeTheStoreOpens(t *testing.T) {
+	dir := t.TempDir()
+	code, _, errOut := runArgs(t, "-dir", dir, "-live", "-engine", "openrouter", "-gateway-openai", "ftp://localhost:4178")
+	if code != 1 || !strings.Contains(errOut, "-gateway-openai") || !strings.Contains(errOut, "http(s)") {
+		t.Fatalf("exit %d, stderr %q: want 1 naming -gateway-openai and http(s)", code, errOut)
+	}
+	if _, err := os.Stat(dir + "/app.db"); err == nil {
+		t.Error("app.db exists: the store was opened despite the bad -gateway-openai value")
 	}
 }

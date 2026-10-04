@@ -380,7 +380,7 @@ func (s *Server) askPlan(w http.ResponseWriter, r *http.Request) {
 	// same TokenFuse gateway, never a direct call"). A browser click that
 	// can spend real money should never fall back to an unmetered direct
 	// call merely because nobody configured routing.
-	if s.gateway == "" {
+	if s.gateway == "" && s.gatewayOpenAI == "" {
 		s.refusePlanAsk(w, view, u, label, month, 0,
 			"no TokenFuse gateway is configured for this console; the supervisor's spend must "+
 				"be metered through it, so the call is refused rather than made directly")
@@ -389,7 +389,7 @@ func (s *Server) askPlan(w http.ResponseWriter, r *http.Request) {
 
 	runID := fmt.Sprintf("plan-ask-%d", time.Now().UTC().UnixNano())
 	gw := deliver.Gateway{
-		URL: s.gateway, RunID: runID, AgentID: stack.AgentURI(s.host, "supervisor"),
+		URL: s.gateway, OpenAIURL: s.gatewayOpenAI, RunID: runID, AgentID: stack.AgentURI(s.host, "supervisor"),
 		BudgetUSD: deliver.GatewayBudgetUSD(sup.PerTask, sup.PerTask),
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
