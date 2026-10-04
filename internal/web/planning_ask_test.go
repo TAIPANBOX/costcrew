@@ -80,6 +80,13 @@ func fakePlanGateway(t *testing.T, a *planAnswer) *httptest.Server {
 // its server in afterwards (cookies are scoped per origin, and the plan-ask
 // route is the first thing in this console that can ever spend).
 func startWithGateway(t *testing.T, gatewayURL string) *harness {
+	return startWithGateways(t, gatewayURL, "")
+}
+
+// startWithGateways is startWithGateway with the second gateway too: the one
+// that fronts the OpenAI wire (-gateway-openai), for a supervisor hired onto
+// openrouter.
+func startWithGateways(t *testing.T, gatewayURL, gatewayOpenAIURL string) *harness {
 	t.Helper()
 	dir := t.TempDir()
 	st, err := store.Open(dir)
@@ -130,6 +137,7 @@ func startWithGateway(t *testing.T, gatewayURL string) *harness {
 
 	srv := httptest.NewServer(web.New(st, au, web.Stack{
 		Host: "costcrew.test", Recorder: st.AsRecorder(), Gateway: gatewayURL,
+		GatewayOpenAI: gatewayOpenAIURL,
 	}))
 	t.Cleanup(srv.Close)
 

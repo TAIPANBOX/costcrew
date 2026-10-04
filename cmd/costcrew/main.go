@@ -81,6 +81,15 @@ func main() {
 			"http://127.0.0.1:4177; empty means the console cannot spend at all. "+
 			"Falls back to COSTCREW_GATEWAY.")
 
+	// The gateway that fronts the OpenAI wire, for a supervisor on an
+	// openrouter engine. A TokenFuse process forwards one wire shape (its own
+	// TOKENFUSE_WIRE, tokenfuse docs/26), so it is a second flag, not the
+	// same URL on another path. Falls back to COSTCREW_GATEWAY_OPENAI.
+	gatewayOpenAI := flag.String("gateway-openai", deliver.GatewayOpenAIEnvDefault(),
+		"TokenFuse gateway for the supervisor's planning calls when its engine is "+
+			"openrouter (a gateway whose TOKENFUSE_WIRE is openai), e.g. "+
+			"http://127.0.0.1:4178. Falls back to COSTCREW_GATEWAY_OPENAI.")
+
 	setPw := flag.String("set-password", "", "create or reset an account as NAME:PASSWORD, then exit")
 	setRole := flag.String("set-role", "admin", "the role a new -set-password account gets")
 	weak := flag.Bool("allow-weak-password", false, "let -set-password set a password below the minimum, for a local demo account")
@@ -113,7 +122,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("costcrew: %v", err)
 	}
-	if err := run(*addr, *dir, cfg, gatewayURL, *behindTLS); err != nil {
+	gatewayOpenAIURL, err := deliver.NormalizeGatewayOpenAI(*gatewayOpenAI)
+	if err != nil {
+		log.Fatalf("costcrew: %v", err)
+	}
+	if err := run(*addr, *dir, cfg, gatewayURL, gatewayOpenAIURL, *behindTLS); err != nil {
 		log.Fatalf("costcrew: %v", err)
 	}
 }
@@ -206,7 +219,7 @@ func abs(p string) string {
 	return p
 }
 
-func run(addr, dir string, scfg stack.Config, gatewayURL string, behindTLS bool) error {
+func run(addr, dir string, scfg stack.Config, gatewayURL, gatewayOpenAIURL string, behindTLS bool) error {
 	st, err := store.Open(dir)
 	if err != nil {
 		return fmt.Errorf("opening the store in %s: %w", dir, err)
@@ -443,7 +456,7 @@ func run(addr, dir string, scfg stack.Config, gatewayURL string, behindTLS bool)
 		log.Print("CostCrew: demo mode, nobody can spend the owner's model budget")
 	}
 
-	if gatewayURL == "" {
+	if gatewayURL == "" && gatewayOpenAIURL == "" {
 		log.Print("CostCrew: no -gateway configured; the supervisor's plan-ask cannot spend " +
 			"and will refuse every ask with one sentence")
 	}
@@ -466,7 +479,7 @@ func run(addr, dir string, scfg stack.Config, gatewayURL string, behindTLS bool)
 		Handler: web.New(st, au, web.Stack{
 			Recorder: rec, Host: scfg.Host, EventsPath: scfg.EventsPath,
 			Passports: em.WritePassports, PassportFor: em.PassportFor,
-			Delegation: em.Delegation, Gateway: gatewayURL,
+			Delegation: em.Delegation, Gateway: gatewayURL, GatewayOpenAI: gatewayOpenAIURL,
 			BehindTLS: behindTLS,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,

@@ -55,6 +55,13 @@ type Server struct {
 	// askPlan says so again where the refusal actually fires.
 	gateway string
 
+	// gatewayOpenAI is the gateway that fronts the OpenAI wire
+	// (-gateway-openai), for a supervisor hired on an openrouter engine. With
+	// either gateway set, the plan-ask goes through the one that fronts the
+	// supervisor's engine or is refused (deliver.Gateway.RouteFor); it never
+	// goes direct.
+	gatewayOpenAI string
+
 	// behindTLS is -behind-tls (invariant 49): true means a TLS-terminating
 	// proxy sits in front of this process, the shape -addr's own help text
 	// recommends, so every cookie this server issues is marked Secure even
@@ -77,6 +84,9 @@ type Stack struct {
 	// and tools/bench both validate -gateway with). Empty switches the
 	// plan-ask feature's spending off; see Server.gateway.
 	Gateway string
+	// GatewayOpenAI is -gateway-openai, normalized the same way; see
+	// Server.gatewayOpenAI.
+	GatewayOpenAI string
 	// BehindTLS is -behind-tls: true when a TLS-terminating proxy sits in
 	// front of this process (invariant 49). See Server.behindTLS.
 	BehindTLS bool
@@ -92,7 +102,7 @@ func New(st *store.Store, au *auth.Auth, sk Stack) *Server {
 	s := &Server{st: st, au: au, db: st.DB(), rec: sk.Recorder, host: host,
 		eventsPath: sk.EventsPath, passports: sk.Passports,
 		passportFor: sk.PassportFor,
-		delegate:    sk.Delegation, gateway: sk.Gateway,
+		delegate:    sk.Delegation, gateway: sk.Gateway, gatewayOpenAI: sk.GatewayOpenAI,
 		behindTLS: sk.BehindTLS, mux: http.NewServeMux()}
 	s.routes()
 	return s

@@ -2,7 +2,9 @@
 
 Feature: The crew's live model calls go through the estate's gateway, named
 
-  TokenFuse is a drop-in proxy that speaks the Anthropic Messages API. It
+  TokenFuse is a drop-in proxy that speaks the Anthropic Messages API and,
+  since 2026-09-07, the OpenAI chat-completions API through a second
+  gateway process (one process forwards one wire shape). It
   refuses a call with no run id, meters what it answers, and can refuse a
   call that would cross a budget it was told. Item B6 of the plan: when
   -gateway is set, the Anthropic route posts through it instead of
@@ -36,14 +38,15 @@ Feature: The crew's live model calls go through the estate's gateway, named
       never a silently swallowed error, because the gateway's body is input
       from a process this runner does not control
 
-  # @test:TestEnginesTheGatewayCannotFrontAreCalledDirectAndSaidSo
-  Scenario: An engine the gateway cannot front is called direct and said so
-    Given a run with -gateway set and some tasks on openrouter or bedrock
+  # @test:TestAnEngineNoConfiguredGatewayFrontsRefusesTheRunBeforeTheFirstCall
+  Scenario: An engine no configured gateway fronts is refused, never sent direct
+    Given a run with a gateway configured and some tasks on openrouter or
+      bedrock, which that gateway does not front
     When the run starts
-    Then those calls still go straight to their own host, and the run prints
-      one line naming how many, because TokenFuse speaks the Anthropic
-      Messages API and nothing OpenAI-shaped yet, and that must be said
-      rather than happen quietly
+    Then it is refused before the first call, naming how many tasks are on
+      which engine and the setting that would give them a route, because a
+      run pointed at a metering gateway that kept spending outside it, with
+      only a note beside the bill, is the fault this scenario replaces
 
   # @test:TestWithNoGatewayTheRequestGoesToAnthropicDirectly
   Scenario: With no gateway, nothing changes
@@ -95,3 +98,84 @@ Feature: The crew's live model calls go through the estate's gateway, named
     Then it names whichever of the two is smaller, because sending the wider
       one would let the gateway wave through a call this runner's own
       reservation would already have refused
+
+  # @test:TestAnOpenRouterTaskIsNeverSentDirectWhileAGatewayIsConfigured
+  Scenario: An openrouter task is never sent to openrouter.ai while a gateway is configured
+    Given a gateway configured that fronts only the Anthropic wire, and a
+      task on the openrouter engine
+    When the task runs
+    Then nothing is sent to openrouter.ai and nothing to the Anthropic
+      gateway, the task is refused with the reason, and no money is
+      reserved or booked
+
+  # @test:TestAnOpenRouterTaskThroughTheOpenAIGatewayIsChargedItsSettlementPerRound
+  Scenario: An openrouter task goes through the gateway that fronts the OpenAI wire
+    Given -gateway-openai pointing at a gateway whose upstream is OpenRouter
+    When a task on the openrouter engine runs two rounds
+    Then both rounds are posted to that gateway's /v1/chat/completions with
+      the same run id, agent id and budget headers an Anthropic round
+      carries, and the task is charged the gateway's settlement of each
+      round, summed
+
+  # @test:TestCallOpenRouterCarriesTheGatewaysSettlementOnItsResult
+  Scenario: The settlement on the OpenAI door is the charge
+    Given a single-shot openrouter call through the OpenAI-shaped gateway
+    When the gateway answers with its three settlement headers
+    Then the result carries the settled cost, the run's total and the price
+      basis, and the charge is the settlement and not the caller's own price
+
+  # @test:TestA402FromTheOpenAIGatewayStopsTheRunAsARefusal
+  Scenario: A budget refusal from the OpenAI-shaped gateway stops the run
+    Given an openrouter task whose call the OpenAI-shaped gateway refuses
+      with 402
+    When the task runs
+    Then it is a refusal that stops the run, the whole reservation comes
+      back, and the gateway's own reason is printed
+
+  # @test:TestHostileSettlementHeadersOnTheOpenAIDoorNeverBecomeACharge
+  Scenario: A hostile settlement on the OpenAI door is not a charge
+    Given settlement headers that are signed, not numbers, duplicated, above
+      the cap or a megabyte long, on an openrouter call through the gateway
+    When the response is read
+    Then nothing panics and none of them becomes a charge
+
+  # @test:TestACallWithNoGatewayRouteForItsEngineIsRefusedBeforeAnyRequest
+  Scenario: With any gateway configured, a call with no route is refused before any request
+    Given only an OpenAI-shaped gateway and an anthropic call, or only an
+      Anthropic-shaped gateway and an openrouter call
+    When the call is made
+    Then it is refused by type before any request is built, and nothing
+      reaches any host
+
+  # @test:TestABedrockCallWithAGatewayConfiguredIsRefused
+  Scenario: Bedrock has no gateway route and is refused when a gateway is on
+    Given both gateways configured and a bedrock call
+    When the call is made
+    Then it is refused, because bedrock speaks neither wire TokenFuse fronts
+
+  # @test:TestWithNoGatewayAtAllEveryEngineStillGoesDirect
+  Scenario: With no gateway configured at all, nothing changes
+    Given neither -gateway nor -gateway-openai
+    When any engine's call is routed
+    Then it goes direct exactly as before, with none of the x-fuse headers
+
+  # @test:TestLiveOpenRouterWithOnlyAnAnthropicGatewayRefusesBeforeTheStoreOpens
+  Scenario: The bench refuses an openrouter -live with no gateway that fronts it
+    Given the bench's -live with the openrouter engine and only -gateway set
+    When the bench starts
+    Then it refuses before the store opens, naming -gateway-openai
+
+  # @test:TestAskPlanForAnOpenRouterSupervisorGoesThroughTheOpenAIGateway
+  Scenario: The supervisor's planning call on openrouter goes through the OpenAI-shaped gateway
+    Given a supervisor hired onto openrouter and -gateway-openai configured
+    When the supervisor's plan is asked for
+    Then the call is posted to that gateway under the supervisor's own agent
+      id and the gateway's settlement is what the month's spend books
+
+  # @test:TestAnAnthropicTaskWithOnlyAnOpenAIGatewayIsRefusedAndNeverGoesDirect
+  Scenario: An anthropic task with only an OpenAI-shaped gateway is refused too
+    Given -gateway-openai set and -gateway not, and a task on the anthropic
+      engine
+    When the task runs
+    Then nothing is sent to api.anthropic.com and the task is refused with
+      the reason

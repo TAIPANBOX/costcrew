@@ -163,10 +163,17 @@ budget in USD, the tighter of the run's ceiling and the task's own guard.
 yet. `x-fuse-parent-run-id` is sent only when the runner already has a
 notion of a parent, which today it never does, so it is never invented.
 
-OpenRouter and Bedrock are unchanged: TokenFuse speaks the Anthropic
-Messages API and nothing OpenAI-shaped yet, so a run with `-gateway` set
-still calls those two directly, and says so once, with a count, rather than
-letting the gap pass in silence.
+OpenRouter speaks the OpenAI chat-completions wire, which TokenFuse has
+served since 2026-09-07 through a second gateway process (one process
+forwards one wire shape). `-gateway-openai` (or `COSTCREW_GATEWAY_OPENAI`)
+names it: an openrouter task then posts to `<gateway-openai>/v1/chat/completions`
+with the same run id, agent id and budget headers, the provider key as a
+bearer token, and is charged the gateway's settlement. With any gateway
+configured, a task on an engine no configured gateway fronts (openrouter with
+only `-gateway`, anthropic with only `-gateway-openai`, bedrock always) is
+refused before the first call with the setting that would give it a route,
+never sent direct. With no gateway at all nothing changes: every call goes to
+its own host.
 
 A `402` from the gateway is read the same way as the runner's own ceiling
 refusal: the run stops, the reservation comes back, and the sentence printed
@@ -199,7 +206,7 @@ as the task's charge (`tasks.live_micros`, the run's own total, the
 `tool_call` event's `cost_micros`) and keeps its own estimate only as the
 reservation. The per-task line says which figure it is: `settled by the
 gateway`, or `priced by the runner: no settlement header` when the call
-went direct (OpenRouter, Bedrock, no `-gateway`) or the header could not be
+went direct (no gateway configured at all) or the header could not be
 read; a model the gateway priced from its fallback rate rather than its
 book says `at its fallback price (x-fuse-price: fallback)`. The summary line
 reads the settled total and, when the gateway said one, its own run total,

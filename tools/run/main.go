@@ -57,14 +57,23 @@ func main() {
 	// nothing else, and it is the same file the console appends to.
 	events := flag.String("stack-events", "", "append agent-events to this NDJSON file; empty means off")
 	host := flag.String("stack-host", "", "the agent:// authority for this installation; must match the console's")
-	// The TokenFuse gateway, off unless pointed somewhere. Falls back to
-	// COSTCREW_GATEWAY so an installation can set it once rather than on
-	// every invocation; an explicit -gateway "" still turns it off even with
-	// the environment variable set. Only the Anthropic route uses it today:
-	// TokenFuse speaks the Anthropic Messages API and nothing OpenAI-shaped.
+	// The TokenFuse gateways, off unless pointed somewhere. Each falls back
+	// to its own environment variable so an installation can set it once
+	// rather than on every invocation; an explicit -gateway "" still turns
+	// it off even with the environment variable set.
+	//
+	// Two flags because a TokenFuse process forwards ONE upstream wire shape,
+	// chosen by its own TOKENFUSE_WIRE (tokenfuse docs/26): -gateway fronts
+	// the Anthropic wire, -gateway-openai the OpenAI wire OpenRouter speaks.
+	// With either set, a call goes through the gateway that fronts its engine
+	// or is refused; it is never sent direct. Bedrock has no gateway route.
 	gateway := flag.String("gateway", gatewayEnvDefault(),
 		"TokenFuse gateway for the Anthropic route, e.g. http://127.0.0.1:4177; "+
 			"empty calls api.anthropic.com directly. Falls back to COSTCREW_GATEWAY.")
+	gatewayOpenAI := flag.String("gateway-openai", gatewayOpenAIEnvDefault(),
+		"TokenFuse gateway for the OpenRouter route (a gateway whose TOKENFUSE_WIRE is openai), "+
+			"e.g. http://127.0.0.1:4178; empty calls openrouter.ai directly unless -gateway is "+
+			"set, in which case openrouter calls are refused. Falls back to COSTCREW_GATEWAY_OPENAI.")
 	flag.Parse()
 
 	if *showPrices {
@@ -75,7 +84,7 @@ func main() {
 		return
 	}
 
-	if err := run(*dir, *ceiling, *maxTok, *sprint, *live, *supervise, *due, *only, *engine, *events, *host, *gateway); err != nil {
+	if err := run(*dir, *ceiling, *maxTok, *sprint, *live, *supervise, *due, *only, *engine, *events, *host, *gateway, *gatewayOpenAI); err != nil {
 		fmt.Fprintln(os.Stderr, "run:", err)
 		os.Exit(dueExitCode(err))
 	}
@@ -137,11 +146,15 @@ type estimate struct {
 	Refused bool
 }
 
-func run(dir, ceiling string, maxTok, sprint int, live, supervise, due bool, only int, engine, events, host, gateway string) error {
+func run(dir, ceiling string, maxTok, sprint int, live, supervise, due bool, only int, engine, events, host, gateway, gatewayOpenAI string) error {
 	// Validated before the store or the bus are even opened. A bad -gateway
 	// value is a configuration mistake, not a spending one, and the sooner it
 	// is reported the less of the run has already happened around it.
 	gatewayURL, err := normalizeGateway(gateway)
+	if err != nil {
+		return err
+	}
+	gatewayOpenAIURL, err := normalizeGatewayOpenAI(gatewayOpenAI)
 	if err != nil {
 		return err
 	}
@@ -197,7 +210,7 @@ func run(dir, ceiling string, maxTok, sprint int, live, supervise, due bool, onl
 	}
 
 	if due {
-		return runDue(db, roDB, cap, hasCap, maxTok, live, b, gatewayConfig{URL: gatewayURL, Host: host, CeilingUSD: cap})
+		return runDue(db, roDB, cap, hasCap, maxTok, live, b, gatewayConfig{URL: gatewayURL, OpenAIURL: gatewayOpenAIURL, Host: host, CeilingUSD: cap})
 	}
 
 	all, err := crew.Tasks(db, crew.TaskFilter{OpenOnly: true, Sprint: sprint})
@@ -235,7 +248,7 @@ func run(dir, ceiling string, maxTok, sprint int, live, supervise, due bool, onl
 		return fmt.Errorf("-live needs -ceiling: a run that can spend has to be " +
 			"bounded by a figure somebody typed")
 	}
-	return spend(db, roDB, ests, maxTok, cap, only, b, gatewayConfig{URL: gatewayURL, Host: host, CeilingUSD: cap})
+	return spend(db, roDB, ests, maxTok, cap, only, b, gatewayConfig{URL: gatewayURL, OpenAIURL: gatewayOpenAIURL, Host: host, CeilingUSD: cap})
 }
 
 // price puts a worst case on one task.

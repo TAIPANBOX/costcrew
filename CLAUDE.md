@@ -81,9 +81,9 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 889 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 118 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 228 scenarios, both directions
+go test ./...                        # 918 tests, 20 packages
+./scripts/gates-have-teeth.sh        # 136 cases; needs a clean tree
+./scripts/features-are-bound.sh      # 244 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
@@ -149,6 +149,21 @@ unchanged, re-measured on this branch with the three commands this block
 already names. Two existing tests were rewritten in place because they
 asserted the defect (`TestAgreeingOptionsOnTheSameAnomalyAreNotLinked`,
 `TestOptionsWithinOneDeliverableNeverContradict`), not counted as new.
+Invariants 54 and 55 (a call goes through the gateway that fronts its
+engine's wire or is refused; a task the gateway stopped keeps what it
+settled, costcrew#82) added 29 tests (`internal/deliver/call_openrouter_gateway_test.go`,
+13; `tools/run/gateway_openai_test.go`, 10; `tools/bench/gateway_test.go`, 3;
+`internal/web/planning_ask_openai_test.go`, 3; the old
+`TestEnginesTheGatewayCannotFrontAreCalledDirectAndSaidSo` was replaced in
+place, not counted), 18 `gates-have-teeth.sh` cases (seventeen `fail`, one
+`pass`) and 16 scenarios (`features/through-the-gateway.feature`, 11 net;
+`features/settled-by-the-gateway.feature`, 5), and no route: 879 -> 908
+tests, 110 -> 128 cases, 219 -> 235 scenarios, 58 GET routes unchanged,
+re-measured on this branch with the three commands this block already
+names. `components.json` gained the `-gateway-openai` flag on the console,
+the runner and the bench and `COSTCREW_GATEWAY_OPENAI` on the console and the
+runner. Numbered 54 and 55 because the supervisor-selection invariant took 53
+on its own branch.
 
 Invariant 48 (this file's own document references) added 2 tests
 (`internal/manifest/documents_test.go`) and one `gates-have-teeth.sh` case,
@@ -2750,8 +2765,11 @@ an absent invariant.
     (the gateway's own `x-fuse-budget-usd` bound is what holds that, at its
     prices); it does not say what the charge is when a 200 fails to parse
     (nothing is saved and nothing is booked, as before, though the gateway
-    billed it); it does not cover OpenRouter and Bedrock, which go direct
-    and are always priced by the runner; it does not cover `tools/bench`,
+    billed it); it covers OpenRouter only through a gateway that fronts the
+    OpenAI wire (invariant 54, `-gateway-openai`) and never Bedrock, which
+    has no route and is refused while any gateway is configured, so a call
+    with NO gateway at all, direct, is still always priced by the runner; it
+    does not cover `tools/bench`,
     whose live score still prints the runner's own price and writes nothing
     (invariant 29); and it does not fix the price book (tokenfuse#305).
     *(gate: `TestTheChargeRecordedIsTheGatewaysSettlement` (`tools/run`, the
@@ -2867,6 +2885,124 @@ an absent invariant.
     `TestSupervisorMaySelectReadsOptionSelectFromTheJobDescription`,
     `TestMayDecideForTheSupervisorStillOnlyChecksTheClassOwner`, seven
     `fail` cases and one `pass` case in `gates-have-teeth.sh`.)*
+54. **A live model call goes through the gateway that fronts its engine's
+    wire, or is refused. With any gateway configured it is never sent direct.**
+    `@decided 2026-10-04`: the silent ignore of a configured gateway is
+    removed, and the explicit setting that replaces it is a second flag.
+    `deliver.Call` routed `openrouter` and `bedrock` to their own hosts and
+    ignored its `Gateway` argument whatever `-gateway` said, on the ground
+    its own comment gave, that TokenFuse speaks nothing OpenAI-shaped. That
+    ground went on 2026-09-07: TokenFuse serves `POST /v1/chat/completions`
+    through a second front door (the OpenAI-door design note in the
+    tokenfuse repository), and
+    ONE gateway process forwards ONE upstream wire shape, chosen by its own
+    `TOKENFUSE_WIRE`, so an OpenRouter-shaped gateway is a separate process
+    and a separate URL from an Anthropic-shaped one. Production made it worse
+    than the comment: the tool loop's own `openRouterRound` (`tools/run`),
+    where every crew task on the openrouter engine goes, was never handed the
+    gateway at all, and a run printed one line saying how many calls "go
+    direct" and then made them (`directCallsNotice`).
+
+    `deliver.Gateway` now carries both URLs (`URL`, the Anthropic wire, set by
+    `-gateway` / `COSTCREW_GATEWAY`; `OpenAIURL`, the OpenAI wire, set by
+    `-gateway-openai` / `COSTCREW_GATEWAY_OPENAI`, validated by
+    `NormalizeGatewayOpenAI` exactly as `-gateway` is, declared in
+    `components.json` for the console, the runner and the bench), and
+    `Gateway.RouteFor(engine)` is the one place that decides where a call
+    goes: no gateway at all, direct, exactly as before; a gateway that fronts
+    the engine's wire, that gateway; any gateway configured and none that
+    fronts it (bedrock, which speaks neither wire; openrouter with only an
+    Anthropic gateway; anthropic with only an OpenAI one), an error wrapping
+    `deliver.ErrNoGatewayRoute` and no request of any kind. Every path asks
+    it: `Call` (so `tools/bench` and the console's plan-ask), the tool loop's
+    entry (`runToolLoop`) and each openrouter round's own request builder, the
+    run's preflight (`noRouteRefusal`, which replaced `directCallsNotice` and
+    refuses the whole run before the first call, naming how many tasks are on
+    which engine), and the bench's `-live` before its store opens. Through
+    the OpenAI-shaped gateway the request is the same OpenAI request at the
+    gateway's `/v1/chat/completions`, carrying the very `x-fuse-*` headers
+    the Anthropic request carries (`deliver.SetFuseHeaders`, one function for
+    both) with the provider key as a bearer token for the gateway to pass
+    through, and the response's three settlement headers are read by the same
+    `ParseSettlement` (invariant 51), only when the call went to a gateway:
+    a header on a direct route is never a charge. A 402 from it is a
+    `GatewayRefusal`, a budget refusal that stops the run, as on the other
+    wire. An empty run id or agent id refuses before the call on both
+    (`deliver.RequireIdentity`).
+
+    What this does not do: it does not make TokenFuse multi-provider or
+    translate between wires; it does not give Bedrock a route (none exists);
+    it does not check which upstream is actually behind either URL, which is
+    the operator's setup, so an Anthropic gateway given as `-gateway-openai`
+    would receive an OpenAI body and answer 400 itself; and it changes what a
+    run with `-gateway` set and a bedrock or openrouter task does from "goes
+    direct, said once" to "refused", on purpose.
+    *(gate: `TestAGatewayIsNeverSilentlyIgnoredForAnOpenRouterCall`,
+    `TestACallWithNoGatewayRouteForItsEngineIsRefusedBeforeAnyRequest`,
+    `TestABedrockCallWithAGatewayConfiguredIsRefused`,
+    `TestRouteForNamesTheGatewayThatFrontsEachEnginesWire`,
+    `TestWithNoGatewayAtAllEveryEngineStillGoesDirect`,
+    `TestAnOpenRouterRequestThroughTheGatewayCarriesTheSameFuseHeaders`,
+    `TestCallOpenRouterCarriesTheGatewaysSettlementOnItsResult`,
+    `TestHostileSettlementHeadersOnTheOpenAIDoorNeverBecomeACharge`,
+    `TestASettlementHeaderOnTheDirectOpenRouterRouteIsNeverACharge`,
+    `TestA402FromTheOpenAIGatewayIsAGatewayRefusal`,
+    `TestAnEmptyRunOrAgentIDRefusesBeforeAnOpenRouterGatewayCall`,
+    `TestGatewayOpenAIIsValidatedLikeGateway` (`internal/deliver`; the
+    two that must observe where a call goes replace `http.DefaultTransport`
+    with a recorder, so a call that would have left is SEEN leaving and is
+    never sent); `TestAnEngineNoConfiguredGatewayFrontsRefusesTheRunBeforeTheFirstCall`,
+    `TestAnOpenRouterTaskIsNeverSentDirectWhileAGatewayIsConfigured`,
+    `TestAnAnthropicTaskWithOnlyAnOpenAIGatewayIsRefusedAndNeverGoesDirect`,
+    `TestAnOpenRouterTaskThroughTheOpenAIGatewayIsChargedItsSettlementPerRound`,
+    `TestA402FromTheOpenAIGatewayStopsTheRunAsARefusal`,
+    `TestAnOpenRouterRoundRequestThroughTheGatewayCarriesTheFuseHeaders`
+    (`tools/run`); `TestLiveOpenRouterWithOnlyAnAnthropicGatewayRefusesBeforeTheStoreOpens`,
+    `TestLiveOpenRouterThroughTheOpenAIGatewaySendsTheFuseHeaders`,
+    `TestLiveRefusesANonHTTPOpenAIGatewayURLBeforeTheStoreOpens`
+    (`tools/bench`); `TestAskPlanWithOnlyAnOpenAIGatewayRefusesASupervisorOnAnthropic`,
+    `TestAskPlanForAnOpenRouterSupervisorWithOnlyTheAnthropicGatewayIsRefused`,
+    `TestAskPlanForAnOpenRouterSupervisorGoesThroughTheOpenAIGateway`
+    (`internal/web`); thirteen `fail` cases and one `pass` case in
+    `gates-have-teeth.sh`, each planting one of the faults above and, for
+    the `pass` case, rewording a refusal, which the gates must not mind.)*
+
+55. **A task the gateway stopped keeps the charge of every round the gateway
+    settled.** costcrew#82, measured 2026-09-23 on the appliance: a run
+    stopped by the gateway's per-run budget printed `Spent 0.0406` and
+    `The board now carries 0.00` while the gateway's own run total was
+    0.2028. Two faults under one symptom. The 402 that stops a run arrives
+    as a round that answered nothing, and `AddRound` makes a task settled only
+    when every round was, so one empty round turned a task whose earlier
+    rounds the gateway had billed into an unsettled one, priced at the
+    runner's own estimate; and `execute`'s error path booked nothing at all,
+    because the one statement that writes `tasks.live_micros` lived in
+    `saveDraft`, which a stopped task never reaches. Now a round that failed
+    WITHOUT answering (no tokens counted, no settlement read: a 402 the
+    gateway refused before forwarding, a transport error) is not folded into
+    the task's settlement (`foldRound`, `tools/run/loop.go`, for both tool
+    loops), so the rounds that were settled stay settled, and `execute`
+    records the task's charge through the same `recordCharge` a finished task
+    books through, on the error path too, when it is above zero. The
+    ceiling, the board and the summary then agree on the money the gateway
+    billed, and the summary line says so when the gateway's own run total is
+    still higher than what reached this runner ("a call it settled never
+    reached this runner"). A round that DID answer, with no settlement header
+    at all, still makes the task priced by the runner over every round:
+    the all-or-nothing rule of invariant 51 is unchanged for it, and a stopped
+    task whose first call was refused books nothing, never an invented charge.
+    What it does not cover: a task that fails inside `saveDraft` before its
+    charge is recorded still books nothing (the call that bought the
+    deliverable was settled and `run.total()` counts it, but
+    `tasks.live_micros` does not), and a call the gateway settled whose
+    response never reached this runner is visible only as the gap the
+    summary names, not as a charge on any task.
+    *(gate: `TestAStoppedTaskRecordsWhatTheGatewaySettledForItsRounds`
+    (both wires), `TestARunStoppedMidTaskBooksTheSettledMoneyOnTheBoardAndLeadsWithIt`,
+    `TestTheHeadlineSaysWhenTheGatewaysTotalIsHigherThanWhatWasBooked`,
+    `TestAStoppedTaskWithNoSettledRoundBooksNothing`,
+    `TestARoundThatAnsweredWithoutAHeaderStillMakesTheTaskPricedByTheRunner`
+    (`tools/run`); four `fail` cases in `gates-have-teeth.sh`.)*
 
 ## Decisions that have no gate yet
 
@@ -2890,8 +3026,9 @@ sentences.
   need a memory store behind the same interface, which is a design change,
   not a test change.
 
-- **The console never reaches the network, unless `-gateway` is configured for
-  the supervisor's own planning calls.** True by default, and true unqualified
+- **The console never reaches the network, unless `-gateway` (or
+  `-gateway-openai`, for a supervisor on openrouter) is configured for the
+  supervisor's own planning calls.** True by default, and true unqualified
   before this step: the only outbound HTTP client in the repo used to be
   `internal/enforce`, a separate binary the console never calls, with every
   stack integration behind a flag that defaults to off. Invariant 33 adds the

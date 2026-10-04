@@ -92,6 +92,36 @@ type roundResult struct {
 	Settlement deliver.Settlement
 }
 
+// answered is whether this round produced a response at all: tokens counted,
+// or the gateway's own settlement read off it. A round that failed before
+// any response (a 402 the gateway refused before forwarding, a transport
+// error) answers nothing, and nothing is what it cost the runner can see.
+func (r roundResult) answered() bool {
+	return r.InTokens > 0 || r.OutTokens > 0 || r.Settlement != (deliver.Settlement{})
+}
+
+// foldRound folds one round's settlement into a task's running settlement.
+// Round one IS the accumulator; every later round is folded in
+// (deliver.Settlement.AddRound), so a task is settled only when every round
+// that answered was.
+//
+// A round that failed WITHOUT answering is not folded at all (costcrew#82).
+// It used to be: the 402 that stopped a run arrives as an empty round, an
+// unsettled empty round turns the whole task unsettled, and a task whose
+// earlier rounds the gateway had billed 0.2028 was then priced at the
+// runner's own 0.0406 and, because the error path booked nothing, shown as
+// 0.00 on the board. A refused or unanswered round has no settlement to
+// say; it must not erase the ones that do.
+func foldRound(acc deliver.Settlement, first bool, rr roundResult, err error) deliver.Settlement {
+	if err != nil && !rr.answered() {
+		return acc
+	}
+	if first {
+		return rr.Settlement
+	}
+	return acc.AddRound(rr.Settlement)
+}
+
 // roundCostMicros moved to internal/deliver as ActualMicros (B6B-SPEC.md),
 // so tools/bench's own live scoring path can price what a call actually
 // cost with the identical formula rather than a second copy that only
@@ -106,11 +136,20 @@ func roundCostMicros(inTok, outTok int, p engines.Price) int64 {
 // unchanged, wrapped so execute() has one call site regardless of engine.
 func runToolLoop(ctx context.Context, db, roDB *sql.DB, e estimate, sentPrompt string,
 	maxTok int, gw gatewayHeaders, a crew.Analyst, b bus) (callResult, error) {
+	// Where this task's calls go is deliver.Gateway.RouteFor's answer, asked
+	// once here before any round: with a gateway configured and none that
+	// fronts this engine's wire, the task is refused rather than sent to the
+	// vendor directly (ErrNoGatewayRoute). Both tool loops below read the same
+	// answer again per round, so a caller that skips this still cannot go
+	// direct by accident.
+	if _, err := gw.RouteFor(e.Engine); err != nil {
+		return callResult{}, err
+	}
 	switch e.Engine {
 	case "anthropic":
 		return anthropicToolLoop(ctx, db, roDB, e, sentPrompt, maxTok, gw, a, b)
 	case "openrouter":
-		return openRouterToolLoop(ctx, db, roDB, e, sentPrompt, maxTok, a, b)
+		return openRouterToolLoop(ctx, db, roDB, e, sentPrompt, maxTok, gw, a, b)
 	default:
 		return call(ctx, e.Engine, e.Model, sentPrompt, maxTok, gw)
 	}
@@ -278,14 +317,7 @@ func anthropicToolLoop(ctx context.Context, db, roDB *sql.DB, e estimate, prompt
 		totalIn += rr.InTokens
 		totalOut += rr.OutTokens
 		totalActual += roundCostMicros(rr.InTokens, rr.OutTokens, e.Price)
-		// Round one IS the accumulator; every later round is folded in, so a
-		// task is settled only when every one of its rounds was
-		// (deliver.Settlement.AddRound).
-		if round == 1 {
-			acc = rr.Settlement
-		} else {
-			acc = acc.AddRound(rr.Settlement)
-		}
+		acc = foldRound(acc, round == 1, rr, err)
 		res := callResult{InTokens: totalIn, OutTokens: totalOut, ActualMicros: totalActual, Settlement: acc}
 		if err != nil {
 			return res, err
@@ -338,12 +370,10 @@ type openAIMsg struct {
 }
 
 // openRouterEndpoint is a var, not a literal, only so a test can point the
-// loop at a fake server: the Anthropic route already has an override for
-// exactly this (gatewayHeaders.URL, which is what -gateway and B6's whole
-// suite of tests use), and OpenRouter has no equivalent one. callOpenRouter
-// in live.go keeps its own literal, unchanged; this var exists for the
-// loop's own round function alone.
-var openRouterEndpoint = "https://openrouter.ai/api/v1/chat/completions"
+// DIRECT route at a fake server. A call that goes through a gateway never
+// reads it: its URL is deliver.OpenRouterEndpoint's answer, which is the
+// OpenAI-shaped gateway's own /v1/chat/completions.
+var openRouterEndpoint = deliver.OpenRouterDirectEndpoint
 
 func openRouterRoundBody(model string, messages []openAIMsg, tools []map[string]any, maxTok int) ([]byte, error) {
 	body := map[string]any{
@@ -357,23 +387,48 @@ func openRouterRoundBody(model string, messages []openAIMsg, tools []map[string]
 	return json.Marshal(body)
 }
 
+// openRouterRoundRequest builds one round's request, separately from sending
+// it, so the URL and every header can be asserted without a network call,
+// the way anthropicRoundRequest is. Through the OpenAI-shaped gateway it
+// carries the same x-fuse-* headers every Anthropic round does.
+func openRouterRoundRequest(ctx context.Context, key, model string, messages []openAIMsg,
+	tools []map[string]any, maxTok int, gw gatewayHeaders) (*http.Request, error) {
+	endpoint, routed, err := deliver.OpenRouterEndpoint(gw)
+	if err != nil {
+		return nil, err
+	}
+	if !routed {
+		endpoint = openRouterEndpoint
+	}
+	body, err := openRouterRoundBody(model, messages, tools, maxTok)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+key)
+	req.Header.Set("Content-Type", "application/json")
+	if routed {
+		deliver.SetFuseHeaders(req, gw)
+	}
+	return req, nil
+}
+
 func openRouterRound(ctx context.Context, model string, messages []openAIMsg,
-	tools []map[string]any, maxTok int) (roundResult, openAIMsg, error) {
+	tools []map[string]any, maxTok int, gw gatewayHeaders) (roundResult, openAIMsg, error) {
 	key := strings.TrimSpace(os.Getenv("OPENROUTER_API_KEY"))
 	if key == "" {
 		return roundResult{}, openAIMsg{}, fmt.Errorf("OPENROUTER_API_KEY is not set in this process")
 	}
-	body, err := openRouterRoundBody(model, messages, tools, maxTok)
+	if err := deliver.RequireIdentity(gw, gw.OpenAIURL != ""); err != nil {
+		return roundResult{}, openAIMsg{}, err
+	}
+	req, err := openRouterRoundRequest(ctx, key, model, messages, tools, maxTok, gw)
 	if err != nil {
 		return roundResult{}, openAIMsg{}, err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		openRouterEndpoint, bytes.NewReader(body))
-	if err != nil {
-		return roundResult{}, openAIMsg{}, err
-	}
-	req.Header.Set("Authorization", "Bearer "+key)
-	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := (&http.Client{Timeout: 90 * time.Second}).Do(req)
 	if err != nil {
@@ -381,6 +436,12 @@ func openRouterRound(ctx context.Context, model string, messages []openAIMsg,
 	}
 	defer resp.Body.Close()
 	raw, _ := io.ReadAll(resp.Body)
+	// A 402 from the GATEWAY is a budget refusal that stops the run, the same
+	// reading the Anthropic round gives it; gated on the round having gone to
+	// a gateway so a 402 from the vendor is never misread as one.
+	if resp.StatusCode == http.StatusPaymentRequired && gw.OpenAIURL != "" {
+		return roundResult{}, openAIMsg{}, refusal{parseGatewayRefusal(raw)}
+	}
 	if resp.StatusCode != 200 {
 		return roundResult{}, openAIMsg{}, fmt.Errorf("the router answered %d: %s",
 			resp.StatusCode, trim(strings.TrimSpace(string(raw)), 160))
@@ -405,12 +466,20 @@ func openRouterRound(ctx context.Context, model string, messages []openAIMsg,
 	if err := json.Unmarshal(raw, &out); err != nil {
 		return roundResult{}, openAIMsg{}, fmt.Errorf("the router's answer did not parse: %w", err)
 	}
+	// Read only when the round went to a gateway: the direct host sends no
+	// x-fuse-* header, and a header a vendor happened to send must never
+	// become a charge.
+	var st deliver.Settlement
+	if gw.OpenAIURL != "" {
+		st = deliver.ParseSettlement(resp.Header)
+	}
 	if len(out.Choices) == 0 {
-		return roundResult{}, openAIMsg{}, fmt.Errorf("the router returned no answer")
+		return roundResult{Settlement: st, InTokens: out.Usage.PromptTokens, OutTokens: out.Usage.CompletionTokens},
+			openAIMsg{}, fmt.Errorf("the router returned no answer")
 	}
 	msg := out.Choices[0].Message
 
-	rr := roundResult{InTokens: out.Usage.PromptTokens, OutTokens: out.Usage.CompletionTokens}
+	rr := roundResult{InTokens: out.Usage.PromptTokens, OutTokens: out.Usage.CompletionTokens, Settlement: st}
 	assistant := openAIMsg{Role: "assistant", Content: msg.Content}
 	if len(msg.ToolCalls) > 0 {
 		assistant.ToolCalls = msg.ToolCalls
@@ -429,21 +498,23 @@ func openRouterRound(ctx context.Context, model string, messages []openAIMsg,
 }
 
 func openRouterToolLoop(ctx context.Context, db, roDB *sql.DB, e estimate, prompt string,
-	maxTok int, a crew.Analyst, b bus) (callResult, error) {
+	maxTok int, gw gatewayHeaders, a crew.Analyst, b bus) (callResult, error) {
 	messages := []openAIMsg{{Role: "user", Content: prompt}}
 	var totalIn, totalOut int
 	var totalActual int64
+	var acc deliver.Settlement
 
 	for round := 1; round <= maxToolRounds; round++ {
 		var tools []map[string]any
 		if round < maxToolRounds {
 			tools = openAITools()
 		}
-		rr, assistant, err := openRouterRound(ctx, e.Model, messages, tools, maxTok)
+		rr, assistant, err := openRouterRound(ctx, e.Model, messages, tools, maxTok, gw)
 		totalIn += rr.InTokens
 		totalOut += rr.OutTokens
 		totalActual += roundCostMicros(rr.InTokens, rr.OutTokens, e.Price)
-		res := callResult{InTokens: totalIn, OutTokens: totalOut, ActualMicros: totalActual}
+		acc = foldRound(acc, round == 1, rr, err)
+		res := callResult{InTokens: totalIn, OutTokens: totalOut, ActualMicros: totalActual, Settlement: acc}
 		if err != nil {
 			return res, err
 		}
@@ -460,6 +531,6 @@ func openRouterToolLoop(ctx context.Context, db, roDB *sql.DB, e estimate, promp
 			})
 		}
 	}
-	return callResult{InTokens: totalIn, OutTokens: totalOut, ActualMicros: totalActual},
+	return callResult{InTokens: totalIn, OutTokens: totalOut, ActualMicros: totalActual, Settlement: acc},
 		fmt.Errorf("the tool loop ran past its round cap without an answer")
 }

@@ -38,6 +38,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -58,7 +59,16 @@ import (
 // the tighter of a run's ceiling and THIS call's own guard, which differs
 // call to call even when the run id and the agent id do not.
 type Gateway struct {
-	URL       string // empty means "do not route through a gateway at all"
+	// URL is the gateway that fronts the ANTHROPIC wire (POST /v1/messages).
+	// Empty means "no Anthropic-shaped gateway".
+	URL string
+	// OpenAIURL is the gateway that fronts the OPENAI chat-completions wire
+	// (POST /v1/chat/completions), the shape OpenRouter speaks. Empty means
+	// "no OpenAI-shaped gateway". A TokenFuse process forwards ONE upstream
+	// wire shape, chosen by its own TOKENFUSE_WIRE (tokenfuse docs/26), so
+	// this is a separate gateway process and a separate URL from URL, never
+	// the same one reached on another path.
+	OpenAIURL string
 	RunID     string
 	AgentID   string
 	BudgetUSD string // already formatted, two decimals minimum
@@ -93,8 +103,8 @@ type Result struct {
 	ActualMicros int64
 	// Settlement is what the gateway said this call cost (settlement.go).
 	// Zero-valued on every path that did not go through a gateway: the
-	// direct Anthropic endpoint, OpenRouter, Bedrock. Embedded, so a caller
-	// reads res.Settled and res.SettledMicros directly.
+	// direct Anthropic endpoint, the direct OpenRouter host, Bedrock.
+	// Embedded, so a caller reads res.Settled and res.SettledMicros directly.
 	Settlement
 }
 
@@ -115,23 +125,130 @@ func (r Result) ChargeMicros() int64 { return Charge(r.Settlement, r.ActualMicro
 // know the difference.
 type GatewayRefusal struct{ error }
 
+// ErrNoGatewayRoute marks a call refused BEFORE it was made because a
+// gateway is configured and none of the configured gateways fronts the wire
+// this call's engine speaks. The alternative was going to the vendor
+// directly, which is what Call did for openrouter and bedrock until this
+// change: a run pointed at a metering gateway kept spending outside it, and
+// nothing said so.
+var ErrNoGatewayRoute = errors.New("no gateway route")
+
+// On reports whether ANY gateway is configured.
+func (g Gateway) On() bool { return g.URL != "" || g.OpenAIURL != "" }
+
+// RouteFor is the one place that decides where a call on engine goes, and
+// the one place that refuses to let it go direct by accident:
+//
+//   - no gateway configured at all: "" and nil, the call goes to the vendor
+//     exactly as before any gateway existed;
+//   - a gateway configured that fronts this engine's wire: its URL
+//     (anthropic: URL; openrouter: OpenAIURL);
+//   - a gateway configured and none that fronts this wire (bedrock, which is
+//     neither wire; openrouter with only an Anthropic gateway; anthropic with
+//     only an OpenAI gateway): an error wrapping ErrNoGatewayRoute. Never a
+//     fall back to the vendor: a person who pointed this at a gateway chose
+//     to have the spend metered, and a call outside it is the one case they
+//     would want to be told about.
+//
+// An engine this file has no caller for is answered "", nil: Call's own
+// switch refuses it by name.
+func (g Gateway) RouteFor(engine string) (string, error) {
+	if !g.On() {
+		return "", nil
+	}
+	switch engine {
+	case "anthropic":
+		if g.URL != "" {
+			return g.URL, nil
+		}
+		return "", fmt.Errorf("%w: engine %q speaks the Anthropic wire and only an OpenAI-shaped "+
+			"gateway is configured (-gateway-openai), so the call is refused rather than made "+
+			"directly to api.anthropic.com; set -gateway (COSTCREW_GATEWAY) to a TokenFuse gateway "+
+			"whose TOKENFUSE_WIRE is anthropic", ErrNoGatewayRoute, engine)
+	case "openrouter":
+		if g.OpenAIURL != "" {
+			return g.OpenAIURL, nil
+		}
+		return "", fmt.Errorf("%w: engine %q speaks the OpenAI wire and no OpenAI-shaped gateway is "+
+			"configured, so the call is refused rather than made directly to openrouter.ai; set "+
+			"-gateway-openai (COSTCREW_GATEWAY_OPENAI) to a TokenFuse gateway whose TOKENFUSE_WIRE "+
+			"is openai", ErrNoGatewayRoute, engine)
+	case "bedrock":
+		return "", fmt.Errorf("%w: engine %q speaks neither wire TokenFuse fronts (Anthropic Messages, "+
+			"OpenAI chat completions), so with a gateway configured the call is refused rather than "+
+			"made directly to AWS", ErrNoGatewayRoute, engine)
+	}
+	return "", nil
+}
+
 // Call routes to the engine the analyst (or, for the bench, the case) was
 // hired with, exactly as tools/run's own call() always has.
 //
-// gw is only used by the Anthropic route. OpenRouter and Bedrock are
-// unchanged: TokenFuse speaks the Anthropic Messages API at /v1/messages and
-// nothing OpenAI-shaped, so those two keep calling their own hosts directly
-// until it grows a route for them.
+// Where the call goes is Gateway.RouteFor's answer and nothing else: direct
+// when no gateway is configured, through the gateway that fronts the
+// engine's wire when one does, and a refusal (ErrNoGatewayRoute) when a
+// gateway is configured and none of them fronts it. TokenFuse has served
+// POST /v1/chat/completions since 2026-09-07 (tokenfuse docs/26), so the
+// "speaks nothing OpenAI-shaped" this comment used to give as the reason
+// openrouter went direct has been false since then; Bedrock still has no
+// route and is refused when a gateway is on.
 func Call(ctx context.Context, engine, model, prompt string, maxTok int, gw Gateway) (Result, error) {
+	if _, err := gw.RouteFor(engine); err != nil {
+		return Result{}, err
+	}
 	switch engine {
 	case "openrouter":
-		return callOpenRouter(ctx, model, prompt, maxTok)
+		return callOpenRouter(ctx, model, prompt, maxTok, gw)
 	case "anthropic":
 		return callAnthropic(ctx, model, prompt, maxTok, gw)
 	case "bedrock":
 		return callBedrock(ctx, model, prompt, maxTok)
 	}
 	return Result{}, fmt.Errorf("no caller is written for engine %q", engine)
+}
+
+// SetFuseHeaders puts the x-fuse-* headers TokenFuse reads for metering and
+// attribution on a request that is going to a gateway. One function for
+// both wires and both binaries' round functions, so the OpenAI-shaped
+// request carries exactly the headers the Anthropic-shaped one does.
+//
+// TokenFuse refuses a call with no run id (400 metering_required), so this
+// is never conditional on RunID being non-empty: openBus mints one for every
+// invocation, and RequireIdentity refuses first when a caller somehow still
+// reaches here with one empty. x-fuse-outcome is intentionally not set. See
+// Gateway's own comment.
+func SetFuseHeaders(req *http.Request, gw Gateway) {
+	req.Header.Set("x-fuse-run-id", gw.RunID)
+	req.Header.Set("x-fuse-agent-id", gw.AgentID)
+	req.Header.Set("x-fuse-budget-usd", gw.BudgetUSD)
+	if gw.ParentRunID != "" {
+		req.Header.Set("x-fuse-parent-run-id", gw.ParentRunID)
+	}
+}
+
+// RequireIdentity is the boundary (B6B-SPEC.md section 4): a gateway
+// TokenFuse cannot meter is refused before the request is even built, never
+// let through to surface as the gateway's OWN 400 metering_required. A no-op
+// when the call is not going to a gateway. Both tools/run and tools/bench
+// get this for free because both reach a gateway only through Call (or the
+// round functions that call this): tools/run's run id is minted
+// unconditionally (bus.go's newRunID) and its agent id always comes from an
+// analyst price() has already required to be named, so this never fires there
+// in practice; tools/bench mints its own run id and reads a case's analyst
+// fresh, so this is where the check actually earns its place.
+func RequireIdentity(gw Gateway, routedThroughGateway bool) error {
+	if !routedThroughGateway {
+		return nil
+	}
+	if gw.RunID == "" {
+		return fmt.Errorf("the gateway is set but this call's run id is " +
+			"empty: TokenFuse refuses a call with no run id")
+	}
+	if gw.AgentID == "" {
+		return fmt.Errorf("the gateway is set but this call's agent id is " +
+			"empty: TokenFuse cannot attribute spend with no agent id")
+	}
+	return nil
 }
 
 // anthropicBody is the request body, separate so the one thing that is easy
@@ -181,18 +298,7 @@ func anthropicRequest(ctx context.Context, key, model, prompt string, maxTok int
 	req.Header.Set("anthropic-version", "2023-06-01")
 	req.Header.Set("Content-Type", "application/json")
 	if gw.URL != "" {
-		// TokenFuse refuses a call with no run id (400 metering_required), so
-		// this is never conditional on RunID being non-empty: openBus mints
-		// one for every invocation now, on or off the estate bus, for exactly
-		// this reason, and callAnthropic below refuses first when a caller
-		// somehow still reaches here with one empty.
-		req.Header.Set("x-fuse-run-id", gw.RunID)
-		req.Header.Set("x-fuse-agent-id", gw.AgentID)
-		req.Header.Set("x-fuse-budget-usd", gw.BudgetUSD)
-		if gw.ParentRunID != "" {
-			req.Header.Set("x-fuse-parent-run-id", gw.ParentRunID)
-		}
-		// x-fuse-outcome is intentionally not set. See Gateway's own comment.
+		SetFuseHeaders(req, gw)
 	}
 	return req, nil
 }
@@ -202,24 +308,8 @@ func callAnthropic(ctx context.Context, model, prompt string, maxTok int, gw Gat
 	if key == "" {
 		return Result{}, fmt.Errorf("ANTHROPIC_API_KEY is not set in this process")
 	}
-	// Boundary (B6B-SPEC.md section 4): a gateway TokenFuse cannot meter is
-	// refused before the request is even built, never let through to
-	// surface as the gateway's OWN 400 metering_required. Both tools/run and
-	// tools/bench get this for free because both reach the gateway only
-	// through Call: tools/run's run id is minted unconditionally (bus.go's
-	// newRunID) and its agent id always comes from an analyst price() has
-	// already required to be named, so this never fires there in practice;
-	// tools/bench mints its own run id and reads a case's analyst fresh, so
-	// this is where the check actually earns its place.
-	if gw.URL != "" {
-		if gw.RunID == "" {
-			return Result{}, fmt.Errorf("the gateway is set but this call's run id is " +
-				"empty: TokenFuse refuses a call with no run id")
-		}
-		if gw.AgentID == "" {
-			return Result{}, fmt.Errorf("the gateway is set but this call's agent id is " +
-				"empty: TokenFuse cannot attribute spend with no agent id")
-		}
+	if err := RequireIdentity(gw, gw.URL != ""); err != nil {
+		return Result{}, err
 	}
 	req, err := anthropicRequest(ctx, key, model, prompt, maxTok, gw)
 	if err != nil {
@@ -303,24 +393,84 @@ func callAnthropic(ctx context.Context, model, prompt string, maxTok int, gw Gat
 	}, nil
 }
 
-// callOpenRouter is the OpenAI-shaped route.
-func callOpenRouter(ctx context.Context, model, prompt string, maxTok int) (Result, error) {
-	key := strings.TrimSpace(os.Getenv("OPENROUTER_API_KEY"))
-	if key == "" {
-		return Result{}, fmt.Errorf("OPENROUTER_API_KEY is not set in this process")
+// OpenRouterDirectEndpoint is where an openrouter call goes when no gateway
+// is configured.
+const OpenRouterDirectEndpoint = "https://openrouter.ai/api/v1/chat/completions"
+
+// OpenAICompletionsPath is the route TokenFuse serves for the OpenAI wire.
+const OpenAICompletionsPath = "/v1/chat/completions"
+
+// OpenRouterEndpoint is the URL an openrouter call goes to: the direct host
+// when no gateway is configured, <OpenAIURL>/v1/chat/completions when one is,
+// and ErrNoGatewayRoute when a gateway is configured and none fronts the
+// OpenAI wire. The one place both openrouter paths (this file's callOpenRouter
+// and tools/run's tool-loop round) read it from, so they cannot disagree about
+// whether a call is metered. routed says which of the two it is.
+func OpenRouterEndpoint(gw Gateway) (endpoint string, routed bool, err error) {
+	base, err := gw.RouteFor("openrouter")
+	if err != nil {
+		return "", false, err
 	}
-	body, _ := json.Marshal(map[string]any{
+	if base == "" {
+		return OpenRouterDirectEndpoint, false, nil
+	}
+	return base + OpenAICompletionsPath, true, nil
+}
+
+// openRouterBody is the request body, separate so the request can be tested
+// without spending anything. Both the direct and the gateway route send it
+// unchanged: TokenFuse forwards the body as the caller sent it.
+func openRouterBody(model, prompt string, maxTok int) ([]byte, error) {
+	return json.Marshal(map[string]any{
 		"model":      model,
 		"max_tokens": maxTok,
 		"messages":   []map[string]string{{"role": "user", "content": prompt}},
 	})
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		"https://openrouter.ai/api/v1/chat/completions", bytes.NewReader(body))
+}
+
+// openRouterRequest builds the outbound request, separately from sending it,
+// so the URL and every header can be asserted without a network call and
+// without a key, the way anthropicRequest is. Through a gateway it carries
+// the same x-fuse-* headers the Anthropic request does; the provider key
+// travels as Authorization: Bearer exactly as it does direct, which the
+// gateway forwards to the upstream unchanged (tokenfuse docs/26).
+func openRouterRequest(ctx context.Context, key, model, prompt string, maxTok int, gw Gateway) (*http.Request, error) {
+	endpoint, routed, err := OpenRouterEndpoint(gw)
 	if err != nil {
-		return Result{}, err
+		return nil, err
+	}
+	body, err := openRouterBody(model, prompt, maxTok)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
 	}
 	req.Header.Set("Authorization", "Bearer "+key)
 	req.Header.Set("Content-Type", "application/json")
+	if routed {
+		SetFuseHeaders(req, gw)
+	}
+	return req, nil
+}
+
+// callOpenRouter is the OpenAI-shaped route. Direct when no gateway is
+// configured; through the OpenAI-shaped gateway when one is; refused (by
+// Call, before this runs) when a gateway is configured and none of them
+// fronts the OpenAI wire.
+func callOpenRouter(ctx context.Context, model, prompt string, maxTok int, gw Gateway) (Result, error) {
+	key := strings.TrimSpace(os.Getenv("OPENROUTER_API_KEY"))
+	if key == "" {
+		return Result{}, fmt.Errorf("OPENROUTER_API_KEY is not set in this process")
+	}
+	if err := RequireIdentity(gw, gw.OpenAIURL != ""); err != nil {
+		return Result{}, err
+	}
+	req, err := openRouterRequest(ctx, key, model, prompt, maxTok, gw)
+	if err != nil {
+		return Result{}, err
+	}
 
 	resp, err := (&http.Client{Timeout: 90 * time.Second}).Do(req)
 	if err != nil {
@@ -328,6 +478,12 @@ func callOpenRouter(ctx context.Context, model, prompt string, maxTok int) (Resu
 	}
 	defer resp.Body.Close()
 	raw, _ := io.ReadAll(resp.Body)
+	// A 402 from the GATEWAY is a budget refusal, the same reading
+	// callAnthropic gives it, gated on the call having gone to a gateway so a
+	// 402 from the vendor itself is never misread as one the gateway sent.
+	if resp.StatusCode == http.StatusPaymentRequired && gw.OpenAIURL != "" {
+		return Result{}, GatewayRefusal{ParseGatewayRefusal(raw)}
+	}
 	if resp.StatusCode != 200 {
 		// The body can echo a request, so only the status and a short prefix
 		// travel: a key does not end up in a log through an error message.
@@ -349,13 +505,21 @@ func callOpenRouter(ctx context.Context, model, prompt string, maxTok int) (Resu
 	if err := json.Unmarshal(raw, &out); err != nil {
 		return Result{}, fmt.Errorf("the router's answer did not parse: %w", err)
 	}
+	// Read only when the call went to a gateway: the direct host sends no
+	// x-fuse-* header, and a header a vendor happened to send must never
+	// become a charge.
+	var st Settlement
+	if gw.OpenAIURL != "" {
+		st = ParseSettlement(resp.Header)
+	}
 	if len(out.Choices) == 0 {
 		return Result{}, fmt.Errorf("the router returned no answer")
 	}
 	return Result{
-		Text:      out.Choices[0].Message.Content,
-		InTokens:  out.Usage.PromptTokens,
-		OutTokens: out.Usage.CompletionTokens,
+		Text:       out.Choices[0].Message.Content,
+		InTokens:   out.Usage.PromptTokens,
+		OutTokens:  out.Usage.CompletionTokens,
+		Settlement: st,
 	}, nil
 }
 
@@ -393,6 +557,18 @@ func ParseGatewayRefusal(raw []byte) error {
 // (B6B-SPEC.md section 2); tools/run keeps a one-line wrapper of the old
 // unexported name so its own existing tests needed no change.
 func NormalizeGateway(raw string) (string, error) {
+	return NormalizeGatewayFlag("-gateway", raw)
+}
+
+// NormalizeGatewayOpenAI is NormalizeGateway for -gateway-openai: the same
+// validation, the same refusals, the flag's own name in the message.
+func NormalizeGatewayOpenAI(raw string) (string, error) {
+	return NormalizeGatewayFlag("-gateway-openai", raw)
+}
+
+// NormalizeGatewayFlag is the one validation both gateway flags share, so
+// the two cannot come to accept different things.
+func NormalizeGatewayFlag(flagName, raw string) (string, error) {
 	// The literal empty string, and only that, means "not configured": it is
 	// what an unset flag defaulting to GatewayEnvDefault() carries when
 	// COSTCREW_GATEWAY is not set either. Anything else that trims down to
@@ -406,7 +582,7 @@ func NormalizeGateway(raw string) (string, error) {
 	trimmed := strings.TrimSpace(raw)
 	u, err := url.Parse(trimmed)
 	if trimmed == "" || err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-		return "", fmt.Errorf("-gateway %q is not an http(s) URL", raw)
+		return "", fmt.Errorf("%s %q is not an http(s) URL", flagName, raw)
 	}
 	return strings.TrimRight(trimmed, "/"), nil
 }
@@ -417,6 +593,15 @@ func NormalizeGateway(raw string) (string, error) {
 // tools/run keeps a one-line wrapper of the old unexported name.
 func GatewayEnvDefault() string {
 	return strings.TrimSpace(os.Getenv("COSTCREW_GATEWAY"))
+}
+
+// GatewayOpenAIEnvDefault backs -gateway-openai's default with
+// COSTCREW_GATEWAY_OPENAI, the same way GatewayEnvDefault backs -gateway: the
+// gateway that fronts the OpenAI wire is a second TokenFuse process (its
+// TOKENFUSE_WIRE is openai), so it is a second setting rather than the same
+// URL on another path.
+func GatewayOpenAIEnvDefault() string {
+	return strings.TrimSpace(os.Getenv("COSTCREW_GATEWAY_OPENAI"))
 }
 
 // GatewayBudgetUSD is the tighter of a run's ceiling and one call's own

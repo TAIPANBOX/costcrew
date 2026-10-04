@@ -40,9 +40,10 @@ import (
 // agent id TokenFuse's own trace, and the console's own bus, would not
 // recognise as the same installation. main.go's run() requires -stack-host
 // whenever -gateway is set, before this is ever called.
-func gatewayFor(url, runID, host, analystName, budgetUSD string) deliver.Gateway {
+func gatewayFor(url, openaiURL, runID, host, analystName, budgetUSD string) deliver.Gateway {
 	return deliver.Gateway{
 		URL:       url,
+		OpenAIURL: openaiURL,
 		RunID:     runID,
 		AgentID:   stack.AgentURI(host, analystName),
 		BudgetUSD: budgetUSD,
@@ -78,7 +79,7 @@ func budgetUSDFor(worstMicros int64) string {
 // unlike tools/run's spend(), which continues other tasks and marks one
 // blocked on the board, this bench has no board and no per-case retry story
 // to fall back on -- see the report's own NOT PROVEN line.
-func scoreLive(db *sql.DB, cases []knownCase, engine, model string, p engines.Price, maxTok int, gatewayURL, host string) ([]caseResult, error) {
+func scoreLive(db *sql.DB, cases []knownCase, engine, model string, p engines.Price, maxTok int, gatewayURL, gatewayOpenAIURL, host string) ([]caseResult, error) {
 	worst, err := worstCaseMicros(db, cases, engine, model, p, maxTok)
 	if err != nil {
 		return nil, err
@@ -93,7 +94,7 @@ func scoreLive(db *sql.DB, cases []knownCase, engine, model string, p engines.Pr
 
 	out := make([]caseResult, 0, len(cases))
 	for _, c := range cases {
-		gw := gatewayFor(gatewayURL, runID, host, c.Analyst.Name, budgetUSD)
+		gw := gatewayFor(gatewayURL, gatewayOpenAIURL, runID, host, c.Analyst.Name, budgetUSD)
 		sent := promptFor(db, c.Anomaly, c.Analyst)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)

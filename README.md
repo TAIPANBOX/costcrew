@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/TAIPANBOX/costcrew/actions/workflows/ci.yml/badge.svg)](https://github.com/TAIPANBOX/costcrew/actions/workflows/ci.yml)
 ![Go](https://img.shields.io/badge/go-1.27-00ADD8.svg)
-![tests](https://img.shields.io/badge/tests-889-brightgreen.svg)
+![tests](https://img.shields.io/badge/tests-918-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)
 ![Status](https://img.shields.io/badge/enforces-nothing%20by%20design-success.svg)
 
@@ -261,9 +261,9 @@ estate-gates repository's own PROVEN record:
 ## Gates
 
 ```sh
-go test ./...                        # 889 tests, 20 packages
+go test ./...                        # 918 tests, 20 packages
 ./scripts/features-are-bound.sh      # every scenario bound to a named test, both ways
-./scripts/gates-have-teeth.sh        # 118 cases: each gate is made to fail on purpose
+./scripts/gates-have-teeth.sh        # 136 cases: each gate is made to fail on purpose
 gofmt -l . && go vet ./...
 ```
 
@@ -286,8 +286,9 @@ service, day, kind and cause, beside the cost per task:
 go run ./tools/bench -dir ./local -skill triage -engine mock
 ```
 
-`-live` calls a real model, needs a real key, and needs `-gateway` and
-`-stack-host` together: the bench's spend is metered through TokenFuse
+`-live` calls a real model, needs a real key, and needs a gateway that fronts
+the engine's wire (`-gateway` for anthropic, `-gateway-openai` for openrouter)
+and `-stack-host` together: the bench's spend is metered through TokenFuse
 exactly like the crew's, the same one call path `tools/run` uses
 (`internal/deliver.Call`), and the agent id it is filed under must name this
 installation's own trust domain rather than the bare package default.

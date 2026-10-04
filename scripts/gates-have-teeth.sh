@@ -1687,6 +1687,156 @@ run_case 'supervisor: the T.anomaly boundary spelled another way is not a fault'
 	internal/finops/supervise.go \
 	$'withinThreshold := top.FigureCents <= tAnomaly.ValueCents' \
 	$'withinThreshold := top.FigureCents < tAnomaly.ValueCents+1'
+# Invariant 54: a call goes through the gateway that fronts its engine's wire,
+# or is refused; it never goes direct while a gateway is configured.
+run_case 'gateway route: an openrouter call ignores the gateway again' \
+	fail \
+	./internal/deliver \
+	$'TestAGatewayIsNeverSilentlyIgnoredForAnOpenRouterCall' \
+	$'the gateway was ignored and the spend left it' \
+	internal/deliver/call.go \
+	$'	if !g.On() {\n		return "", nil\n	}' \
+	$'	if !g.On() || engine == "openrouter" {\n		return "", nil\n	}'
+run_case 'gateway route: bedrock is let through to AWS with a gateway on' \
+	fail \
+	./internal/deliver \
+	$'TestABedrockCallWithAGatewayConfiguredIsRefused' \
+	$'want one wrapping ErrNoGatewayRoute' \
+	internal/deliver/call.go \
+	$'	case "bedrock":\n		return "", fmt.Errorf("%w: engine %q speaks neither wire' \
+	$'	case "bedrock-disabled":\n		return "", fmt.Errorf("%w: engine %q speaks neither wire'
+run_case 'gateway route: Call stops asking whether the engine has a route' \
+	fail \
+	./internal/deliver \
+	$'TestACallWithNoGatewayRouteForItsEngineIsRefusedBeforeAnyRequest' \
+	$'want one wrapping ErrNoGatewayRoute' \
+	internal/deliver/call.go \
+	$'	if _, err := gw.RouteFor(engine); err != nil {' \
+	$'	if _, err := gw.RouteFor(engine); err != nil && false {'
+run_case 'gateway route: the openrouter URL is always the direct host' \
+	fail \
+	./internal/deliver \
+	$'TestAnOpenRouterRequestThroughTheGatewayCarriesTheSameFuseHeaders' \
+	$'want the OpenAI-shaped gateway' \
+	internal/deliver/call.go \
+	$'	if base == "" {' \
+	$'	if true {'
+run_case 'gateway route: the x-fuse headers are left off the OpenAI request' \
+	fail \
+	./internal/deliver \
+	$'TestAnOpenRouterRequestThroughTheGatewayCarriesTheSameFuseHeaders' \
+	$'on the OpenAI request and' \
+	internal/deliver/call.go \
+	$'	if routed {\n		SetFuseHeaders(req, gw)' \
+	$'	if routed && false {\n		SetFuseHeaders(req, gw)'
+run_case 'gateway route: the OpenAI door'"'"'s settlement is not read' \
+	fail \
+	./internal/deliver \
+	$'TestCallOpenRouterCarriesTheGatewaysSettlementOnItsResult' \
+	$'want true/58110' \
+	internal/deliver/call.go \
+	$'	if gw.OpenAIURL != "" {\n		st = ParseSettlement(resp.Header)' \
+	$'	if false {\n		st = ParseSettlement(resp.Header)'
+run_case 'gateway route: a header on the direct openrouter route becomes a charge' \
+	fail \
+	./internal/deliver \
+	$'TestASettlementHeaderOnTheDirectOpenRouterRouteIsNeverACharge' \
+	$'a settlement was read off a direct call' \
+	internal/deliver/call.go \
+	$'	if gw.OpenAIURL != "" {\n		st = ParseSettlement(resp.Header)' \
+	$'	if true {\n		st = ParseSettlement(resp.Header)'
+run_case 'gateway route: a 402 from the OpenAI gateway is an ordinary failure' \
+	fail \
+	./internal/deliver \
+	$'TestA402FromTheOpenAIGatewayIsAGatewayRefusal' \
+	$'want a GatewayRefusal' \
+	internal/deliver/call.go \
+	$'	if resp.StatusCode == http.StatusPaymentRequired && gw.OpenAIURL != "" {' \
+	$'	if resp.StatusCode == http.StatusPaymentRequired && gw.OpenAIURL != "" && false {'
+run_case 'gateway route: the run preflight lets an unfronted engine through' \
+	fail \
+	./tools/run \
+	$'TestAnEngineNoConfiguredGatewayFrontsRefusesTheRunBeforeTheFirstCall' \
+	$'was let through' \
+	tools/run/live.go \
+	$'	if !gw.on() {\n		return nil\n	}\n	probe' \
+	$'	if true {\n		return nil\n	}\n	probe'
+run_case 'gateway route: the tool loop stops asking whether the engine has a route' \
+	fail \
+	./tools/run \
+	$'TestAnAnthropicTaskWithOnlyAnOpenAIGatewayIsRefusedAndNeverGoesDirect' \
+	$'reached [api.anthropic.com]' \
+	tools/run/loop.go \
+	$'	if _, err := gw.RouteFor(e.Engine); err != nil {' \
+	$'	if _, err := gw.RouteFor(e.Engine); err != nil && false {'
+run_case 'gateway route: the openrouter round ignores the gateway (the unfixed loop)' \
+	fail \
+	./tools/run \
+	$'TestAnOpenRouterTaskThroughTheOpenAIGatewayIsChargedItsSettlementPerRound' \
+	$'reached the direct endpoint' \
+	internal/deliver/call.go \
+	$'	if base == "" {' \
+	$'	if true {'
+run_case 'gateway route: the supervisor'"'"'s ask is not given the OpenAI gateway' \
+	fail \
+	./internal/web \
+	$'TestAskPlanForAnOpenRouterSupervisorGoesThroughTheOpenAIGateway' \
+	$'saw 0 request' \
+	internal/web/planning.go \
+	$'URL: s.gateway, OpenAIURL: s.gatewayOpenAI, RunID: runID,' \
+	$'URL: s.gateway, RunID: runID,'
+run_case 'gateway route: the bench stops checking the route before the store opens' \
+	fail \
+	./tools/bench \
+	$'TestLiveOpenRouterWithOnlyAnAnthropicGatewayRefusesBeforeTheStoreOpens' \
+	$'the store was opened before the route was checked' \
+	tools/bench/main.go \
+	$'(deliver.Gateway{URL: gatewayURL, OpenAIURL: gatewayOpenAIURL}).RouteFor(*engine); err != nil {' \
+	$'(deliver.Gateway{URL: gatewayURL, OpenAIURL: gatewayOpenAIURL}).RouteFor(*engine); err != nil && false {'
+# And the non-fault: rewording the sentence of a refusal is not a fault; the
+# gates hold the type and the engine's name, not the prose.
+run_case 'gateway route: rewording a refusal is not a fault' \
+	pass \
+	./internal/deliver \
+	$'TestACallWithNoGatewayRouteForItsEngineIsRefusedBeforeAnyRequest' \
+	$'' \
+	internal/deliver/call.go \
+	$'speaks the Anthropic wire and only an OpenAI-shaped ' \
+	$'speaks the Anthropic wire, and only an OpenAI-shaped '
+
+# Invariant 55 (costcrew#82): a task the gateway stopped keeps what it settled.
+run_case 'stopped task: an unanswered round erases the settled ones before it' \
+	fail \
+	./tools/run \
+	$'TestAStoppedTaskRecordsWhatTheGatewaySettledForItsRounds' \
+	$'want 200000' \
+	tools/run/loop.go \
+	$'	if err != nil && !rr.answered() {' \
+	$'	if false && err != nil && !rr.answered() {'
+run_case 'stopped task: the error path books nothing' \
+	fail \
+	./tools/run \
+	$'TestAStoppedTaskRecordsWhatTheGatewaySettledForItsRounds' \
+	$'want 200000' \
+	tools/run/live.go \
+	$'		if charge > 0 {' \
+	$'		if charge > 0 && false {'
+run_case 'stopped task: every unsettled round is skipped, not only an unanswered one' \
+	fail \
+	./tools/run \
+	$'TestARoundThatAnsweredWithoutAHeaderStillMakesTheTaskPricedByTheRunner' \
+	$'a third kind of number' \
+	tools/run/loop.go \
+	$'	if err != nil && !rr.answered() {' \
+	$'	if !rr.Settlement.Settled {'
+run_case 'stopped task: the headline hides a gateway total above the booked one' \
+	fail \
+	./tools/run \
+	$'TestTheHeadlineSaysWhenTheGatewaysTotalIsHigherThanWhatWasBooked' \
+	$'does not name the gap' \
+	tools/run/live.go \
+	$'		if gwSpent > run.total() {' \
+	$'		if gwSpent > run.total() && false {'
 
 echo
 if [ -n "$(git status --porcelain)" ]; then
