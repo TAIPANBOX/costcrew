@@ -34,13 +34,20 @@ never:
   - "contact a vendor"
   - "send a message to a person outside the crew"
   - "invent a number it was not given"
-# ROLES-2026-09.md's own sentence carries a sixth clause the spec's schema
-# does not count among "the five nevers" ("act on a task somebody blocked"):
-# it is a different KIND of rule, about respecting a stop signal rather than
-# about overstepping decision authority, and it is what the supervisor's own
-# never_also elaborates on (never re-route past a block). Kept here, verbatim
-# and in full, for the card and the prompt; never: above is the five-item,
-# gated list scripts/roles-are-bound.sh and MayDecide both use.
+  - "act on a task somebody blocked"
+# `@decided 2026-10-04`: the sixth clause of ROLES-2026-09.md's own sentence,
+# "act on a task somebody blocked", is in the list now. It had been kept out of
+# the five-item list because it is a different KIND of rule, about respecting a
+# stop signal rather than about overstepping decision authority (it is what the
+# supervisor's own never_also elaborates on: never re-route past a block), and
+# because nothing here enforced it. The runner does: tools/run's workable()
+# drops every blocked task before anything is priced or called, and a person
+# unblocking it is the only way back. never_bound below names the test that
+# holds it, and scripts/roles-are-bound.sh refuses a binding whose clause left
+# the list or whose test no longer exists.
+never_bound:
+  - verb: "act on a task somebody blocked"
+    test: "TestABlockedTaskIsNotWorkedAround"
 never_full_text: "commit money, change a resource, contact a vendor, send a message to a person outside the crew, invent a number it was not given, or act on a task somebody blocked."
 
 # The seven thresholds were drafted `@claude 2026-09-02` and decided
@@ -282,7 +289,7 @@ roles:
     cadence: "fortnightly"
     audience: "the teams on {desk}"
     owes: "a brief per team in that team's words: what moved, why, what is proposed, what is asked of them."
-    decides_alone: []
+    decides_alone: ["commentary.variance", "commentary.showback"]
     decides_alone_text: "the brief's text."
     hands_up: ["message.team", "policy.exception"]
     hands_up_text: "message.team (the sending is the owner's, until a team has agreed in writing to receive the crew's briefs, which is a policy.exception the owner records once); any question from a team that is a decision."
@@ -297,7 +304,7 @@ roles:
     cadence: "weekly"
     audience: "the AI desk; the exec pack through the exec reporter"
     owes: "cost per agent and per model with the trend; a recommendation.commitment-shaped option list for model routing (which calls could move to a cheaper model and what it would cost in outcome); the guard's savings stated as a figure."
-    decides_alone: []
+    decides_alone: ["commentary.variance"]
     decides_alone_text: "the analysis and the ranked options."
     hands_up: ["infra.change"]
     hands_up_text: "any option that changes a route (an infra.change in the gateway's terms, made by a person)."
@@ -417,7 +424,7 @@ roles:
     cadence: "fortnightly"
     audience: "the executive pack"
     owes: "the pack: four numbers, each with its reason from a posted explanation and never from a template; the decisions waiting on people."
-    decides_alone: []
+    decides_alone: ["commentary.variance"]
     decides_alone_text: "the pack's text."
     hands_up: ["explainer.publish", "message.team"]
     hands_up_text: "explainer.publish and message.team."
@@ -433,6 +440,7 @@ roles:
     audience: "the executive pack"
     owes: "the evidence pack, rule by rule, followed or not, with the row that shows it."
     decides_alone: []
+    decides_alone_exempt: "its pack is evidence in text, rule by rule, and no decision class describes an evidence pack; the one consequence it can have, a policy.exception, is the owner's to record or end and is handed up, so nothing is decided alone."
     decides_alone_text: "the pack."
     hands_up: ["policy.exception"]
     hands_up_text: "any policy.exception it finds (the owner records it or ends it)."
@@ -448,6 +456,7 @@ roles:
     audience: "the supervisor"
     owes: "the freshness and coverage report; a halt request naming the desk and the reason when a threshold (T.stale, T.untagged) is crossed."
     decides_alone: []
+    decides_alone_exempt: "its report is freshness and coverage figures in text, which no decision class describes; the one consequence it can have, stopping a desk's crew (data.halt), is the supervisor's and is handed up, so nothing is decided alone."
     decides_alone_text: "the report."
     hands_up: ["data.halt"]
     hands_up_text: "data.halt (the supervisor suspends the desk's tasks on this finding, and tells the owner only if it lasts past T.stale_days)."
@@ -463,8 +472,10 @@ roles:
     audience: "the FinOps lead"
     owes: "a comparison only where a named public figure exists; \"no fair comparison exists\" in those words otherwise."
     decides_alone: []
+    decides_alone_exempt: "its output is a comparison against a named public figure, in text, which no decision class describes, and it is onboarding: it produces nothing until a public dataset is named."
     decides_alone_text: "the comparison."
     hands_up: []
+    hands_up_exempt: "it is onboarding and produces nothing until a public dataset is named, so there is nothing to hand up; this exemption ends the day it is activated."
     hands_up_text: "nothing; it stays onboarding until a public dataset is named."
     quality_bar: ""
 
@@ -478,8 +489,9 @@ roles:
     audience: "the executive pack"
     owes: "per-provider figures with the provider's factor and the sentence that they are not comparable across providers."
     decides_alone: []
+    decides_alone_exempt: "it is restricted to propose only, and its report is per-provider figures in text, which no decision class describes; publishing is handed up, so nothing is decided alone."
     decides_alone_text: "the report's text."
-    hands_up: []
+    hands_up: ["explainer.publish"]
     hands_up_text: "publishing anything (it is restricted: propose only)."
     quality_bar: ""
 
@@ -494,7 +506,7 @@ roles:
     owes: "the root cause with the evidence chain, or the scenarios with their assumptions listed."
     decides_alone: ["task.block"]
     decides_alone_text: "the analysis; task.block when the guard would be crossed."
-    hands_up: []
+    hands_up: ["agent.*"]
     hands_up_text: "its own guard, always (it is the one analyst whose monthly ceiling is expected to bind)."
     quality_bar: ""
 
@@ -508,8 +520,10 @@ roles:
     audience: "the FinOps lead"
     owes: "nothing until the owner decides an intake should exist (C10)."
     decides_alone: []
+    decides_alone_exempt: "the intake queue was retired by decision, so this role does no work today and decides nothing; it has a list again the day the owner decides an intake should exist."
     decides_alone_text: "none; the card says why."
     hands_up: []
+    hands_up_exempt: "the intake queue was retired by decision, so this role does no work today and hands nothing up; it has a list again the day the owner decides an intake should exist."
     hands_up_text: "none; the card says why."
     quality_bar: ""
     note: "ROLES-2026-09.md gives this role no Cadence/audience bullet, since it does no work today. Cadence and audience above keep the pre-existing seeded default (weekly, the FinOps lead) so every analyst still reports a cadence, per TestEverySeededAnalystArrivesWithAMandate."
@@ -525,7 +539,7 @@ roles:
     owes: "the weekly delta against plan; a driver.one-time when a step lands."
     decides_alone: ["driver.one-time"]
     decides_alone_text: "the delta note; driver.one-time."
-    hands_up: []
+    hands_up: ["anomaly.accept"]
     hands_up_text: "a step that costs more than T.migration over plan."
     quality_bar: ""
     note: "Suspended since its migration finished on 2026-07-31; kept for its history. ROLES-2026-09.md gives this role no Cadence/audience bullet; cadence \"weekly\" is read off its own Owes text (\"the weekly delta\"), and audience keeps the pre-existing seeded default for a non-management desk (the desk itself)."

@@ -1766,6 +1766,101 @@ run_case 'supervisor: the T.anomaly boundary spelled another way is not a fault'
 	internal/finops/supervise.go \
 	$'withinThreshold := top.FigureCents <= tAnomaly.ValueCents' \
 	$'withinThreshold := top.FigureCents < tAnomaly.ValueCents+1'
+# Invariant 57: every analyst family has its class lists, and the never list
+# carries the blocked-task clause, bound to the test that holds it. Each
+# property of the shell gate gets one case that switches that property off and
+# requires the Go test that plants its fault to go red; two cases undo the data
+# (a list emptied, an exemption renamed away); one never-binding case undoes the
+# binding; and one non-fault, a reasoned exemption in other words.
+run_case $'job descriptions: a family decides_alone goes back to empty' \
+	fail \
+	./internal/crew \
+	$'TestTheDecidesAloneListsAreWrittenFromTheProse' \
+	$'finops-partner decides_alone = []' \
+	internal/crew/roles.yaml \
+	$'    decides_alone: ["commentary.variance", "commentary.showback"]\n    decides_alone_text: "the brief\'s text."' \
+	$'    decides_alone: []\n    decides_alone_text: "the brief\'s text."'
+run_case $'job descriptions: an exemption is renamed so the gate cannot read it' \
+	fail \
+	./internal/crew \
+	$'TestRolesAreBound' \
+	$'EMPTY LIST          sustainability-analyst has an empty decides_alone' \
+	internal/crew/roles.yaml \
+	$'decides_alone_exempt: "it is restricted' \
+	$'decides_alone_exemptx: "it is restricted'
+run_case $'job descriptions: the shell gate stops refusing an empty list' \
+	fail \
+	./internal/crew \
+	$'TestRolesAreBoundRefusesAnEmptyDecidesAlone' \
+	$'but not saying "EMPTY LIST' \
+	scripts/roles-are-bound.sh \
+	$'		if [ -z "$list" ] && [ -z "$exempt" ]; then' \
+	$'		if false; then'
+run_case $'job descriptions: the shell gate accepts an exemption of any length' \
+	fail \
+	./internal/crew \
+	$'TestRolesAreBoundRefusesAnExemptionTooThinToBeAReason' \
+	$'the gate passed, want it to refuse' \
+	scripts/roles-are-bound.sh \
+	$'elif [ -z "$list" ] && [ "${#exempt}" -lt "$min_reason" ]; then' \
+	$'elif false; then'
+run_case $'job descriptions: the shell gate keeps an exemption beside a written list' \
+	fail \
+	./internal/crew \
+	$'TestRolesAreBoundRefusesAnExemptionBesideAListThatIsNotEmpty' \
+	$'the gate passed, want it to refuse' \
+	scripts/roles-are-bound.sh \
+	$'elif [ -n "$list" ] && [ -n "$exempt" ]; then' \
+	$'elif false; then'
+run_case $'job descriptions: the shell gate lets an analyst decide a class it does not own' \
+	fail \
+	./internal/crew \
+	$'TestRolesAreBoundRefusesAnAnalystDecidingAClassItDoesNotOwn' \
+	$'the gate passed, want it to refuse' \
+	scripts/roles-are-bound.sh \
+	$'		if [ "$own" != "analyst" ]; then' \
+	$'		if false; then'
+run_case $'never list: a binding to a test that does not exist is accepted' \
+	fail \
+	./internal/crew \
+	$'TestRolesAreBoundRefusesANeverBindingWhoseTestIsGone' \
+	$'the gate passed, want it to refuse' \
+	scripts/roles-are-bound.sh \
+	$'	if [ -z "$tname" ] || ! grep -rqE "func ${tname}\\(" internal/ tools/ 2>/dev/null; then' \
+	$'	if false; then'
+run_case $'never list: a binding for a clause that left the list is accepted' \
+	fail \
+	./internal/crew \
+	$'TestRolesAreBoundRefusesANeverBindingWhoseClauseWasTakenOut' \
+	$'the gate passed, want it to refuse' \
+	scripts/roles-are-bound.sh \
+	$'	if ! printf '"'"'%s\n'"'"' "$never_list" | grep -qxF "$verb"; then' \
+	$'	if false; then'
+run_case $'never list: the blocked-task clause leaves the list' \
+	fail \
+	./internal/crew \
+	$'TestTheNeverListCarriesTheBlockedClause' \
+	$'never_bound names' \
+	internal/crew/roles.yaml \
+	$'  - "act on a task somebody blocked"\n' \
+	$''
+run_case $'never list: the blocked-task clause loses its binding' \
+	fail \
+	./internal/crew \
+	$'TestTheBlockedClauseIsBoundToTheRunnersTest' \
+	$'is bound to ""' \
+	internal/crew/roles.yaml \
+	$'never_bound:\n  - verb: "act on a task somebody blocked"\n    test: "TestABlockedTaskIsNotWorkedAround"\n' \
+	$'never_bound: []\n'
+run_case $'job descriptions: an exemption reworded is not a fault' \
+	pass \
+	./internal/crew \
+	$'^TestRolesAreBound$' \
+	$'' \
+	internal/crew/roles.yaml \
+	$'hands_up_exempt: "it is onboarding and produces nothing until a public dataset is named, so there is nothing to hand up; this exemption ends the day it is activated."' \
+	$'hands_up_exempt: "this family hands nothing up today, for a reason written out in full so that a later reader can judge it."'
+
 # Invariant 54: a call goes through the gateway that fronts its engine's wire,
 # or is refused; it never goes direct while a gateway is configured.
 run_case 'gateway route: an openrouter call ignores the gateway again' \

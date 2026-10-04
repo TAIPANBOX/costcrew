@@ -300,6 +300,120 @@ while IFS=$'\t' read -r fam classes; do
 	done
 done <<<"$decides_alone_by_family"
 
+# ------------------------------- property 5: every analyst family has its lists
+#
+# A family's decides_alone and hands_up are the CLOSED class lists the options
+# block, the card and the prompt packet all read. An empty one is not "none":
+# it is a family whose job description says what it does in prose and leaves
+# the machine nothing to check an option against, which is how eight families
+# came to carry an empty decides_alone and five an empty hands_up with only
+# prose beside them. `@decided 2026-10-04`: the lists are written from the
+# prose, and an empty one is refused unless the family carries an explicit,
+# reasoned exemption beside it:
+#
+#     decides_alone_exempt: "why this family decides nothing alone"
+#     hands_up_exempt:      "why this family hands nothing up"
+#
+# The exemption is for a family whose job truly has nothing to list (a retired
+# queue, an onboarding role, a report that is only text). It is refused when it
+# is too short to be a reason, and refused when the list beside it is not empty
+# (an exemption left behind after the list was written is a stale claim).
+#
+# Only analyst-link families are held to this. The supervisor's own authority is
+# its decides_alone plus hands_to_owner (property 4), and its hands_up is empty
+# by design: there is nobody between it and the owner.
+#
+# fam, link, decides_alone, decides_alone_exempt, hands_up, hands_up_exempt, one
+# line per role, separated by the ASCII unit separator and not a tab: `read`
+# folds a run of tab delimiters into one, which would slide every field after
+# an empty one (an empty list is exactly the case this property is about).
+family_lists="$(awk '
+	function flush() {
+		if (fam != "") print fam "\037" link "\037" da "\037" dax "\037" hu "\037" hux
+		fam=""; link=""; da=""; dax=""; hu=""; hux=""
+	}
+	/^roles:/ { sect="roles"; next }
+	/^[a-z_]+:/ { if (sect=="roles") flush(); sect=""; next }
+	sect=="roles" && /^  - family: / { flush(); fam=$0; sub(/^  - family: "/,"",fam); sub(/"$/,"",fam); next }
+	sect=="roles" && /^    link: /                 { link=$0; sub(/^    link: "/,"",link); sub(/"$/,"",link); next }
+	sect=="roles" && /^    decides_alone: /        { da=$0; sub(/^    decides_alone: \[/,"",da); sub(/\]$/,"",da); gsub(/"/,"",da); gsub(/, /,",",da); next }
+	sect=="roles" && /^    decides_alone_exempt: / { dax=$0; sub(/^    decides_alone_exempt: "/,"",dax); sub(/"$/,"",dax); next }
+	sect=="roles" && /^    hands_up: /             { hu=$0; sub(/^    hands_up: \[/,"",hu); sub(/\]$/,"",hu); gsub(/"/,"",hu); gsub(/, /,",",hu); next }
+	sect=="roles" && /^    hands_up_exempt: /      { hux=$0; sub(/^    hands_up_exempt: "/,"",hux); sub(/"$/,"",hux); next }
+	END { if (sect=="roles") flush() }
+' "$ROLES")"
+
+min_reason=40
+while IFS=$'\037' read -r fam link da dax hu hux; do
+	[ -z "$fam" ] && continue
+	[ "$link" = "analyst" ] || continue
+	for pair in "decides_alone|$da|$dax" "hands_up|$hu|$hux"; do
+		IFS='|' read -r field list exempt <<<"$pair"
+		if [ -z "$list" ] && [ -z "$exempt" ]; then
+			printf 'EMPTY LIST          %s has an empty %s and no %s_exempt reason; write the list from its prose or give the exemption\n' \
+				"$fam" "$field" "$field"
+			fail=$((fail + 1))
+		elif [ -z "$list" ] && [ "${#exempt}" -lt "$min_reason" ]; then
+			printf 'THIN EXEMPTION      %s: %s_exempt is %d characters, under the %d that make a reason\n' \
+				"$fam" "$field" "${#exempt}" "$min_reason"
+			fail=$((fail + 1))
+		elif [ -n "$list" ] && [ -n "$exempt" ]; then
+			printf 'STALE EXEMPTION     %s lists %s and also carries %s_exempt; take the exemption out\n' \
+				"$fam" "$field" "$field"
+			fail=$((fail + 1))
+		fi
+	done
+done <<<"$family_lists"
+
+# An analyst-link family decides alone only a class the ANALYST link owns: a
+# class owned by the supervisor or the owner is by definition not its to decide.
+while IFS=$'\037' read -r fam link da dax hu hux; do
+	[ -z "$fam" ] && continue
+	[ "$link" = "analyst" ] || continue
+	[ -z "$da" ] && continue
+	IFS=',' read -ra classarr <<<"$da"
+	for c in "${classarr[@]}"; do
+		own="$(printf '%s\n' "$classes_owners" | awk -F'\t' -v id="$c" '$1==id{print $2; exit}')"
+		if [ "$own" != "analyst" ]; then
+			printf 'NOT THE ANALYST'"'"'S    %s decides %s alone, but that class is owned by %s\n' "$fam" "$c" "${own:-nobody (not a class)}"
+			fail=$((fail + 1))
+		fi
+	done
+done <<<"$family_lists"
+
+# ----------------------------------------- property 6: the never list is bound
+#
+# never_bound pairs a never: entry with the test that holds it. Only a clause
+# this repository can actually enforce carries a pair ("act on a task somebody
+# blocked": the runner takes no blocked task); the rest of the list is the
+# prompt's wording and the class ownership of purchase, infra.change and
+# vendor.negotiate, and is not claimed here. A pair is refused when its verb is
+# not in never: (a binding for a clause that was taken out) or its test does not
+# exist (the pointer rotted), the same two directions features-are-bound.sh
+# holds for a scenario.
+never_list="$(awk '
+	/^never:/ { sect="never"; next }
+	/^[a-z_]+:/ { sect=""; next }
+	sect=="never" && /^  - "/ { v=$0; sub(/^  - "/,"",v); sub(/"$/,"",v); print v }
+' "$ROLES")"
+never_bound="$(awk '
+	/^never_bound:/ { sect="nb"; next }
+	/^[a-z_]+:/ { sect=""; next }
+	sect=="nb" && /^  - verb: / { v=$0; sub(/^  - verb: "/,"",v); sub(/"$/,"",v) }
+	sect=="nb" && /^    test: / { t=$0; sub(/^    test: "/,"",t); sub(/"$/,"",t); print v "\t" t }
+' "$ROLES")"
+while IFS=$'\t' read -r verb tname; do
+	[ -z "$verb" ] && continue
+	if ! printf '%s\n' "$never_list" | grep -qxF "$verb"; then
+		printf 'BINDING WITHOUT CLAUSE  never_bound names %s, which never: does not list\n' "$verb"
+		fail=$((fail + 1))
+	fi
+	if [ -z "$tname" ] || ! grep -rqE "func ${tname}\(" internal/ tools/ 2>/dev/null; then
+		printf 'DANGLING NEVER      never_bound pairs %s with %s, which names no test\n' "$verb" "${tname:-nothing}"
+		fail=$((fail + 1))
+	fi
+done <<<"$never_bound"
+
 # --------------------------------------- property 4: supervisor hands to owner
 
 owner_classes="$(printf '%s\n' "$classes_owners" | awk -F'\t' '$2=="owner"{print $1}' | sort -u)"

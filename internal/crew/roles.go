@@ -147,9 +147,15 @@ type JobDescription struct {
 
 	DecidesAlone     []string `yaml:"decides_alone"`
 	DecidesAloneText string   `yaml:"decides_alone_text"`
-	HandsUp          []string `yaml:"hands_up"`
-	HandsUpText      string   `yaml:"hands_up_text"`
-	QualityBar       string   `yaml:"quality_bar"`
+	// DecidesAloneExempt and HandsUpExempt are the reason a family's list is
+	// empty: a family whose job truly has nothing to list carries one, and
+	// scripts/roles-are-bound.sh refuses an empty list with none, and a
+	// non-empty list with one.
+	DecidesAloneExempt string   `yaml:"decides_alone_exempt"`
+	HandsUp            []string `yaml:"hands_up"`
+	HandsUpText        string   `yaml:"hands_up_text"`
+	HandsUpExempt      string   `yaml:"hands_up_exempt"`
+	QualityBar         string   `yaml:"quality_bar"`
 	// Note is a verbatim aside the card and the prompt show beneath the eight
 	// fields when it is not empty: why a probation-era role has no cadence
 	// bullet, why an on-prem variant repeats a cloud one, and so on.
@@ -178,8 +184,15 @@ func (r JobDescription) ForDesk(desk string) JobDescription {
 	return r
 }
 
+// NeverBinding pairs one clause of the never list with the test that holds it.
+type NeverBinding struct {
+	Verb string `yaml:"verb"`
+	Test string `yaml:"test"`
+}
+
 type rolesFile struct {
 	Never         []string         `yaml:"never"`
+	NeverBound    []NeverBinding   `yaml:"never_bound"`
 	NeverFullText string           `yaml:"never_full_text"`
 	Thresholds    []Threshold      `yaml:"thresholds"`
 	Classes       []JobClass       `yaml:"classes"`
@@ -219,6 +232,18 @@ func mustLoadRoles() rolesFile {
 	for _, c := range rf.Classes {
 		if c.UpTo != "" && !thresholdNames[c.UpTo] {
 			panic(fmt.Sprintf("internal/crew/roles.yaml: class %q names threshold %q, which thresholds: does not define", c.ID, c.UpTo))
+		}
+	}
+	neverClauses := map[string]bool{}
+	for _, v := range rf.Never {
+		neverClauses[v] = true
+	}
+	for _, nb := range rf.NeverBound {
+		if !neverClauses[nb.Verb] {
+			panic(fmt.Sprintf("internal/crew/roles.yaml: never_bound names %q, which never: does not list", nb.Verb))
+		}
+		if nb.Test == "" {
+			panic(fmt.Sprintf("internal/crew/roles.yaml: never_bound for %q names no test", nb.Verb))
 		}
 	}
 	for _, r := range rf.Roles {
@@ -282,13 +307,19 @@ func AllClasses() []JobClass { return append([]JobClass(nil), roles.Classes...) 
 // AllRoles is every role family, in the order roles.yaml declares them.
 func AllRoles() []JobDescription { return append([]JobDescription(nil), roles.Roles...) }
 
-// Never is the five verbs every role in the crew never does, written once and
-// rendered identically on every card and in every prompt.
+// Never is the verbs every role in the crew never does, written once and
+// rendered identically on every card and in every prompt: the five that
+// concern decision authority and, since 2026-10-04, "act on a task somebody
+// blocked", which the runner enforces.
 func Never() []string { return append([]string(nil), roles.Never...) }
 
+// NeverBindings is the never clauses this repository holds with a named test,
+// in the order roles.yaml declares them.
+func NeverBindings() []NeverBinding { return append([]NeverBinding(nil), roles.NeverBound...) }
+
 // NeverFullText is ROLES-2026-09.md's complete "Never, for every role"
-// sentence, including the sixth clause ("act on a task somebody blocked")
-// that is not part of the five-item, gated Never() list. For display only.
+// sentence, all six clauses, as the card and the prompt show it. Never() lists
+// the same six. For display only.
 func NeverFullText() string { return roles.NeverFullText }
 
 // ThresholdFor looks up one named threshold.
