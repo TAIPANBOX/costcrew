@@ -307,6 +307,85 @@ run_case $'roles: the file is taken away' \
 	$'cmd := exec.Command("../../scripts/roles-are-bound.sh")' \
 	$'cmd := exec.Command("../../scripts/roles-are-bound.sh")\n\tcmd.Env = append(os.Environ(), "ROLES_YAML=/nonexistent-for-teeth-test.yaml")'
 
+# Invariant 56: the thresholds are the ones the owner decided, and their
+# provenance is a closed vocabulary. Three mutants of the values (the cents
+# back at the draft, the card's text back at the draft, T.urgent back at the
+# draft), the same cents read the other way round by the supervisor's own pass,
+# two faults in the provenance gate (the loader's vocabulary and the shell
+# gate's check of it), and one non-fault.
+run_case $'thresholds: T.anomaly goes back to its draft cents' \
+	fail \
+	./internal/crew \
+	$'TestTAnomalyIsTwoAndAHalfThousand' \
+	$'want 250000' \
+	internal/crew/roles.yaml \
+	$'value_cents: 250000' \
+	$'value_cents: 500000'
+run_case $'thresholds: T.anomaly goes back to its draft cents, read by the supervisor' \
+	fail \
+	./internal/finops \
+	$'TestAnOptionOfThreeThousandDollarsIsCarriedToTheOwner' \
+	$'want 0 and 1' \
+	internal/crew/roles.yaml \
+	$'value_cents: 250000' \
+	$'value_cents: 500000'
+run_case $'thresholds: T.anomaly shows the card its draft text' \
+	fail \
+	./internal/crew \
+	$'TestTAnomalyIsTwoAndAHalfThousand' \
+	$'the card and the code disagree' \
+	internal/crew/roles.yaml \
+	$'value: "USD 2,500 per anomaly"' \
+	$'value: "USD 5,000 per anomaly"'
+run_case $'thresholds: T.urgent goes back to its draft cents' \
+	fail \
+	./internal/crew \
+	$'TestTUrgentIsTwelveAndAHalfThousand' \
+	$'want 1250000' \
+	internal/crew/roles.yaml \
+	$'value_cents: 1250000' \
+	$'value_cents: 2500000'
+run_case $'thresholds: a threshold goes back to being a draft' \
+	fail \
+	./internal/crew \
+	$'TestEveryThresholdIsMarkedDecidedOnTheDayItWasDecided' \
+	$'want it to begin @decided 2026-10-04' \
+	internal/crew/roles.yaml \
+	$'provenance: "@decided 2026-10-04, the draft value kept"' \
+	$'provenance: "@claude 2026-09-02, draft"'
+run_case $'thresholds: a provenance carries the owner'"'"'s name as its marker' \
+	fail \
+	./internal/crew \
+	$'TestRolesAreBound' \
+	$'is not a recognised provenance' \
+	internal/crew/roles.yaml \
+	$'provenance: "@decided 2026-10-04, halved from the draft'"'"'s USD 5,000"' \
+	$'provenance: "@yurii 2026-10-04"'
+run_case $'thresholds: the loader accepts any provenance at all' \
+	fail \
+	./internal/crew \
+	$'TestProvenanceVocabulary' \
+	$'accepted it, want refused' \
+	internal/crew/roles.go \
+	$'	return fmt.Errorf("provenance %.60q is not @claude, @decided YYYY-MM-DD or @measured <how> YYYY-MM-DD", s)' \
+	$'	return nil'
+run_case $'thresholds: the shell gate stops checking provenance' \
+	fail \
+	./internal/crew \
+	$'TestRolesAreBoundRefusesAThresholdWithAnUnrecognisedProvenance' \
+	$'the gate passed a threshold with' \
+	scripts/roles-are-bound.sh \
+	$'	if ! printf '"'"'%s\n'"'"' "$tprov" | grep -qE' \
+	$'	if false && ! printf '"'"'%s\n'"'"' "$tprov" | grep -qE'
+run_case $'thresholds: a measured provenance with its how and date is not a fault' \
+	pass \
+	./internal/crew \
+	$'^TestRolesAreBound$' \
+	$'' \
+	internal/crew/roles.yaml \
+	$'provenance: "@decided 2026-10-04, halved from the draft'"'"'s USD 25,000"' \
+	$'provenance: "@measured go test ./internal/crew -run TestTUrgentIsTwelveAndAHalfThousand 2026-10-04"'
+
 run_case $'connector status: every entry claims Built regardless of its reader' \
 	fail \
 	./internal/connectors \

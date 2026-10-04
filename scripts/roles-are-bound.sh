@@ -26,6 +26,14 @@
 #      "owner", plus the two named conditions
 #      (hands_to_owner_conditions in the file).
 #
+#   5. every threshold carries a provenance marker from the closed vocabulary:
+#      `@claude`, `@decided YYYY-MM-DD` or `@measured <how> YYYY-MM-DD`. A
+#      threshold with none, or with one outside the vocabulary (the owner's
+#      name as a marker, a bare "decided"), is refused. internal/crew's
+#      ValidProvenance is the fuller check (it also rejects an impossible
+#      calendar date); this one reads the shape from the shell so a person
+#      running the script sees it without building the package.
+#
 # WHY A LINE-ORIENTED READER RATHER THAN A YAML PARSER
 #
 # This machine has no YAML parser on PATH outside Go's own module (jq reads
@@ -124,8 +132,21 @@ sup_conditions="$(awk '
 	}
 ' "$ROLES")"
 
+# name<TAB>provenance, one line per threshold; the provenance is empty when the
+# threshold has no provenance line at all.
+threshold_provenance="$(awk '
+	function flush() { if (name != "" && !have) print name "\t"; name=""; have=0 }
+	/^[a-z_]+:/ { if (sect == "t") flush(); sect = ($0 ~ /^thresholds:/) ? "t" : ""; next }
+	sect=="t" && /^  - name: / { flush(); name=$0; sub(/^  - name: "/,"",name); sub(/"$/,"",name); next }
+	sect=="t" && /^    provenance: / {
+		p=$0; sub(/^    provenance: "/,"",p); sub(/"$/,"",p); print name "\t" p; have=1
+	}
+	END { if (sect == "t") flush() }
+' "$ROLES")"
+
 n_classes=$(printf '%s\n' "$classes_owners" | grep -c . || true)
 n_roles=$(printf '%s\n' "$family_matches" | grep -c . || true)
+n_thresholds=$(printf '%s\n' "$threshold_provenance" | grep -c . || true)
 
 # ----------------------------------------------- property 1: classes, code side
 
@@ -303,13 +324,24 @@ if [ "$n_conditions" -ne 2 ]; then
 	fail=$((fail + 1))
 fi
 
+# ------------------------------------------- property 5: threshold provenance
+
+while IFS=$'\t' read -r tname tprov; do
+	[ -z "$tname" ] && continue
+	if ! printf '%s\n' "$tprov" | grep -qE '^(@claude( .*)?|@decided [0-9]{4}-[0-9]{2}-[0-9]{2}([ ,].*)?|@measured .+ [0-9]{4}-[0-9]{2}-[0-9]{2})$'; then
+		printf 'UNRECOGNISED PROVENANCE  threshold %s carries %s; want @claude, @decided YYYY-MM-DD or @measured <how> YYYY-MM-DD\n' \
+			"$tname" "${tprov:-no provenance line}"
+		fail=$((fail + 1))
+	fi
+done <<<"$threshold_provenance"
+
 echo
-if [ "$n_classes" -eq 0 ] || [ "$n_roles" -eq 0 ]; then
-	echo "measured nothing: $ROLES parsed to 0 classes or 0 roles, which is a" >&2
+if [ "$n_classes" -eq 0 ] || [ "$n_roles" -eq 0 ] || [ "$n_thresholds" -eq 0 ]; then
+	echo "measured nothing: $ROLES parsed to 0 classes, 0 roles or 0 thresholds, which is a" >&2
 	echo "failure of this script's own reading, not a clean bill of health." >&2
 	exit 1
 fi
-printf 'roles: %d classes, %d roles, %d roster names, %d broken\n' "$n_classes" "$n_roles" "$n_roster" "$fail"
+printf 'roles: %d classes, %d roles, %d roster names, %d thresholds, %d broken\n' "$n_classes" "$n_roles" "$n_roster" "$n_thresholds" "$fail"
 
 # @measured 2026-09-03: the CI incident this section answers (see property
 # 2's own comment) printed one DEAD ROLE line and the summary above and

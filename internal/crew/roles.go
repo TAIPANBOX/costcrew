@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"path"
 	"strings"
+	"time"
+	"unicode"
 
 	"gopkg.in/yaml.v3"
 )
@@ -45,12 +47,72 @@ type JobClass struct {
 	UpTo string `yaml:"up_to"`
 }
 
+// maxProvenanceLen bounds a provenance line: it is a marker and a short reason,
+// not a paragraph, and it is rendered on the card.
+const maxProvenanceLen = 200
+
+// ValidProvenance says whether s is a provenance marker this practice accepts,
+// and if not, why. The vocabulary is closed:
+//
+//   - "@claude" (optionally followed by a space and anything): a draft or a
+//     reading of the code, to be re-checked;
+//   - "@decided YYYY-MM-DD" (optionally followed by "," or a space and a short
+//     paraphrase): the owner decided it on that real calendar date;
+//   - "@measured <how> YYYY-MM-DD": a run established it, the how is mandatory
+//     and the date is the last word.
+//
+// There is deliberately no marker carrying the owner's name: a public
+// repository records a decision as a paraphrase under "@decided", never as an
+// attribution. A marker that is empty, padded with whitespace, carries a
+// control character or newline, or runs past maxProvenanceLen is refused, so a
+// second marker cannot ride in on the first one's line.
+func ValidProvenance(s string) error {
+	if s == "" {
+		return fmt.Errorf("provenance is empty")
+	}
+	if s != strings.TrimSpace(s) {
+		return fmt.Errorf("provenance %.60q has leading or trailing whitespace", s)
+	}
+	if len(s) > maxProvenanceLen {
+		return fmt.Errorf("provenance is %d bytes, over the %d-byte limit", len(s), maxProvenanceLen)
+	}
+	for _, r := range s {
+		if unicode.IsControl(r) {
+			return fmt.Errorf("provenance %.60q carries a control character", s)
+		}
+	}
+	isDate := func(d string) bool {
+		_, err := time.Parse("2006-01-02", d)
+		return err == nil
+	}
+	switch {
+	case s == "@claude" || strings.HasPrefix(s, "@claude "):
+		return nil
+	case strings.HasPrefix(s, "@decided "):
+		rest := strings.TrimPrefix(s, "@decided ")
+		if len(rest) >= 10 && isDate(rest[:10]) && (len(rest) == 10 || rest[10] == ',' || rest[10] == ' ') {
+			return nil
+		}
+		return fmt.Errorf("provenance %.60q: @decided must be followed by a real YYYY-MM-DD date", s)
+	case strings.HasPrefix(s, "@measured "):
+		rest := strings.TrimPrefix(s, "@measured ")
+		i := strings.LastIndex(rest, " ")
+		if i > 0 && strings.TrimSpace(rest[:i]) != "" && isDate(rest[i+1:]) {
+			return nil
+		}
+		return fmt.Errorf("provenance %.60q: @measured must read \"@measured <how> YYYY-MM-DD\", with the how", s)
+	}
+	return fmt.Errorf("provenance %.60q is not @claude, @decided YYYY-MM-DD or @measured <how> YYYY-MM-DD", s)
+}
+
 // Threshold is one named parameter (ROLES-2026-09.md section 4), so a number
 // is changed in one place and every description that mentions it stays in
 // step. Value is the display text; ValueCents is set only for the two money
-// thresholds (T.anomaly, T.urgent) and nothing here reads it programmatically
-// today -- see B1A-SPEC.md section 5: this step enforces classes, not
-// amounts.
+// thresholds (T.anomaly, T.urgent). finops.Supervise reads T.anomaly's
+// ValueCents as the figure a supervisor-selected option may not pass
+// (invariants 27 and 53); nothing reads T.urgent's yet, so its figure is the
+// supervisor's text and the card's. Provenance is one of the markers
+// ValidProvenance accepts, checked at load.
 type Threshold struct {
 	Name       string `yaml:"name"`
 	Meaning    string `yaml:"meaning"`
@@ -126,10 +188,11 @@ type rolesFile struct {
 
 var roles = mustLoadRoles()
 
-// mustLoadRoles parses the embedded file and fails fast on the two things
+// mustLoadRoles parses the embedded file and fails fast on the three things
 // that would otherwise make every reader downstream silently wrong: a class
-// naming a threshold that classes: does not define, and a role naming a
-// class classes: does not define. scripts/roles-are-bound.sh checks both of
+// naming a threshold that classes: does not define, a role naming a class
+// classes: does not define, and a threshold whose provenance is not in the
+// vocabulary ValidProvenance defines. scripts/roles-are-bound.sh checks both of
 // these again, and more (every class named in CODE, every roster name
 // matched, rights, hands_to_owner); this copy exists so a typo breaks
 // `go test ./...` on the spot rather than only a shell script somebody has to
@@ -149,6 +212,9 @@ func mustLoadRoles() rolesFile {
 	thresholdNames := map[string]bool{}
 	for _, t := range rf.Thresholds {
 		thresholdNames[t.Name] = true
+		if err := ValidProvenance(t.Provenance); err != nil {
+			panic(fmt.Sprintf("internal/crew/roles.yaml: threshold %q is not a recognised provenance: %v", t.Name, err))
+		}
 	}
 	for _, c := range rf.Classes {
 		if c.UpTo != "" && !thresholdNames[c.UpTo] {

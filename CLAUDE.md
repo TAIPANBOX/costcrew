@@ -81,9 +81,9 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 918 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 136 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 244 scenarios, both directions
+go test ./...                        # 929 tests, 20 packages
+./scripts/gates-have-teeth.sh        # 145 cases; needs a clean tree
+./scripts/features-are-bound.sh      # 255 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
@@ -138,6 +138,22 @@ added 15 tests (`internal/deliver/settlement_test.go`, 5;
 tests, 102 -> 108 cases, 210 -> 219 scenarios, 58 GET routes unchanged,
 re-measured on this branch with the three commands this block already
 names.
+
+Invariant 56 (the thresholds are the ones the owner decided, and their
+provenance is a closed vocabulary) added 11 tests
+(`internal/crew/roles_thresholds_test.go`, 8;
+`internal/finops/supervise_tanomaly_value_test.go`, 3), 9
+`gates-have-teeth.sh` cases (eight `fail`, one `pass`) and 11 scenarios
+(`features/thresholds.feature`, new), and no route: 918 -> 929 tests,
+136 -> 145 cases, 244 -> 255 scenarios, 58 GET routes unchanged,
+re-measured on this branch with the three commands this block already
+names. `scripts/roles-are-bound.sh` gained a fifth property and its summary
+line now counts thresholds. One existing test
+(`TestNeverFullTextAndThresholdFor`) asserted that T.anomaly's provenance
+began `@claude`, which was true of the draft and is the defect's own mirror;
+it now asserts the provenance is in the vocabulary. Numbered 56 because
+invariants 54 and 55 are the last on `main`; the two pull requests that
+follow this one on the same day take 57 and 58.
 
 Invariant 53 (the supervisor selects among the analysts' own options)
 added 10 tests (`internal/finops/supervise_analystclass_test.go`, 8;
@@ -3003,6 +3019,51 @@ an absent invariant.
     `TestAStoppedTaskWithNoSettledRoundBooksNothing`,
     `TestARoundThatAnsweredWithoutAHeaderStillMakesTheTaskPricedByTheRunner`
     (`tools/run`); four `fail` cases in `gates-have-teeth.sh`.)*
+
+56. **The thresholds that bound the crew's authority are the ones the owner
+    decided, and a threshold's provenance is one of three markers.**
+    `@decided 2026-10-04`: the owner halved the two money thresholds in
+    `roles.yaml`, T.anomaly from USD 5,000 to USD 2,500 (`value_cents`
+    250000) and T.urgent from USD 25,000 to USD 12,500 (`value_cents`
+    1250000), and kept the other five at their draft values, T.firstpass 80%
+    over two sprints, T.stale 3, T.stale_days 7, T.untagged 10% of the desk's
+    month, T.migration 15%. All seven were drafted `@claude 2026-09-02` and
+    are now recorded as decided on 2026-10-04. T.anomaly is the figure
+    `finops.Supervise` compares an option against (invariants 27 and 53), so
+    the same option is a different decision before and after: a USD 3,000
+    option in a class the analyst link owns was selected by the supervisor
+    under the draft and is carried to its owner now. T.urgent is not read by
+    any code yet: it is the supervisor's own text ("unless a single item is
+    over T.urgent") and the card's figure, so what this change gives it is
+    the new number and the same checks on its text, not a new behaviour.
+
+    `crew.ValidProvenance` is the vocabulary, checked at load by
+    `mustLoadRoles` (a bad one panics at package init, like a class naming a
+    threshold that does not exist) and again from the shell by
+    `scripts/roles-are-bound.sh`'s fifth property: `@claude`, `@decided
+    YYYY-MM-DD` (a real calendar date), or `@measured <how> YYYY-MM-DD`.
+    There is no marker carrying the owner's name, because a decision in a
+    public repository is a paraphrase under `@decided`, never an attribution.
+    A marker that is empty, padded, multi-line, holds a control character or
+    is over 200 bytes is refused, so a second marker cannot ride on the first
+    one's line. The shell check reads the shape only; the calendar-date
+    check is the loader's.
+    *(gate: `TestTAnomalyIsTwoAndAHalfThousand`,
+    `TestTUrgentIsTwelveAndAHalfThousand` (each also requires the card's
+    display text and the cents to say one amount),
+    `TestEveryThresholdIsMarkedDecidedOnTheDayItWasDecided`,
+    `TestTheFiveThresholdsTheOwnerKeptKeepTheirValues`,
+    `TestProvenanceVocabulary`,
+    `TestRolesAreBoundRefusesAThresholdWithAnUnrecognisedProvenance`,
+    `TestRolesAreBoundRefusesAThresholdWithNoProvenance`,
+    `TestRolesAreBoundAcceptsAMeasuredProvenance` (`internal/crew`);
+    `TestAnOptionOfThreeThousandDollarsIsCarriedToTheOwner`,
+    `TestTAnomalyBoundaryIsTwoThousandFiveHundredDollarsToTheCent`,
+    `TestASupervisorOwnedClassOverTheDecidedTAnomalyIsCarried`
+    (`internal/finops`, the figures as literal cents on purpose: the older
+    boundary tests read the threshold from the data and follow it wherever
+    it goes, which says nothing about where it is). Eight `fail` cases and
+    one `pass` case in `gates-have-teeth.sh`.)*
 
 ## Decisions that have no gate yet
 
