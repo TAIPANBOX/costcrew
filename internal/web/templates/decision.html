@@ -25,15 +25,24 @@
         <dt>Needs</dt><dd>{{.Needs}}</dd>
       </dl>
       {{if $.CanAnswer}}
+      {{if $.ForOther}}<p class="note">This request is addressed to {{$.Owner}}. Answering it is on behalf of {{$.Owner}}, under your name, with a reason, and it is recorded that way.</p>{{end}}
       <div class="row" style="align-items:flex-start">
         <form class="action" method="post" action="/option/{{.Artifact}}/{{.Ordinal}}/apply">
           <input type="hidden" name="csrf" value="{{$.CSRF}}">
+          {{if $.ForOther}}
+          <label for="ba{{.Artifact}}-{{.Ordinal}}">Why you are answering for {{$.Owner}}</label>
+          <textarea id="ba{{.Artifact}}-{{.Ordinal}}" name="behalf_reason" maxlength="{{$.BehalfMaxBytes}}" required placeholder="Why {{$.Owner}} cannot answer this themselves."></textarea>
+          {{end}}
           <button type="submit">Apply</button>
         </form>
         <form class="action" method="post" action="/option/{{.Artifact}}/{{.Ordinal}}/refuse" style="flex:1 1 320px">
           <input type="hidden" name="csrf" value="{{$.CSRF}}">
           <label for="r{{.Artifact}}-{{.Ordinal}}">Refuse</label>
           <textarea id="r{{.Artifact}}-{{.Ordinal}}" name="reason" placeholder="Why this option is refused."></textarea>
+          {{if $.ForOther}}
+          <label for="bb{{.Artifact}}-{{.Ordinal}}">Why you are answering for {{$.Owner}}</label>
+          <textarea id="bb{{.Artifact}}-{{.Ordinal}}" name="behalf_reason" maxlength="{{$.BehalfMaxBytes}}" required placeholder="Why {{$.Owner}} cannot answer this themselves."></textarea>
+          {{end}}
           <button class="quiet" type="submit">Refuse</button>
         </form>
       </div>
@@ -48,4 +57,28 @@
     {{end}}
   </div>
 </div>
+
+{{if .Answered}}
+<div class="panel">
+  <h2>Answered</h2>
+  <div class="body">
+    {{range .Answered}}
+    <dl class="facts" style="margin-bottom:14px">
+      <dt>Class</dt><dd>{{.Class}} <span class="chip {{if eq .State "applied"}}accepted{{else}}dismissed{{end}}">{{.State}}</span></dd>
+      <dt>From</dt><dd><a href="/task/{{.TaskID}}">task {{.TaskID}}</a></dd>
+      <dt>Summary</dt><dd>{{.Summary}}</dd>
+      {{if .Reason}}<dt>Refused because</dt><dd>{{.Reason}}</dd>{{end}}
+      {{if .OnBehalfOf}}
+      <dt>Answered</dt><dd>{{.DecidedBy}} answered on behalf of owner {{.OnBehalfOf}} · {{.DecidedAt}}</dd>
+      <dt>Why</dt><dd>{{.BehalfReason}}</dd>
+      {{else if .ByOwner}}
+      <dt>Answered</dt><dd>answered by the owner, {{.DecidedBy}} · {{.DecidedAt}}</dd>
+      {{else}}
+      <dt>Answered</dt><dd>{{.DecidedBy}} · {{.DecidedAt}}</dd>
+      {{end}}
+    </dl>
+    {{end}}
+  </div>
+</div>
+{{end}}
 {{end}}

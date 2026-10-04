@@ -60,6 +60,21 @@ type Recorder interface {
 // data) rather than as a fourth wire type, because a new type costs a
 // registry change in every repository that reads the shared bus.
 func Apply(db *sql.DB, opt crew.Option, actor string, rec Recorder) error {
+	return ApplyAs(db, opt, crew.Answer{Actor: actor}, rec)
+}
+
+// ApplyAs is Apply for an answer a person gave through the console, which
+// says whose stamp it is (crew.Answer). An answer given on behalf of an owner
+// is refused, before anything changes, unless it carries a reason; the option
+// and the journaled option_applied event then name the owner it was
+// addressed to, the admin who answered, and why, and an owner's own answer is
+// journaled as the owner's with no on_behalf_of. Apply is the supervisor's
+// own act and adds none of that.
+func ApplyAs(db *sql.DB, opt crew.Option, ans crew.Answer, rec Recorder) error {
+	if err := ans.Validate(); err != nil {
+		return err
+	}
+	actor := ans.Actor
 	taskID, err := crew.TaskOfArtifact(db, opt.Artifact)
 	if err != nil {
 		return err
@@ -72,7 +87,7 @@ func Apply(db *sql.DB, opt crew.Option, actor string, rec Recorder) error {
 	if err := applySideEffect(db, opt, t, actor, rec); err != nil {
 		return err
 	}
-	if err := crew.MarkOptionApplied(db, opt.Artifact, opt.Ordinal, actor); err != nil {
+	if err := crew.MarkOptionAppliedAs(db, opt.Artifact, opt.Ordinal, ans); err != nil {
 		return err
 	}
 
@@ -104,6 +119,7 @@ func Apply(db *sql.DB, opt crew.Option, actor string, rec Recorder) error {
 			}
 			data["not_chosen"] = nc
 		}
+		crew.AnswerData(data, ans)
 		_ = rec.Emit("option_applied", actor, "info", data, nil)
 	}
 	return nil

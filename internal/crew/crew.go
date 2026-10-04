@@ -138,7 +138,7 @@ CREATE TABLE IF NOT EXISTS artifact_options(
   summary TEXT, figure_cents INTEGER NOT NULL DEFAULT 0,
   saving_cents INTEGER NOT NULL DEFAULT 0, risk TEXT, needs TEXT,
   evidence TEXT, target TEXT, state TEXT NOT NULL, decided_by TEXT, decided_at TEXT,
-  reason TEXT,
+  reason TEXT, on_behalf_of TEXT, behalf_reason TEXT,
   PRIMARY KEY (artifact, ordinal));
 CREATE TABLE IF NOT EXISTS decision_requests(
   artifact INTEGER PRIMARY KEY, sprint INTEGER NOT NULL, owner TEXT NOT NULL,

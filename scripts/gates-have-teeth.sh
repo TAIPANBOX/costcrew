@@ -1917,6 +1917,91 @@ run_case 'stopped task: the headline hides a gateway total above the booked one'
 	$'		if gwSpent > run.total() {' \
 	$'		if gwSpent > run.total() && false {'
 
+# Invariant 58: an admin answering a decision addressed to somebody else gives a
+# reason, and the option, the card, the journal and the bus say the answer was
+# given on that owner's behalf. Each mutant undoes one piece of that and is
+# caught by the test that holds it; one non-fault rewords a refusal.
+run_case $'admin answers: the reason check is skipped' \
+	fail \
+	./internal/web \
+	$'TestAnAdminAnsweringForAnotherOwnerMustGiveAReason' \
+	$'an admin applied another owner' \
+	internal/web/decisions.go \
+	$'		if answersForOther(u, owner) {' \
+	$'		if false {'
+run_case $'admin answers: every answerer is treated as answering for somebody else' \
+	fail \
+	./internal/web \
+	$'TestAnOwnersOwnAnswerCarriesNoOnBehalfOf' \
+	$'an owner' \
+	internal/web/decisions.go \
+	$'	return mayAnswerFor(u, owner) && u.Username != owner' \
+	$'	return mayAnswerFor(u, owner)'
+run_case $'admin answers: the owner is treated as having answered for themselves when an admin did' \
+	fail \
+	./internal/web \
+	$'TestAnAdminAnswerWithAReasonIsMarkedOnBehalfOfTheOwner' \
+	$'option marks' \
+	internal/web/decisions.go \
+	$'			ans = crew.AdminAnswerFor(u.Username, owner, reason)' \
+	$'			ans = crew.OwnerAnswer(u.Username + reason[:0])'
+run_case $'admin answers: the answer type accepts any reason' \
+	fail \
+	./internal/finops \
+	$'TestApplyAsRefusesAnAnswerOnBehalfWithNoReasonBeforeAnySideEffect' \
+	$'was applied' \
+	internal/crew/answer.go \
+	$'	_, err := ValidBehalfReason(a.Reason)\n	return err' \
+	$'	return nil'
+run_case $'admin answers: the reason has no length cap' \
+	fail \
+	./internal/crew \
+	$'TestBehalfReasonIsRequiredCappedAndPlain' \
+	$'accepted as' \
+	internal/crew/answer.go \
+	$'	if len(r) > BehalfReasonMaxBytes {' \
+	$'	if false {'
+run_case $'admin answers: the reason is dropped from the event' \
+	fail \
+	./internal/web \
+	$'TestAnAdminAnswerWithAReasonIsMarkedOnBehalfOfTheOwner' \
+	$'the journal entry reads' \
+	internal/crew/answer.go \
+	$'		data["on_behalf_reason"] = trimmedReason(ans)\n' \
+	$''
+run_case $'admin answers: a refusal a person made is not journaled' \
+	fail \
+	./internal/web \
+	$'TestAnOwnersOwnRefusalIsJournaledAsTheOwnersAndCarriesNoOnBehalfOf' \
+	$'no option_refused entry' \
+	internal/crew/answer.go \
+	$'	if rec != nil {\n		data := map[string]any{\n			"artifact": artifactID,' \
+	$'	if false && rec != nil {\n		data := map[string]any{\n			"artifact": artifactID,'
+run_case $'admin answers: the card stops naming who answered for whom' \
+	fail \
+	./internal/web \
+	$'TestTheDecisionCardNamesWhoAnsweredAndForWhom' \
+	$'the decision card does not say' \
+	internal/web/templates/decision.html \
+	$'{{.DecidedBy}} answered on behalf of owner {{.OnBehalfOf}}' \
+	$'{{.DecidedBy}} answered'
+run_case $'admin answers: the refusal event goes out with a severity outside the enum' \
+	fail \
+	./internal/stack \
+	$'TestEveryWireTypeIsEmittedWithASeverityTheEnvelopeAccepts' \
+	$'option_refused' \
+	internal/crew/answer.go \
+	$'rec.Emit("option_refused", ans.Actor, "low", data, nil)' \
+	$'rec.Emit("option_refused", ans.Actor, "warn", data, nil)'
+run_case $'admin answers: a reworded refusal message is not a fault' \
+	pass \
+	./internal/web \
+	$'TestAnAdminAnsweringForAnotherOwnerMustGiveAReason' \
+	$'' \
+	internal/web/decisions.go \
+	$'"you are answering for "+owner+", so a reason is needed: "+rerr.Error()' \
+	$'"a reason is needed because you are answering for "+owner+": "+rerr.Error()'
+
 echo
 if [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'

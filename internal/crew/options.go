@@ -68,6 +68,12 @@ type Option struct {
 	DecidedBy string
 	DecidedAt string
 	Reason    string
+	// OnBehalfOf is the owner this option's decision request was addressed
+	// to, set only when somebody else (an admin) answered it for them, and
+	// BehalfReason is why: required then, empty otherwise. An owner's own
+	// answer leaves both empty. DecidedBy is always whoever stamped it.
+	OnBehalfOf   string
+	BehalfReason string
 }
 
 // Recorder used below is guard.go's: this package already declares it, the
@@ -584,7 +590,8 @@ func Options(db *sql.DB, artifactID int) ([]Option, error) {
 	rows, err := db.Query(`SELECT artifact, ordinal, class, COALESCE(summary,''),
 		figure_cents, saving_cents, COALESCE(risk,''), COALESCE(needs,''),
 		COALESCE(evidence,''), COALESCE(target,''), state, COALESCE(decided_by,''),
-		COALESCE(decided_at,''), COALESCE(reason,'')
+		COALESCE(decided_at,''), COALESCE(reason,''),
+		COALESCE(on_behalf_of,''), COALESCE(behalf_reason,'')
 		FROM artifact_options WHERE artifact=? ORDER BY ordinal`, artifactID)
 	if err != nil {
 		return nil, err
@@ -615,7 +622,8 @@ func OpenOptionsForSprint(db *sql.DB, sprintID int) ([]Option, error) {
 	rows, err := db.Query(`SELECT o.artifact, o.ordinal, o.class, COALESCE(o.summary,''),
 		o.figure_cents, o.saving_cents, COALESCE(o.risk,''), COALESCE(o.needs,''),
 		COALESCE(o.evidence,''), COALESCE(o.target,''), o.state, COALESCE(o.decided_by,''),
-		COALESCE(o.decided_at,''), COALESCE(o.reason,'')
+		COALESCE(o.decided_at,''), COALESCE(o.reason,''),
+		COALESCE(o.on_behalf_of,''), COALESCE(o.behalf_reason,'')
 		FROM artifact_options o
 		JOIN artifacts a ON a.id = o.artifact
 		JOIN tasks t ON t.id = a.task
@@ -635,7 +643,8 @@ func CarriedOptionsFor(db *sql.DB, sprintID int, owner string) ([]Option, error)
 	rows, err := db.Query(`SELECT o.artifact, o.ordinal, o.class, COALESCE(o.summary,''),
 		o.figure_cents, o.saving_cents, COALESCE(o.risk,''), COALESCE(o.needs,''),
 		COALESCE(o.evidence,''), COALESCE(o.target,''), o.state, COALESCE(o.decided_by,''),
-		COALESCE(o.decided_at,''), COALESCE(o.reason,'')
+		COALESCE(o.decided_at,''), COALESCE(o.reason,''),
+		COALESCE(o.on_behalf_of,''), COALESCE(o.behalf_reason,'')
 		FROM artifact_options o
 		JOIN artifacts a ON a.id = o.artifact
 		JOIN tasks t ON t.id = a.task
@@ -656,7 +665,7 @@ func scanOptions(rows *sql.Rows) ([]Option, error) {
 		var state string
 		if err := rows.Scan(&o.Artifact, &o.Ordinal, &o.Class, &o.Summary,
 			&o.FigureCents, &o.SavingCents, &o.Risk, &o.Needs, &evidence, &target, &state,
-			&o.DecidedBy, &o.DecidedAt, &o.Reason); err != nil {
+			&o.DecidedBy, &o.DecidedAt, &o.Reason, &o.OnBehalfOf, &o.BehalfReason); err != nil {
 			return nil, err
 		}
 		o.State = OptionState(state)
@@ -677,10 +686,19 @@ func scanOptions(rows *sql.Rows) ([]Option, error) {
 // so decided_by and decided_at are never set by one path and forgotten by
 // another.
 func setOptionState(db *sql.DB, artifactID, ordinal int, state OptionState, by, reason string) error {
+	return setOptionStateAs(db, artifactID, ordinal, state, by, reason, "", "")
+}
+
+// setOptionStateAs is setOptionState plus who the answer was given on behalf
+// of, and why, for the one kind of answer that carries them (an admin
+// answering a decision addressed to somebody else). Both are cleared by every
+// other transition, so a mark never outlives the answer it described.
+func setOptionStateAs(db *sql.DB, artifactID, ordinal int, state OptionState, by, reason, behalfOf, behalfReason string) error {
 	res, err := db.Exec(`UPDATE artifact_options
-		SET state=?, decided_by=?, decided_at=datetime('now'), reason=?
+		SET state=?, decided_by=?, decided_at=datetime('now'), reason=?,
+		    on_behalf_of=?, behalf_reason=?
 		WHERE artifact=? AND ordinal=?`,
-		string(state), nullIf(by), nullIf(reason), artifactID, ordinal)
+		string(state), nullIf(by), nullIf(reason), nullIf(behalfOf), nullIf(behalfReason), artifactID, ordinal)
 	if err != nil {
 		return err
 	}
@@ -764,7 +782,8 @@ func LiveRivalsOf(db *sql.DB, opt Option) ([]Option, error) {
 	rows, err := db.Query(`SELECT o.artifact, o.ordinal, o.class, COALESCE(o.summary,''),
 		o.figure_cents, o.saving_cents, COALESCE(o.risk,''), COALESCE(o.needs,''),
 		COALESCE(o.evidence,''), COALESCE(o.target,''), o.state, COALESCE(o.decided_by,''),
-		COALESCE(o.decided_at,''), COALESCE(o.reason,'')
+		COALESCE(o.decided_at,''), COALESCE(o.reason,''),
+		COALESCE(o.on_behalf_of,''), COALESCE(o.behalf_reason,'')
 		FROM artifact_options o
 		JOIN artifacts a ON a.id = o.artifact
 		JOIN tasks t2 ON t2.id = a.task
