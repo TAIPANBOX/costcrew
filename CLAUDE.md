@@ -81,9 +81,9 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 879 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 110 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 219 scenarios, both directions
+go test ./...                        # 889 tests, 20 packages
+./scripts/gates-have-teeth.sh        # 118 cases; needs a clean tree
+./scripts/features-are-bound.sh      # 228 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
@@ -138,6 +138,17 @@ added 15 tests (`internal/deliver/settlement_test.go`, 5;
 tests, 102 -> 108 cases, 210 -> 219 scenarios, 58 GET routes unchanged,
 re-measured on this branch with the three commands this block already
 names.
+
+Invariant 53 (the supervisor selects among the analysts' own options)
+added 10 tests (`internal/finops/supervise_analystclass_test.go`, 8;
+`internal/crew/roles_select_internal_test.go`, 2), 8 `gates-have-teeth.sh`
+cases (seven `fail`, one `pass`) and 9 scenarios (appended to
+`features/options-and-the-decision-request.feature`), and no route:
+879 -> 889 tests, 110 -> 118 cases, 219 -> 228 scenarios, 58 GET routes
+unchanged, re-measured on this branch with the three commands this block
+already names. Two existing tests were rewritten in place because they
+asserted the defect (`TestAgreeingOptionsOnTheSameAnomalyAreNotLinked`,
+`TestOptionsWithinOneDeliverableNeverContradict`), not counted as new.
 
 Invariant 48 (this file's own document references) added 2 tests
 (`internal/manifest/documents_test.go`) and one `gates-have-teeth.sh` case,
@@ -752,7 +763,8 @@ an absent invariant.
     their OWN deliverable (a group is decided together, never as independent
     rows), rank by saving then risk, and for each deliverable's top-ranked
     option apply it as the supervisor's own act when BOTH
-    `MayDecide("supervisor", class)` allows it AND its `figure_cents` is at
+    `crew.SupervisorMaySelect(class)` allows it (its own classes, and the
+    analysts' classes through `option.select`; invariant 53) AND its `figure_cents` is at
     or under `roles.yaml`'s own `T.anomaly` threshold
     (`crew.ThresholdFor("T.anomaly")`, read from the roles data, never a
     literal and never the writing analyst's own guard headroom -- comparing
@@ -2801,6 +2813,60 @@ an absent invariant.
     for version tags, including manual re-dispatches. *(gate: `.github/workflows/release.yml` job
     `release-sbom-check`; tag run of job `release page` proves attestation and
     publication, which the pull request cannot exercise.)*
+
+53. **The supervisor selects among the analysts' own options inside
+    `T.anomaly`; the owner is asked for key decisions and for what reaches
+    people, not for every option an analyst offers.** `@decided 2026-10-04`,
+    applying the rule recorded for invariant 27 on 2026-09-02: the owner is
+    asked rarely. `roles.yaml` lists `option.select` in the supervisor's
+    `decides_alone` and says what it covers, "option.select for options
+    inside the analysts' own classes". `finops.Supervise` used to ask
+    `crew.MayDecide("supervisor", class)`, which for that literal role only
+    checks that the class's `owner` field is `supervisor`, so every option in
+    a class the ANALYST link owns (`recommendation.rightsizing`,
+    `anomaly.dismiss`, `anomaly.explain`, `driver.one-time`, and the rest)
+    was carried to the owner as a decision request whatever its figure, and
+    the supervisor's `option.select` was a sentence nothing read. Now
+    `crew.SupervisorMaySelect(class)` answers, from `roles.yaml` alone: a
+    class the supervisor owns is its own (`MayDecide`'s answer, unchanged);
+    an analyst-owned class is selectable only while the supervisor's
+    `decides_alone` lists `option.select` (read through `RoleFor`, so taking
+    the entry out of the yaml makes the supervisor carry again); a class the
+    owner holds, or that nobody in the crew decides (`purchase`,
+    `infra.change`, `vendor.negotiate`), is never selectable.
+    `crew.MayDecide`'s own meaning for the literal `supervisor` is unchanged
+    for every other caller. The gate that already applied to the supervisor's
+    own classes applies the same way: a figure above `T.anomaly` is carried,
+    exactly at it is inside. A selected option is applied through the same
+    `Apply` with `decided_by` `supervisor`, and its alternatives in the same
+    deliverable are `not_chosen`, as ever. Two cases keep an analyst-class
+    option with the owner even inside the threshold, both "two analysts
+    answered the same anomaly": a contradiction (`contradictionRouting`
+    decided the whole question goes to one owner, and the ranking must not
+    settle it), and an anomaly an earlier option of the same pass already
+    moved (a second transition on a closed anomaly is refused by the
+    anomaly's own state machine and would abort the pass half way, so it is
+    carried instead). That second guard is a choice this change made, not
+    one the rule spelled out: two agreeing analysts on one anomaly now give
+    one applied and one carried option, where the old pass carried both.
+    Two older tests asserted the carrying itself and were the defect:
+    `TestAgreeingOptionsOnTheSameAnomalyAreNotLinked` carried two agreeing
+    explanations "because anomaly.explain is not in the supervisor's
+    decides_alone list", and `TestOptionsWithinOneDeliverableNeverContradict`
+    carried two alternatives of one deliverable at a small figure for the same
+    reason; both keep their real property (agreeing or alternative options
+    are never read as a disagreement) and no longer assert the carrying.
+    *(gate: `TestTheSupervisorSelectsAnAnalystClassOptionWithinTAnomaly`,
+    `TestTheSupervisorsSelectionOfAnAnalystClassCarriesItsSideEffect`,
+    `TestAnAnalystClassOptionOverTAnomalyIsCarried`,
+    `TestAnAnalystClassOptionExactlyAtTAnomalyIsApplied`,
+    `TestOwnerAndNobodyClassOptionsStayCarriedWithinTAnomaly`,
+    `TestSelectingAnAnalystOptionResolvesItsHandsUpAlternative`,
+    `TestAContradictedAnalystOptionIsStillCarriedToTheOwner`,
+    `TestASecondOptionOnAnAnomalyTheSupervisorAlreadyDecidedIsCarried`,
+    `TestSupervisorMaySelectReadsOptionSelectFromTheJobDescription`,
+    `TestMayDecideForTheSupervisorStillOnlyChecksTheClassOwner`, seven
+    `fail` cases and one `pass` case in `gates-have-teeth.sh`.)*
 
 ## Decisions that have no gate yet
 

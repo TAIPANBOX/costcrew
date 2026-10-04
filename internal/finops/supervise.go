@@ -69,7 +69,8 @@ type Pass struct {
 // Supervise runs the deterministic pass over one sprint's posted
 // deliverables: collect every open option, decide each deliverable's whole
 // choice together (apply the top-ranked one when the supervisor's own job
-// description allows it and its figure is within T.anomaly, otherwise carry
+// description allows it, which is its own classes and, through option.select,
+// the analysts' classes, and its figure is within T.anomaly, otherwise carry
 // every option of that deliverable), and carry a contradiction between two
 // deliverables to one owner as one question. Nothing is dropped.
 func Supervise(db *sql.DB, sprintID int, rec Recorder) (Pass, error) {
@@ -89,6 +90,7 @@ func Supervise(db *sql.DB, sprintID int, rec Recorder) (Pass, error) {
 	groupOrder, groups := groupByArtifact(opts)
 	tAnomaly, _ := crew.ThresholdFor("T.anomaly") // zero value if missing: 0 cents is conservative, see below
 
+	settledAnomalies := map[string]bool{} // anomalies an option of this pass has already moved
 	byOwner := map[string][]crew.Option{}
 	ownerOrder := make([]string, 0)
 	notes := map[string]string{}
@@ -97,7 +99,14 @@ func Supervise(db *sql.DB, sprintID int, rec Recorder) (Pass, error) {
 		group := groups[artID]
 		top := group[0] // rankOptions already sorted opts; groupByArtifact preserves that order within each group
 
-		may, _ := crew.MayDecide("supervisor", top.Class)
+		// May the supervisor apply this class itself? Its own classes, and
+		// the analysts' classes through option.select (roles.yaml's
+		// decides_alone: "option.select for options inside the analysts'
+		// own classes"). Not crew.MayDecide("supervisor", ...): for that
+		// literal role MayDecide only checks the class's owner field, which
+		// carried every analyst-owned option to the owner and made the
+		// owner the one asked about everything.
+		may, _ := crew.SupervisorMaySelect(top.Class)
 		// A figure over T.anomaly is a key decision, carried even for a
 		// class the supervisor's own job description would otherwise
 		// decide alone. tAnomaly.ValueCents is 0 when the threshold is
@@ -107,9 +116,26 @@ func Supervise(db *sql.DB, sprintID int, rec Recorder) (Pass, error) {
 		// silently applying past a threshold that could not be read.
 		withinThreshold := top.FigureCents <= tAnomaly.ValueCents
 
-		if may && withinThreshold {
+		// Two things keep an analyst-class option on the owner's desk even
+		// inside the threshold, both of them "two analysts answered the same
+		// anomaly": a contradiction (contradictionRouting already decided
+		// the whole question goes to ONE owner, and the ranking must not
+		// settle it), and an anomaly an earlier option of THIS pass already
+		// settled (a second transition on it would be refused by the
+		// anomaly's own state machine and abort the pass half way).
+		_, contradicted := redirectOwner[artID]
+		anomalyID, err := anomalyOfOption(db, top)
+		if err != nil {
+			return pass, err
+		}
+		alreadySettled := anomalyID != "" && settledAnomalies[anomalyID] && analystOwned(top.Class)
+
+		if may && withinThreshold && !contradicted && !alreadySettled {
 			if err := Apply(db, top, "supervisor", rec); err != nil {
 				return pass, err
+			}
+			if anomalyID != "" {
+				settledAnomalies[anomalyID] = true
 			}
 			pass.Applied = append(pass.Applied, top)
 			continue
@@ -317,6 +343,32 @@ func contradictionRouting(db *sql.DB, ranked []crew.Option) (redirectOwner map[i
 		}
 	}
 	return redirectOwner, note, nil
+}
+
+// anomalyOfOption is the anomaly an option would move, "" for a class that
+// moves none: the three classes that change an anomaly's state, on a task
+// that names one.
+func anomalyOfOption(db *sql.DB, o crew.Option) (string, error) {
+	switch o.Class {
+	case "anomaly.explain", "anomaly.dismiss", "anomaly.accept":
+	default:
+		return "", nil
+	}
+	taskID, err := crew.TaskOfArtifact(db, o.Artifact)
+	if err != nil {
+		return "", err
+	}
+	t, err := crew.GetTask(db, taskID)
+	if err != nil {
+		return "", err
+	}
+	return t.Anomaly, nil
+}
+
+// analystOwned is whether roles.yaml gives the class to the analyst link.
+func analystOwned(class string) bool {
+	c, ok := crew.ClassFor(class)
+	return ok && c.Owner == "analyst"
 }
 
 func optionKey(o crew.Option) string { return fmt.Sprintf("%d:%d", o.Artifact, o.Ordinal) }
