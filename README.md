@@ -247,8 +247,10 @@ Two defects turned up, both already fixed on `main` and neither in
   Issue #66, fixed by #70 (`cb90412`, invariant 50).
 
 Still open: no AWS or GCP billing reader exists yet, so the board worked
-the generated estate and the box's AI spend alone (#68); `v0.2.0` predates
-the console's `-gateway` flag, dropped from the command for this run (#69).
+the generated estate and the box's AI spend alone (#68). This run used
+`v0.2.0`, which predates the console's `-gateway` flag, so the flag was
+dropped from the command (#69); closed by `v0.2.1`, the first image that
+carries `-gateway`.
 
 **Not proven by this run:** the crew at its ordinary cadence rather than by
 hand; a board carrying real cloud bills; the FOCUS import, severity fixed,
