@@ -56,8 +56,8 @@ func TestEveryRoleHasAJobDescription(t *testing.T) {
 	if got := len(crew.AllClasses()); got != 35 {
 		t.Errorf("roles.yaml declares %d decision classes, want 35", got)
 	}
-	if got := len(crew.Never()); got != 5 {
-		t.Errorf("roles.yaml's never: list has %d entries, want 5 (\"the five nevers\")", got)
+	if got := len(crew.Never()); got != 6 {
+		t.Errorf("roles.yaml's never: list has %d entries, want 6 (the five about decision authority and \"act on a task somebody blocked\")", got)
 	}
 }
 
@@ -232,9 +232,9 @@ func TestRosterForTheRolesGate(t *testing.T) {
 }
 
 // The two lookups the card and the prompt packet both read past MayDecide
-// and Escalates: the full "Never, for every role" sentence (six clauses,
-// one more than the five-item, gated Never() list; see roles.yaml's own
-// comment on never_full_text) and a named threshold's display value.
+// and Escalates: the full "Never, for every role" sentence (six clauses, each
+// of them in the Never() list since 2026-10-04; see roles.yaml's own comment
+// on never_bound) and a named threshold's display value.
 func TestNeverFullTextAndThresholdFor(t *testing.T) {
 	full := crew.NeverFullText()
 	if full == "" {
@@ -246,7 +246,7 @@ func TestNeverFullTextAndThresholdFor(t *testing.T) {
 		}
 	}
 	if !strings.Contains(full, "act on a task somebody blocked") {
-		t.Errorf("NeverFullText() = %q, missing the sixth clause the five-item list does not carry", full)
+		t.Errorf("NeverFullText() = %q, missing the clause about a blocked task", full)
 	}
 
 	th, ok := crew.ThresholdFor("T.anomaly")

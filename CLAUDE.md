@@ -81,9 +81,9 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 952 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 155 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 278 scenarios, both directions
+go test ./...                        # 968 tests, 20 packages
+./scripts/gates-have-teeth.sh        # 166 cases; needs a clean tree
+./scripts/features-are-bound.sh      # 295 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
@@ -163,6 +163,19 @@ tests, 136 -> 146 cases, 244 -> 267 scenarios, 58 GET routes and 36 write
 routes unchanged, re-measured on this branch with the three commands this
 block already names. Numbered 58 because invariants 56 and 57 are on the two
 pull requests opened before this one on the same day.
+Invariant 57 (every analyst family has its class lists; the never list
+carries the blocked-task clause, bound) added 16 tests
+(`internal/crew/roles_lists_test.go`), 11 `gates-have-teeth.sh` cases (ten
+`fail`, one `pass`) and 17 scenarios (`features/job-description-lists.feature`,
+new), and no route: 918 -> 934 tests, 136 -> 147 cases, 244 -> 261
+scenarios, 58 GET routes unchanged, re-measured on this branch with the
+three commands this block already names. `scripts/roles-are-bound.sh` gained
+two properties (an analyst family's lists, and the never bindings) and
+`roles.yaml` gained the exemption fields and `never_bound`. One existing test
+(`TestEveryRoleHasAJobDescription`) asserted that the never list had five
+entries, which was the defect's own mirror; it now asserts six. Numbered 57
+because invariant 56 (the decided thresholds) is on the pull request opened
+before this one on the same day; the pull request after it takes 58.
 
 Invariant 53 (the supervisor selects among the analysts' own options)
 added 10 tests (`internal/finops/supervise_analystclass_test.go`, 8;
@@ -3153,6 +3166,90 @@ an absent invariant.
     check, the owner-versus-other split in both directions, the validator, the
     cap, the reason in the event, the refusal's journal entry, the card's
     wording and the refusal event's severity.)*
+57. **Every analyst family names, in a closed list, what it decides alone and
+    what it hands up, or says in writing why a list is empty; and the never
+    list carries the clause the runner enforces.** `@decided 2026-10-04`:
+    eight families had an empty `decides_alone` (finops-partner,
+    ai-spend-analyst, executive-reporter, governance-analyst,
+    data-quality-analyst, benchmarking-analyst, sustainability-analyst,
+    intake-triage) and five an empty `hands_up` (benchmarking-analyst,
+    sustainability-analyst, deep-analysis, intake-triage, migration-watch),
+    each with only prose beside it, so the options block, the card and the
+    prompt had nothing closed to check against. The lists are written from
+    the prose, and `scripts/roles-are-bound.sh` refuses an empty one from now
+    on. The mapping, one line each, so a reader can overrule one:
+
+    - finops-partner decides alone `commentary.variance` and
+      `commentary.showback`: its brief per team is what moved and why
+      (variance), narrated for that team (showback).
+    - ai-spend-analyst decides alone `commentary.variance`: the analysis is
+      cost per agent and per model with the trend, a written account of how
+      the AI desk's spend moved. Its "ranked options" for model routing stay
+      prose: the nearest class, `recommendation.rightsizing`, needs the
+      `propose-only` right and `recommendation.commitment` needs
+      `budgets-read`, which none of this family's skills grant, and the gate
+      refused both as a rights gap. Adding a right is a larger decision than
+      writing a list and was not taken here.
+    - executive-reporter decides alone `commentary.variance`: the pack is
+      four numbers and the reason each moved.
+    - sustainability-analyst hands up `explainer.publish`: "publishing
+      anything". A deliverable of its own now owes an options block naming it
+      (`AllowsNoOptions` is false), which is what "restricted: propose only"
+      reads as.
+    - deep-analysis hands up `agent.*`: "its own guard, always". A guard is
+      changed by re-briefing the agent, which `agent.*` covers (the owner's).
+      This is the least certain mapping.
+    - migration-watch hands up `anomaly.accept`: "a step that costs more than
+      T.migration over plan" is an overrun for the supervisor to accept as
+      real spend. Also uncertain.
+
+    Where the prose names something no class covers, the family keeps the
+    prose and an explicit exemption: `decides_alone_exempt` for
+    governance-analyst (an evidence pack), data-quality-analyst (a report;
+    the halt it can cause is the supervisor's), benchmarking-analyst (a
+    comparison, and it is onboarding), sustainability-analyst (a report, and
+    it is restricted) and intake-triage (the queue was retired);
+    `hands_up_exempt` for benchmarking-analyst (onboarding, nothing to hand
+    up) and intake-triage. That is five and two against an aim of none, and
+    each is a choice to leave a list empty rather than invent a class:
+    converting one means naming a class, which is the owner's call.
+    `TestTheExemptionsAreExactlyTheOnesDecided` makes a new exemption a
+    decision, not a quiet edit.
+
+    The gate's rules: an analyst-link family with an empty list and no
+    exemption is refused (`EMPTY LIST`); an exemption under 40 characters is
+    not a reason (`THIN EXEMPTION`); an exemption beside a written list is a
+    stale claim (`STALE EXEMPTION`); an analyst family may decide alone only a
+    class the analyst link owns (`NOT THE ANALYST'S`). The supervisor is held
+    to none of this, its authority being `decides_alone` plus `hands_to_owner`
+    (invariant 23).
+
+    The sixth clause of the never sentence, "act on a task somebody blocked",
+    is the sixth entry of `never:`. It had been kept out of the gated list
+    because nothing here enforced it. The runner does: `tools/run`'s
+    `workable` drops every blocked task before anything is priced or called,
+    and `TestABlockedTaskIsNotWorkedAround` holds it. `never_bound` pairs the
+    clause with that test, and the gate refuses a binding whose clause left
+    the list (`BINDING WITHOUT CLAUSE`) or whose test is gone (`DANGLING
+    NEVER`). The other five clauses are not bound by this: they are the
+    prompt's wording and the class ownership of `purchase`, `infra.change`
+    and `vendor.negotiate`. What `workable` does not cover: a task blocked
+    while its call is already in flight still gets its deliverable written;
+    that window is not closed here.
+    *(gate: `TestTheDecidesAloneListsAreWrittenFromTheProse`,
+    `TestTheHandsUpListsAreWrittenFromTheProse`,
+    `TestEveryAnalystFamilyHasBothListsOrAReasonedExemption`,
+    `TestTheExemptionsAreExactlyTheOnesDecided`,
+    `TestMayDecideAndEscalatesFollowTheWrittenLists`,
+    `TestARestrictedSustainabilityAnalystNowOwesAnOptionsBlock`,
+    `TestTheNeverListCarriesTheBlockedClause`,
+    `TestTheBlockedClauseIsBoundToTheRunnersTest` and eight tests that run
+    `scripts/roles-are-bound.sh` on a planted copy of `roles.yaml`
+    (`TestRolesAreBoundRefuses...`, `TestRolesAreBoundAccepts...`), all in
+    `internal/crew/roles_lists_test.go`; `TestABlockedTaskIsNotWorkedAround`
+    (`tools/run`). Ten `fail` cases and one `pass` case in
+    `gates-have-teeth.sh`, each switching one property of the shell gate off
+    or undoing one piece of the data.)*
 
 ## Decisions that have no gate yet
 
