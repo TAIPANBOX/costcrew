@@ -148,6 +148,18 @@ n_classes=$(printf '%s\n' "$classes_owners" | grep -c . || true)
 n_roles=$(printf '%s\n' "$family_matches" | grep -c . || true)
 n_thresholds=$(printf '%s\n' "$threshold_provenance" | grep -c . || true)
 
+# A NOTE ON EVERY `grep -q` BELOW: it reads a here-string, never `printf | grep -q`.
+#
+# This script runs under `set -o pipefail`, and `grep -q` leaves the moment it
+# has matched. If the writer is cut off by that, the pipeline reports failure
+# for a line that WAS there and the check reads it as "absent": a false
+# MISSING CLASS, DEAD ROLE or UNRECOGNISED PROVENANCE. The same shape was
+# measured misjudging scripts/gates-have-teeth.sh's own needle search on
+# 2026-10-05 (see run_case there); it has not been seen failing this script on
+# its own (0 of 60 runs under load), so this is the same hazard closed here
+# before it is met, not a fix for a failure observed here. A here-string has no
+# writer process to cut off.
+
 # ----------------------------------------------- property 1: classes, code side
 
 code_classes="$(grep -rohE 'class:[A-Za-z][A-Za-z0-9._*-]*' internal/ tools/ 2>/dev/null \
@@ -156,7 +168,7 @@ yaml_class_ids="$(printf '%s\n' "$classes_owners" | cut -f1 | sort -u)"
 
 while IFS= read -r c; do
 	[ -z "$c" ] && continue
-	if ! printf '%s\n' "$yaml_class_ids" | grep -qxF "$c"; then
+	if ! grep -qxF "$c" <<<"$yaml_class_ids"; then
 		printf 'MISSING CLASS      %s is named in code (a "// class:" tag) but %s does not define it\n' "$c" "$ROLES"
 		fail=$((fail + 1))
 	fi
@@ -239,7 +251,7 @@ while IFS=$'\t' read -r fam names; do
 	found=0
 	IFS=',' read -ra arr <<<"$names"
 	for n in "${arr[@]}"; do
-		if printf '%s\n' "$roster_names" | grep -qxF "$n"; then
+		if grep -qxF "$n" <<<"$roster_names"; then
 			found=1
 		fi
 	done
@@ -292,7 +304,7 @@ while IFS=$'\t' read -r fam classes; do
 	for c in "${classarr[@]}"; do
 		need="$(needs_right "$c")"
 		[ -z "$need" ] && continue
-		if ! printf '%s\n' "$rep_rights" | tr ',' '\n' | grep -qxF "$need"; then
+		if ! grep -qxF "$need" < <(tr ',' '\n' <<<"$rep_rights"); then
 			printf 'RIGHTS GAP          %s decides %s alone (via %s) but holds no %s; rights are: %s\n' \
 				"$fam" "$c" "$rep" "$need" "$rep_rights"
 			fail=$((fail + 1))
@@ -404,7 +416,7 @@ never_bound="$(awk '
 ' "$ROLES")"
 while IFS=$'\t' read -r verb tname; do
 	[ -z "$verb" ] && continue
-	if ! printf '%s\n' "$never_list" | grep -qxF "$verb"; then
+	if ! grep -qxF "$verb" <<<"$never_list"; then
 		printf 'BINDING WITHOUT CLAUSE  never_bound names %s, which never: does not list\n' "$verb"
 		fail=$((fail + 1))
 	fi
@@ -442,7 +454,7 @@ fi
 
 while IFS=$'\t' read -r tname tprov; do
 	[ -z "$tname" ] && continue
-	if ! printf '%s\n' "$tprov" | grep -qE '^(@claude( .*)?|@decided [0-9]{4}-[0-9]{2}-[0-9]{2}([ ,].*)?|@measured .+ [0-9]{4}-[0-9]{2}-[0-9]{2})$'; then
+	if ! grep -qE '^(@claude( .*)?|@decided [0-9]{4}-[0-9]{2}-[0-9]{2}([ ,].*)?|@measured .+ [0-9]{4}-[0-9]{2}-[0-9]{2})$' <<<"$tprov"; then
 		printf 'UNRECOGNISED PROVENANCE  threshold %s carries %s; want @claude, @decided YYYY-MM-DD or @measured <how> YYYY-MM-DD\n' \
 			"$tname" "${tprov:-no provenance line}"
 		fail=$((fail + 1))
@@ -474,7 +486,7 @@ if [ "$fail" -ne 0 ]; then
 	fi
 	echo
 	echo "nested go test output (-json), first 60 lines:"
-	printf '%s\n' "$roster_raw" | head -60 | sed 's/^/  /'
+	printf '%s\n' "$roster_raw" | sed -n '1,60s/^/  /p'
 fi
 
 [ "$fail" -eq 0 ]

@@ -104,7 +104,8 @@ gate() {
 	local out rc
 	out=$(go test "$1" -run "$2" -count=1 2>&1)
 	rc=$?
-	if printf '%s' "$out" | grep -q 'no tests to run'; then
+	# A here-string, not `printf | grep -q`: see the note in run_case below.
+	if grep -q 'no tests to run' <<<"$out"; then
 		printf 'MEASURED NOTHING\n%s' "$out"
 		return 3
 	fi
@@ -200,8 +201,18 @@ run_case() {
 		failures=$((failures + 1))
 		return
 	fi
+	# The needle is searched with a here-string and NOT `printf | grep -qF`.
+	# Under `set -o pipefail`, grep -q leaves as soon as it has matched, and
+	# once the captured log is larger than the pipe (64 KB on macOS) printf is
+	# still writing: it gets SIGPIPE (or EPIPE, "printf: write error: Broken
+	# pipe") and the pipeline reports failure for a needle that WAS found. The
+	# `!` then reads that as "not saying" and the case fails WRONG REASON on
+	# the strength of how long the log was. Measured 2026-10-05: a failing gate
+	# with a 260 KB log naming the needle on its first line was misjudged 20
+	# runs out of 20; the same log under 64 KB never was. A here-string has no
+	# writer process to lose, so the verdict depends on the text alone.
 	if [ "$expect" = fail ] && [ "$rc" -ne 0 ] && [ -n "$needle" ] &&
-		! printf '%s' "$out" | grep -qF -- "$needle"; then
+		! grep -qF -- "$needle" <<<"$out"; then
 		printf 'WRONG REASON  %s\n              it failed, but not saying: %s\n' "$name" "$needle"
 		failures=$((failures + 1))
 		return
@@ -212,7 +223,10 @@ run_case() {
 	elif [ "$expect" = pass ] && [ "$rc" -ne 0 ]; then
 		printf 'OVEREAGER  %s\n           the gate failed on something it must not catch\n' "$name"
 		failures=$((failures + 1))
-		printf '%s\n' "$out" | head -4 | sed 's/^/           /'
+		# sed -n reads to the end where `head -4` would hang up on printf, which
+		# is the same SIGPIPE shape as the needle search above (noise here, since
+		# nothing reads this pipeline's status, but noise that looks like a fault).
+		printf '%s\n' "$out" | sed -n '1,4s/^/           /p'
 	else
 		printf 'ok  %-62s (%s)\n' "$name" "$expect"
 	fi
@@ -375,8 +389,8 @@ run_case $'thresholds: the shell gate stops checking provenance' \
 	$'TestRolesAreBoundRefusesAThresholdWithAnUnrecognisedProvenance' \
 	$'the gate passed a threshold with' \
 	scripts/roles-are-bound.sh \
-	$'	if ! printf '"'"'%s\n'"'"' "$tprov" | grep -qE' \
-	$'	if false && ! printf '"'"'%s\n'"'"' "$tprov" | grep -qE'
+	$'	if ! grep -qE '"'"'^(@claude' \
+	$'	if false && ! grep -qE '"'"'^(@claude'
 run_case $'thresholds: a measured provenance with its how and date is not a fault' \
 	pass \
 	./internal/crew \
@@ -1834,7 +1848,7 @@ run_case $'never list: a binding for a clause that left the list is accepted' \
 	$'TestRolesAreBoundRefusesANeverBindingWhoseClauseWasTakenOut' \
 	$'the gate passed, want it to refuse' \
 	scripts/roles-are-bound.sh \
-	$'	if ! printf '"'"'%s\n'"'"' "$never_list" | grep -qxF "$verb"; then' \
+	$'	if ! grep -qxF "$verb" <<<"$never_list"; then' \
 	$'	if false; then'
 run_case $'never list: the blocked-task clause leaves the list' \
 	fail \
