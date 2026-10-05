@@ -107,7 +107,7 @@ flowchart TB
   AWS Budgets recommended threshold, GCP Cost Recommender and Azure Advisor
   budget-shaped recommendations, SaaS seats. Eight built, nine documented, and
   every entry declares whether running it is metered per call.
-- **Produces**: fifteen event types on the shared agent-event bus, registered in
+- **Produces**: twenty-two event types on the shared agent-event bus, registered in
   `agent-passport` SPEC 6.2 under the source `costcrew`, schema v0.2.
 - **Enforces**: nothing. `enforced: false` is stamped on every event, the console
   makes no outbound call while serving a page, and `internal/enforce` is a
@@ -154,11 +154,13 @@ first account created at `/signup` becomes the admin of that installation, so
 make one before you hand anybody the address.
 
 The `costcrew` console accepts `-gateway` for its own planning calls and
-`-behind-tls` from `v0.2.1` onward. The `v0.2.0` image has neither console
-flag: passing `-gateway` to that image exits with `flag provided but not
-defined`. The `costcrew-run` binary in `v0.2.0` already accepts its separate
-`-gateway` flag. Pin `ghcr.io/taipanbox/costcrew:v0.2.2` for the console flags
-and complete release assets.
+`-behind-tls` from `v0.2.1` onward, and `-gateway-openai` (or
+`COSTCREW_GATEWAY_OPENAI`), the gateway that fronts the OpenAI wire for an
+openrouter engine, from `v0.3.0` onward. The `v0.2.0` image has neither
+`-gateway` nor `-behind-tls`: passing `-gateway` to that image exits with
+`flag provided but not defined`. The `costcrew-run` binary in `v0.2.0` already
+accepts its separate `-gateway` flag. Pin `ghcr.io/taipanbox/costcrew:v0.3.0`
+for the console flags and complete release assets.
 
 Inside the stack, `./up.sh --with-finops` from
 [stack-up](https://github.com/TAIPANBOX/stack-up) brings it up wired to the
