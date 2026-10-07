@@ -222,3 +222,53 @@ func TestARunLeavesAPersonsBlockAloneAndCountsTheDiscardedAnswer(t *testing.T) {
 		t.Errorf("tasks.live_micros = %d, want 50000", got)
 	}
 }
+
+// The error path of the same moment: a person blocks the task while its call
+// is in flight and the call then FAILS. spend() used to answer every failure
+// by blocking the task with "the engine did not answer", which overwrote the
+// person's own reason with the runner's.
+func TestAFailedCallLeavesAPersonsBlockReasonAlone(t *testing.T) {
+	t.Setenv("ANTHROPIC_API_KEY", "sk-ant-stub-not-real")
+	db, task, analyst := runnerDB(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := blockTheTask(db, task.ID); err != nil {
+			t.Errorf("blocking the task from the gateway: %v", err)
+		}
+		http.Error(w, `{"error":"upstream unavailable"}`, http.StatusBadGateway)
+	}))
+	t.Cleanup(srv.Close)
+	b, _ := testBus(t, "gcp.taipanbox.local", "crew-2026-w41")
+	gw := gatewayConfig{URL: srv.URL, Host: "gcp.taipanbox.local", CeilingUSD: money.Cents(1000)}
+	e := estimate{Task: task, Analyst: analyst, Engine: "anthropic",
+		Model: "claude-x", WorstMicros: 1_000, Priced: true}
+
+	_ = captureStdout(t, func() { _ = spend(db, nil, []estimate{e}, 100, money.Cents(1000), 0, b, gw) })
+
+	state, reason := stateOf(t, db, task.ID)
+	if state != "blocked" || reason != blockReason {
+		t.Errorf("a failed call rewrote the person's block: state %q reason %q, want blocked and %q",
+			state, reason, blockReason)
+	}
+}
+
+// The control: a failed call on a task nobody blocked is still blocked by the
+// runner, with the runner's reason, exactly as before.
+func TestAFailedCallOnAnOpenTaskIsStillBlockedWithTheRunnersReason(t *testing.T) {
+	t.Setenv("ANTHROPIC_API_KEY", "sk-ant-stub-not-real")
+	db, task, analyst := runnerDB(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, `{"error":"upstream unavailable"}`, http.StatusBadGateway)
+	}))
+	t.Cleanup(srv.Close)
+	b, _ := testBus(t, "gcp.taipanbox.local", "crew-2026-w41")
+	gw := gatewayConfig{URL: srv.URL, Host: "gcp.taipanbox.local", CeilingUSD: money.Cents(1000)}
+	e := estimate{Task: task, Analyst: analyst, Engine: "anthropic",
+		Model: "claude-x", WorstMicros: 1_000, Priced: true}
+
+	_ = captureStdout(t, func() { _ = spend(db, nil, []estimate{e}, 100, money.Cents(1000), 0, b, gw) })
+
+	state, reason := stateOf(t, db, task.ID)
+	if state != "blocked" || !strings.HasPrefix(reason, "the engine did not answer") {
+		t.Errorf("an open task whose call failed: state %q reason %q, want blocked with the runner's reason", state, reason)
+	}
+}

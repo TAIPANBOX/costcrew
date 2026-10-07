@@ -756,8 +756,8 @@ run_case 'a deliverable that does not say a model wrote it' fail ./tools/run \
 	'TestARunnerDeliverableIsMarkedLive' \
 	'indistinguishable' \
 	tools/run/live.go \
-	"datetime('now'), 'live')" \
-	"datetime('now'), 'fixture')"
+	"'draft', datetime('now'), 'live'" \
+	"'draft', datetime('now'), 'fixture'"
 
 run_case 'a marker no page displays' fail ./internal/web \
 	'TestTheTaskPageShowsWhichDeliverableWasWrittenLive' \
@@ -2270,6 +2270,14 @@ run_case $'blocked meanwhile: the summary does not count the discard' \
 	tools/run/live.go \
 	$'				discarded++\n' \
 	$''
+run_case $'blocked meanwhile: a failed call overwrites the person\'s reason' \
+	fail \
+	./tools/run \
+	$'TestAFailedCallLeavesAPersonsBlockReasonAlone' \
+	$'a failed call rewrote the person\'s block' \
+	tools/run/live.go \
+	$'WHERE id=? AND state <> \'blocked\'`,' \
+	$'WHERE id=?`,'
 run_case $'blocked meanwhile: a reworded discard line is not a fault' \
 	pass \
 	./tools/run \

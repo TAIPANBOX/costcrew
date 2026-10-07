@@ -704,8 +704,11 @@ func spend(db, roDB *sql.DB, ests []estimate, maxTok int, cap money.Cents, only 
 				stop = true
 				return
 			}
+			// A person may have blocked the task while this call was in
+			// flight: their reason stands, and the runner's own is written
+			// only on a task nobody blocked (invariant 66).
 			if _, e2 := db.Exec(
-				`UPDATE tasks SET state='blocked', reason=?, updated=datetime('now') WHERE id=?`,
+				`UPDATE tasks SET state='blocked', reason=?, updated=datetime('now') WHERE id=? AND state <> 'blocked'`,
 				"the engine did not answer: "+trim(err.Error(), 160), e.Task.ID); e2 != nil {
 				fmt.Printf("  could not record the block: %v\n", e2)
 			}

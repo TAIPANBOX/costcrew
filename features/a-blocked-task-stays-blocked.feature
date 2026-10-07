@@ -48,3 +48,15 @@ Feature: A task a person blocks while its call is in flight does not get its del
     Given a task that stays open while its call is in flight
     When the answer arrives
     Then its draft is saved and its charge booked, and no discard line is printed
+
+  @test:TestAFailedCallLeavesAPersonsBlockReasonAlone
+  Scenario: A call that fails after a person blocked the task keeps the person's reason
+    Given a task a person blocks while its call is in flight
+    When the call fails instead of answering
+    Then the task stays blocked for the person's reason, not the runner's
+
+  @test:TestAFailedCallOnAnOpenTaskIsStillBlockedWithTheRunnersReason
+  Scenario: A call that fails on a task nobody blocked is blocked by the runner
+    Given a task that stays open while its call is in flight
+    When the call fails
+    Then the runner blocks it and says the engine did not answer

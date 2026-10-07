@@ -3390,22 +3390,30 @@ an absent invariant.
 
     What this does not cover: a block that lands after the draft statement
     finds a draft already written, which is a person blocking a task that has
-    a draft and is left alone; a task that fails with an ERROR while a person
-    has blocked it is still marked blocked by `spend` with the engine's
-    reason, replacing the person's (the error path predates this and is not
-    changed here).
+    a draft and is left alone. A call that FAILS while a person has blocked
+    its task no longer replaces the person's reason either: `spend`'s error
+    branch writes "the engine did not answer" only `WHERE ... AND state <>
+    'blocked'`, so a task nobody blocked is still blocked with the runner's
+    reason and a person's block keeps theirs
+    (`TestAFailedCallLeavesAPersonsBlockReasonAlone`, red on the unguarded
+    update with the person's reason replaced by "the engine did not answer:
+    anthropic answered 502"; control
+    `TestAFailedCallOnAnOpenTaskIsStillBlockedWithTheRunnersReason`).
     *(gate: `TestATaskBlockedWhileItsCallWasInFlightGetsNoDeliverable`,
     `TestATaskBlockedDuringAToolRoundBooksBothRoundsAndSavesNothing`,
     `TestSaveDraftWritesNothingForABlockedTask`,
     `TestARunLeavesAPersonsBlockAloneAndCountsTheDiscardedAnswer`,
-    `TestATaskNobodyBlockedStillGetsItsDeliverable` (`tools/run`; the block is
+    `TestATaskNobodyBlockedStillGetsItsDeliverable`,
+    `TestAFailedCallLeavesAPersonsBlockReasonAlone`,
+    `TestAFailedCallOnAnOpenTaskIsStillBlockedWithTheRunnersReason` (`tools/run`; the block is
     made from inside a fake gateway's handler, between the request arriving
     and the response going back, which is where a person's click lands in a
     real run). Five `fail` cases and one `pass` case in
     `gates-have-teeth.sh`: the guard taken out of the insert, the charge not
     booked on the discard path, the run overwriting the person's reason, the
-    discard line not printed, and the discard not counted in the summary; the
-    `pass` case rewords the tail of the discard line.)*
+    discard line not printed, the discard not counted in the summary, and the
+    error branch's guard taken out; the `pass` case rewords the tail of the
+    discard line.)*
 
 ## Decisions that have no gate yet
 
