@@ -131,8 +131,9 @@ func New(st *store.Store, au *auth.Auth, sk Stack) *Server {
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Before anything else, so no response, an error or a redirect included,
 	// leaves without the headers, and no handler reads a body that is over its
-	// cap (edge.go, invariant 59).
+	// cap (edge.go, invariants 59 and 79).
 	s.securityHeaders(w, r)
+	noStore(w, r)
 	if !limitBody(w, r) {
 		return
 	}
@@ -372,7 +373,7 @@ func (s *Server) intakeTemplate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
-	w.Header().Set("Content-Disposition", "attachment; filename="+name)
+	setDisposition(w, "attachment", name)
 	fmt.Fprint(w, body)
 }
 

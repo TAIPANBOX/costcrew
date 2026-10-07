@@ -8,7 +8,6 @@ package web
 import (
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/TAIPANBOX/costcrew/internal/connectors"
 )
@@ -106,16 +105,6 @@ func modelLabel(m string) string {
 	return m
 }
 
-// csvCell keeps a value a spreadsheet would run as a formula from being one.
-// A model name comes from a provider's JSON, which this console does not
-// control, and "=HYPERLINK(...)" is a valid string there.
-func csvCell(v string) string {
-	if v != "" && strings.ContainsAny(v[:1], "=+-@\t\r") {
-		return "'" + v
-	}
-	return v
-}
-
 func (s *Server) exportReconciliation(w http.ResponseWriter, r *http.Request) {
 	if s.guard(w, r) == nil {
 		return
@@ -126,7 +115,9 @@ func (s *Server) exportReconciliation(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([][]string, 0, len(rec.Rows)+1)
 	for _, x := range rec.Rows {
-		out = append(out, []string{x.Day, csvCell(x.Model),
+		// The model comes from a provider's JSON, which this console does not
+		// control; writeCSV keeps it from becoming a formula (invariant 78).
+		out = append(out, []string{x.Day, x.Model,
 			connectors.MicrosExact(x.ProviderMicros), connectors.MicrosExact(x.GatewayMicros),
 			connectors.MicrosExact(x.GapMicros), x.Status,
 			tokens(x.ProviderIn, x.UsageCovered), strconv.FormatInt(x.GatewayIn, 10),
@@ -138,7 +129,9 @@ func (s *Server) exportReconciliation(w http.ResponseWriter, r *http.Request) {
 	out = append(out, []string{"total", rec.From + " to " + rec.To,
 		connectors.MicrosExact(rec.ProviderMicros), connectors.MicrosExact(rec.GatewayMicros),
 		connectors.MicrosExact(rec.GapMicros), "", "", "", "", ""})
-	writeCSV(w, "reconciliation-"+c.ID+"-"+rec.From+"-"+rec.To+".csv", []string{
-		"day", "model", "provider_usd", "gateway_usd", "gap_usd", "status",
-		"provider_tokens_in", "gateway_tokens_in", "provider_tokens_out", "gateway_tokens_out"}, out)
+	writeCSV(w, "reconciliation-"+c.ID+"-"+rec.From+"-"+rec.To+".csv", []csvCol{
+		textCol("day"), textCol("model"),
+		numberCol("provider_usd"), numberCol("gateway_usd"), numberCol("gap_usd"), textCol("status"),
+		numberCol("provider_tokens_in"), numberCol("gateway_tokens_in"),
+		numberCol("provider_tokens_out"), numberCol("gateway_tokens_out")}, out)
 }

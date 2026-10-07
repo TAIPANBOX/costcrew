@@ -2829,6 +2829,177 @@ run_case $'blocked meanwhile: a reworded discard line is not a fault' \
 	$'so no draft was saved; the call cost' \
 	$'so nothing was saved; the call cost'
 
+# What a download carries is data (invariant 78): Markdown escaped, CSV
+# neutralised by column kind, one file name per download, and x_unit, the
+# field those names most often arrive in, held to the plain-name rule.
+run_case 'downloads: Markdown values written raw into the packet' \
+	fail \
+	./internal/web \
+	$'TestTheExecPacketKeepsAnImportedValueAsText' \
+	$'raw <script> tag' \
+	internal/web/download.go \
+	$'func mdText(s string) string {\n' \
+	$'func mdText(s string) string {\n\treturn s\n'
+run_case 'downloads: a reworded comment in the Markdown escaping is not a fault' \
+	pass \
+	./internal/web \
+	$'TestTheExecPacketKeepsAnImportedValueAsText' \
+	$'' \
+	internal/web/download.go \
+	$'// mdText makes a value safe to put in Markdown prose or a table cell.' \
+	$'// mdText makes a value safe for Markdown prose and for a table cell.'
+run_case 'downloads: the file name concatenated into the header again' \
+	fail \
+	./internal/web \
+	$'TestADownloadsFileNameIsOneParameterWhateverItCarries' \
+	$'does not parse' \
+	internal/web/download.go \
+	$'	v := mime.FormatMediaType(disposition, map[string]string{"filename": filename})' \
+	$'	v := disposition + "; filename=" + filename\n	_ = mime.FormatMediaType'
+run_case 'downloads: a second place names a download' \
+	fail \
+	./internal/web \
+	$'TestEveryDownloadIsNamedThroughOneHelper' \
+	$'the Content-Disposition header is set in' \
+	internal/web/money.go \
+	$'func (s *Server) exportCrewCSV(w http.ResponseWriter, r *http.Request) {\n' \
+	$'func (s *Server) exportCrewCSV(w http.ResponseWriter, r *http.Request) {\n	w.Header().Set("Content-Disposition", "attachment; filename=crew.csv")\n'
+run_case 'downloads: a CSV cell that starts a formula is written as it came' \
+	fail \
+	./internal/web \
+	$'TestACSVExportNeutralisesAFormulaAndKeepsANegativeNumber' \
+	$'starts a formula' \
+	internal/web/download.go \
+	$'func csvCell(kind csvKind, v string) string {\n' \
+	$'func csvCell(kind csvKind, v string) string {\n\treturn v\n'
+run_case 'downloads: a number column neutralised like a text one' \
+	fail \
+	./internal/web \
+	$'TestACSVExportNeutralisesAFormulaAndKeepsANegativeNumber' \
+	$'a negative amount in a number' \
+	internal/web/download.go \
+	$'	if kind == csvNumber && plainNumber.MatchString(v) {' \
+	$'	if false && kind == csvNumber && plainNumber.MatchString(v) {'
+run_case 'downloads: x_unit carried unchecked into charges.team' \
+	fail \
+	./internal/connectors \
+	$'TestXUnitIsRefusedUnlessItIsAPlainBoundedName' \
+	$'the row was not refused' \
+	internal/connectors/tokenfusefocus.go \
+	$'	if reason := plainUnitName(unit); reason != "" {' \
+	$'	if reason := plainUnitName(unit); false && reason != "" {'
+run_case 'downloads: every refused row named, however many' \
+	fail \
+	./internal/connectors \
+	$'TestRefusalsAreCountedWholeButNamedOnlyForTheFirstFew' \
+	$'refusals, want the first' \
+	internal/connectors/tokenfusefocus.go \
+	$'	if len(s.Refusals) < focusRefusalsShown {\n		s.Refusals = append(s.Refusals, reason)' \
+	$'	if true {\n		s.Refusals = append(s.Refusals, reason)' \
+	internal/connectors/tokenfusefocus.go \
+	$'		if len(s.Refusals) < focusRefusalsShown {\n			s.Refusals = append(s.Refusals, r)' \
+	$'		if true {\n			s.Refusals = append(s.Refusals, r)'
+run_case 'downloads: a link in the import folder followed' \
+	fail \
+	./internal/connectors \
+	$'TestALinkInTheFolderIsNotFollowedAndIsNamed' \
+	$'the link\'s target was read' \
+	internal/connectors/tokenfusefocus.go \
+	$'		if !e.Type().IsRegular() {' \
+	$'		if false && !e.Type().IsRegular() {' \
+	internal/connectors/tokenfusefocus.go \
+	$'	} else if !fi.Mode().IsRegular() {' \
+	$'	} else if false && !fi.Mode().IsRegular() {'
+# No cache keeps a page or a download (invariant 79).
+run_case 'no-store: the header left off' \
+	fail \
+	./internal/web \
+	$'TestEveryGuardedResponseIsMarkedNoStore' \
+	$'want no-store' \
+	internal/web/server.go \
+	$'	noStore(w, r)\n' \
+	$''
+run_case 'no-store: the stylesheet marked no-store too' \
+	fail \
+	./internal/web \
+	$'TestTheStylesheetIsNotMarkedNoStore' \
+	$'the one response worth caching' \
+	internal/web/edge.go \
+	$'	if strings.HasPrefix(r.URL.Path, "/static/") {' \
+	$'	if false && strings.HasPrefix(r.URL.Path, "/static/") {'
+run_case 'no-store: a reworded comment is not a fault' \
+	pass \
+	./internal/web \
+	$'TestEveryGuardedResponseIsMarkedNoStore' \
+	$'' \
+	internal/web/edge.go \
+	$'// noStore marks every response but the stylesheet as one no cache may keep.' \
+	$'// noStore marks every response except the stylesheet as one no cache may keep.'
+# A link leads somewhere, and a tool says what it does.
+run_case 'team page: a unit off the roster answers 404 again' \
+	fail \
+	./internal/web \
+	$'TestEveryTeamLinkOnTheMoneyPagesLeadsToAPage' \
+	$'leads nowhere' \
+	internal/web/drill.go \
+	$'		if !charged || name == "" {' \
+	$'		if true || !charged || name == "" {'
+run_case 'idryxsource: an agent with no rights written as tools null' \
+	fail \
+	./tools/idryxsource \
+	$'TestAnAgentWithNoRightsHasAnEmptyToolsList' \
+	$'want "tools":[]' \
+	tools/idryxsource/main.go \
+	$'		Tools: append(make([]string, 0, len(a.Rights)), a.Rights...),' \
+	$'		Tools: append([]string(nil), a.Rights...),'
+run_case 'spiffe: Close decides with no lock' \
+	fail \
+	./internal/spiffe \
+	$'TestCloseDecidesUnderTheLockAndClosesOnce' \
+	$'without the Source\'s lock held' \
+	internal/spiffe/spiffe.go \
+	$'	s.mu.Lock()\n	defer s.mu.Unlock()\n	if s.closed {' \
+	$'	if s.closed {'
+run_case 'spiffe: Identity asks a source it has closed' \
+	fail \
+	./internal/spiffe \
+	$'TestIdentityAfterCloseKeepsTheLastIdentityAndAsksNothing' \
+	$'asked a closed source' \
+	internal/spiffe/spiffe.go \
+	$'	if closed {\n		s.mu.RLock()' \
+	$'	if false && closed {\n		s.mu.RLock()'
+run_case 'parity: the usage names a flag capture does not have' \
+	fail \
+	./tools/parity \
+	$'TestTheUsageNamesEveryFlagEachSubcommandDefines' \
+	$'which it does not define' \
+	tools/parity/main.go \
+	$'[-per-family N] [-from GOLDEN]' \
+	$'[-max N] [-from GOLDEN]'
+run_case 'parity: the Go audit hash left unscrubbed' \
+	fail \
+	./tools/parity \
+	$'TestTheJournalHashIsScrubbedInTheMarkupTheGoConsoleRenders' \
+	$'still differ after normalising' \
+	tools/parity/main.go \
+	$'regexp.MustCompile(`<td class="tight"><code>[0-9a-f]{8,64}</code></td>`)' \
+	$'regexp.MustCompile(`<td class="qtight"><code>[0-9a-f]{8,64}</code></td>`)'
+run_case 'plan-ask: a local supervisor refused with the generic sentence' \
+	fail \
+	./internal/web \
+	$'TestAskPlanForALocalSupervisorSaysWhyItIsRefused' \
+	$'the refusal does not say' \
+	internal/web/planning.go \
+	$'	case engine == engines.LocalID:' \
+	$'	case false && engine == engines.LocalID:'
+run_case 'engines page: only the first three families listed' \
+	fail \
+	./internal/web \
+	$'TestTheEnginesPageListsEveryFamilyInTheCatalogue' \
+	$'does not list the' \
+	internal/web/ops.go \
+	$'	for _, f := range families {' \
+	$'	for _, f := range families[:3] {'
 # 74 and 75. Sign-in through the organisation's identity provider. Every case
 # switches off one check the flow makes, in the place it is made, and requires
 # the test written for that check to go red for that reason. go-oidc's own
@@ -3388,16 +3559,16 @@ run_case $'idryxsource: an agent acts on behalf of itself, not its parent' \
 	$'TestTheRosterIsWrittenAsAnIdryxAgentsSource' \
 	$'--- FAIL: TestTheRosterIsWrittenAsAnIdryxAgentsSource' \
 	tools/idryxsource/main.go \
-	$'e.OnBehalfOf = "agent://" + *host + "/" + a.Parent' \
-	$'e.OnBehalfOf = "agent://" + *host + "/" + a.Name'
+	$'e.OnBehalfOf = "agent://" + host + "/" + a.Parent' \
+	$'e.OnBehalfOf = "agent://" + host + "/" + a.Name'
 run_case $'idryxsource: the skills are written where the rights belong' \
 	fail \
 	./tools/idryxsource \
 	$'TestTheRosterIsWrittenAsAnIdryxAgentsSource' \
 	$'--- FAIL: TestTheRosterIsWrittenAsAnIdryxAgentsSource' \
 	tools/idryxsource/main.go \
-	$'append([]string(nil), a.Rights...)' \
-	$'append([]string(nil), a.Skills...)'
+	$'append(make([]string, 0, len(a.Rights)), a.Rights...)' \
+	$'append(make([]string, 0, len(a.Skills)), a.Skills...)'
 run_case $'idryxsource: the hire date is passed on as a bare date, not RFC 3339' \
 	fail \
 	./tools/idryxsource \
@@ -4077,14 +4248,6 @@ run_case 'reconciliation: a key filter drops a cost report that carries no key' 
 	internal/connectors/reconcile.go \
 	$'		if !spec.costHasKey {' \
 	$'		if false {'
-run_case 'reconciliation: a model name reaches the CSV as a formula' \
-	fail \
-	./internal/web \
-	$'TestTheReconciliationCSVCarriesEveryRowAndTheGapLine' \
-	$'as a formula' \
-	internal/web/reconciliation.go \
-	$'	if v != "" && strings.ContainsAny(v[:1], "=+-@\\t\\r") {' \
-	$'	if v != "" && strings.ContainsAny(v[:1], "") {'
 run_case 'reconciliation: a reworded page introduction is not a fault' \
 	pass \
 	./internal/web \
@@ -4119,6 +4282,38 @@ run_case 'usage fetcher: a repeated page cursor is followed' \
 	tools/usage/main.go \
 	$'		if seen[next] {' \
 	$'		if false {'
+run_case $'reasoning tokens: the tool loop reads completion_tokens alone' \
+	fail \
+	./tools/run \
+	$'TestTheTokenCeilingCountsAThinkingModelsReasoning' \
+	$'the token ceiling counted 73 tokens' \
+	tools/run/loop.go \
+	$'inTok, outTok := out.Usage.PromptTokens, out.Usage.OutputTokens()\n' \
+	$'inTok, outTok := out.Usage.PromptTokens, out.Usage.CompletionTokens\n'
+run_case $'reasoning tokens: the shared rule ignores total_tokens' \
+	fail \
+	./internal/deliver \
+	$'TestALocalCallCountsAThinkingModelsReasoningAsOutput|TestAnOpenRouterCallCountsAThinkingModelsReasoningAsOutput' \
+	$'counted 14 in and 59 out, want 14 and 619' \
+	internal/deliver/openai_usage.go \
+	$'beyondPrompt > out {' \
+	$'false && beyondPrompt > out {'
+run_case $'reasoning tokens: a total smaller than its parts is believed' \
+	fail \
+	./internal/deliver \
+	$'TestALocalCallCountsAThinkingModelsReasoningAsOutput|TestOpenAIUsageOutputTokens' \
+	$'counted 14 in and 6 out, want 14 and 59' \
+	internal/deliver/openai_usage.go \
+	$'beyondPrompt > out {' \
+	$'beyondPrompt > out || true {'
+run_case $'reasoning tokens: the rule written as one max is not a fault' \
+	pass \
+	./internal/deliver \
+	$'TestALocalCallCountsAThinkingModelsReasoningAsOutput|TestAnOpenRouterCallCountsAThinkingModelsReasoningAsOutput|TestOpenAIUsageOutputTokens' \
+	$'' \
+	internal/deliver/openai_usage.go \
+	$'\tif beyondPrompt := u.TotalTokens - u.PromptTokens; beyondPrompt > out {\n\t\treturn beyondPrompt\n\t}\n\treturn out\n' \
+	$'\treturn max(out, u.TotalTokens-u.PromptTokens)\n'
 
 echo
 if [ -n "$(git status --porcelain)" ]; then

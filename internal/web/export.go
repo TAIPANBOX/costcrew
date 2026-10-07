@@ -1,29 +1,16 @@
 package web
 
 import (
-	"encoding/csv"
 	"net/http"
 	"strconv"
 
 	"github.com/TAIPANBOX/costcrew/internal/estate"
 )
 
-// writeCSV sends a table as a download.
-//
-// CRLF because that is what every spreadsheet on every platform opens without
-// asking a question, which is the only audience a CSV export has.
-func writeCSV(w http.ResponseWriter, filename string, header []string, rows [][]string) {
-	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
-	w.Header().Set("Content-Disposition", "attachment; filename="+filename)
-	cw := csv.NewWriter(w)
-	cw.UseCRLF = true
-	_ = cw.Write(header)
-	_ = cw.WriteAll(rows)
-}
-
-var budgetHeader = []string{
-	"month", "source", "team", "budget_usd", "actual_usd", "variance_usd",
-	"variance_pct", "month_state",
+var budgetHeader = []csvCol{
+	textCol("month"), textCol("source"), textCol("team"), numberCol("budget_usd"),
+	numberCol("actual_usd"), numberCol("variance_usd"), numberCol("variance_pct"),
+	textCol("month_state"),
 }
 
 func (s *Server) exportBudget(w http.ResponseWriter, r *http.Request) {

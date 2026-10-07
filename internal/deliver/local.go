@@ -268,10 +268,7 @@ func callLocal(ctx context.Context, model, prompt string, maxTok int, gw Gateway
 				Content string `json:"content"`
 			} `json:"message"`
 		} `json:"choices"`
-		Usage struct {
-			PromptTokens     int `json:"prompt_tokens"`
-			CompletionTokens int `json:"completion_tokens"`
-		} `json:"usage"`
+		Usage OpenAIUsage `json:"usage"`
 	}
 	if err := json.Unmarshal(raw, &out); err != nil {
 		return Result{}, fmt.Errorf("the local model server's answer did not parse: %w", err)
@@ -283,7 +280,7 @@ func callLocal(ctx context.Context, model, prompt string, maxTok int, gw Gateway
 	if len(out.Choices) == 0 {
 		return Result{}, fmt.Errorf("the local model server returned no answer")
 	}
-	in, outTok, _ := CountLocalUsage(out.Usage.PromptTokens, out.Usage.CompletionTokens, len(body), maxTok)
+	in, outTok, _ := CountLocalUsage(out.Usage.PromptTokens, out.Usage.OutputTokens(), len(body), maxTok)
 	return Result{
 		Text:       out.Choices[0].Message.Content,
 		InTokens:   in,

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"html/template"
 	"log"
-	"mime"
 	"net/http"
 	"time"
 
@@ -410,13 +409,8 @@ func (s *Server) exportResultsHTML(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	// FormatMediaType quotes a filename that needs it; the period comes from
-	// the store, and a store is not a place to trust for header syntax.
-	disposition := mime.FormatMediaType("attachment",
-		map[string]string{"filename": "costcrew-results-" + p + ".html"})
-	if disposition == "" {
-		disposition = "attachment"
-	}
-	w.Header().Set("Content-Disposition", disposition)
+	// The period comes from the store, and a store is not a place to trust
+	// for header syntax: setDisposition quotes it (download.go, invariant 78).
+	setDisposition(w, "attachment", "costcrew-results-"+p+".html")
 	_, _ = buf.WriteTo(w)
 }
