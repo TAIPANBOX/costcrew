@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/TAIPANBOX/costcrew/actions/workflows/ci.yml/badge.svg)](https://github.com/TAIPANBOX/costcrew/actions/workflows/ci.yml)
 ![Go](https://img.shields.io/badge/go-1.27-00ADD8.svg)
-![tests](https://img.shields.io/badge/tests-968-brightgreen.svg)
+![tests](https://img.shields.io/badge/tests-997-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)
 ![Status](https://img.shields.io/badge/enforces-nothing%20by%20design-success.svg)
 
@@ -100,12 +100,13 @@ flowchart TB
 ```
 
 - **Consumes**: billing exports and vendor usage APIs, never another service's
-  store. Seventeen connectors: AWS Data Exports (FOCUS 1.2), Cost Explorer, GCP
-  BigQuery billing export, Azure Cost Management, Kubecost, OpenCost, TokenFuse
+  store. Seventeen connectors: AWS Data Exports (FOCUS 1.0 and 1.2, read from a
+  synced folder), Cost Explorer, GCP billing export (a FOCUS CSV folder
+  exported from BigQuery), Azure Cost Management, Kubecost, OpenCost, TokenFuse
   FOCUS export, Anthropic and OpenRouter usage, Compute Optimizer, AWS Cost
   Explorer and GCP Recommender and Azure Advisor rightsizing recommendations,
   AWS Budgets recommended threshold, GCP Cost Recommender and Azure Advisor
-  budget-shaped recommendations, SaaS seats. Eight built, nine documented, and
+  budget-shaped recommendations, SaaS seats. Ten built, seven documented, and
   every entry declares whether running it is metered per call.
 - **Produces**: twenty-three event types on the shared agent-event bus, twenty-two
   of them registered in `agent-passport` SPEC 6.2 under the source `costcrew`,
@@ -132,11 +133,15 @@ invoice changes. The seeded estate is blunt about what that means: the crew has
 found 1,254.35 and cost 3,871.35 across 310 tasks, and the Results page prints
 the ratio without softening it.
 
-**A measure may refuse.** The KPI library reports nine numbers and refuses three,
-each refusal naming what is missing. A library where everything reports a number
-is one where several of them are invented. The refusal it will not talk around is
-per-agent AI spend: a charge carries a model and a workload, never an agent, and
-that becomes answerable only when the calls go through TokenFuse with an agent id.
+**A measure may refuse.** The KPI library defines twelve measures. On the
+generated fixture it reports nine and refuses three, each refusal naming what is
+missing: cost per outcome (no business metric is connected), carbon per workload
+(no carbon source is connected) and AI spend attributed to an agent. A library
+where everything reports a number is one where several of them are invented. The
+refusal it will not talk around is per-agent AI spend: a generated charge carries
+a model and a workload, never an agent, and that becomes answerable only when the
+calls go through TokenFuse with an agent id. Cost per outcome computes once an
+import carries tagged outcomes.
 
 ## The detector
 
@@ -423,8 +428,9 @@ Two defects turned up, both already fixed on `main` and neither in
   box's own export cleanly (277 rows, 4 agents, 0.07 total billed cost).
   Issue #66, fixed by #70 (`cb90412`, invariant 50).
 
-Still open: no AWS or GCP billing reader exists yet, so the board worked
-the generated estate and the box's AI spend alone (#68). This run used
+Still open at the time of the run: no AWS or GCP billing reader existed, so
+the board worked the generated estate and the box's AI spend alone (#68; both
+folder readers have since been added). This run used
 `v0.2.0`, which predates the console's `-gateway` flag, so the flag was
 dropped from the command (#69); closed by `v0.2.1`, the first image that
 carries `-gateway`.

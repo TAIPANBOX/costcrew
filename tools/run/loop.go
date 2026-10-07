@@ -220,15 +220,13 @@ func anthropicRoundRequest(ctx context.Context, key, model string, messages []an
 	req.Header.Set("anthropic-version", "2023-06-01")
 	req.Header.Set("Content-Type", "application/json")
 	if gw.URL != "" {
-		// Every round carries the same three headers: the run and the
+		// Every round carries the same x-fuse-* headers: the run and the
 		// analyst do not change mid-task, and the budget is the same
 		// figure gatewayHeadersFor already worked out once for this task.
-		req.Header.Set("x-fuse-run-id", gw.RunID)
-		req.Header.Set("x-fuse-agent-id", gw.AgentID)
-		req.Header.Set("x-fuse-budget-usd", gw.BudgetUSD)
-		if gw.ParentRunID != "" {
-			req.Header.Set("x-fuse-parent-run-id", gw.ParentRunID)
-		}
+		// deliver.SetFuseHeaders, the function deliver.Call and the OpenAI
+		// round use too: this block was a private copy of it that had
+		// never learned x-fuse-on-behalf-of (costcrew#73).
+		deliver.SetFuseHeaders(req, gw)
 	}
 	return req, nil
 }
@@ -243,6 +241,12 @@ func anthropicRound(ctx context.Context, model string, messages []anthropicMsg,
 	key := strings.TrimSpace(os.Getenv("ANTHROPIC_API_KEY"))
 	if key == "" {
 		return roundResult{}, nil, fmt.Errorf("ANTHROPIC_API_KEY is not set in this process")
+	}
+	// The identity check deliver.Call's callAnthropic makes and this
+	// round never did (openRouterRound below has made it from the start):
+	// a gateway call with no owner chain is refused before a request exists.
+	if err := deliver.RequireIdentity(gw, gw.URL != ""); err != nil {
+		return roundResult{}, nil, err
 	}
 	req, err := anthropicRoundRequest(ctx, key, model, messages, tools, maxTok, gw)
 	if err != nil {

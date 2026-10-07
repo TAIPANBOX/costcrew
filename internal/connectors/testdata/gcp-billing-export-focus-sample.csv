@@ -1,0 +1,6 @@
+BilledCost,BillingAccountId,BillingCurrency,ChargeCategory,ChargeClass,ChargeDescription,ChargePeriodEnd,ChargePeriodStart,InvoiceId,ProviderName,PublisherName,ServiceName,SubAccountId,x_Tags
+88.123456,AAAAAA-BBBBBB-CCCCCC,USD,Usage,,usage,2026-09-02T00:00:00Z,2026-09-01T00:00:00Z,GCP-INV-1,Google Cloud,Google Cloud,Compute Engine,sample-project-a,"[{""Key"":""team"",""Value"":""search"",""x_Inherited"":false,""x_Namespace"":""user""}]"
+9.9,AAAAAA-BBBBBB-CCCCCC,USD,Usage,,usage,2026-09-02T00:00:00Z,2026-09-01T00:00:00Z,GCP-INV-1,Google Cloud,Google Cloud,BigQuery,sample-project-b,"[{""Key"":""team"",""Value"":""analytics"",""x_Inherited"":false,""x_Namespace"":""user""}]"
+3.333333,AAAAAA-BBBBBB-CCCCCC,USD,Usage,,usage,2026-09-03T00:00:00Z,2026-09-02T00:00:00Z,GCP-INV-1,Google Cloud,Google Cloud,Cloud Storage,sample-project-b,[]
+14.20,AAAAAA-BBBBBB-CCCCCC,USD,Tax,,Tax,2026-09-03T00:00:00Z,2026-09-02T00:00:00Z,GCP-INV-1,Google Cloud,Google Cloud,Tax,,
+-1.5,AAAAAA-BBBBBB-CCCCCC,USD,Adjustment,,Rounding adjustment,2026-09-03T00:00:00Z,2026-09-02T00:00:00Z,GCP-INV-1,Google Cloud,Google Cloud,Compute Engine,sample-project-a,

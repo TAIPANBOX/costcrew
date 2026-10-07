@@ -84,9 +84,9 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 1104 tests, 22 packages
-./scripts/gates-have-teeth.sh        # 252 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 372 scenarios, both directions
+go test ./...                        # 1193 tests, 22 packages
+./scripts/gates-have-teeth.sh        # 311 cases; needs a clean tree
+./scripts/features-are-bound.sh      # 412 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
@@ -117,10 +117,10 @@ tests (`internal/typryx`, 23, new package; `internal/anomaly/hint_test.go`, 4;
 `tools/run/hint_test.go`, 5; `internal/manifest/typryx_start_test.go`, 3),
 14 `gates-have-teeth.sh` cases (12 `fail`, 2 `pass`) and 16 scenarios
 (`features/typed-hint.feature`, new), one wire type (`anomaly_hinted`) and no
-route. Measured after merging `main` past invariants 74 and 75 and the web
-hardening that followed them: 1060 -> 1104 tests, 21 -> 22 packages, 238 ->
-252 cases, 356 -> 372 scenarios, GET and write routes unchanged, with the
-three commands this block already names. The existing case `egress: a package the console imports
+route. Measured after merging `main` past invariants 65 to 69, 74 and 75:
+1149 -> 1193 tests, 21 -> 22 packages, 297 -> 311 cases, 396 -> 412
+scenarios, GET and write routes unchanged, with the three commands this block
+already names. The existing case `egress: a package the console imports
 starts building requests` had its expected words widened to the three doors.
 
 Invariants 61 to 64 (a session token is never stored; every failed sign-in
@@ -158,6 +158,31 @@ routes unchanged, re-measured on this branch with the three commands this
 block already names. The placeholder number 59 is the coordinator's to
 renumber at merge. No gate in `gates-have-teeth.sh` was edited, only
 appended to.
+
+Invariant 67 (a cloud provider's own bill reaches the crew as real money,
+costcrew#68) added 34 tests (`internal/connectors/cloudfocus_test.go`, 23;
+`cloudfocus_pieces_test.go`, 10; `internal/web/cloudfocus_page_test.go`, 1),
+22 `gates-have-teeth.sh` cases (twenty-one `fail`, one `pass`) and 13
+scenarios (`features/cloud-focus.feature`, new), and no route: 968 -> 1002
+tests, 166 -> 188 cases, 295 -> 308 scenarios in 38 files, 58 GET routes
+unchanged, re-measured on this branch with the three commands this block
+already names. The connector catalogue is still 17 entries, now 10 built and
+7 documented (README says so). Numbered 67 as a placeholder the coordinator
+renumbers at merge.
+
+Invariants 68 and 69 (a customer unit's spend is in the showback, one row per
+unit a person has ruled on, costcrew#74; the crew-cost KPI states the same
+signed money found as Results) added 29 tests
+(`internal/finops/unitrules_test.go`, 15; `internal/finops/kpi_found_test.go`,
+2; `internal/crew/options_unitrule_test.go`, 4;
+`internal/deliver/packet_unitrules_test.go`, 3;
+`internal/web/unit_showback_test.go`, 5), 16 `gates-have-teeth.sh` cases
+(fourteen `fail`, two `pass`) and 11 scenarios
+(`features/unit-showback.feature`, new, 10; `features/money-found.feature`,
+new, 1), and no route: 968 -> 997 tests, 166 -> 182 cases, 295 -> 306
+scenarios, 58 GET routes and 36 write routes unchanged, re-measured on this
+branch with the three commands this block already names. Numbered 68 and 69
+as placeholders; the coordinator renumbers at merge.
 
 Invariant 49 (a cookie is Secure when a TLS proxy in front is what actually
 terminates it, section "Read before you change anything" of this branch's
@@ -246,6 +271,20 @@ entries, which was the defect's own mirror; it now asserts six. Numbered 57
 because invariant 56 (the decided thresholds) is on the pull request opened
 before this one on the same day; the pull request after it takes 58.
 
+Invariants 65 and 66 (every gateway call names the person it spends for,
+costcrew#73; a task blocked while its call is in flight keeps the block)
+added 24 tests (`internal/deliver/onbehalfof_test.go`, 8;
+`tools/run/onbehalfof_test.go`, 7; `tools/run/blocked_meanwhile_test.go`, 5;
+`tools/bench/gateway_test.go`, 2; `internal/web/planning_ask_owner_test.go`,
+2), 20 `gates-have-teeth.sh` cases (seventeen `fail`, three `pass`) and 14
+scenarios (`features/the-owner-reaches-the-gateway.feature`, 9;
+`features/a-blocked-task-stays-blocked.feature`, 5), and no route: 968 -> 992
+tests, 166 -> 186 cases, 295 -> 309 scenarios, 58 GET routes unchanged,
+re-measured on this branch with the three commands this block already names.
+A number of existing tests gained an owner on the analyst or a run id on the
+bus they build, because a gateway call without either is now refused before
+it is made; none was weakened. Numbered 65 and 66 here as placeholders the
+coordinator renumbers at merge; invariant 57's open limit now points at 66.
 Invariant 53 (the supervisor selects among the analysts' own options)
 added 10 tests (`internal/finops/supervise_analystclass_test.go`, 8;
 `internal/crew/roles_select_internal_test.go`, 2), 8 `gates-have-teeth.sh`
@@ -3304,9 +3343,9 @@ an absent invariant.
     the list (`BINDING WITHOUT CLAUSE`) or whose test is gone (`DANGLING
     NEVER`). The other five clauses are not bound by this: they are the
     prompt's wording and the class ownership of `purchase`, `infra.change`
-    and `vendor.negotiate`. What `workable` does not cover: a task blocked
-    while its call is already in flight still gets its deliverable written;
-    that window is not closed here.
+    and `vendor.negotiate`. What `workable` alone does not cover is a task
+    blocked while its call is already in flight; that window was this
+    invariant's open limit until invariant 66 closed it.
     *(gate: `TestTheDecidesAloneListsAreWrittenFromTheProse`,
     `TestTheHandsUpListsAreWrittenFromTheProse`,
     `TestEveryAnalystFamilyHasBothListsOrAReasonedExemption`,
@@ -3689,6 +3728,412 @@ an absent invariant.
     walk's `doors` beside `internal/deliver` and `internal/sso` (invariant 74)
     and held to `typryx.go`. It is reached from `cmd/costcrew` alone, at
     start, never from a page.
+
+65. **Every gateway call names the person it spends for, and a task whose
+    analyst has no owner is refused rather than sent with an empty chain.**
+    costcrew#73, measured on the appliance proving run of 2026-09-17: the
+    runner sent `x-fuse-run-id`, `x-fuse-agent-id`, `x-fuse-budget-usd` and
+    (when it had one) `x-fuse-parent-run-id`, never `x-fuse-on-behalf-of`, and
+    the control plane folds an owner from the first `user://` entry of that
+    chain, so a crew run reached its owner view as "unassigned" while the
+    roster named an owner for every agent. Two faults under the one symptom.
+    Nothing built the header at all, and the tool loop's Anthropic round
+    (`anthropicRoundRequest`, `tools/run/loop.go`) carried a private,
+    hand-written copy of `deliver.SetFuseHeaders` that nobody had told about
+    any header added since it was written. Now `deliver.Gateway` carries the
+    chain (`OnBehalfOf`), `SetFuseHeaders` sends it, and the loop's round
+    calls that function instead of its copy, so the Anthropic loop, the
+    OpenAI round, `deliver.Call` and the bench set one header set by
+    construction.
+
+    The chain is the TokenFuse grammar read from its own parser
+    (`chainproof::declared_chain` and `on_behalf_of_header` in the tokenfuse
+    gateway, read, not built): one value, comma-separated, root first, entries
+    trimmed and empty ones dropped, at most 32 entries, and a value over 4096
+    bytes ignored without an error. `deliver.OnBehalfOfChain(host, owner,
+    analyst)` builds it as `user://<host>/<owner>` then
+    `agent://<host>/<analyst>`, `deliver.AnalystOnBehalfOf` for an analyst
+    off the roster. An owner is an account name nobody validated for this, so
+    it goes in escaped as a path segment (`url.PathEscape`): a comma, a space,
+    a control byte or a non-ASCII byte in it cannot add a chain entry or leave
+    a byte the gateway's header reader would drop, and an ordinary name is
+    unchanged. A chain over the byte cap is refused here, where it can be
+    said, instead of sent to be dropped. `@claude`: the escaping is a choice
+    this change made; the alternative was refusing odd names, which would lock
+    an analyst out of the gateway for the way its owner's account is spelled.
+
+    No owner is no chain. `deliver.RequireIdentity`, the boundary every
+    gateway call passes (now including the Anthropic loop's round, which never
+    called it), refuses a gateway call with an agent and no chain, naming the
+    agent, before a request exists. Earlier than that, `refuseOwnerless`
+    (`tools/run`) marks the estimate of a task whose analyst has no owner
+    refused, with a verdict that names the analyst, in the dry run, in a live
+    run and in `-due`, so `spend()` never starts it and the others go on; and
+    `execute` builds the headers before it reserves anything, so a caller that
+    skipped pricing still takes nothing from the ceiling. The placeholder
+    `unclaimed`, which `crew.SeedRoster` stamps on every agent of a roster
+    seeded without `-stack-owner`, is no owner either (the passport and the
+    mandate backfill already read it that way): sending it would file the
+    crew's spend under a person who is not one. Without a gateway nothing is
+    sent to anyone and nothing is refused, so an installation that runs direct
+    is unchanged. `@claude`: refusing at pricing only when a gateway is
+    configured, not always, is also a choice; refusing always would have
+    stopped every direct run on a fresh roster.
+
+    The bench builds every case's gateway before its first call
+    (`tools/bench/gateway.go`), so one ownerless case refuses the whole run
+    with nothing spent. The console's own planning call
+    (`internal/web/planning.go`, `askPlan`) names the person who clicked as
+    the root and the supervisor as the agent, not the roster's owner of the
+    supervisor: that money is spent on this person's request.
+
+    What this does not do: it does not check that the owner is a person
+    TokenFuse knows (it folds whatever `user://` root it is given, and the
+    identity map's unit owner still wins where one is configured); it does not
+    make a direct call, with no gateway, attributable to anyone; it does not
+    prove the chain with a token (the gateway reads a declared chain as a
+    claim unless an issuer is configured, that repository's invariant 31);
+    and the placeholder rule is a string match on `unclaimed`, so an account
+    that really is called that is refused as an analyst's owner (it is still a
+    person when it is the one asking the console for a plan).
+    *(gate: `TestTheChainIsTheOwnersUserRootThenTheAnalystsAgent`,
+    `TestAnAnalystWithNoOwnerGetsNoChainAndIsNamed`,
+    `TestHostileOwnersCannotForgeOrBreakAChain` (eleven owner shapes judged by
+    a Go copy of the gateway's parser: two entries, the first a `user://` root
+    that decodes back to the owner),
+    `TestAChainTheGatewayWouldSilentlyIgnoreIsRefusedHere`,
+    `TestEveryRequestShapeCarriesTheOnBehalfOfChain`,
+    `TestAGatewayCallWithNoOwnerChainIsRefusedBeforeAnyRequest`,
+    `TestNoGatewayNeedsNoOwnerChain`, `TestAnUnclaimedRosterOwnerIsNoOwner`
+    (`internal/deliver`); `TestEveryRoundOfAnAnthropicTaskCarriesTheAnalystsOwner`,
+    `TestEveryRoundOfAnOpenRouterTaskCarriesTheAnalystsOwner`,
+    `TestAHostileOwnerStillGivesTheGatewayExactlyTwoEntries`,
+    `TestAnAnalystWithNoOwnerIsRefusedBeforeAnyCall`,
+    `TestWithAGatewayAnOwnerlessAnalystsTaskIsRefusedWhenItIsPriced`,
+    `TestARunSkipsAnOwnerlessAnalystsTaskAndStillRunsTheOthers`,
+    `TestTheToolLoopAndDeliverCallSendTheSameFuseHeaders` (a recording
+    gateway, the loop's round and `deliver.Call` fed one `Gateway`, the two
+    recorded `x-fuse-*` sets compared, both wires) (`tools/run`);
+    `TestLiveSendsTheAnalystsOwnerOnEveryCase`,
+    `TestLiveRefusesBeforeAnyCallWhenACasesAnalystHasNoOwner` (`tools/bench`);
+    `TestThePlanAskNamesTheAskingPersonAsTheRoot`,
+    `TestAHostileUsernameCannotReshapeThePlanAsksChain` (`internal/web`).
+    Twelve `fail` cases and two `pass` cases in `gates-have-teeth.sh`, each
+    planting one of the faults above: the header left out of
+    `SetFuseHeaders`, the loop's round back on a private copy, the escaping
+    removed, the empty-owner refusal removed, the door's chain requirement
+    removed, the pricing refusal switched off, the chain left off the
+    runner's, the bench's and the console's `Gateway` (three cases), the
+    console's root taken from the roster, the placeholder accepted, the byte
+    cap removed; the two `pass` cases reword a refusal, which the gates must
+    not mind.)*
+
+66. **A task a person blocks while its call is in flight does not get its
+    deliverable, and the call it already paid for is still recorded.**
+    Invariant 57 named this as its open limit: `workable` drops every blocked
+    task before anything is priced or called, and once the model had answered
+    nothing looked again, so a person's order to stop was undone by an answer
+    that arrived after it. `saveDraft` now writes the artifact with one
+    statement that refuses a blocked task (`INSERT ... SELECT ... WHERE NOT
+    EXISTS (SELECT 1 FROM tasks WHERE id = ? AND state = 'blocked')`), so the
+    look and the write cannot be separated by a click, and returns
+    `errTaskBlockedMeanwhile` when it wrote nothing. `execute` turns that into
+    the discard: no draft, no options, the person's block and its reason
+    untouched; the charge of every round the gateway settled for the call
+    booked through the same `recordCharge` a stopped task uses (invariant 55)
+    and counted against the run; the call's `tool_call` event still emitted,
+    since the call happened; and a line, `DISCARDED: the answer came back after
+    a person blocked the task, so no draft was saved; the call cost ...`.
+    `execute` returns `answerDiscarded`, which `spend` counts on its own: not
+    a refusal (the run goes on), not a failure (the task is already blocked,
+    and `spend` marking it blocked again would overwrite the person's reason
+    with "the engine did not answer"), and not done. The summary line gains
+    `, N discarded (blocked by a person while the call was in flight; the call
+    was still paid for)` only when N is above zero, so a run that discarded
+    nothing reads as it always did.
+
+    What this does not cover: a block that lands after the draft statement
+    finds a draft already written, which is a person blocking a task that has
+    a draft and is left alone. A call that FAILS while a person has blocked
+    its task no longer replaces the person's reason either: `spend`'s error
+    branch writes "the engine did not answer" only `WHERE ... AND state <>
+    'blocked'`, so a task nobody blocked is still blocked with the runner's
+    reason and a person's block keeps theirs
+    (`TestAFailedCallLeavesAPersonsBlockReasonAlone`, red on the unguarded
+    update with the person's reason replaced by "the engine did not answer:
+    anthropic answered 502"; control
+    `TestAFailedCallOnAnOpenTaskIsStillBlockedWithTheRunnersReason`).
+    *(gate: `TestATaskBlockedWhileItsCallWasInFlightGetsNoDeliverable`,
+    `TestATaskBlockedDuringAToolRoundBooksBothRoundsAndSavesNothing`,
+    `TestSaveDraftWritesNothingForABlockedTask`,
+    `TestARunLeavesAPersonsBlockAloneAndCountsTheDiscardedAnswer`,
+    `TestATaskNobodyBlockedStillGetsItsDeliverable`,
+    `TestAFailedCallLeavesAPersonsBlockReasonAlone`,
+    `TestAFailedCallOnAnOpenTaskIsStillBlockedWithTheRunnersReason` (`tools/run`; the block is
+    made from inside a fake gateway's handler, between the request arriving
+    and the response going back, which is where a person's click lands in a
+    real run). Five `fail` cases and one `pass` case in
+    `gates-have-teeth.sh`: the guard taken out of the insert, the charge not
+    booked on the discard path, the run overwriting the person's reason, the
+    discard line not printed, the discard not counted in the summary, and the
+    error branch's guard taken out; the `pass` case rewords the tail of the
+    discard line.)*
+67. **A cloud provider's own bill reaches the crew as real money, to the
+    cent, and never beside the generated estate.** costcrew#68. Until this,
+    no cloud bill reached the crew: `aws-data-exports` and
+    `gcp-billing-export` were catalogue entries marked documented, and the
+    only FOCUS reader (`tokenfusefocus.go`) requires the gateway's own `x_`
+    columns and refuses a plain cloud file. `cloudFocusReader`
+    (`internal/connectors/cloudfocus.go`) is now registered for both ids, so
+    both are Built by invariant 22's derivation. It reads a FOLDER (no S3
+    client, no BigQuery client in this binary) of FOCUS Cost and Usage CSV or
+    CSV.gz, walked recursively over regular files only. It asks for columns
+    by name: `BilledCost`, `BillingCurrency`, `ChargeCategory`,
+    `ChargePeriodStart`, `ChargePeriodEnd`, `ProviderName`, `ServiceName`,
+    `SubAccountId` (a cell may be empty), and reads `ChargeClass`, `InvoiceId`
+    and `Tags` (or Google's `x_Tags`) when present. Which versions: FOCUS 1.0
+    and 1.2 column sets are accepted; 1.0 was measured on a real AWS file
+    (451 rows, 48 columns, read locally and never committed), 1.2 only from
+    the spec and AWS's dictionary against a hand-written fixture; the header
+    of `cloudfocus.go` pins this and what was not looked at. The GCP entry
+    stays a separate id (ids are stable) running the same engine over a CSV
+    flattened from Google's BigQuery FOCUS view; nothing in it was measured
+    against a real Google export, and `ProviderName` values for both
+    providers are assumptions the `provider_names` setting overrides.
+
+    A row becomes an exact-micros row in `cloud_focus_rows`, keyed
+    `(connector, file sha256, row number)` so the same bytes twice change
+    nothing, and `charges` is rebuilt for each day an import touched: one row
+    per (service, team, category, invoice), summed in micros and rounded to
+    cents once, `provenance` the connector id and never NULL (NULL means
+    generated, and invariant 24 depends on that). BilledCost goes through
+    `money.ParseMicros` after an exact, textual expansion of E notation, which
+    the FOCUS numeric format allows and `ParseMicros` does not; no float64 is
+    involved and one row over a billion is refused before it can wrap an
+    int64. All five ChargeCategory values land under their own name, so every
+    `category='Usage'` sum (budgets, commitment eligibility) excludes a
+    Purchase, Tax, Credit or Adjustment; a negative BilledCost is kept, since
+    FOCUS allows it and a real month nets usage against credits to nothing,
+    which the board must show as two lines; a row longer than a day (AWS
+    writes the month's Tax as one row) lands whole on the day it starts, not
+    spread, because whole cents per day lose up to half a cent each day under
+    an even split. Currency other than USD, a category outside the five, a
+    ChargeClass other than Correction, a provider the connector does not
+    read, a bad timestamp, a ragged row and a cell over its cap are refused as
+    that row, by name. A file that fails part way is refused whole inside its
+    own SAVEPOINT. The team comes from the Tags key named by `team_tag`
+    (default `team`, several tried in order); a row without it is shared cost
+    and the sentence counts both. A file overwritten in place with new content
+    (AWS revises a period this way) replaces its earlier version's rows, but
+    only once the new file was read to its end, so a half-synced revision
+    leaves the earlier one standing. Invariant 24 applies unchanged: while
+    generated charges exist the import is refused unless the operator gives
+    the replace-generated yes, which the connector page now offers for these
+    two ids.
+
+    The folder is not trusted, and these readers carry bounds the gateway
+    reader lacks: `max_file_mb` on disk (default 4096), `max_unpacked_mb` for
+    what a gzip may inflate to (default 20480), 1 MiB per CSV record (an
+    unterminated quote would otherwise be read and held to the end of the
+    file), a symlink is never opened, 50,000 files, 20 refusals kept however
+    many rows fail, a 64-bit overflow of the file's absolute total refuses the
+    file. A setting that is not a number is refused, never read as no limit.
+
+    What this does not do: it does not feed `commitments` (a Purchase row is
+    money on the bill, not coverage or utilisation); two versions of one
+    period in different folders count twice (the connector asks for "overwrite
+    existing data export file" and a sync with deletion); charges are rounded
+    per (day, service, team, category, invoice) group, so a group of many tiny
+    rows can lose sub-cent money that `cloud_focus_rows` still holds exactly;
+    a BilledCost with more than six decimals is rounded to micros per row (a
+    real file's 451 rows summed to -0.0000000014 and import as -0.000005);
+    Parquet and zip are not read and are counted out loud; and no desk page
+    marks real against generated money the way the AI page does.
+    *(gate: `TestAWSDataExportsFocusIsRead`, `TestGCPBillingExportFocusIsRead`,
+    `TestAFocus10FileIsReadAsWell`, `TestTheCloudFocusReadersAreBuiltAndAskForAFolder`,
+    `TestEveryChargeCategoryLandsAndAPurchaseIsNeverUsage`,
+    `TestANegativeBilledCostIsKeptNotRefused`,
+    `TestARowLongerThanADayLandsWholeOnItsFirstDay`,
+    `TestCloudFocusMoneyIsNeverFloatAndRoundsOnce`,
+    `TestTheTeamComesFromAConfigurableTagKey`, `TestCloudFocusReimportConverges`,
+    `TestARevisedFileReplacesItsOwnEarlierVersion`,
+    `TestARefusedRevisionKeepsTheEarlierVersion`,
+    `TestCloudFocusRefusesToMixWithTheGeneratedEstate`,
+    `TestAFailedJournalLineRollsTheWholeCloudImportBack`,
+    `TestCloudFocusTestWritesNothing`, `TestCloudFocusReadsANestedSyncedFolderAndIgnoresLinks`,
+    `TestCloudFocusHostileInput` (eight missing columns, a duplicate header,
+    EUR, an empty currency, a bad timestamp, an end before the start, a
+    five-year period, a year nobody billed, a cost of `abc`, `NaN`, `1,000.00`,
+    over a billion and `1E400`, a category outside the five and in the wrong
+    case, a ChargeClass of Refund, another provider's rows, an empty service,
+    three kinds of bad Tags, a 70 KB tags cell, a 2 KB service name, too many
+    and too few fields, an unterminated quote, a byte order mark, CRLF with a
+    quoted comma and newline, a truncated gzip, a file that is not gzip, an
+    empty and a missing folder, a good file beside a bad one, a good row
+    beside a bad one, a file that fails part way), `TestARefusalListIsBounded`,
+    `TestARefusalListIsBoundedAtItsSource`, `TestRefusalsAcrossManyFilesAreBoundedToo`,
+    `TestAGzipBombIsRefusedByName`
+    (57 KB packed, 15 MB unpacked), `TestAFileOverTheByteCapIsRefusedBeforeItIsOpened`,
+    `TestACapSettingThatIsNotANumberIsRefused`,
+    `TestARecordWithNoEndIsRefusedBeforeItFillsMemory`,
+    `TestACloudFocusFileOverAHundredMegabytesStaysBounded` (120 MB, live heap
+    measured), `TestTheTagCellShapes`, `TestFocusDecimalsInENotation`,
+    `TestAnAmountThatOverflowsTheSumIsRefusedWhole`,
+    `TestAFolderWhoseFilesTogetherOverflowRefusesTheLaterFile`,
+    `TestCloudFocusSettings`, `TestTheSameBytesTwiceAreOneFileAndTwoFilesOnOneDayAdd`,
+    `TestADryRunNamesWhatWouldBeRefused` in `internal/connectors`;
+    `TestAnAWSExportReachesTheConsoleThroughTheConnectorPage` in
+    `internal/web`. Twenty-one `fail` cases and one `pass` case in
+    `scripts/gates-have-teeth.sh`, each planting one fault: a negative cost
+    refused, a Purchase filed as Usage, each row rounded before the sum, the
+    provenance dropped, a revised file's old rows kept, a refused file not
+    rolled back, the gzip cap and the record cap lifted, a symlink followed,
+    the generated estate mixed in, the refusal list unbounded at the file and
+    at the sentence, a long row landing on its last day, the span limit lifted,
+    a long row not counted, another provider's rows read, E notation refused,
+    the tag key matched case-sensitively, a copied file counted twice, Test
+    demanding an optional setting, and the connector page dropping the
+    replace-generated box; the `pass` case rewords a refusal.)*
+68. **A customer unit's spend is in the showback, one row per unit a person
+    has ruled on, and a unit rule is a stamp.** costcrew#74, measured on the
+    appliance proving run of 2026-09-17: the FOCUS reader writes a row's
+    `x_unit` as the charge's `Team`, so a box's AI spend arrives labelled
+    `aws`, `gcp`, `finops`, and nothing allocated by it. `/export/showback.csv`
+    walked `world.Teams`, the generated estate's ten teams, and nothing else,
+    so a console that held only real rows (the state `-replace-generated`
+    leaves it in) exported a file with a header and no rows for a bill of
+    several dollars; `/chargeback` already listed the units, so the two pages
+    disagreed about the same period. @measured `go test ./internal/web -run
+    TestTheShowbackCarriesOneRowPerUnitOnlyAfterTheOwnersStamp` 2026-10-07,
+    against the code before this change: `before any stamp the showback is [],
+    want one (unruled units) row of 3.08`, an import worked by hand to 3.08.
+
+    `allocation.rule` gained a second target shape, `{"unit", "business_unit"}`
+    beside invariant 35's `{"rule_id", "method", "share"}`: the unit as the
+    reader wrote it, and the business unit its spend is charged back under.
+    `crew.ParseUnitTarget` and `crew.UnitRuleRefusal` are the one place that
+    says what a well-formed one is, asked twice: by
+    `crew.ValidateAndSaveOptions` when the chargeback analyst writes the
+    proposal (so a proposal that could never be stamped is returned to the
+    analyst, not carried to an owner), and by `finops.applyUnitRule` when it
+    is stamped. A target is refused for: a field of the rule-id shape beside
+    `unit`, or any field nothing reads; a unit or business unit that is empty,
+    padded, over its bound (128 and 80 bytes), not valid text, carries a
+    control, format (zero-width, text-direction) or line-separating character,
+    or begins with `=`, `+`, `-` or `@` (a spreadsheet opens it as a formula);
+    a unit for which no charge row written by the TokenFuse reader
+    (`provenance='tokenfuse-focus'`) exists, a generated row not counting; and
+    a unit whose name is a roster team's, which the showback already gives to
+    the roster team's own row. A unit name is text out of somebody else's file
+    and travels on into a CSV and a statement, which is why the names are held
+    this tightly.
+
+    `finops.applyUnitRule` is the only writer of `unit_rules` and is reached
+    only from `applySideEffect`, so only from `ApplyAs`: a stamp. Saving a
+    proposal writes no rule, and the supervisor carries an `allocation.rule` to
+    its owner at any figure (`crew.SupervisorMaySelect` answers false for an
+    owner-owned class, invariant 53); the owner's, or an admin's with a reason
+    (invariant 58), is the only stamp. A second stamp on one unit replaces the
+    rule's business unit and its stamper rather than adding a second rule.
+
+    `finops.Showback` is what the export writes: the roster's teams in roster
+    order, exactly what the file always carried, then one row per unit a rule
+    covers, by name, under the business unit the rule names, then, only when
+    some unit has no rule, ONE `(unruled units)` row holding the spend of all
+    of them. A unit without a rule is therefore never dropped and never printed
+    under a name nobody has decided to tell a team; the rows plus
+    `Allocation.Unallocated` are the whole bill, which is the property a
+    showback is judged by. `/chargeback` gained a "Customer units" panel
+    (today's figure and the business unit, or "no rule yet", per unit; absent
+    on an estate with none), and the chargeback analyst's close pack a
+    "Customer units" section naming each unit, what it was charged, and the
+    shape a proposal is written in, so the analyst can learn the unit names
+    from its own packet.
+
+    What this does not do: it does not change how a unit's spend is allocated
+    (a unit's own rows are direct cost on desk `ai`; a TokenFuse row with no
+    `x_unit` is still a shared "Usage" pot that no seeded rule names, so it
+    stays unallocated); the showback is read from the live allocation, as it
+    always was, not from the frozen period, so it agrees with a closed period
+    only until something moves; `/team/{name}` still answers 404 for a unit,
+    so the unit names the chargeback page links to have no page behind them;
+    and a name the TokenFuse reader accepted that this gate refuses (a unit
+    with a control character in it) can be charged and never ruled on, and
+    stays inside `(unruled units)`.
+    *(gate: `TestAfterTheStampsTheShowbackHasOneRowPerUnitAndBalancesToTheCent`,
+    `TestBeforeAnyRuleTheUnitsAreOneVisibleUnruledRowAndTheFileBalances`,
+    `TestOnlyTheRuledUnitGetsItsOwnRowAndTheRestStaysVisibleInOne`,
+    `TestUnitsListsEveryUnitWithItsRuleOrTheLackOfOne`,
+    `TestUnitRowsSitBesideTheFixturesTeamsWithoutMovingThem`,
+    `TestTheImportIsWhatTheFixtureSaysItIs` (the hand-worked 1.24, 1.84 and
+    3.08 the others balance against) for the showback;
+    `TestAUnitRuleIsAppliedByAStampAndRecordsWhoStampedIt`,
+    `TestAStampOnADifferentBusinessUnitReplacesTheRuleRatherThanAddingASecond`,
+    `TestAUnitRuleForAUnitWithNoRowsIsRefusedAndTheOptionStaysOpen`,
+    `TestAUnitRuleOnRowsTheTokenFuseReaderDidNotWriteIsRefused`,
+    `TestAUnitRuleForARosterTeamIsRefused`,
+    `TestATargetNamingBothAUnitAndARuleIsRefusedAtApplyToo` for the stamp;
+    `TestTheSupervisorNeverAppliesAUnitRule`, `TestSavingAUnitRuleProposalWritesNoRule`,
+    `TestAProposalForAUnitWithNoRowsIsRefusedWhenItIsWritten` (`internal/finops`)
+    and `TestOnlyTheOwnerOrAnAdminCanStampAUnitRule` (`internal/web`: an
+    operator who is not the owner, a viewer and a request without a valid
+    token each write no rule, and the owner's own stamp, last, writes one) for
+    "no rule without a stamp"; `TestUnitRuleTargetHostileInputs` (31 shapes),
+    `TestUnitRuleTargetBoundariesAreAccepted`,
+    `TestAUnitRuleTargetIsCarriedOnTheOptionVerbatim`,
+    `TestTheRuleIdShapeIsNotMistakenForAUnitTarget` (`internal/crew`) for the
+    target; `TestTheShowbackCarriesOneRowPerUnitOnlyAfterTheOwnersStamp` (the
+    whole path through the routes: import, an empty-of-units file before the
+    stamp, the owner's POST, the close, the file and the page),
+    `TestAnUnstampedUnitIsNamedAsUnruledOnTheChargebackPage`,
+    `TestAHostileUnitNameNeverReachesTheShowbackFileOrTheMarkup`,
+    `TestTheGeneratedEstatesShowbackIsUntouchedByUnits` (`internal/web`) and
+    `TestClosePackSectionNamesAUnitWithNoRuleAndTheShapeOfAProposal`,
+    `TestClosePackSectionNamesTheBusinessUnitOfARuledUnit`,
+    `TestClosePackSectionSaysNothingOfUnitsOnTheGeneratedEstate`
+    (`internal/deliver`) for the pages and the packet. The generated estate's
+    surface was held by fetching eleven pages and exports from a build of
+    `origin/main` and from this change, each on a fresh install: ten byte for
+    byte identical but for the per-install token (both chargeback views, the
+    allocation and teams pages, results, three showback periods, the
+    allocation and ledger exports), the eleventh, `/kpis`, differing in the one
+    line invariant 69 changes on purpose. The full `tools/parity` crawl was
+    started and not finished, so this is a targeted comparison and not that
+    gate. `TestTheSupervisorNeverAppliesAUnitRule` passes on the code before
+    this change as well, because nothing could apply a unit rule then
+    (`TestSavingAUnitRuleProposalWritesNoRule` was red there only because the
+    proposal was refused); what makes them gates is the
+    `gates-have-teeth.sh` case that lets the supervisor select an owner-owned
+    class and requires the first to go red.
+    `scripts/gates-have-teeth.sh` plants fourteen faults and two harmless
+    edits: the showback dropping the ruled units, the unruled spend vanishing,
+    an unruled unit's name printed in its row, the export emptied at the
+    route, the chargeback page and the close pack no longer naming the units,
+    a rule applied for a unit with no rows, for rows a reader did not write,
+    for a roster team's name, a proposal for a unit with no rows reaching the
+    owner, a formula-looking name accepted, the supervisor applying an
+    `allocation.rule`, any operator stamping another owner's rule, and a
+    reworded refusal and a reworded sentence on the units panel as the `pass`
+    cases.)*
+
+69. **The crew-cost KPI and the Results page state one figure of money found,
+    and it is signed.** `TestADropInSpendIsNotMoneyFound` fixed the Results
+    page's sum from `ABS(excess_cents)` to a signed one, because a finding
+    whose spend fell is a real finding and not money anybody recovered; the
+    crew-cost KPI (`internal/finops/kpi.go`), two screens away, kept its own
+    copy of the absolute sum, in the one KPI whose target is "less than it
+    finds". On the fixture's crew cost, an up finding a little under it and a
+    drop of 100.00 gave a verdict of "meets" when the signed figure said it
+    did not. `finops.FoundMonthly` is the one definition, called by `Compute`
+    (Results) and by `KPIs`, so a third reader of the figure has somewhere to
+    call and no reason to write the query a third time.
+    *(gate: `TestTheCrewCostKPIDoesNotCountADropAsMoneyFound` (the fixture is
+    built so the two definitions give different VERDICTS, not only different
+    numbers: it checks the figure in the note, the return, and `Meets`),
+    `TestResultsAndTheCrewCostKPIAgreeOnMoneyFound`; the existing
+    `TestADropInSpendIsNotMoneyFound` still holds the Results side.
+    `scripts/gates-have-teeth.sh`'s `money found: the crew-cost KPI sums the
+    absolute excess again` case puts the absolute query back into `KPIs`.)*
 
 74. **Sign-in through the organisation's identity provider believes nothing it
     has not checked, and the provider decides access at every sign-in.** Until
