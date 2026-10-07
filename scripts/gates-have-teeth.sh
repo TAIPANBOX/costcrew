@@ -2143,6 +2143,9 @@ run_case $'sessions: the migration renames the old table instead of erasing it' 
 	internal/store/store.go \
 	$'conn.ExecContext(ctx, `DROP TABLE sessions`)' \
 	$'conn.ExecContext(ctx, `ALTER TABLE sessions RENAME TO sessions_old`)'
+# Two edits, not one: the second check inside the write lock exists for two
+# processes starting together on an old database, and with only the first
+# removed it makes the sequential fault equivalent (measured: TOOTHLESS).
 run_case $'sessions: the migration runs on every start and signs everybody out' \
 	fail \
 	./internal/auth \
@@ -2150,7 +2153,10 @@ run_case $'sessions: the migration runs on every start and signs everybody out' 
 	$'no longer resolves' \
 	internal/store/store.go \
 	$'	if current {\n		return nil\n	}' \
-	$'	if false && current {\n		return nil\n	}'
+	$'	if false && current {\n		return nil\n	}' \
+	internal/store/store.go \
+	$'	if current || !exists {' \
+	$'	if !exists {'
 run_case $'sessions: the CSRF token is keyed on the storage hash, not the cookie' \
 	fail \
 	./internal/auth \
