@@ -1,0 +1,94 @@
+
+TASK PACKET
+The anomaly
+source:    gcp
+team:      research
+service:   GKE
+day:       2026-06-22
+direction: up
+amount:    1200.00
+baseline:  300.00
+excess:    900.00
+z:         4.10
+rule:      z-score over 3.5
+driver:    Quarterly model refresh, planned
+
+The series (28 days before, 7 after; * marks the same weekday as the anomaly; -> marks the anomaly's own day)
+2026-05-25 Mon*  260.39
+2026-05-26 Tue   246.65
+2026-05-27 Wed   265.52
+2026-05-28 Thu   241.04
+2026-05-29 Fri   233.50
+2026-05-30 Sat   163.12
+2026-05-31 Sun   168.53
+2026-06-01 Mon*  243.49
+2026-06-02 Tue   228.76
+2026-06-03 Wed   275.55
+2026-06-04 Thu   245.87
+2026-06-05 Fri   259.16
+2026-06-06 Sat   180.31
+2026-06-07 Sun   156.57
+2026-06-08 Mon*  264.86
+2026-06-09 Tue   244.62
+2026-06-10 Wed   246.09
+2026-06-11 Thu   241.38
+2026-06-12 Fri   247.93
+2026-06-13 Sat   172.30
+2026-06-14 Sun   168.79
+2026-06-15 Mon*  231.03
+2026-06-16 Tue   247.30
+2026-06-17 Wed   236.85
+2026-06-18 Thu   233.91
+2026-06-19 Fri   261.87
+2026-06-20 Sat   176.18
+2026-06-21 Sun   163.66
+2026-06-22 Mon*  982.18 ->
+2026-06-23 Tue   562.98
+2026-06-24 Wed   254.15
+2026-06-25 Thu   272.33
+2026-06-26 Fri   244.00
+2026-06-27 Sat   174.70
+2026-06-28 Sun   185.71
+2026-06-29 Mon*  228.53
+
+Drivers on this service and desk, last six months
+2026-06-22 to 2026-06-22  Quarterly model refresh, planned (one-time)
+2026-06-22 to 2026-06-22  Quarterly model refresh, planned (one-time)
+
+The team's month (research, 2026-06)
+budget:   12502.52
+spend:    11855.13
+variance: -647.39
+
+The last posted explanation on this service
+by triage-gcp, 2026-06-24T09:00:00Z
+GKE rose because the research team ran the quarterly refresh on 40 nodes.
+
+The desk's month (gcp, 2026-08)
+total:               13362.13
+allocation coverage: 82.6% (practice-wide)
+open anomalies:      1
+top movers:
+  research             5485.30
+  ml-platform          2459.38
+  growth               2324.89
+  product-web          2106.95
+  data-eng             904.05
+
+Forecasting (gcp, 2026-08)
+run-rate projection: 32988.40
+basis: run rate over the 15 non-driver days of 2026-08 that have data, extended to 31
+
+What you posted on this desk before, and what happened to it
+
+Explain the GKE move in May, posted 2026-06-01T10:00:00Z
+May was a batch backfill.
+  - anomaly.explain: batch backfill (applied by owner1)
+
+Explain the GKE move in May, posted 2026-05-02T10:00:00Z
+April was a node pool resize.
+  - anomaly.dismiss: noise (refused by owner2: it was not noise)
+
+Explain the GKE move in May, posted 2026-04-02T10:00:00Z
+March was a one-off.
+  - driver.one-time: register it (not chosen (a sibling was chosen))

@@ -145,11 +145,22 @@ func runToolLoop(ctx context.Context, db, roDB *sql.DB, e estimate, sentPrompt s
 	if _, err := gw.RouteFor(e.Engine); err != nil {
 		return callResult{}, err
 	}
+	// Under a restricting -prompt-data mode the model wrote its answer in
+	// tokens (team-7f3a). The deliverable is for a person, and its options are
+	// read against the real roster, so the names go back in here, before
+	// anything is saved. Exactly once per path: the loops below do not go
+	// through deliver.Call, which re-identifies for the engines that do, and
+	// re-identifying twice is the one thing that could corrupt a team that
+	// happens to be named like a token.
 	switch e.Engine {
 	case "anthropic":
-		return anthropicToolLoop(ctx, db, roDB, e, sentPrompt, maxTok, gw, a, b)
+		res, err := anthropicToolLoop(ctx, db, roDB, e, sentPrompt, maxTok, gw, a, b)
+		res.Text = deliver.ActivePolicy().Reidentify(res.Text)
+		return res, err
 	case "openrouter":
-		return openRouterToolLoop(ctx, db, roDB, e, sentPrompt, maxTok, gw, a, b)
+		res, err := openRouterToolLoop(ctx, db, roDB, e, sentPrompt, maxTok, gw, a, b)
+		res.Text = deliver.ActivePolicy().Reidentify(res.Text)
+		return res, err
 	default:
 		return call(ctx, e.Engine, e.Model, sentPrompt, maxTok, gw)
 	}

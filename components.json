@@ -40,6 +40,9 @@
           },
           "COSTCREW_BEHIND_TLS": {
             "required": false
+          },
+          "COSTCREW_PROMPT_DATA": {
+            "required": false
           }
         },
         "flags": {
@@ -56,6 +59,9 @@
             "required": false
           },
           "behind-tls": {
+            "required": false
+          },
+          "prompt-data": {
             "required": false
           },
           "stack-events": {
@@ -263,6 +269,9 @@
           },
           "COSTCREW_GATEWAY_OPENAI": {
             "required": false
+          },
+          "COSTCREW_PROMPT_DATA": {
+            "required": false
           }
         },
         "flags": {
@@ -294,6 +303,9 @@
             "required": false
           },
           "prices": {
+            "required": false
+          },
+          "prompt-data": {
             "required": false
           },
           "sprint": {

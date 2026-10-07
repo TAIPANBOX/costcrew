@@ -44,9 +44,23 @@ import (
 // too -- assemblePlanPacket below reserves room for the goal and the job
 // description and cuts items, then roster, out of what is left.
 func PlanPacket(db *sql.DB, deterministic crew.Plan, roster []crew.Analyst, spent map[string]money.Cents) string {
-	goalBlock := fmt.Sprintf("The goal\n%s\n", deterministic.Goal)
-	itemsBlock := planItemsBlock(deterministic.Items)
-	rosterBlock := planRosterBlock(roster, spent)
+	// The policy (promptdata.go). The goal is whatever the operator typed and
+	// is never sent outside full. Each block is masked on its own, before
+	// assemblePlanPacket measures it against the cap, so the cap is a bound on
+	// what is sent. The supervisor is the one working here and keeps its name.
+	pol := ActivePolicy()
+	mask := func(s string) string { return pol.maskStore(db, s, []string{"supervisor"}) }
+
+	goal := deterministic.Goal
+	if !pol.Full() {
+		goal = WithheldFreeText
+	}
+	goalBlock := fmt.Sprintf("The goal\n%s\n", goal)
+	itemsBlock := mask(planItemsBlock(deterministic.Items))
+	rosterBlock := mask(planRosterBlock(roster, spent))
+	// Not masked: the supervisor's job description is the same words in every
+	// installation, and several of them (renewals, commitments) are also the
+	// names of analysts, which a scrub would turn into tokens mid-sentence.
 	jobDescBlock := JobDescriptionBlock("supervisor", "management")
 	return assemblePlanPacket(goalBlock, itemsBlock, rosterBlock, jobDescBlock)
 }
@@ -55,14 +69,33 @@ func planItemsBlock(items []crew.PlanItem) string {
 	if len(items) == 0 {
 		return ""
 	}
+	pol := ActivePolicy()
 	var b strings.Builder
 	b.WriteString("\nThe deterministic plan's own items\n")
 	for i, it := range items {
-		fmt.Fprintf(&b, "#%d %s\n", i+1, it.Title)
-		fmt.Fprintf(&b, "   why:      %s\n", it.Why)
-		fmt.Fprintf(&b, "   assignee: %s\n", orDash(it.Assignee))
-		fmt.Fprintf(&b, "   desk:     %s\n", orDash(it.Desk))
-		fmt.Fprintf(&b, "   budget:   %s\n", it.Budget)
+		switch {
+		case pol.Aggregates():
+			// An item is a piece of named work (a service, an anomaly, a
+			// person): a row. What stays is what the model may act on, its
+			// number, its desk and its budget.
+			fmt.Fprintf(&b, "#%d (title withheld)\n", i+1)
+			fmt.Fprintf(&b, "   desk:     %s\n", orDash(it.Desk))
+			fmt.Fprintf(&b, "   budget:   %s\n", it.Budget)
+		case pol.Full():
+			fmt.Fprintf(&b, "#%d %s\n", i+1, it.Title)
+			fmt.Fprintf(&b, "   why:      %s\n", it.Why)
+			fmt.Fprintf(&b, "   assignee: %s\n", orDash(it.Assignee))
+			fmt.Fprintf(&b, "   desk:     %s\n", orDash(it.Desk))
+			fmt.Fprintf(&b, "   budget:   %s\n", it.Budget)
+		default:
+			// Masked: the title is generated from names the mask knows; the
+			// why can carry a block reason or a halt reason somebody typed.
+			fmt.Fprintf(&b, "#%d %s\n", i+1, it.Title)
+			fmt.Fprintf(&b, "   why:      %s\n", WithheldFreeText)
+			fmt.Fprintf(&b, "   assignee: %s\n", orDash(it.Assignee))
+			fmt.Fprintf(&b, "   desk:     %s\n", orDash(it.Desk))
+			fmt.Fprintf(&b, "   budget:   %s\n", it.Budget)
+		}
 	}
 	return b.String()
 }
@@ -75,6 +108,17 @@ func planItemsBlock(items []crew.PlanItem) string {
 func planRosterBlock(roster []crew.Analyst, spent map[string]money.Cents) string {
 	var b strings.Builder
 	b.WriteString("\nThe roster, active analysts only\n")
+	if ActivePolicy().Aggregates() {
+		// One line per analyst is one line per agent. A count is a total.
+		active := 0
+		for _, a := range roster {
+			if a.State == "active" {
+				active++
+			}
+		}
+		fmt.Fprintf(&b, "%d active analysts (not listed under aggregates)\n", active)
+		return b.String()
+	}
 	for _, a := range roster {
 		if a.State != "active" {
 			continue
@@ -145,16 +189,25 @@ func boundOrDrop(s string, max int) string {
 // the options block optionsBlockInstructions writes for an ordinary
 // deliverable.
 func PlanPrompt(sup crew.Analyst, packetText string) string {
+	pol := ActivePolicy()
 	var b strings.Builder
 	fmt.Fprintf(&b, "You are %s, planning the crew's next sprint.\n", sup.Name)
 	b.WriteString(packetText)
+	b.WriteString("\n" + pol.ModeLine() + "\n")
+	// The example names an analyst. Under a restricting mode it names the
+	// token of that analyst, so no real name is in a prompt that says it sends
+	// none; the answer's tokens are put back by Call.
+	exampleAssignee := "investigator-gcp"
+	if !pol.Full() {
+		exampleAssignee = pol.MaskText(exampleAssignee, "supervisor")
+	}
 	b.WriteString("\nReturn the same items, by their #ref, with a why per item. You may " +
 		"re-route an item to a different active holder of its own skill, on the same desk, " +
 		"re-order, drop items, or lower a budget; you may never invent an item with no ref, " +
 		"raise a budget, or route to anybody not active.\n")
 	b.WriteString("\nEnd your answer with a fenced block tagged plan, JSON:\n")
 	b.WriteString("```plan\n")
-	b.WriteString(`{"items": [{"ref": 3, "assignee": "investigator-gcp", ` +
+	b.WriteString(`{"items": [{"ref": 3, "assignee": "` + exampleAssignee + `", ` +
 		`"budget_cents": 1500, "why": "..."}]}` + "\n")
 	b.WriteString("```\n")
 	b.WriteString("ref is the deterministic item's own number; an item with no ref is " +

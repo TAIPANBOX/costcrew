@@ -84,9 +84,9 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 998 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 196 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 325 scenarios, both directions
+go test ./...                        # 1038 tests, 21 packages
+./scripts/gates-have-teeth.sh        # 197 cases; needs a clean tree
+./scripts/features-are-bound.sh      # 327 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
@@ -118,6 +118,27 @@ route: 993 -> 998 tests, 192 -> 196 cases, 320 -> 325 scenarios (measured
 after invariants 61 to 64 merged), one more feature file, 58 GET routes unchanged, re-measured on this branch with the
 three commands this block already names. `components.json` gained
 `checked.image` on four components.
+
+Invariants 70 and 71 (what a model is sent is what `-prompt-data` allows; a
+pseudonym is stable, private and reversible, and an answer is put back into
+real names once) added 70 tests (`internal/deliver`, 48, in
+`promptdata_test.go`, `promptdata_gate_test.go`, `promptdata_hostile_test.go`
+and `promptdata_golden_test.go`; `tools/run`, 18, in `promptdata_test.go`;
+`cmd/costcrew`, 3; `internal/promptfixture`, 1, a package of test support
+that is imported by nothing but tests, so the module has 21 packages with
+tests where it had 20), 31 `gates-have-teeth.sh` cases (30 `fail`, 1 `pass`)
+and 32 scenarios (`features/prompt-data.feature`, new), and no route:
+968 -> 1038 tests, 166 -> 197 cases, 295 -> 327 scenarios, 58 GET routes
+and 36 write routes unchanged, re-measured on this branch with the three
+commands this block already names. `scripts/features-are-bound.sh` now also
+looks for a bound test under `cmd/`, because what the console does at
+start-up is only testable by starting it and those tests live beside its
+`main`. `components.json` gained the `-prompt-data` flag and
+`COSTCREW_PROMPT_DATA` on the console and on the runner. Numbered 70 and 71
+because they were claimed that way for this branch; the coordinator renumbers
+at merge. No existing test was edited to pass: the prompt gained one line
+stating its mode, and every existing test that reads a prompt or a packet
+still passes untouched.
 
 Invariant 49 (a cookie is Secure when a TLS proxy in front is what actually
 terminates it, section "Read before you change anything" of this branch's
@@ -3482,10 +3503,218 @@ an absent invariant.
     `fail` cases and one `pass` case in `gates-have-teeth.sh`, each planting one
     construction in a real file.)*
 
+70. **A model is sent only what the installation's `-prompt-data` setting
+    allows, and the setting is a closed vocabulary.** Measured 2026-10-07,
+    what left this process for a model: team names, service names, money,
+    agent ids (`ResourceId`, `agent://...`), invoice ids, vendor and product
+    names, commitment ids, resource ids, console usernames (in the fate of an
+    option: "applied by X", "refused by X: reason", "closed by X"), past
+    deliverable bodies and the goal an operator typed. There was no redaction
+    anywhere. One setting per installation, `-prompt-data` on the console and
+    on the runner and `COSTCREW_PROMPT_DATA` as its twin, now decides:
+    `full` (the default, today's text byte for byte), `masked` or
+    `aggregates`. `deliver.ParsePromptData` accepts exactly those three words
+    and refuses everything else, an empty value and a capital letter included,
+    and both `main`s call `deliver.ConfigurePromptData` before a store is
+    opened, a bus is opened or anything is priced, so a misspelling cannot
+    fall back to sending more than was asked for. The policy is process-wide
+    (`deliver.ActivePolicy`) and read where the text is built, because the
+    prompt is built in the runner, the bench and the console's plan-ask, two
+    of them in packages this change did not edit, and a mode threaded through
+    every signature is a mode some caller forgets to pass and so sends in full.
+
+    Under `masked` every identifier is replaced before the packet is cut to
+    its 12 KiB cap (so the cap is a bound on what is sent): teams, desks,
+    services, agents, people, invoices, vendors, products, commitments,
+    resources, models and run ids, from a list read from the store
+    (`deliver.sources`, 68 columns), not from the text, so a name is
+    masked in whatever section prints it. Money, dates, counts and ratios stay.
+    Text a person or a model typed is not scrubbed, because a scrub only knows
+    the names the store holds: it is left out, with `deliver.WithheldFreeText`
+    or `deliver.WithheldLabel` standing in. That is past deliverable bodies and
+    option summaries, refusal reasons and the other reasons an option carries,
+    driver labels (in the anomaly, the drivers section, the forecast's basis
+    sentence and its driver lines, and the `drivers` tool), the goal of a task
+    and of a sprint plan, a plan item's `why`, and a mission somebody typed
+    when hiring (a mission that is the role family's own sentence is the same
+    in every installation and goes as it is). The tools that take SQL the model
+    wrote (`charges_query`, `ai_calls_query`) are not offered and a call to one
+    is answered with the reason and not run: `@claude` 2026-10-07, the safer of
+    the two ways of handling them, because a statement can select any name in
+    a column or cut one in two (`substr`), and no scrub of the result can be
+    trusted to recognise half a name. The tool schemas' examples ("the desk,
+    e.g. aws") are names too, and are masked in the rendering.
+
+    Under `aggregates` nothing at the level of a row is sent: per-desk and
+    per-team totals, variances, KPIs, series sums (the 28 days before, the
+    day, the 7 after, as three sums), and team and desk names masked as above.
+    An anomaly gives its amount, baseline, excess, z and day and no service,
+    driver or cause. Drivers, the last posted explanation, the analyst's own
+    history, recommendations, renewals, per-commitment lines, per-agent and
+    per-model AI spend, unit economics and invoice lines are not sent, no
+    person is named (`showback` leaves out who closed the period), a plan
+    item is a number, a desk and a budget, the roster is a count, and the only
+    tools offered are the ones that answer in totals (`team_month` without its
+    top services, `budgets`, `variance`, `kpis`, `maturity`, `allocation`,
+    `showback`). A tool nobody has decided about is not offered by either
+    restricting mode.
+
+    Whatever the mode, the prompt states it in one line
+    (`Policy.ModeLine`, "Prompt data policy: masked."), once, and the
+    `tool_call` events (a model call and a tool dispatch alike) and the
+    `crew_ran` summary carry it as `prompt_data`, on the bus and, for
+    `crew_ran`, in the journal; a bus nobody told reads as `full`.
+
+    What this does not do. It masks the names this installation's store
+    holds and nothing it was never told. The working analyst keeps its own
+    name, role, brief and job description (its name already says which desk it
+    is on, and the job description is the same words in every installation,
+    several of which are also the names of analysts: `renewals`,
+    `commitments`, `governance`). The FOCUS charge categories (`Usage`,
+    `Purchase`, `Tax`, `Credit`, `Adjustment`) are never masked even when a
+    service shares one. A name shorter than two characters, a bare number
+    shorter than three digits and the words `supervisor`, `unclaimed`,
+    `management` and `owner` are never masked. An amount is real, and an amount
+    can identify. The gateway still receives the working analyst's real agent
+    id in its metering headers, because that is what it meters. `tools/bench`
+    has no flag and sends what it always sent. The console's plan-ask is held
+    by the console's own setting, taken from the process default.
+    *(gate: `TestNoRealIdentifierLeavesInMaskedOrAggregatesPackets`
+    (`internal/deliver`: every packet section for every analyst of a populated
+    installation, both restricting modes, no identifier, free-text value,
+    marker or secret in the output, byte for byte, and the packet inside its
+    cap) and `TestNoRealIdentifierLeavesInAnyToolResult` (`tools/run`: every
+    tool in every mode, called the way a model would call it, with the
+    offered tools required to answer). Both check against
+    `internal/promptfixture`, which walks the SCHEMA and counts every text
+    column an identifier unless `promptfixture.Classes` names it as something
+    else, and `TestEveryTextColumnIsClassified` fails on a column nobody has
+    classified, so a new column cannot add a name the masker was never told;
+    `TestTheFixtureExercisesEverySectionInFullMode`,
+    `TestTheLeakCheckSeesAFullModePacket` and the full-mode half of the tool
+    gate hold the opposite direction, that the fixture reaches every section
+    and the checker is not blind. `TestWhatReachesTheModelOverTheWireLeaksNoIdentifierAndTheDraftComesBackNamed`
+    records every request a fake model receives from `execute()` and checks
+    the packet, the tool schemas and every tool result in them.
+    `TestFreeTextIsWithheldUnderMaskedAndAggregates`,
+    `TestAggregatesCarryNoRowLevelSections`,
+    `TestMaskedPacketsKeepEverySectionHeaderTheirModeSends`,
+    `TestMaskedPacketKeepsMoneyDatesAndCounts`,
+    `TestTheOperatorsGoalAndATaskGoalAreWithheldUnderMaskedAndAggregates`,
+    `TestThePromptMasksTheTaskTitleAndKeepsTheDateAndTheAnalystsOwnPersona`,
+    `TestOnlyTheRoleFamilysOwnBriefIsSentUnderMasked`,
+    `TestThePlanPacketLeaksNoIdentifierOrGoalUnderMaskedAndAggregates` hold
+    the sections; `TestFullModeBuildsTheSamePacketItAlwaysDid` holds `full`
+    against `internal/deliver/testdata/packet-full.golden`, written from the
+    code on `main` before the policy existed; `TestPromptDataIsAClosedVocabulary`,
+    `TestThePromptDataEnvironmentVariableBacksTheFlagDefault`,
+    `TestConfiguringATypoLeavesTheActivePolicyAlone`,
+    `TestAMisspeltPromptDataFlagRefusesToStartTheRunner` and
+    `TestAMisspeltPromptDataFlagRefusesToStartTheConsole` hold the closed
+    vocabulary; `TestSQLToolsAreNotOfferedUnderMaskedOrAggregates`,
+    `TestEveryToolHasAPolicyDecision` and
+    `TestAMaskedCatalogueStaysInsideItsPricedBound` hold the catalogue;
+    `TestThePromptSaysWhichModeItWasBuiltUnder` and
+    `TestTheModeIsOnTheToolCallEventsAndTheCrewRanSummary` hold the statement
+    of the mode. `scripts/gates-have-teeth.sh` plants, for each of these, the
+    fault it exists for (a source of names dropped, the mask removed, a body or
+    a driver label sent, a service sent under aggregates, the SQL tools
+    offered, a tool result unmasked, a misspelling accepted, a mode missing
+    from an event, a column added to the schema) and two changes that are not
+    faults.)*
+
+71. **A pseudonym is stable, readable, private to the installation and
+    reversible, and an answer is put back into real names exactly once.** A
+    token is `kind-` and the first four or more hex digits of an
+    HMAC-SHA256 over the kind and the name, keyed with 32 random bytes kept
+    in the data directory as `prompt-data.key`, mode 0600, made on the first
+    start in a restricting mode by writing a complete file under another name
+    and linking it into place, so two processes starting together share one
+    key and neither reads half of the other's. The same key gives the same
+    token on every start; a different key gives different ones; a name is the
+    same token in every packet, every tool result and every round of a task,
+    including after the store has changed (`Policy.fwd` remembers every token
+    it handed out). Four digits hold 65,536 values, so on a large installation
+    two names will land on one prefix: the second is given a longer token, and
+    a token once handed out is never handed to a different name
+    (`TestTokensNeverCollideEvenWhenThereAreMoreNamesThanFourHexDigitsHold`,
+    20,000 names). A key file others can read is refused (anyone who has read
+    it can test a guessed name against the tokens), and so is one that is not
+    64 hex digits, rather than replaced, which would change every pseudonym.
+    Matching is by whole name, longest first, and a name beside a hyphen, an
+    underscore or a dash is the name while a name glued to a letter ("laws"
+    holds "aws") is not; a bare number is not masked where it is part of an
+    amount ("1,042.50", "1042.50").
+
+    The model answers in tokens, and `Policy.Reidentify` puts the names back
+    wherever it wrote a token this policy handed out. A token it invented, or
+    one with a hex digit too many or a letter glued on, is left as written.
+    It happens in exactly two places and never twice, because a team that is
+    named like a token would be turned into another team by a second pass:
+    `deliver.Call`, the one door every answer comes back through (the
+    runner's bedrock path, the bench, the console's plan-ask, where
+    `crew.ValidatePlanAnswer` checks the assignee against the real roster),
+    and `runToolLoop`'s two loops, which do not go through `Call`; the draft
+    is therefore named before `saveDraft` and before its options are parsed.
+    The tokens the model writes into a tool call's arguments are put back
+    before the tool is validated or run, by decoding the JSON, rewriting the
+    strings and encoding it again, never by replacing inside the text: a real
+    name that carries a quote and the text of another argument
+    (`ml","period":"2099-01`) would otherwise close the string it sits in and
+    write an argument of its own, so the data would choose what the call asks
+    for. A tool's error text is masked like its result, because it repeats
+    what it was asked for.
+    *(gate: `TestTheKeyLivesInTheDataDirWithMode0600`,
+    `TestFullModeNeedsNoKeyAndWritesNone`, `TestACorruptKeyFileRefusesRatherThanRotating`,
+    `TestAKeyFileOthersCanReadIsRefused`, `TestTwoStartsAtOnceShareOneKey`,
+    `TestTheSameKeyGivesTheSameTokensAcrossRunsAndAnotherKeyDoesNot`,
+    `TestATokenIsReadableAndShaped`, `TestTheSameNameIsTheSameTokenInEveryRoundAndEveryText`,
+    `TestTokensNeverCollideEvenWhenThereAreMoreNamesThanFourHexDigitsHold`,
+    `TestMaskingMatchesWholeNamesOnly`, `TestTheLongestNameWins`,
+    `TestAnInvoiceNumberDoesNotEatAnAmount`,
+    `TestTheWorkingAnalystKeepsItsOwnNameAndNothingInsideItIsMasked`,
+    `TestTinyAndEmptyValuesAreNeverMasked`,
+    `TestReidentifyBringsBackExactlyTheNamesThatWereMasked`,
+    `TestATokenTheModelInventedStaysAsWritten`,
+    `TestReidentifyFindsATokenInsideMarkdownAndPunctuation`,
+    `TestFullModeReidentifiesNothing`, `TestCallHandsBackTheAnswerWithItsRealNames`,
+    `TestCallInFullModeReturnsTheAnswerUntouched`,
+    `TestAPlanAnswerNamingTokensIsAcceptedOnlyOnceItIsReidentified`,
+    `TestReidentifyingAHostileAnswerNeitherPanicsNorGrows`,
+    `TestANameShapedLikeATokenSurvivesTheRoundTrip`,
+    `TestMaskingHostileDataNeitherPanicsNorHidesTheRestOfTheText`,
+    `TestANameStoredWithSpacesRoundItIsStillMasked`,
+    `TestAnUnreadableStoreSendsNothingRatherThanAnUnmaskedText`,
+    `TestAPolicyIsSafeAndConsistentWhenManyTasksUseItAtOnce` (the last is the
+    one to run with `-race`; CI does not run `internal/deliver` under it)
+    (`internal/deliver`); `TestAMaskedToolResultIsTheFullResultWithItsNamesMasked`,
+    `TestATokenTheModelInventedFindsNothingAndIsNotAnError`,
+    `TestAToolErrorThatEchoesANameIsMasked`, `TestPuttingANameBackCannotWriteArgumentsOfItsOwn`,
+    `TestArgumentsThatAreNotJSONAreLeftForTheValidatorToRefuse`,
+    `TestANumberAndAnArrayInTheArgumentsSurviveBeingRewritten` and
+    `TestMaskingTheCatalogueOnlyChangesItsExamples` (`tools/run`). Teeth cases
+    plant a name that gets a new token every time, two names given one token,
+    a key made readable, a key check removed, an answer returned in tokens,
+    a draft saved in tokens, tokens not put back into a tool call, and a name
+    spliced into the text of one.)*
+
 ## Decisions that have no gate yet
 
 Written here so that "it holds" and "something holds it" stay different
 sentences.
+
+- **Whether a new section's text is data or typed text is decided by the
+  person who writes the section, and the gate only sees it if the fixture
+  holds a marker in it.** Invariant 70 withholds free text section by section
+  (`ActivePolicy()` is read where each is built), and the mask scrubs every
+  name the store holds from whatever a section prints. A new section that
+  prints typed text out of a column already classified as plain or generated
+  would pass `TestNoRealIdentifierLeavesInMaskedOrAggregatesPackets`, because
+  the gate looks for the markers `internal/promptfixture` plants in the
+  columns it calls free, and for the identifiers it calls identifiers. A new
+  COLUMN cannot slip through (`TestEveryTextColumnIsClassified` fails on one
+  nobody has classified); a new use of an old column can. *(not enforced:
+  nothing reads a section's source and asks which column its text came from.)*
 
 - **`internal/web` is not run under the race detector, and the reason is
   measured, not assumed.** CI runs `-race` on crew, stack, anomaly and

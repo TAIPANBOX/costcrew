@@ -74,6 +74,13 @@ func main() {
 		"TokenFuse gateway for the OpenRouter route (a gateway whose TOKENFUSE_WIRE is openai), "+
 			"e.g. http://127.0.0.1:4178; empty calls openrouter.ai directly unless -gateway is "+
 			"set, in which case openrouter calls are refused. Falls back to COSTCREW_GATEWAY_OPENAI.")
+	// How much of this installation's billing data a model may be sent
+	// (invariant 70). Read from the environment by internal/deliver, like the
+	// gateway above, so this file stays the one that provably cannot spend.
+	promptData := flag.String("prompt-data", deliver.PromptDataEnvDefault(),
+		"how much billing data a model may be sent: full (as it always was), masked (every "+
+			"name replaced by a stable token, free text withheld, no SQL tools) or aggregates "+
+			"(totals only). Anything else refuses to start. Falls back to COSTCREW_PROMPT_DATA.")
 	flag.Parse()
 
 	if *showPrices {
@@ -82,6 +89,14 @@ func main() {
 		fmt.Print("\nEvery line says where it came from. The ones marked @claude are\n" +
 			"unverified against the vendor and must be re-checked before a live call.\n")
 		return
+	}
+
+	// Before the store is opened, the bus is opened or anything is priced: a
+	// misspelt setting that fell back to sending everything is the one mistake
+	// this flag exists to prevent.
+	if _, err := deliver.ConfigurePromptData(*promptData, *dir); err != nil {
+		fmt.Fprintln(os.Stderr, "run:", err)
+		os.Exit(1)
 	}
 
 	if err := run(*dir, *ceiling, *maxTok, *sprint, *live, *supervise, *due, *only, *engine, *events, *host, *gateway, *gatewayOpenAI); err != nil {
@@ -190,6 +205,18 @@ func run(dir, ceiling string, maxTok, sprint int, live, supervise, due bool, onl
 	// to it, whether or not -stack-events points anywhere. See bus.rec's own
 	// comment.
 	b.rec = st.AsRecorder()
+
+	// The policy masks the names in THIS store, so it is bound to it now, and
+	// the mode is recorded on the events this run writes. Said out loud when
+	// it is not the default, because it changes what every prompt below
+	// contains.
+	deliver.BindActivePolicy(db)
+	pol := deliver.ActivePolicy()
+	b.promptData = string(pol.Mode())
+	if !pol.Full() {
+		fmt.Println(pol.ModeLine())
+		fmt.Println()
+	}
 
 	if supervise {
 		if sprint == 0 {

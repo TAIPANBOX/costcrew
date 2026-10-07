@@ -193,6 +193,19 @@ func (g Gateway) RouteFor(engine string) (string, error) {
 // openrouter went direct has been false since then; Bedrock still has no
 // route and is refused when a gateway is on.
 func Call(ctx context.Context, engine, model, prompt string, maxTok int, gw Gateway) (Result, error) {
+	res, err := call(ctx, engine, model, prompt, maxTok, gw)
+	if err == nil {
+		// Under a restricting -prompt-data mode the model wrote its answer in
+		// tokens (team-7f3a). The person who reads it, and the validator that
+		// checks a plan's assignee against the roster, need the names. This is
+		// the one door every answer comes back through, so every caller gets
+		// them, and exactly once: nothing downstream of here re-identifies.
+		res.Text = ActivePolicy().Reidentify(res.Text)
+	}
+	return res, err
+}
+
+func call(ctx context.Context, engine, model, prompt string, maxTok int, gw Gateway) (Result, error) {
 	if _, err := gw.RouteFor(engine); err != nil {
 		return Result{}, err
 	}
