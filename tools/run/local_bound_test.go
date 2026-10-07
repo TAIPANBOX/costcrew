@@ -63,6 +63,9 @@ func TestTheTokenCeilingRefusesTheNextTaskOnceTheLastOneUsedIt(t *testing.T) {
 	db, tasks, analyst := runnerTasks(t, 2)
 	b, _ := testBus(t, "gcp.taipanbox.local", "crew-1")
 	e := localEstimate(tasks[0], analyst, 0, 0)
+	// A nonzero money reservation, so that a refusal which forgets to give the
+	// money back is visible: at 0 the leak reserves nothing and shows nothing.
+	e.WorstMicros = 1_000
 	worst := reservedWorstTokens(e, 100)
 	run := &runBudget{ceilingMicros: 50_000_000, tokenCeiling: worst + 50_000}
 	gw := gatewayConfig{ModelURL: srv.URL + "/v1", Host: "gcp.taipanbox.local", CeilingUSD: money.Cents(5000),
@@ -78,6 +81,7 @@ func TestTheTokenCeilingRefusesTheNextTaskOnceTheLastOneUsedIt(t *testing.T) {
 	}
 
 	e2 := localEstimate(tasks[1], analyst, 0, 0)
+	e2.WorstMicros = 1_000
 	err := execute(context.Background(), db, nil, e2, 100, run, b, gw)
 	if !isRefusal(err) {
 		t.Fatalf("the second task: err = %v, want a refusal: the first used what the second's "+
