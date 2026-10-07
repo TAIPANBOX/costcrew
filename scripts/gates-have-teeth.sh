@@ -2128,7 +2128,7 @@ run_case 'image: a base image goes back to a tag with no digest' \
 	$'TestEveryBaseImageIsPinnedByDigest' \
 	$'names no @sha256: digest' \
 	Dockerfile \
-	$'static-debian12@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab' \
+	$'static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab' \
 	$'static-debian12:nonroot'
 run_case 'image: the comparison stops reporting a declared binary the Dockerfile lacks' \
 	fail \
