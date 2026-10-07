@@ -2111,6 +2111,42 @@ run_case $'admin answers: a reworded refusal message is not a fault' \
 	$'"you are answering for "+owner+", so a reason is needed: "+rerr.Error()' \
 	$'"a reason is needed because you are answering for "+owner+": "+rerr.Error()'
 
+# The image holds what the manifest says it holds (costcrew#75), and its base
+# images are pinned by digest. The first fault is the one that happened: a
+# binary the documentation names is not copied into the runtime stage.
+run_case 'image: a declared binary is not copied into the runtime stage' \
+	fail \
+	./internal/manifest \
+	$'TestTheDockerfileShipsExactlyTheBinariesTheManifestSaysItDoes' \
+	$'costcrew-enforce is declared in the image' \
+	Dockerfile \
+	$'COPY --from=build /out/costcrew-enforce /usr/local/bin/costcrew-enforce\n' \
+	$''
+run_case 'image: a base image goes back to a tag with no digest' \
+	fail \
+	./internal/manifest \
+	$'TestEveryBaseImageIsPinnedByDigest' \
+	$'names no @sha256: digest' \
+	Dockerfile \
+	$'static-debian12@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab' \
+	$'static-debian12:nonroot'
+run_case 'image: the comparison stops reporting a declared binary the Dockerfile lacks' \
+	fail \
+	./internal/manifest \
+	$'TestTheDockerfileComparisonSeesEachWayTheyCanDisagree' \
+	$'expected a disagreement containing' \
+	internal/manifest/image_test.go \
+	$'		if !d.copied[name] {\n			out = append(out, name+" is declared in the image' \
+	$'		if false {\n			out = append(out, name+" is declared in the image'
+run_case 'image: a reworded comment above a digest is not a fault' \
+	pass \
+	./internal/manifest \
+	$'TestEveryBaseImageIsPinnedByDigest' \
+	$'' \
+	Dockerfile \
+	$'\n# golang:1.27-alpine\nFROM' \
+	$'\n# the golang 1.27 alpine build image\nFROM'
+
 echo
 if [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'

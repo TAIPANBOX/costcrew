@@ -22,6 +22,7 @@
       "class": "service",
       "checked": {
         "package": "github.com/TAIPANBOX/costcrew/cmd/costcrew",
+        "image": true,
         "listen_default": "127.0.0.1:8321",
         "health_path": "/healthz",
         "env": {
@@ -121,6 +122,7 @@
       "class": "tool",
       "checked": {
         "package": "github.com/TAIPANBOX/costcrew/tools/enforce",
+        "image": true,
         "flags": {
           "apply": {
             "required": false
@@ -152,6 +154,7 @@
       "class": "tool",
       "checked": {
         "package": "github.com/TAIPANBOX/costcrew/tools/idryxsource",
+        "image": true,
         "flags": {
           "data": {
             "required": false
@@ -253,6 +256,7 @@
       "class": "tool",
       "checked": {
         "package": "github.com/TAIPANBOX/costcrew/tools/run",
+        "image": true,
         "env": {
           "COSTCREW_GATEWAY": {
             "required": false
