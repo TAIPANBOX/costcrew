@@ -123,10 +123,10 @@ Feature: A typed hint from typryx before an analyst works an anomaly
 
   @test:TestTypryxIsAskedFromTheConsolesStartNeverFromAPage
   @test:TestOnlyTheDeliveryPackageAmongThoseTheConsoleImportsReachesTheNetwork
-  Scenario: Typryx is the console's second door, opened at start and never by a page
+  Scenario: Typryx is the console's third door, opened at start and never by a page
     Given the console's own source
     When its imports are walked
-    Then only internal/deliver and internal/typryx build outbound requests
+    Then only the named doors build outbound requests: internal/deliver, internal/sso and internal/typryx
     And nothing the web server imports reaches internal/typryx
 
   @test:TestADryRunAsksTypryxNothing

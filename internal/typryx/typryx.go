@@ -3,7 +3,7 @@
 // template picks, with its probability and the backend that answered
 // (invariant 76).
 //
-// This is the console's second door to the network (invariant 77), and it is
+// This is the console's third door to the network (invariant 77), and it is
 // narrow on purpose. It is reached only when an operator passed -typryx-url,
 // only from the console's start (cmd/costcrew, after detection) and from the
 // runner's -live path, never from a page handler. What leaves is decided by

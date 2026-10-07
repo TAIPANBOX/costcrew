@@ -1,13 +1,14 @@
 package web_test
 
 // Invariant 64: the console makes no outbound call of its own. While it serves
-// a page it reaches nowhere; the one exception is POST /sprint/plan/ask, which
+// a page it reaches nowhere; the exceptions are POST /sprint/plan/ask, which
 // calls a model through deliver.Call, and only when -gateway or -gateway-openai
-// is set. README.md and the Dockerfile both say so, and until this file nothing
+// is set, and sign-in through the identity provider (internal/sso, invariant
+// 74), only when -oidc-issuer is set. See doors below. README.md and the Dockerfile both say so, and until this file nothing
 // checked the sentence: a handler that grew an http.Client would have made the
 // documentation false without a test going red.
 //
-// Invariant 77 adds a second door and keeps it narrow: internal/typryx, asked
+// Invariant 77 adds a third door and keeps it narrow: internal/typryx, asked
 // for a typed hint at the console's start when -typryx-url is set, reached
 // from cmd/costcrew and never from anything internal/web imports.
 //
@@ -227,15 +228,35 @@ func reachable(t *testing.T, roots ...string) map[string]bool {
 	return seen
 }
 
-// Among the module's own packages the console imports, only internal/deliver
-// and internal/typryx build outbound requests. internal/enforce also does (it
-// is the budget pusher behind tools/enforce) and README says the console never
-// imports it. internal/typryx is the second door (invariant 77), held to the
-// console's start by the test after this one.
+// doors are the module's own packages, among those the console imports, that
+// may build outbound requests: each with the reason it may, and the one file
+// in it the construction must stay in ("" for anywhere in the package).
+//
+// internal/sso is the second (invariant 74): sign-in through the
+// organisation's identity provider has to fetch the provider's discovery
+// document and its JWKS and exchange a code at its token endpoint, and there
+// is no way to verify an ID token without the keys that signed it. It is held
+// to client.go, where the one client is built (no redirect followed, https or
+// loopback only, every body capped), and it is only ever built when an issuer
+// is configured. A second construction anywhere else in the package is a
+// second door, and this refuses it by file.
+var doors = map[string]struct{ reason, file string }{
+	"internal/deliver": {"the supervisor's plan-ask, POST /sprint/plan/ask, behind -gateway", ""},
+	"internal/sso": {"sign-in through the identity provider: discovery, JWKS and the token " +
+		"endpoint of the configured issuer, behind -oidc-issuer", "client.go"},
+	// The third (invariant 77): a typed hint about each open anomaly, asked
+	// at the console's start after detection, behind -typryx-url, and never
+	// from a page (the test after this one).
+	"internal/typryx": {"a typed hint from typryx at start, behind -typryx-url", "typryx.go"},
+}
+
+// Among the module's own packages the console imports, only the doors above
+// build outbound requests. internal/enforce also does (it is the budget pusher
+// behind tools/enforce) and README says the console never imports it.
 func TestOnlyTheDeliveryPackageAmongThoseTheConsoleImportsReachesTheNetwork(t *testing.T) {
 	reached := reachable(t, "internal/web", "cmd/costcrew")
-	if !reached["internal/deliver"] || !reached["internal/store"] {
-		t.Fatalf("the import walk did not reach internal/deliver and internal/store (%v): it measured nothing", reached)
+	if !reached["internal/deliver"] || !reached["internal/store"] || !reached["internal/sso"] {
+		t.Fatalf("the import walk did not reach internal/deliver, internal/sso and internal/store (%v): it measured nothing", reached)
 	}
 	var holders []string
 	for dir := range reached {
@@ -243,16 +264,31 @@ func TestOnlyTheDeliveryPackageAmongThoseTheConsoleImportsReachesTheNetwork(t *t
 			continue // the two roots are held by the test above, file by file
 		}
 		fset, files := nonTestFiles(t, filepath.Join("../..", dir))
-		for _, f := range files {
-			if len(scanFile(fset, f)) > 0 {
-				holders = append(holders, dir)
-				break
+		held := false
+		for name, f := range files {
+			found := scanFile(fset, f)
+			if len(found) == 0 {
+				continue
 			}
+			held = true
+			if d, ok := doors[dir]; ok && d.file != "" && name != d.file {
+				t.Errorf("%s/%s: %s; %s may reach the network only from %s (%s)",
+					dir, name, found[0].what, dir, d.file, d.reason)
+			}
+		}
+		if held {
+			holders = append(holders, dir)
 		}
 	}
 	sort.Strings(holders)
-	if strings.Join(holders, ",") != "internal/deliver,internal/typryx" {
-		t.Errorf("packages the console imports that build outbound requests: %v, want exactly [internal/deliver internal/typryx]", holders)
+	want := make([]string, 0, len(doors))
+	for d := range doors {
+		want = append(want, d)
+	}
+	sort.Strings(want)
+	if strings.Join(holders, ",") != strings.Join(want, ",") {
+		t.Errorf("packages the console imports that build outbound requests: %v, want exactly %v, "+
+			"each named in doors with its reason", holders, want)
 	}
 	if reached["internal/enforce"] {
 		t.Error("the console imports internal/enforce, which pushes budgets to another system")
