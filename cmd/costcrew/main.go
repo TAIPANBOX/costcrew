@@ -29,6 +29,7 @@ import (
 	"github.com/TAIPANBOX/costcrew/internal/finops"
 	"github.com/TAIPANBOX/costcrew/internal/history"
 	"github.com/TAIPANBOX/costcrew/internal/spiffe"
+	"github.com/TAIPANBOX/costcrew/internal/sso"
 	"github.com/TAIPANBOX/costcrew/internal/stack"
 	"github.com/TAIPANBOX/costcrew/internal/store"
 	"github.com/TAIPANBOX/costcrew/internal/web"
@@ -90,6 +91,37 @@ func main() {
 			"openrouter (a gateway whose TOKENFUSE_WIRE is openai), e.g. "+
 			"http://127.0.0.1:4178. Falls back to COSTCREW_GATEWAY_OPENAI.")
 
+	// Sign-in through the organisation's identity provider (invariant 74).
+	// Off unless -oidc-issuer is set. Every flag falls back to its
+	// COSTCREW_OIDC_* twin, and the client secret has no flag at all: it is
+	// read from COSTCREW_OIDC_CLIENT_SECRET or from the file named here,
+	// because a flag's value is visible to anybody who can list processes.
+	oidcIssuer := flag.String("oidc-issuer", sso.EnvDefault(sso.Env.Issuer),
+		"the OpenID Connect issuer URL (https, or http to loopback); empty means sign-in "+
+			"through an identity provider is off. Falls back to "+sso.Env.Issuer+".")
+	oidcClientID := flag.String("oidc-client-id", sso.EnvDefault(sso.Env.ClientID),
+		"the client id registered at the provider. Falls back to "+sso.Env.ClientID+".")
+	oidcSecretFile := flag.String("oidc-client-secret-file", sso.EnvDefault(sso.Env.SecretFile),
+		"a file holding the client secret; or set "+sso.Env.Secret+" (never both). Falls back to "+
+			sso.Env.SecretFile+".")
+	oidcRedirect := flag.String("oidc-redirect-url", sso.EnvDefault(sso.Env.RedirectURL),
+		"this console's callback as the browser reaches it, ending in "+sso.CallbackPath+
+			", e.g. https://costcrew.example"+sso.CallbackPath+". Falls back to "+sso.Env.RedirectURL+".")
+	oidcRoles := flag.String("oidc-roles", sso.EnvDefault(sso.Env.Roles),
+		"claim value to role, as value=role;value=role with roles viewer, operator, admin; a "+
+			"person whose claim maps to no role is refused, there is no default. Falls back to "+
+			sso.Env.Roles+".")
+	oidcRolesClaim := flag.String("oidc-roles-claim", sso.EnvDefault(sso.Env.RolesClaim),
+		"the ID token claim the mapping reads (default groups). Falls back to "+sso.Env.RolesClaim+".")
+	oidcUsernameClaim := flag.String("oidc-username-claim", sso.EnvDefault(sso.Env.UsernameClaim),
+		"the claim a new account is named after (default email). Falls back to "+sso.Env.UsernameClaim+".")
+	oidcScopes := flag.String("oidc-scopes", sso.EnvDefault(sso.Env.Scopes),
+		"the scopes requested, space separated (default \"openid email profile\"). Falls back to "+
+			sso.Env.Scopes+".")
+	oidcOnly := flag.Bool("oidc-only", sso.EnvBool(sso.Env.Only),
+		"switch password sign-in off except for accounts whose password was set with "+
+			"-set-password, the way back in when the provider is down. Falls back to "+sso.Env.Only+".")
+
 	setPw := flag.String("set-password", "", "create or reset an account as NAME:PASSWORD, then exit")
 	setRole := flag.String("set-role", "admin", "the role a new -set-password account gets")
 	weak := flag.Bool("allow-weak-password", false, "let -set-password set a password below the minimum, for a local demo account")
@@ -126,7 +158,16 @@ func main() {
 	if err != nil {
 		log.Fatalf("costcrew: %v", err)
 	}
-	if err := run(*addr, *dir, cfg, gatewayURL, gatewayOpenAIURL, *behindTLS); err != nil {
+	oidcCfg, err := sso.Load(sso.Inputs{
+		Issuer: *oidcIssuer, ClientID: *oidcClientID, SecretFile: *oidcSecretFile,
+		SecretEnv: os.Getenv(sso.Env.Secret), RedirectURL: *oidcRedirect, Roles: *oidcRoles,
+		RolesClaim: *oidcRolesClaim, UsernameClaim: *oidcUsernameClaim, Scopes: *oidcScopes,
+		Only: *oidcOnly,
+	})
+	if err != nil {
+		log.Fatalf("costcrew: %v", err)
+	}
+	if err := run(*addr, *dir, cfg, gatewayURL, gatewayOpenAIURL, *behindTLS, oidcCfg); err != nil {
 		log.Fatalf("costcrew: %v", err)
 	}
 }
@@ -232,7 +273,7 @@ func reportStoreWarnings(st *store.Store) {
 	}
 }
 
-func run(addr, dir string, scfg stack.Config, gatewayURL, gatewayOpenAIURL string, behindTLS bool) error {
+func run(addr, dir string, scfg stack.Config, gatewayURL, gatewayOpenAIURL string, behindTLS bool, oidcCfg *sso.Config) error {
 	st, err := store.Open(dir)
 	if err != nil {
 		return fmt.Errorf("opening the store in %s: %w", dir, err)
@@ -244,6 +285,13 @@ func run(addr, dir string, scfg stack.Config, gatewayURL, gatewayOpenAIURL strin
 	if err != nil {
 		return fmt.Errorf("loading the signing key: %w", err)
 	}
+	var oidcProv *sso.Provider
+	if oidcCfg != nil {
+		if oidcProv, err = sso.New(st.DB(), *oidcCfg); err != nil {
+			return fmt.Errorf("preparing the identity provider sign-in: %w", err)
+		}
+	}
+	log.Print("CostCrew: " + oidcCfg.Describe())
 
 	// Seeded once, never rebuilt: an existing estate is somebody's work, and a
 	// start-up that quietly regenerates it destroys whatever was recorded
@@ -500,7 +548,7 @@ func run(addr, dir string, scfg stack.Config, gatewayURL, gatewayOpenAIURL strin
 			Recorder: rec, Host: scfg.Host, EventsPath: scfg.EventsPath,
 			Passports: em.WritePassports, PassportFor: em.PassportFor,
 			Delegation: em.Delegation, Gateway: gatewayURL, GatewayOpenAI: gatewayOpenAIURL,
-			BehindTLS: behindTLS,
+			BehindTLS: behindTLS, OIDC: oidcProv,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}

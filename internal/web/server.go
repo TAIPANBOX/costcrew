@@ -21,6 +21,7 @@ import (
 	"github.com/TAIPANBOX/costcrew/internal/anomaly"
 	"github.com/TAIPANBOX/costcrew/internal/auth"
 	"github.com/TAIPANBOX/costcrew/internal/crew"
+	"github.com/TAIPANBOX/costcrew/internal/sso"
 	"github.com/TAIPANBOX/costcrew/internal/store"
 )
 
@@ -68,6 +69,13 @@ type Server struct {
 	// though r.TLS is nil on every request this process itself sees. See
 	// setCookie, the one place that decision is made.
 	behindTLS bool
+
+	// oidc is sign-in through the organisation's identity provider
+	// (invariant 74), nil unless -oidc-issuer is set. While it is set,
+	// registration here is closed: accounts come from the provider, and the
+	// first admin is whoever the provider's mapping makes one, or the
+	// command line's -set-password.
+	oidc *sso.Provider
 }
 
 // Stack is the optional wiring into the governance plane.
@@ -90,6 +98,8 @@ type Stack struct {
 	// BehindTLS is -behind-tls: true when a TLS-terminating proxy sits in
 	// front of this process (invariant 49). See Server.behindTLS.
 	BehindTLS bool
+	// OIDC is the identity provider sign-in, nil when it is not configured.
+	OIDC *sso.Provider
 }
 
 // New builds the console. A zero Stack means the governance plane is switched
@@ -103,7 +113,7 @@ func New(st *store.Store, au *auth.Auth, sk Stack) *Server {
 		eventsPath: sk.EventsPath, passports: sk.Passports,
 		passportFor: sk.PassportFor,
 		delegate:    sk.Delegation, gateway: sk.Gateway, gatewayOpenAI: sk.GatewayOpenAI,
-		behindTLS: sk.BehindTLS, mux: http.NewServeMux()}
+		behindTLS: sk.BehindTLS, oidc: sk.OIDC, mux: http.NewServeMux()}
 	s.routes()
 	return s
 }
@@ -140,6 +150,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /signup", s.signupSubmit)
 	s.mux.HandleFunc("GET /login", s.loginPage)
 	s.mux.HandleFunc("POST /login", s.loginSubmit)
+	s.mux.HandleFunc("GET /login/oidc", s.oidcStart)
+	s.mux.HandleFunc("GET /login/oidc/callback", s.oidcCallback)
 	s.mux.HandleFunc("POST /logout", s.logout)
 
 	// Aliases the original keeps for links that predate a rename. They carry
@@ -381,6 +393,7 @@ const authPage = `<!doctype html>
 <h1 style="font-size:27px;letter-spacing:-.02em;margin:0 0 8px">CostCrew</h1>
 <p style="color:var(--ink-2);margin:0 0 22px">%s</p>
 %s
+%s
 <form class="action" method="post" action="%s">
 <input type="hidden" name="csrf" value="%s">
 <div><label for="u">Name</label><input id="u" type="text" name="username" autocomplete="username" autofocus></div>
@@ -405,14 +418,27 @@ func (s *Server) authPage(w http.ResponseWriter, r *http.Request, signup bool) {
 		}
 		fmt.Fprintf(w, authPage,
 			"The first account created becomes the admin of this installation.",
-			msg, "/signup", token, code, "Create account")
+			msg, "", "/signup", token, code, "Create account")
 		return
 	}
-	fmt.Fprintf(w, authPage, "Sign in to the console.", msg, "/login", token, "", "Sign in")
+	fmt.Fprintf(w, authPage, "Sign in to the console.", msg, s.oidcLink(), "/login", token, "", "Sign in")
+}
+
+// signupOpen is auth.SignupOpen, and closed outright while an identity
+// provider is configured: there, accounts are created by the provider's
+// mapping, and an open form would be a second way in that the provider's
+// offboarding never reaches. It matters most exactly when the provider demotes
+// the last admin, which is when auth.SignupOpen alone would reopen the form to
+// anybody who can reach the port.
+func (s *Server) signupOpen() (bool, error) {
+	if s.oidc != nil {
+		return false, nil
+	}
+	return s.au.SignupOpen()
 }
 
 func (s *Server) signupPage(w http.ResponseWriter, r *http.Request) {
-	open, err := s.au.SignupOpen()
+	open, err := s.signupOpen()
 	if err != nil {
 		http.Error(w, "store unavailable", http.StatusInternalServerError)
 		return
@@ -427,7 +453,7 @@ func (s *Server) signupPage(w http.ResponseWriter, r *http.Request) {
 func (s *Server) loginPage(w http.ResponseWriter, r *http.Request) {
 	// Nobody has claimed this installation yet, so there is no account to sign
 	// in with. Showing the form anyway is how a first run becomes a dead end.
-	if n, err := s.au.Count(); err == nil && n == 0 {
+	if n, err := s.au.Count(); err == nil && n == 0 && s.oidc == nil {
 		http.Redirect(w, r, "/signup", http.StatusSeeOther)
 		return
 	}
@@ -443,7 +469,7 @@ func (s *Server) signupSubmit(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/signup?msg="+urlQuery("reload the page and try again"), http.StatusSeeOther)
 		return
 	}
-	open, err := s.au.SignupOpen()
+	open, err := s.signupOpen()
 	if err != nil {
 		http.Error(w, "store unavailable", http.StatusInternalServerError)
 		return
@@ -480,7 +506,11 @@ func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/login?msg="+urlQuery("reload the page and try again"), http.StatusSeeOther)
 		return
 	}
-	u, why, err := s.au.Authenticate(r.PostFormValue("username"), r.PostFormValue("password"))
+	authenticate := s.au.Authenticate
+	if s.oidc != nil && s.oidc.Config().Only {
+		authenticate = s.au.AuthenticateBreakGlass
+	}
+	u, why, err := authenticate(r.PostFormValue("username"), r.PostFormValue("password"))
 	if err != nil {
 		http.Error(w, "store unavailable", http.StatusInternalServerError)
 		return
