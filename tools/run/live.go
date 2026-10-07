@@ -60,6 +60,15 @@ type gatewayConfig struct {
 	OpenAIURL  string      // the same, for the gateway that fronts the OpenAI wire
 	Host       string      // this installation's trust domain, for the agent id
 	CeilingUSD money.Cents // the run's ceiling, i.e. -ceiling parsed
+
+	// The local engine's setup, carried here because this is the one value
+	// every layer from run() to execute() already receives. Neither field makes
+	// on() true: ModelURL is the operator's own server a local call reaches
+	// directly (-model-url), and MaxRunTokens is a ceiling on the tokens the
+	// whole run may use (-max-run-tokens, 0 = none), the bound that stands in
+	// for money when the local engine is priced at 0.
+	ModelURL     string
+	MaxRunTokens int
 }
 
 func (g gatewayConfig) on() bool { return g.URL != "" || g.OpenAIURL != "" }
@@ -246,6 +255,14 @@ func execute(ctx context.Context, db, roDB *sql.DB, e estimate, maxTok int, run 
 	if err := run.reserve(reserveMicros); err != nil {
 		return refusal{err}
 	}
+	// And the same worst case in tokens, against -max-run-tokens when one is
+	// set. Money first, then tokens, and the money comes back if the tokens
+	// refuse: a refused call reserves nothing.
+	reserveTokens := reservedWorstTokens(e, maxTok)
+	if err := run.reserveTokens(reserveTokens); err != nil {
+		run.settle(reserveMicros, 0)
+		return refusal{err}
+	}
 
 	// The headers for THIS call, built fresh every time even though the URL,
 	// the run id and the trust domain never change within a run: the budget
@@ -260,6 +277,10 @@ func execute(ctx context.Context, db, roDB *sql.DB, e estimate, maxTok int, run 
 	if gw.on() {
 		gh = gatewayHeadersFor(gw, b.run, e.Analyst.Name, e.Task.Budget)
 	}
+	// The operator's own server, for the local engine's direct route. Set
+	// whether or not a gateway is on: with a gateway the call never reads it
+	// (Gateway.RouteFor answers first), without one it is the whole address.
+	gh.ModelURL = gw.ModelURL
 	sent := prompt(e.Task, e.Analyst, time.Now().Format("2006-01-02"), e.Packet)
 	res, err := runToolLoop(ctx, db, roDB, e, sent, maxTok, gh, e.Analyst, b)
 	// The charge is the gateway's settlement when there is one, the runner's
@@ -269,6 +290,9 @@ func execute(ctx context.Context, db, roDB *sql.DB, e estimate, maxTok int, run 
 	// next reserve() is checked against what was actually spent.
 	charge := res.ChargeMicros()
 	run.settle(reserveMicros, charge)
+	// Tokens settle at what the rounds counted, above the reservation if it
+	// came to that, so the next task is checked against what was really used.
+	run.settleTokens(reserveTokens, int64(res.InTokens)+int64(res.OutTokens))
 	run.noteSettlement(res.Settlement)
 	if err != nil {
 		// A task that stopped is not a task that cost nothing (costcrew#82):
@@ -290,7 +314,7 @@ func execute(ctx context.Context, db, roDB *sql.DB, e estimate, maxTok int, run 
 
 	fmt.Printf("  %-22s %-14s %-10s in %5d out %5d  cost %s %s  (worst %s)\n",
 		trim(e.Task.Title, 22), e.Analyst.Name, trim(e.Engine, 10),
-		res.InTokens, res.OutTokens, usd(charge), chargeBasis(res.Settlement), usd(e.WorstMicros))
+		res.InTokens, res.OutTokens, usd(charge), chargeBasisFor(e.Engine, res.Settlement), usd(e.WorstMicros))
 	return nil
 }
 
@@ -416,6 +440,12 @@ type runBudget struct {
 	reserved      int64 // in flight, at worst case
 	spent         int64 // settled, at what it actually cost
 
+	// The same ceiling in TOKENS (-max-run-tokens), for the case money cannot
+	// bound: the local engine at a price of 0 reserves nothing in dollars.
+	// 0 means no token ceiling and every method below is a no-op, so a budget
+	// built without one behaves exactly as it did before this field existed.
+	tokenCeiling, tokensReserved, tokensSpent int64
+
 	// What the gateway said, over the whole run (invariant 51): how many
 	// tasks reached settle, how many of those the gateway settled, and the
 	// largest x-fuse-spent-usd seen, which is the gateway's own view of the
@@ -472,6 +502,40 @@ func (r *runBudget) settle(worst, actual int64) {
 	r.spent += actual
 }
 
+// reserveTokens is reserve in tokens: it takes the worst case out of the token
+// ceiling before the call is made, or refuses. A no-op with no ceiling.
+func (r *runBudget) reserveTokens(worst int64) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.tokenCeiling <= 0 {
+		return nil
+	}
+	if r.tokensSpent+r.tokensReserved+worst > r.tokenCeiling {
+		return fmt.Errorf("the run's token ceiling is %d, %d are used and %d are in flight, and "+
+			"this call could use %d: refused before making it",
+			r.tokenCeiling, r.tokensSpent, r.tokensReserved, worst)
+	}
+	r.tokensReserved += worst
+	return nil
+}
+
+// settleTokens puts back what the call did not use and books what it did.
+func (r *runBudget) settleTokens(worst, actual int64) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.tokenCeiling <= 0 {
+		return
+	}
+	r.tokensReserved -= worst
+	r.tokensSpent += actual
+}
+
+func (r *runBudget) tokensUsed() int64 {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.tokensSpent
+}
+
 func (r *runBudget) total() int64 {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -500,7 +564,7 @@ func (r *runBudget) total() int64 {
 type refusal struct{ error }
 
 func spend(db, roDB *sql.DB, ests []estimate, maxTok int, cap money.Cents, only int, b bus, gw gatewayConfig) error {
-	run := &runBudget{ceilingMicros: int64(cap) * 10_000}
+	run := &runBudget{ceilingMicros: int64(cap) * 10_000, tokenCeiling: int64(gw.MaxRunTokens)}
 
 	todo := make([]estimate, 0, len(ests))
 	for _, e := range ests {
@@ -536,10 +600,18 @@ func spend(db, roDB *sql.DB, ests []estimate, maxTok int, cap money.Cents, only 
 	if err := noRouteRefusal(gw, todo); err != nil {
 		return err
 	}
+	if err := localPreflight(gw, todo, maxTok); err != nil {
+		return err
+	}
 	fmt.Printf("LIVE. %d task(s), worst case %s, ceiling %s.\n", len(todo), usd(worst), cap)
 	if worst > run.ceilingMicros {
 		return fmt.Errorf("the worst case is %s and the ceiling is %s: refused "+
 			"before the first call", usd(worst), cap)
+	}
+	// Last of the refusals, because it is the only one that touches the
+	// network: a run the numbers already refuse must not knock on a server.
+	if err := localReachRefusal(gw, todo); err != nil {
+		return err
 	}
 	fmt.Println()
 
@@ -644,6 +716,9 @@ func spend(db, roDB *sql.DB, ests []estimate, maxTok int, cap money.Cents, only 
 		fmt.Printf("\n%d of %d done, %d blocked. Spent %s of a %s ceiling: %d of %d task(s) settled by the "+
 			"gateway, the rest priced by the runner (no settlement header).\n",
 			done, len(todo), blocked, usd(run.total()), cap, settled, charged)
+	}
+	if gw.MaxRunTokens > 0 {
+		fmt.Printf("Tokens used: %d of a %d ceiling.\n", run.tokensUsed(), gw.MaxRunTokens)
 	}
 	fmt.Printf("The board now carries %s against these tasks, which is that "+
 		"total rounded up to whole cents.\n", booked)

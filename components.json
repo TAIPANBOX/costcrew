@@ -263,6 +263,15 @@
           },
           "COSTCREW_GATEWAY_OPENAI": {
             "required": false
+          },
+          "COSTCREW_MODEL_URL": {
+            "required": false
+          },
+          "COSTCREW_MODEL_NAME": {
+            "required": false
+          },
+          "COSTCREW_MODEL_KEY": {
+            "required": false
           }
         },
         "flags": {
@@ -287,7 +296,22 @@
           "live": {
             "required": false
           },
+          "local-price-in": {
+            "required": false
+          },
+          "local-price-out": {
+            "required": false
+          },
+          "max-run-tokens": {
+            "required": false
+          },
           "max-tokens": {
+            "required": false
+          },
+          "model-name": {
+            "required": false
+          },
+          "model-url": {
             "required": false
           },
           "only": {
@@ -322,6 +346,10 @@
         "the_gateway_has_one_door_per_wire": {
           "value": "-gateway fronts the Anthropic wire and -gateway-openai fronts the OpenAI wire (openrouter); with either set, a call goes through the gateway that fronts its engine or is refused, never sent direct",
           "why": "TokenFuse forwards ONE upstream wire shape per process (its TOKENFUSE_WIRE), so the two wires are two gateway processes and two URLs. Bedrock speaks neither, so with any gateway set a bedrock call is refused. Not checkable from outside this repository: the routing is deliver.Gateway.RouteFor in internal/deliver/call.go, and which TokenFuse process is behind each URL is the operator's setup, not something a manifest can see."
+        },
+        "the_local_engine_sends_nothing_to_a_vendor": {
+          "value": "the local engine calls only an address the operator typed (-model-url, or the gateway at -gateway-openai whose upstream is their server), and is bounded by a price the operator sets or by -max-run-tokens when that price is 0",
+          "why": "which server is behind -model-url, and whether it forwards anywhere, is the operator's setup and not something a manifest can see. What this binary guarantees is that no vendor host appears in the local route, and that with any gateway set and none that fronts the OpenAI wire a local call is refused rather than sent direct (deliver.Gateway.RouteFor). COSTCREW_MODEL_KEY, when set, is sent as a bearer token and never logged."
         }
       }
     },
