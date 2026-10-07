@@ -345,6 +345,62 @@ otherwise passes `costcrew-run`.
 Flipping stack-k8s's `suspend`, or adding a stack-single routine, is a
 platform act and a separate decision; neither is done in this repository.
 
+## Running the crew on a model inside your own network
+
+If billing data may not leave your network, run the crew on a model you host
+yourself. The `local` engine calls a server that answers the OpenAI
+chat-completions route (`POST /v1/chat/completions`): Ollama, vLLM, LM Studio
+and the llama.cpp server all do. Nothing is sent to a vendor, no vendor
+address appears anywhere in that route, and no key is needed.
+
+Hire an analyst onto the `local` engine from the hire form, then point the
+runner at your server and say which model it serves. With Ollama:
+
+```sh
+ollama serve &                       # listens on 127.0.0.1:11434
+ollama pull llama3.1:8b
+
+costcrew-run -data ./local -live -engine local -ceiling 1.00 \
+  -model-url http://127.0.0.1:11434/v1 \
+  -model-name llama3.1:8b \
+  -max-run-tokens 400000
+```
+
+`-model-url` is the base URL of the server, with its `/v1`; the runner adds
+`/chat/completions`. It must be an `http` or `https` address with no password
+in it, no query string and no fragment, and the runner refuses it before it
+opens anything otherwise. `-model-name` is whatever your server calls the
+model. Both fall back to `COSTCREW_MODEL_URL` and `COSTCREW_MODEL_NAME`. Most
+self-hosted servers want no key. If yours does, put it in
+`COSTCREW_MODEL_KEY`: it is sent as a bearer token and is never printed or
+stored.
+
+A model on your own hardware costs no vendor money, but every guard in the
+runner counts money, and a reservation of zero never refuses anything. So a
+run on the local engine is bounded one of two ways. Price your hardware with
+`-local-price-in` and `-local-price-out` (USD per million tokens, whatever
+the machine costs you), and the run ceiling and the per-task guards work as
+they do for any other engine. Or leave the price at 0 and give
+`-max-run-tokens`, a ceiling on the tokens the whole run may use, reserved
+before each task the way money is. A run on the local engine at a price of 0
+with no token ceiling is refused before the first call. The count is the
+server's own. A server that reports no usage is counted at the worst case for
+that round, the bytes sent plus the whole output cap, rather than at nothing,
+and the runner says so.
+
+If the server is not there, the run stops before the first task with one
+line naming the address. No task is blocked for a call that never happened.
+
+To meter these calls like any other, set `-gateway-openai` to a TokenFuse
+gateway whose upstream is your server. The runner then sends the call to the
+gateway with the usual run and agent headers, and the charge recorded is what
+the gateway settled. With only `-gateway` set (the Anthropic wire), a local
+task is refused, not sent straight to your server behind the gateway's back.
+
+Each local call is recorded on the shared bus with `price_basis` set to
+`local`, so the record says no vendor price was involved. The console's own
+supervisor planning call does not run on the local engine yet.
+
 ## Measured on a box behind a home router (2026-09-17)
 
 stack-single v1.1.3 ran `ghcr.io/taipanbox/costcrew:v0.2.0` on a Debian 13
@@ -397,9 +453,9 @@ estate-gates repository's own PROVEN record:
 ## Gates
 
 ```sh
-go test ./...                        # 968 tests, 20 packages
+go test ./...                        # 1050 tests, 20 packages
 ./scripts/features-are-bound.sh      # every scenario bound to a named test, both ways
-./scripts/gates-have-teeth.sh        # 166 cases: each gate is made to fail on purpose
+./scripts/gates-have-teeth.sh        # 220 cases: each gate is made to fail on purpose
 gofmt -l . && go vet ./...
 ```
 

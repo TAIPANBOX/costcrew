@@ -84,9 +84,9 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 1222 tests, 27 packages
-./scripts/gates-have-teeth.sh        # 329 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 396 scenarios, both directions
+go test ./...                        # 1274 tests, 27 packages
+./scripts/gates-have-teeth.sh        # 353 cases; needs a clean tree
+./scripts/features-are-bound.sh      # 412 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
@@ -188,6 +188,18 @@ new, 1), and no route: 968 -> 997 tests, 166 -> 182 cases, 295 -> 306
 scenarios, 58 GET routes and 36 write routes unchanged, re-measured on this
 branch with the three commands this block already names. Numbered 68 and 69
 as placeholders; the coordinator renumbers at merge.
+
+Invariants 72 and 73 (the local engine: where a call goes, and what bounds a
+run priced at 0) added 52 tests (`internal/engines/local_test.go`, 8;
+`internal/deliver/local_test.go`, 18; `tools/run/local_test.go`, 7;
+`tools/run/local_bound_test.go`, 19), 24 `gates-have-teeth.sh` cases (twenty-one
+`fail`, three `pass`) and 16 scenarios (`features/local-model.feature`, new),
+and no route: 998 -> 1050 tests, 196 -> 220 cases, 325 -> 341 scenarios, 58 GET
+routes unchanged, re-measured on this branch with the three commands this
+block already names. `components.json` gained the runner's `-model-url`,
+`-model-name`, `-local-price-in`, `-local-price-out` and `-max-run-tokens` and
+`COSTCREW_MODEL_URL`, `COSTCREW_MODEL_NAME`, `COSTCREW_MODEL_KEY`. The numbers
+72 and 73 are placeholders the coordinator renumbers at merge.
 
 Invariant 49 (a cookie is Secure when a TLS proxy in front is what actually
 terminates it, section "Read before you change anything" of this branch's
@@ -4132,6 +4144,146 @@ an absent invariant.
     `TestADropInSpendIsNotMoneyFound` still holds the Results side.
     `scripts/gates-have-teeth.sh`'s `money found: the crew-cost KPI sums the
     absolute excess again` case puts the absolute query back into `KPIs`.)*
+
+72. **A call on the local engine reaches an address the operator typed, or the
+    OpenAI-shaped gateway in front of it, or nothing.** The local engine runs
+    the crew on a model the organisation hosts itself (Ollama, vLLM, LM Studio,
+    the llama.cpp server: anything that answers `POST /v1/chat/completions`),
+    for an organisation that may not send billing data outside its perimeter.
+    So the one thing that must hold is where a call goes, and it has three
+    answers and no fourth. With no gateway configured, to `-model-url`
+    (`COSTCREW_MODEL_URL`), as `<base>/chat/completions`. With `-gateway-openai`
+    configured, to that gateway's `/v1/chat/completions`, metered like an
+    openrouter call (invariant 54), whose upstream is then the operator's
+    server, and the charge is what it settled (invariant 51). With any gateway
+    configured and none that fronts the OpenAI wire, refused before a request:
+    `Gateway.RouteFor("local")` answers `ErrNoGatewayRoute` for `-gateway`
+    alone, the existing rule of invariant 54 applied to a new engine and not a
+    new rule, and the operator's server is not the fallback. No vendor host is
+    reachable from the route: `local.go` in `internal/deliver` names none, and
+    a test reads it for the ones that exist.
+
+    The address is validated before the store opens, by the validator the
+    gateway flags use plus three refusals (`deliver.NormalizeModelURL`):
+    credentials in the URL, a query string, a fragment. A password in a URL
+    ends up in every message that names it, so the refusal does not repeat the
+    value it refused. The optional key (`COSTCREW_MODEL_KEY`) is read at the
+    moment of use, sent as a bearer token and put nowhere: no flag, no field,
+    no message. A server that is down is one line naming its URL
+    (`deliver.ReachError`), not the stack of wrappers around "connection
+    refused", and a direct run probes once before the first task
+    (`ProbeModelServer`, after the money preflight) so that a missing server
+    stops the run instead of blocking every task one by one.
+
+    The local engine is not a copy of the openrouter one: both speak the OpenAI
+    wire through ONE round (`openAIRound`), one request builder
+    (`openAIRoundRequest`), one tool loop (`openAIToolLoop`) and one endpoint
+    function (`deliver.OpenAIEndpoint`), parameterised by the engine, and the
+    three things that differ by engine are named where they differ: where the
+    call goes, whose key it carries, and what is counted when the server
+    reports no usage. `openRouterRound` and `openRouterRoundRequest` stay as
+    one-line wrappers so no caller or test changed.
+
+    What this does not do: it does not check what is behind `-model-url`, so a
+    server that forwards to a vendor is the operator's setup and not something
+    this binary can see; it speaks no TLS client certificates; the console's
+    supervisor planning call (`internal/web`) and `tools/bench -live` do not
+    run on the local engine yet and are refused as unpriced, because only the
+    runner configures the operator's model and price.
+    *(gate: `TestRouteForLocalFollowsTheOpenAIGatewayOrRefuses`,
+    `TestTheLocalEndpointIsTheOperatorsOwnAddress`,
+    `TestTheLocalEngineIsNeverSentDirectBehindAGatewaysBack`,
+    `TestACallToTheLocalEngineThroughTheOpenAIGatewayIsMetered`,
+    `TestALocalGatewayCallWithNoRunIDIsRefusedBeforeTheRequest`,
+    `TestA402FromTheLocalGatewayIsARefusalAndFromTheServerIsNot`,
+    `TestNoVendorHostAppearsInTheLocalRoute`, `TestNormalizeModelURL`,
+    `TestACallToTheLocalEngineGoesToTheOperatorsServerWithNoKey`,
+    `TestTheOptionalModelKeyIsSentAsABearerTokenAndNeverEchoed`,
+    `TestAnUnreachableServerIsOneLineNamingItsURL`, `TestProbeModelServer`,
+    `TestTheLocalCallSurvivesHostileResponses` (`internal/deliver`);
+    `TestBothOpenAIEnginesSendTheSameRequestShape`,
+    `TestALocalTaskRunsTheToolLoopAndIsChargedAtTheOperatorsPrice`,
+    `TestALocalTaskWithOnlyAnAnthropicGatewayIsRefusedAndNothingIsCalled`,
+    `TestALocalTaskThroughTheOpenAIGatewayIsChargedItsSettlement`,
+    `TestA402FromTheGatewayInFrontOfTheLocalModelStopsTheRun`,
+    `TestAnUnreachableLocalServerStopsTheRunAtStartWithOneLine`,
+    `TestAServerThatGoesAwayMidRunIsOneLineFromTheRound`,
+    `TestALocalTaskWithNoServerAndNoGatewayIsRefusedAtStart`,
+    `TestTheModelKeyIsNeverPrintedOrReturned`,
+    `TestAHostileLocalResponseFailsOneTaskWithABoundedMessage`,
+    `TestThePriceBasisOfALocalCallIsLocalWhateverTheGatewaySaid`,
+    `TestARunWithABadModelURLFailsBeforeTheStoreIsOpened` (`tools/run`).
+    Nine `fail` cases and two `pass` cases in `gates-have-teeth.sh`, among
+    them the two that matter most: a gateway that does not front the wire
+    still letting a local call through, and the direct route being a vendor's
+    host.)*
+
+73. **A run on the local engine is bounded in tokens when money cannot bound
+    it, and a round the server did not measure is counted at its worst case.**
+    Every guard in the runner is counted in money, and a model on the
+    organisation's own hardware has no vendor price. The operator may price it
+    (`-local-price-in`, `-local-price-out`, USD per million tokens, read
+    through `engines.ConfigureLocal`, refused when negative, NaN or infinite),
+    and at the default of 0 the reservation is 0, which refuses nothing: a run
+    on a zero-priced engine would be bounded by nothing at all. So the unit
+    changes. `-max-run-tokens` is a ceiling on the tokens a live run may use,
+    over every task, reserved before each task by the same arithmetic as the
+    money bound (`reservedWorstTokens`: the loop's rounds times the prompt, the
+    tool catalogue and the output cap), held while the call is in flight,
+    settled at what the rounds actually counted even above the reservation, and
+    returned in full, money included, when it refuses (`runBudget.reserveTokens`
+    and `settleTokens`). The refusals come before the first call, in the order
+    the numbers can be known (`localPreflight`): a local task with no server to
+    call; a task on the local engine at a price of 0 with no token ceiling,
+    which is the one that closes the hole; the worst case of the whole run in
+    tokens over the ceiling (equal is accepted). A price on either side is
+    enough to make every call reserve something, so only 0 and 0 needs the
+    token ceiling. The dry run says how many local tasks money cannot bound.
+
+    A server that omits its `usage` block, or sends zeros, must not make a
+    round free (`deliver.CountLocalUsage`, used by the single-shot call and by
+    every round of the loop): it is counted as the request's bytes in, the
+    one-token-per-byte bound `Tokens` already uses, and the whole output cap
+    out, charged at the operator's price, and the runner prints that the
+    server reported nothing. Negative numbers a server sends are read as zero,
+    never as a subtraction from a ceiling. The local engine's model is the
+    operator's: `-model-name`, with no list in the catalogue, and a task on it
+    with none is refused for want of it and not for a missing price.
+    `engines.Metered("local")` is true although no vendor bills anything,
+    because Metered decides whether the estimator bounds a call or waves it
+    through. A gateway's settlement, when there is one, is still the charge
+    (invariant 51), and the bus records `price_basis` as `local` on every local
+    call whatever the gateway said, so the evidence says no vendor price was
+    involved (`priceBasis`).
+
+    What this does not do: the conversation grows from round to round, so a
+    task's real count can pass its reservation (the money bound has the same
+    limit, invariant 44), and the next task is checked against the real count;
+    the token ceiling is not shared between two invocations of the runner; and
+    the price is the operator's number, which this console cannot check.
+    *(gate: `TestALocalRunAtPriceZeroIsRefusedAtStartWithoutATokenCeiling`,
+    `TestALocalRunAtPriceZeroRunsOnceItHasATokenCeiling`,
+    `TestTokenReservationsAreHeldWhileInFlight`,
+    `TestTheTokenCeilingRefusesTheNextTaskOnceTheLastOneUsedIt`,
+    `TestTheWholeRunsWorstCaseOverTheTokenCeilingIsRefusedBeforeAnyCall`,
+    `TestReservedWorstTokensCountsTheLoopThePromptTheCatalogueAndTheCap`,
+    `TestAPricedLocalRunNeedsNoTokenCeilingAndMoneyBoundsIt`,
+    `TestALocalServerThatReportsNoUsageIsCountedAtTheWorstCaseNotZero`,
+    `TestEveryUnreportedRoundOfALoopIsCounted`,
+    `TestALocalTaskIsPricedByTheOperatorsModelAndPrice`,
+    `TestTheDryRunSaysWhichLocalTasksMoneyCannotBound`,
+    `TestTheLocalOptionsAreValidatedBeforeAnythingElse`,
+    `TestTheToolCatalogueBoundCoversTheLocalEngine` (`tools/run`);
+    `TestAServerThatReportsNoUsageIsCountedAtTheWorstCase`,
+    `TestCountLocalUsage`, `TestTheLocalEngineLoopsAndSendsTheOpenAICatalogue`
+    (`internal/deliver`); `TestTheLocalEngineIsKnownAndReadsAsMetered`,
+    `TestAnUnconfiguredLocalEngineHasNoPrice`,
+    `TestTheLocalEngineIsPricedByTheOperatorForAnyModelName`,
+    `TestConfigureLocalRefusesAPriceThatIsNotAPrice` (`internal/engines`).
+    Twelve `fail` cases and one `pass` case in `gates-have-teeth.sh`. One of
+    them was first toothless and is why a test fixture now carries a nonzero
+    money reservation: at 0 a refusal that forgot to give the money back
+    leaked nothing visible.)*
 
 74. **Sign-in through the organisation's identity provider believes nothing it
     has not checked, and the provider decides access at every sign-in.** Until
