@@ -271,7 +271,12 @@ func TestOnlyTheOwnerOrAnAdminCanStampAUnitRule(t *testing.T) {
 // aggregate and prints no name, so a formula in a unit cannot reach a
 // spreadsheet through the showback; the page escapes it.
 func TestAHostileUnitNameNeverReachesTheShowbackFileOrTheMarkup(t *testing.T) {
-	hostile := `=HYPERLINK("http://x","click")<script>alert(1)</script>`
+	// Not starting with "=": the reader now refuses an x_unit that opens like
+	// a formula (invariant 78), so a name that starts with one never becomes a
+	// unit at all. This one carries the same markup and formula text after a
+	// first letter, which the reader keeps, so the page's own escaping and
+	// the file's own exclusion of an unruled unit are what is tested here.
+	hostile := `acme=HYPERLINK("http://x","click")<script>alert(1)</script>`
 	h := startWithUnits(t, webUnitRow("0.010000", "2026-09-04", hostile))
 	h.signUp(t, "boss", "boss-password-2026")
 

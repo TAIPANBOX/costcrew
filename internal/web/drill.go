@@ -143,9 +143,25 @@ func (s *Server) team(w http.ResponseWriter, r *http.Request) {
 			team = t
 		}
 	}
+	// A name off the roster is a unit when a charge carries it: the TokenFuse
+	// FOCUS reader writes x_unit into charges.team, and /chargeback and
+	// /allocation list and link a unit exactly as they do a team. Answering
+	// 404 for it made every one of those links lead nowhere. A unit has no
+	// business unit or cadence here, and the page says so rather than
+	// inventing them.
+	offRoster := false
 	if team.Name == "" {
-		http.Error(w, "no such team", http.StatusNotFound)
-		return
+		var charged bool
+		if err := s.db.QueryRow(`SELECT EXISTS(SELECT 1 FROM charges WHERE team = ?)`,
+			name).Scan(&charged); err != nil {
+			http.Error(w, "store unavailable", http.StatusInternalServerError)
+			return
+		}
+		if !charged || name == "" {
+			http.Error(w, "no such team", http.StatusNotFound)
+			return
+		}
+		team, offRoster = world.Team{Name: name}, true
 	}
 	period, months := s.period(r)
 
@@ -212,6 +228,7 @@ func (s *Server) team(w http.ResponseWriter, r *http.Request) {
 	s.render(w, tplTeam, struct {
 		shell
 		T         world.Team
+		OffRoster bool
 		Period    string
 		Months    []string
 		ByService []spendRow
@@ -230,7 +247,7 @@ func (s *Server) team(w http.ResponseWriter, r *http.Request) {
 		SortTrend sortSpec
 		SortUtil  sortSpec
 		SortDesk  sortSpec
-	}{s.shellFor(r, name, "teams"), team, period, months, byService, byDesk,
+	}{s.shellFor(r, name, "teams"), team, offRoster, period, months, byService, byDesk,
 		trend, total, direct, allocated, direct + allocated, mine, openMoney,
 		licences, seatWaste, util, srt, tsrt, usrt, dsrt})
 }

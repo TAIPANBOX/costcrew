@@ -167,7 +167,19 @@ func (s *Server) engines(w http.ResponseWriter, r *http.Request) {
 	}
 	av := engines.Check(nil, nil)
 	var groups []engineGroup
-	for _, f := range []engines.Family{engines.Subscription, engines.APIKey, engines.Existing} {
+	// Every family the catalogue holds, in the catalogue's own order. A fixed
+	// list of three left Amazon Bedrock (cloud-role) and a model the
+	// organisation hosts (self-hosted) off the page that explains the engines
+	// the hire form offers.
+	var families []engines.Family
+	seen := map[engines.Family]bool{}
+	for _, e := range engines.Catalogue {
+		if !seen[e.Family] {
+			seen[e.Family] = true
+			families = append(families, e.Family)
+		}
+	}
+	for _, f := range families {
 		groups = append(groups, engineGroup{
 			Title:   engines.FamilyTitle(f),
 			Note:    engines.FamilyNote(f),
