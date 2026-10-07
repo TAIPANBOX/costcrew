@@ -116,7 +116,11 @@ func loadOrCreateKey(dir string) ([]byte, error) {
 	if dir == "" {
 		return nil, errors.New("prompt data: no data directory to keep the pseudonym key in")
 	}
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	// 0700, the mode store.Open gives a directory it makes (invariant 63): this
+	// runs before the store is opened, and the directory it makes must not be
+	// the one that is readable by everybody. A directory that already exists is
+	// not changed, as there.
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, err
 	}
 	path := filepath.Join(dir, KeyFileName)

@@ -53,6 +53,52 @@ func TestConfiguringInstallsTheParsedPolicyAndTheStoreCanBeBoundToIt(t *testing.
 	}
 }
 
+func TestADataDirectoryTheKeyCreatesIsPrivateAndAnExistingOneIsLeftAlone(t *testing.T) {
+	fresh := filepath.Join(t.TempDir(), "data")
+	if _, err := NewPolicy(PromptMasked, fresh); err != nil {
+		t.Fatal(err)
+	}
+	fi, err := os.Stat(fresh)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fi.Mode().Perm() != 0o700 {
+		t.Errorf("the data directory the key made is mode %v, want 0700: it is made before the store is "+
+			"opened, and the store's own rule is that a directory it makes is private", fi.Mode().Perm())
+	}
+
+	// a directory that is already there is the operator's, as the store's rule has it
+	existing := t.TempDir()
+	if err := os.Chmod(existing, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := NewPolicy(PromptMasked, existing); err != nil {
+		t.Fatal(err)
+	}
+	if fi, _ := os.Stat(existing); fi.Mode().Perm() != 0o755 {
+		t.Errorf("an existing data directory was changed to %v", fi.Mode().Perm())
+	}
+}
+
+func TestThePseudonymKeyCannotBeCommitted(t *testing.T) {
+	raw, err := os.ReadFile("../../.gitignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+	have := map[string]bool{}
+	for _, l := range strings.Split(string(raw), "\n") {
+		have[strings.TrimSpace(l)] = true
+	}
+	// The default -data is the working directory, which is somebody's repository.
+	// The temporary name is the file the key is written to before it is linked
+	// into place, which a crash between the two leaves behind.
+	for _, want := range []string{KeyFileName, KeyFileName + ".tmp-*"} {
+		if !have[want] {
+			t.Errorf(".gitignore has no %q line", want)
+		}
+	}
+}
+
 func TestAMaskingModeNeedsADataDirectoryToKeepItsKeyIn(t *testing.T) {
 	for _, mode := range []PromptData{PromptMasked, PromptAggregates} {
 		if _, err := NewPolicy(mode, ""); err == nil {

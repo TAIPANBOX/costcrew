@@ -2465,6 +2465,22 @@ run_case $'prompt data: a misspelling falls back to full' \
 	internal/deliver/promptdata.go \
 	$'\tcase PromptFull, PromptMasked, PromptAggregates:\n\t\treturn m, nil\n\t}' \
 	$'\tcase PromptFull, PromptMasked, PromptAggregates:\n\t\treturn m, nil\n\tdefault:\n\t\treturn PromptFull, nil\n\t}'
+run_case $'prompt data: the data directory the key creates is readable by others' \
+	fail \
+	./internal/deliver \
+	$'TestADataDirectoryTheKeyCreatesIsPrivateAndAnExistingOneIsLeftAlone' \
+	$'the data directory the key made' \
+	internal/deliver/pseudonym.go \
+	$'\tif err := os.MkdirAll(dir, 0o700); err != nil {' \
+	$'\tif err := os.MkdirAll(dir, 0o755); err != nil {'
+run_case $'prompt data: the key is no longer ignored by version control' \
+	fail \
+	./internal/deliver \
+	$'TestThePseudonymKeyCannotBeCommitted' \
+	$'has no "prompt-data.key" line' \
+	.gitignore \
+	$'events.ndjson\nprompt-data.key\n' \
+	$'events.ndjson\n'
 run_case $'prompt data: the key is made readable by others' \
 	fail \
 	./internal/deliver \

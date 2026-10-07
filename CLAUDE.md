@@ -84,9 +84,9 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 1038 tests, 21 packages
-./scripts/gates-have-teeth.sh        # 197 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 327 scenarios, both directions
+go test ./...                        # 1070 tests, 21 packages
+./scripts/gates-have-teeth.sh        # 229 cases; needs a clean tree
+./scripts/features-are-bound.sh      # 359 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
@@ -121,16 +121,16 @@ three commands this block already names. `components.json` gained
 
 Invariants 70 and 71 (what a model is sent is what `-prompt-data` allows; a
 pseudonym is stable, private and reversible, and an answer is put back into
-real names once) added 70 tests (`internal/deliver`, 48, in
+real names once) added 72 tests (`internal/deliver`, 50, in
 `promptdata_test.go`, `promptdata_gate_test.go`, `promptdata_hostile_test.go`
 and `promptdata_golden_test.go`; `tools/run`, 18, in `promptdata_test.go`;
 `cmd/costcrew`, 3; `internal/promptfixture`, 1, a package of test support
 that is imported by nothing but tests, so the module has 21 packages with
-tests where it had 20), 31 `gates-have-teeth.sh` cases (30 `fail`, 1 `pass`)
-and 32 scenarios (`features/prompt-data.feature`, new), and no route:
-968 -> 1038 tests, 166 -> 197 cases, 295 -> 327 scenarios, 58 GET routes
-and 36 write routes unchanged, re-measured on this branch with the three
-commands this block already names. `scripts/features-are-bound.sh` now also
+tests where it had 20), 33 `gates-have-teeth.sh` cases (32 `fail`, 1 `pass`)
+and 34 scenarios (`features/prompt-data.feature`, new), and no route:
+998 -> 1070 tests, 196 -> 229 cases, 325 -> 359 scenarios (measured after
+invariants 60 to 64 merged), 58 GET routes and 36 write routes unchanged,
+re-measured on this branch with the three commands this block already names. `scripts/features-are-bound.sh` now also
 looks for a bound test under `cmd/`, because what the console does at
 start-up is only testable by starting it and those tests live beside its
 `main`. `components.json` gained the `-prompt-data` flag and
@@ -3630,7 +3630,11 @@ an absent invariant.
     in the data directory as `prompt-data.key`, mode 0600, made on the first
     start in a restricting mode by writing a complete file under another name
     and linking it into place, so two processes starting together share one
-    key and neither reads half of the other's. The same key gives the same
+    key and neither reads half of the other's. It is made before the store is
+    opened, so a data directory that does not exist yet is made 0700, the
+    store's rule (invariant 63), and one that exists is left as it is; the
+    default `-data` is the working directory, which is somebody's repository,
+    so `.gitignore` names the key and the name it is written under first. The same key gives the same
     token on every start; a different key gives different ones; a name is the
     same token in every packet, every tool result and every round of a task,
     including after the store has changed (`Policy.fwd` remembers every token
@@ -3667,6 +3671,8 @@ an absent invariant.
     *(gate: `TestTheKeyLivesInTheDataDirWithMode0600`,
     `TestFullModeNeedsNoKeyAndWritesNone`, `TestACorruptKeyFileRefusesRatherThanRotating`,
     `TestAKeyFileOthersCanReadIsRefused`, `TestTwoStartsAtOnceShareOneKey`,
+    `TestADataDirectoryTheKeyCreatesIsPrivateAndAnExistingOneIsLeftAlone`,
+    `TestThePseudonymKeyCannotBeCommitted`,
     `TestTheSameKeyGivesTheSameTokensAcrossRunsAndAnotherKeyDoesNot`,
     `TestATokenIsReadableAndShaped`, `TestTheSameNameIsTheSameTokenInEveryRoundAndEveryText`,
     `TestTokensNeverCollideEvenWhenThereAreMoreNamesThanFourHexDigitsHold`,

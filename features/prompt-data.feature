@@ -166,6 +166,21 @@ Feature: An organisation chooses how much of its billing data may reach a model
     When the key is made
     Then it is 32 random bytes in a file in the data directory, mode 0600
 
+  # @test:TestADataDirectoryTheKeyCreatesIsPrivateAndAnExistingOneIsLeftAlone
+  Scenario: A directory made for the key is private
+    Given a first start in a restricting mode with a data directory that
+      does not exist yet
+    When the key makes the directory before the store opens
+    Then the directory is private to the account, the way the store makes
+      one, and a directory that was already there is left as it was
+
+  # @test:TestThePseudonymKeyCannotBeCommitted
+  Scenario: The key cannot be committed by accident
+    Given a data directory that is somebody's working directory
+    When the key, or the file it is written to before it is linked into
+      place, is left in it
+    Then version control ignores both
+
   # @test:TestAKeyFileOthersCanReadIsRefused
   Scenario: A key anyone can read is refused
     Given a key file whose mode lets others read it
