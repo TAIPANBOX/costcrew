@@ -10,3 +10,26 @@ updates:
     commit-message:
       prefix: "ci"
     open-pull-requests-limit: 5
+  # Go modules, weekly, in one pull request like the actions group above.
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      gomod:
+        patterns: ["*"]
+    commit-message:
+      prefix: "deps"
+    open-pull-requests-limit: 5
+  # The two base images in the Dockerfile are pinned by digest; this proposes
+  # the next digest (and tag) as a pull request instead of letting a pin rot.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      base-images:
+        patterns: ["*"]
+    commit-message:
+      prefix: "deps"
+    open-pull-requests-limit: 5

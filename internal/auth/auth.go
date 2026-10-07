@@ -351,9 +351,28 @@ func (a *Auth) Register(username, password, code string) (bool, string, error) {
 
 // ------------------------------------------------------------ authenticate
 
+// LoginRefused is the one thing a failed sign-in ever says (invariant 62). An
+// unknown name, a wrong password and a locked account all answer with exactly
+// this, and the same HTTP status above it, so the sign-in form cannot be asked
+// which names exist. It names the lockout in general terms because a person
+// who is locked out of their own account deserves a hint that waiting helps;
+// it says it to everybody, which is what makes it safe to say.
+//
+// Before this, a locked account answered "locked for another Ns after repeated
+// failures" and everything else answered "unknown account or wrong password":
+// three wrong guesses at any name, then one more, and the name either answered
+// "locked" (it exists) or did not.
+const LoginRefused = "could not sign in: the account name or the password is not right, " +
+	"or there have been too many attempts; wait a few minutes before trying again"
+
 // Authenticate returns (user, reason). A wrong password is slow to retry on
 // purpose, and a missing account costs the same work as a real check so the
-// two cannot be told apart by timing.
+// two cannot be told apart by timing. A locked account pays it too: it used to
+// return before any hashing at all, which made it the fast one of three.
+//
+// A lock still lets a stranger lock a KNOWN account out by guessing at it three
+// times. That is the design of a per-account lockout and this change does not
+// alter it; the only thing removed is the way to learn which accounts exist.
 func (a *Auth) Authenticate(username, password string) (*User, string, error) {
 	u, err := a.Get(username)
 	if err != nil {
@@ -361,15 +380,12 @@ func (a *Auth) Authenticate(username, password string) (*User, string, error) {
 	}
 	now := float64(time.Now().UnixNano()) / 1e9
 	if u == nil {
-		if password == "" {
-			password = "x"
-		}
-		_, _ = HashPassword(password)
-		return nil, "unknown account or wrong password", nil
+		burn(password)
+		return nil, LoginRefused, nil
 	}
 	if u.LockedUntil > now {
-		return nil, fmt.Sprintf("locked for another %ds after repeated failures",
-			int(u.LockedUntil-now)), nil
+		burn(password)
+		return nil, LoginRefused, nil
 	}
 	if !VerifyPassword(password, u.hash) {
 		failed := u.Failed + 1
@@ -385,7 +401,7 @@ func (a *Auth) Authenticate(username, password string) (*User, string, error) {
 		}
 		_, _ = a.st.Journal("login_failed", 0, map[string]any{
 			"username": username, "attempt": failed})
-		return nil, "unknown account or wrong password", nil
+		return nil, LoginRefused, nil
 	}
 	if _, err := a.st.DB().Exec(
 		`UPDATE users SET failed=0, locked_until=0, last_login=? WHERE username=?`,
@@ -395,7 +411,26 @@ func (a *Auth) Authenticate(username, password string) (*User, string, error) {
 	return u, "", nil
 }
 
+// burn does the work of checking a password that has nothing to be checked
+// against, so the paths that return early cost what the real check costs.
+func burn(password string) {
+	if password == "" {
+		password = "x"
+	}
+	_, _ = HashPassword(password)
+}
+
 // ---------------------------------------------------------------- sessions
+
+// sessionKey is what the database holds in place of a session cookie: its
+// SHA-256, hex. The cookie value is 32 bytes from crypto/rand, so there is no
+// dictionary to attack and no reason for a salt or a slow hash; a slow one would
+// cost every request and buy nothing. The point is that a row read out of
+// app.db is not something a browser can present (invariant 61).
+func sessionKey(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])
+}
 
 func (a *Auth) StartSession(username string) (string, error) {
 	raw := make([]byte, 32)
@@ -408,8 +443,8 @@ func (a *Auth) StartSession(username string) (string, error) {
 		return "", err
 	}
 	if _, err := a.st.DB().Exec(
-		`INSERT INTO sessions(token, username, created, expires) VALUES (?,?,?,?)`,
-		token, username, now, now+SessionHours*3600); err != nil {
+		`INSERT INTO sessions(token_hash, username, created, expires) VALUES (?,?,?,?)`,
+		sessionKey(token), username, now, now+SessionHours*3600); err != nil {
 		return "", err
 	}
 	_, err := a.st.Journal("login", 0, map[string]any{"username": username})
@@ -424,22 +459,23 @@ func (a *Auth) SessionUser(token string) (*User, error) {
 	return a.scanUser(a.st.DB().QueryRow(
 		`SELECT u.username, u.pw_hash, u.role, u.created, u.last_login, u.failed, u.locked_until
 		 FROM sessions s JOIN users u ON u.username = s.username
-		 WHERE s.token=? AND s.expires > ?`, token, now))
+		 WHERE s.token_hash=? AND s.expires > ?`, sessionKey(token), now))
 }
 
 func (a *Auth) EndSession(token string) error {
 	if token == "" {
 		return nil
 	}
+	key := sessionKey(token)
 	var username string
-	err := a.st.DB().QueryRow(`SELECT username FROM sessions WHERE token=?`, token).Scan(&username)
+	err := a.st.DB().QueryRow(`SELECT username FROM sessions WHERE token_hash=?`, key).Scan(&username)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil
 	}
 	if err != nil {
 		return err
 	}
-	if _, err := a.st.DB().Exec(`DELETE FROM sessions WHERE token=?`, token); err != nil {
+	if _, err := a.st.DB().Exec(`DELETE FROM sessions WHERE token_hash=?`, key); err != nil {
 		return err
 	}
 	_, err = a.st.Journal("logout", 0, map[string]any{"username": username})
