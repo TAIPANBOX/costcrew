@@ -13,8 +13,10 @@
 # The console reads, shows and records; while it serves a page it makes no
 # outbound call. The one exception is the supervisor's plan-ask (POST
 # /sprint/plan/ask), which calls a model through the TokenFuse gateway and only
-# when -gateway or -gateway-openai is set; a console started without either has
-# no outbound path at all, and a test refuses any second one. `tools/run` is
+# when -gateway or -gateway-openai is set. The other is typryx: with
+# -typryx-url set, the console asks it for a typed hint about each open
+# anomaly at start, never while serving a page. A console started with none
+# of the three has no outbound path at all, and a test refuses any other. `tools/run` is
 # what calls a model for the crew, and it is the only half that needs a key
 # unless plan-ask is switched on, in which case the console reads the provider
 # key from its environment for that one call. Baking both in keeps that visible

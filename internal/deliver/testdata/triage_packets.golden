@@ -1,0 +1,640 @@
+=== task 310, triage-aws, anomaly A-e7909f0b22fd
+
+TASK PACKET
+The anomaly
+source:    aws
+team:      product-mobile
+service:   Amazon S3
+day:       2026-06-09
+direction: up
+amount:    145.52
+baseline:  72.57
+excess:    72.95
+z:         25.63
+rule:      daily spend more than 3.5 robust deviations from the median of the last 28 days of the same day type, and at least 50.00 away from it
+caused by: product-mobile (team)
+
+The series (28 days before, 7 after; * marks the same weekday as the anomaly; -> marks the anomaly's own day)
+2026-05-12 Tue*  66.92
+2026-05-13 Wed   73.76
+2026-05-14 Thu   73.65
+2026-05-15 Fri   68.25
+2026-05-16 Sat   67.92
+2026-05-17 Sun   66.47
+2026-05-18 Mon   71.39
+2026-05-19 Tue*  70.57
+2026-05-20 Wed   67.79
+2026-05-21 Thu   71.29
+2026-05-22 Fri   70.23
+2026-05-23 Sat   62.33
+2026-05-24 Sun   66.04
+2026-05-25 Mon   75.24
+2026-05-26 Tue*  71.05
+2026-05-27 Wed   70.72
+2026-05-28 Thu   74.19
+2026-05-29 Fri   72.00
+2026-05-30 Sat   67.32
+2026-05-31 Sun   66.99
+2026-06-01 Mon   73.15
+2026-06-02 Tue*  76.25
+2026-06-03 Wed   75.99
+2026-06-04 Thu   75.72
+2026-06-05 Fri   71.47
+2026-06-06 Sat   65.27
+2026-06-07 Sun   66.54
+2026-06-08 Mon   74.91
+2026-06-09 Tue*  135.10 ->
+2026-06-10 Wed   145.52
+2026-06-11 Thu   137.85
+2026-06-12 Fri   133.82
+2026-06-13 Sat   128.02
+2026-06-14 Sun   122.99
+2026-06-15 Mon   140.06
+2026-06-16 Tue*  140.29
+
+What you posted on this desk before, and what happened to it
+
+Triage the week's findings, aws (2026-W32), posted 2026-08-09
+## Triage the week's findings, aws
+
+Every new finding read within the day, with a named cause or a plain 'none established'.
+
+**What moved.** The aws desk finished the week at 921.00 against a plan of 1026.12. The move is concentrated in tw…
+
+Triage the week's findings, aws (2026-W29), posted 2026-07-19
+## Triage the week's findings, aws
+
+Every new finding read within the day, with a named cause or a plain 'none established'.
+
+**What moved.** The aws desk finished the week at 1149.79 against a plan of 1107.37. The move is concentrated in t…
+
+Triage the week's findings, aws (2026-W26), posted 2026-06-28
+## Triage the week's findings, aws
+
+Every new finding read within the day, with a named cause or a plain 'none established'.
+
+**What moved.** The aws desk finished the week at 1112.61 against a plan of 951.99. The move is concentrated in tw…
+
+=== task 309, investigator-onprem, anomaly A-f830bc8871a3
+
+TASK PACKET
+The anomaly
+source:    onprem
+team:      data-eng
+service:   Batch cluster
+day:       2026-07-02
+direction: down
+amount:    46.76
+baseline:  132.59
+excess:    -85.83
+z:         -38.09
+rule:      daily spend more than 3.5 robust deviations from the median of the last 28 days of the same day type, and at least 50.00 away from it
+driver:    Batch cluster decommission, tranche 1
+caused by: data-eng (team)
+
+The series (28 days before, 7 after; * marks the same weekday as the anomaly; -> marks the anomaly's own day)
+2026-06-04 Thu*  133.27
+2026-06-05 Fri   132.70
+2026-06-06 Sat   114.82
+2026-06-07 Sun   114.55
+2026-06-08 Mon   132.47
+2026-06-09 Tue   131.85
+2026-06-10 Wed   136.78
+2026-06-11 Thu*  134.87
+2026-06-12 Fri   132.46
+2026-06-13 Sat   110.19
+2026-06-14 Sun   112.85
+2026-06-15 Mon   135.27
+2026-06-16 Tue   134.48
+2026-06-17 Wed   135.10
+2026-06-18 Thu*  132.48
+2026-06-19 Fri   129.12
+2026-06-20 Sat   110.72
+2026-06-21 Sun   113.62
+2026-06-22 Mon   131.53
+2026-06-23 Tue   131.67
+2026-06-24 Wed   131.13
+2026-06-25 Thu*  127.87
+2026-06-26 Fri   133.56
+2026-06-27 Sat   113.66
+2026-06-28 Sun   110.78
+2026-06-29 Mon   137.29
+2026-06-30 Tue   131.00
+2026-07-01 Wed   134.87
+2026-07-02 Thu*  46.76 ->
+2026-07-03 Fri   104.70
+2026-07-04 Sat   113.03
+2026-07-05 Sun   115.46
+2026-07-06 Mon   133.08
+2026-07-07 Tue   130.40
+2026-07-08 Wed   133.19
+2026-07-09 Thu*  134.23
+
+Drivers on this service and desk, last six months
+2026-07-02 to 2026-07-02  Batch cluster decommission, tranche 1 (one-time)
+
+The desk's month (onprem, 2026-08)
+total:               6259.50
+allocation coverage: 82.6% (practice-wide)
+open anomalies:      1
+top movers:
+  sre-platform         3221.46
+  data-eng             1901.38
+  security             724.81
+  finance-systems      411.85
+
+Forecasting (onprem, 2026-08)
+run-rate projection: 17739.74
+basis: run rate over the 15 non-driver days of 2026-08 that have data, extended to 31; drivers applied: Month-end batch on the storage array (recurring, 2026-08-01 to 2026-08-15, 1503.02)
+drivers applied:
+  Month-end batch on the storage array (recurring, 2026-08-01 to 2026-08-15): 1503.02
+
+What you posted on this desk before, and what happened to it
+
+Variance commentary, onprem (2026-W31), posted 2026-08-02
+## Variance commentary, onprem
+
+Explain every team's month-on-month move above 5 percent, and say which were decisions.
+
+**What moved.** The onprem desk finished the week at 1111.32 against a plan of 1111.16. The move is concentrated in two…
+
+Variance commentary, onprem (2026-W30), posted 2026-07-26
+## Variance commentary, onprem
+
+Explain every team's month-on-month move above 5 percent, and say which were decisions.
+
+**What moved.** The onprem desk finished the week at 1096.63 against a plan of 1091.25. The move is concentrated in two…
+
+Variance commentary, onprem (2026-W25), posted 2026-06-21
+## Variance commentary, onprem
+
+Explain every team's month-on-month move above 5 percent, and say which were decisions.
+
+**What moved.** The onprem desk finished the week at 919.83 against a plan of 956.21. The move is concentrated in two t…
+
+=== task 308, saas-manager, anomaly A-ecce26a32349
+
+TASK PACKET
+The anomaly
+source:    saas
+team:      support-tools
+service:   Zendesk
+day:       2026-07-01
+direction: up
+amount:    369.68
+baseline:  253.09
+excess:    116.59
+z:         145.63
+rule:      daily spend more than 3.5 robust deviations from the median of the last 28 days of the same day type, and at least 50.00 away from it
+caused by: support-tools (team)
+
+The series (28 days before, 7 after; * marks the same weekday as the anomaly; -> marks the anomaly's own day)
+2026-06-03 Wed*  254.05
+2026-06-04 Thu   253.06
+2026-06-05 Fri   254.26
+2026-06-06 Sat   250.28
+2026-06-07 Sun   251.55
+2026-06-08 Mon   251.16
+2026-06-09 Tue   251.76
+2026-06-10 Wed*  253.12
+2026-06-11 Thu   252.96
+2026-06-12 Fri   251.87
+2026-06-13 Sat   252.18
+2026-06-14 Sun   250.68
+2026-06-15 Mon   253.67
+2026-06-16 Tue   251.45
+2026-06-17 Wed*  253.16
+2026-06-18 Thu   253.52
+2026-06-19 Fri   250.45
+2026-06-20 Sat   252.67
+2026-06-21 Sun   253.09
+2026-06-22 Mon   252.53
+2026-06-23 Tue   251.70
+2026-06-24 Wed*  253.25
+2026-06-25 Thu   252.91
+2026-06-26 Fri   253.30
+2026-06-27 Sat   251.73
+2026-06-28 Sun   252.74
+2026-06-29 Mon   253.54
+2026-06-30 Tue   253.61
+2026-07-01 Wed*  366.42 ->
+2026-07-02 Thu   369.68
+2026-07-03 Fri   369.63
+2026-07-04 Sat   366.94
+2026-07-05 Sun   368.71
+2026-07-06 Mon   366.45
+2026-07-07 Tue   368.28
+2026-07-08 Wed*  367.24
+
+What you posted on this desk before, and what happened to it
+
+SaaS seats against issued (2026-W27), posted 2026-07-05
+## SaaS seats against issued
+
+Money sitting in licences nobody signed into this quarter.
+
+**What moved.** The saas desk finished the week at 938.24 against a plan of 1047.44. The move is concentrated in two teams rather than spread, which i…
+
+SaaS seats against issued (2026-W23), posted 2026-06-07
+## SaaS seats against issued
+
+Money sitting in licences nobody signed into this quarter.
+
+**What moved.** The saas desk finished the week at 835.76 against a plan of 1104.32. The move is concentrated in two teams rather than spread, which i…
+
+SaaS seats against issued (2026-W20), posted 2026-05-17
+## SaaS seats against issued
+
+Money sitting in licences nobody signed into this quarter.
+
+**What moved.** The saas desk finished the week at 987.34 against a plan of 1095.06. The move is concentrated in two teams rather than spread, which i…
+
+=== task 307, triage-azure, anomaly A-3991890e6ce7
+
+TASK PACKET
+The anomaly
+source:    azure
+team:      security
+service:   Microsoft Sentinel
+day:       2026-08-03
+direction: down
+amount:    13.76
+baseline:  166.55
+excess:    -152.79
+z:         -43.85
+rule:      daily spend more than 3.5 robust deviations from the median of the last 28 days of the same day type, and at least 50.00 away from it
+caused by: security (team)
+
+The series (28 days before, 7 after; * marks the same weekday as the anomaly; -> marks the anomaly's own day)
+2026-07-06 Mon*  158.36
+2026-07-07 Tue   163.72
+2026-07-08 Wed   169.21
+2026-07-09 Thu   163.71
+2026-07-10 Fri   165.14
+2026-07-11 Sat   155.45
+2026-07-12 Sun   158.62
+2026-07-13 Mon*  168.59
+2026-07-14 Tue   165.49
+2026-07-15 Wed   167.98
+2026-07-16 Thu   165.60
+2026-07-17 Fri   168.03
+2026-07-18 Sat   159.88
+2026-07-19 Sun   160.11
+2026-07-20 Mon*  174.19
+2026-07-21 Tue   159.84
+2026-07-22 Wed   174.14
+2026-07-23 Thu   168.33
+2026-07-24 Fri   169.51
+2026-07-25 Sat   154.35
+2026-07-26 Sun   157.69
+2026-07-27 Mon*  167.19
+2026-07-28 Tue   169.40
+2026-07-29 Wed   165.48
+2026-07-30 Thu   163.31
+2026-07-31 Fri   165.91
+2026-08-01 Sat   154.34
+2026-08-02 Sun   159.76
+2026-08-03 Mon*  13.76 ->
+2026-08-04 Tue   113.23
+2026-08-05 Wed   159.62
+2026-08-06 Thu   165.14
+2026-08-07 Fri   172.26
+2026-08-08 Sat   155.74
+2026-08-09 Sun   160.62
+2026-08-10 Mon*  168.37
+
+What you posted on this desk before, and what happened to it
+
+Triage the week's findings, azure (2026-W30), posted 2026-07-26
+## Triage the week's findings, azure
+
+Every new finding read within the day, with a named cause or a plain 'none established'.
+
+**What moved.** The azure desk finished the week at 932.41 against a plan of 949.31. The move is concentrated in…
+
+Triage the week's findings, azure (2026-W26), posted 2026-06-28
+## Triage the week's findings, azure
+
+Every new finding read within the day, with a named cause or a plain 'none established'.
+
+**What moved.** The azure desk finished the week at 955.14 against a plan of 995.26. The move is concentrated in…
+
+Triage the week's findings, azure (2026-W24), posted 2026-06-14
+## Triage the week's findings, azure
+
+Every new finding read within the day, with a named cause or a plain 'none established'.
+
+**What moved.** The azure desk finished the week at 1092.87 against a plan of 987.65. The move is concentrated i…
+
+=== task 306, triage-ai, anomaly A-d9ef0ef796cb
+
+TASK PACKET
+The anomaly
+source:    ai
+team:      product-web
+service:   Anthropic API
+day:       2026-07-28
+direction: up
+amount:    238.65
+baseline:  83.62
+excess:    155.03
+z:         22.15
+rule:      daily spend more than 3.5 robust deviations from the median of the last 28 days of the same day type, and at least 50.00 away from it
+caused by: deep-analysis (agent)
+
+The series (28 days before, 7 after; * marks the same weekday as the anomaly; -> marks the anomaly's own day)
+2026-06-30 Tue*  78.80
+2026-07-01 Wed   91.03
+2026-07-02 Thu   78.87
+2026-07-03 Fri   76.46
+2026-07-04 Sat   45.33
+2026-07-05 Sun   47.18
+2026-07-06 Mon   85.13
+2026-07-07 Tue*  83.21
+2026-07-08 Wed   88.10
+2026-07-09 Thu   78.92
+2026-07-10 Fri   82.75
+2026-07-11 Sat   48.87
+2026-07-12 Sun   39.22
+2026-07-13 Mon   90.09
+2026-07-14 Tue*  77.09
+2026-07-15 Wed   79.12
+2026-07-16 Thu   93.58
+2026-07-17 Fri   96.08
+2026-07-18 Sat   50.39
+2026-07-19 Sun   48.58
+2026-07-20 Mon   76.28
+2026-07-21 Tue*  82.50
+2026-07-22 Wed   84.73
+2026-07-23 Thu   84.04
+2026-07-24 Fri   88.98
+2026-07-25 Sat   49.57
+2026-07-26 Sun   43.97
+2026-07-27 Mon   85.19
+2026-07-28 Tue*  238.65 ->
+2026-07-29 Wed   222.91
+2026-07-30 Thu   210.33
+2026-07-31 Fri   194.73
+2026-08-01 Sat   127.19
+2026-08-02 Sun   131.81
+2026-08-03 Mon   202.18
+2026-08-04 Tue*  201.57
+
+What you posted on this desk before, and what happened to it
+
+Triage the week's findings, ai (2026-W31), posted 2026-08-02
+## Triage the week's findings, ai
+
+Every new finding read within the day, with a named cause or a plain 'none established'.
+
+**What moved.** The ai desk finished the week at 961.45 against a plan of 1118.51. The move is concentrated in two …
+
+Triage the week's findings, ai (2026-W30), posted 2026-07-26
+## Triage the week's findings, ai
+
+Every new finding read within the day, with a named cause or a plain 'none established'.
+
+**What moved.** The ai desk finished the week at 814.52 against a plan of 1110.20. The move is concentrated in two …
+
+Triage the week's findings, ai (2026-W26), posted 2026-06-28
+## Triage the week's findings, ai
+
+Every new finding read within the day, with a named cause or a plain 'none established'.
+
+**What moved.** The ai desk finished the week at 1190.92 against a plan of 853.32. The move is concentrated in two …
+
+=== task 304, triage-gcp, anomaly A-65e94d781e18
+
+TASK PACKET
+The anomaly
+source:    gcp
+team:      growth
+service:   BigQuery
+day:       2026-08-05
+direction: up
+amount:    537.46
+baseline:  138.14
+excess:    399.32
+z:         47.25
+rule:      daily spend more than 3.5 robust deviations from the median of the last 28 days of the same day type, and at least 50.00 away from it
+caused by: growth (team)
+
+The series (28 days before, 7 after; * marks the same weekday as the anomaly; -> marks the anomaly's own day)
+2026-07-08 Wed*  143.57
+2026-07-09 Thu   147.70
+2026-07-10 Fri   138.47
+2026-07-11 Sat   80.30
+2026-07-12 Sun   63.87
+2026-07-13 Mon   147.87
+2026-07-14 Tue   123.93
+2026-07-15 Wed*  142.73
+2026-07-16 Thu   137.81
+2026-07-17 Fri   130.83
+2026-07-18 Sat   83.89
+2026-07-19 Sun   77.78
+2026-07-20 Mon   125.60
+2026-07-21 Tue   133.46
+2026-07-22 Wed*  132.78
+2026-07-23 Thu   133.64
+2026-07-24 Fri   128.38
+2026-07-25 Sat   82.92
+2026-07-26 Sun   78.60
+2026-07-27 Mon   139.55
+2026-07-28 Tue   153.97
+2026-07-29 Wed*  139.09
+2026-07-30 Thu   147.68
+2026-07-31 Fri   144.08
+2026-08-01 Sat   91.33
+2026-08-02 Sun   83.82
+2026-08-03 Mon   132.67
+2026-08-04 Tue   126.23
+2026-08-05 Wed*  537.46 ->
+2026-08-06 Thu   293.75
+2026-08-07 Fri   153.68
+2026-08-08 Sat   83.28
+2026-08-09 Sun   80.95
+2026-08-10 Mon   147.26
+2026-08-11 Tue   117.60
+2026-08-12 Wed*  150.24
+
+What you posted on this desk before, and what happened to it
+
+Triage the week's findings, gcp (2026-W31), posted 2026-08-02
+## Triage the week's findings, gcp
+
+Every new finding read within the day, with a named cause or a plain 'none established'.
+
+**What moved.** The gcp desk finished the week at 803.98 against a plan of 989.30. The move is concentrated in two…
+
+Triage the week's findings, gcp (2026-W29), posted 2026-07-19
+## Triage the week's findings, gcp
+
+Every new finding read within the day, with a named cause or a plain 'none established'.
+
+**What moved.** The gcp desk finished the week at 1031.90 against a plan of 968.26. The move is concentrated in tw…
+
+Triage the week's findings, gcp (2026-W27), posted 2026-07-05
+## Triage the week's findings, gcp
+
+Every new finding read within the day, with a named cause or a plain 'none established'.
+
+**What moved.** The gcp desk finished the week at 994.79 against a plan of 973.09. The move is concentrated in two…
+
+=== task 303, triage-gcp, anomaly A-80d442f63fca
+
+TASK PACKET
+The anomaly
+source:    gcp
+team:      research
+service:   GKE
+day:       2026-06-22
+direction: up
+amount:    982.18
+baseline:  245.98
+excess:    736.20
+z:         46.85
+rule:      daily spend more than 3.5 robust deviations from the median of the last 28 days of the same day type, and at least 50.00 away from it
+driver:    Quarterly model refresh, planned
+caused by: research (team)
+
+The series (28 days before, 7 after; * marks the same weekday as the anomaly; -> marks the anomaly's own day)
+2026-05-25 Mon*  260.39
+2026-05-26 Tue   246.65
+2026-05-27 Wed   265.52
+2026-05-28 Thu   241.04
+2026-05-29 Fri   233.50
+2026-05-30 Sat   163.12
+2026-05-31 Sun   168.53
+2026-06-01 Mon*  243.49
+2026-06-02 Tue   228.76
+2026-06-03 Wed   275.55
+2026-06-04 Thu   245.87
+2026-06-05 Fri   259.16
+2026-06-06 Sat   180.31
+2026-06-07 Sun   156.57
+2026-06-08 Mon*  264.86
+2026-06-09 Tue   244.62
+2026-06-10 Wed   246.09
+2026-06-11 Thu   241.38
+2026-06-12 Fri   247.93
+2026-06-13 Sat   172.30
+2026-06-14 Sun   168.79
+2026-06-15 Mon*  231.03
+2026-06-16 Tue   247.30
+2026-06-17 Wed   236.85
+2026-06-18 Thu   233.91
+2026-06-19 Fri   261.87
+2026-06-20 Sat   176.18
+2026-06-21 Sun   163.66
+2026-06-22 Mon*  982.18 ->
+2026-06-23 Tue   562.98
+2026-06-24 Wed   254.15
+2026-06-25 Thu   272.33
+2026-06-26 Fri   244.00
+2026-06-27 Sat   174.70
+2026-06-28 Sun   185.71
+2026-06-29 Mon*  228.53
+
+Drivers on this service and desk, last six months
+2026-06-22 to 2026-06-22  Quarterly model refresh, planned (one-time)
+
+What you posted on this desk before, and what happened to it
+
+Triage the week's findings, gcp (2026-W31), posted 2026-08-02
+## Triage the week's findings, gcp
+
+Every new finding read within the day, with a named cause or a plain 'none established'.
+
+**What moved.** The gcp desk finished the week at 803.98 against a plan of 989.30. The move is concentrated in two…
+
+Triage the week's findings, gcp (2026-W29), posted 2026-07-19
+## Triage the week's findings, gcp
+
+Every new finding read within the day, with a named cause or a plain 'none established'.
+
+**What moved.** The gcp desk finished the week at 1031.90 against a plan of 968.26. The move is concentrated in tw…
+
+Triage the week's findings, gcp (2026-W27), posted 2026-07-05
+## Triage the week's findings, gcp
+
+Every new finding read within the day, with a named cause or a plain 'none established'.
+
+**What moved.** The gcp desk finished the week at 994.79 against a plan of 973.09. The move is concentrated in two…
+
+=== task 302, triage-aws, anomaly A-10bd01d79b26
+
+TASK PACKET
+The anomaly
+source:    aws
+team:      ml-platform
+service:   Amazon EC2
+day:       2026-07-14
+direction: up
+amount:    2478.28
+baseline:  424.18
+excess:    2054.10
+z:         110.31
+rule:      daily spend more than 3.5 robust deviations from the median of the last 28 days of the same day type, and at least 50.00 away from it
+caused by: ml-platform (team)
+
+The series (28 days before, 7 after; * marks the same weekday as the anomaly; -> marks the anomaly's own day)
+2026-06-16 Tue*  421.99
+2026-06-17 Wed   406.12
+2026-06-18 Thu   396.46
+2026-06-19 Fri   448.01
+2026-06-20 Sat   311.36
+2026-06-21 Sun   278.04
+2026-06-22 Mon   429.12
+2026-06-23 Tue*  434.07
+2026-06-24 Wed   448.25
+2026-06-25 Thu   418.22
+2026-06-26 Fri   386.89
+2026-06-27 Sat   311.61
+2026-06-28 Sun   309.18
+2026-06-29 Mon   424.54
+2026-06-30 Tue*  437.77
+2026-07-01 Wed   412.64
+2026-07-02 Thu   423.83
+2026-07-03 Fri   425.11
+2026-07-04 Sat   294.70
+2026-07-05 Sun   301.58
+2026-07-06 Mon   422.52
+2026-07-07 Tue*  457.37
+2026-07-08 Wed   408.74
+2026-07-09 Thu   454.19
+2026-07-10 Fri   423.66
+2026-07-11 Sat   308.04
+2026-07-12 Sun   289.59
+2026-07-13 Mon   459.20
+2026-07-14 Tue*  2478.28 ->
+2026-07-15 Wed   1092.70
+2026-07-16 Thu   399.25
+2026-07-17 Fri   441.33
+2026-07-18 Sat   320.60
+2026-07-19 Sun   322.65
+2026-07-20 Mon   462.30
+2026-07-21 Tue*  458.96
+
+What you posted on this desk before, and what happened to it
+
+Triage the week's findings, aws (2026-W32), posted 2026-08-09
+## Triage the week's findings, aws
+
+Every new finding read within the day, with a named cause or a plain 'none established'.
+
+**What moved.** The aws desk finished the week at 921.00 against a plan of 1026.12. The move is concentrated in tw…
+
+Triage the week's findings, aws (2026-W29), posted 2026-07-19
+## Triage the week's findings, aws
+
+Every new finding read within the day, with a named cause or a plain 'none established'.
+
+**What moved.** The aws desk finished the week at 1149.79 against a plan of 1107.37. The move is concentrated in t…
+
+Triage the week's findings, aws (2026-W26), posted 2026-06-28
+## Triage the week's findings, aws
+
+Every new finding read within the day, with a named cause or a plain 'none established'.
+
+**What moved.** The aws desk finished the week at 1112.61 against a plan of 951.99. The move is concentrated in tw…
+

@@ -40,6 +40,12 @@
           },
           "COSTCREW_BEHIND_TLS": {
             "required": false
+          },
+          "COSTCREW_TYPRYX_URL": {
+            "required": false
+          },
+          "COSTCREW_TYPRYX_KEY": {
+            "required": false
           }
         },
         "flags": {
@@ -87,6 +93,12 @@
           },
           "rebuild-fixture": {
             "required": false
+          },
+          "typryx-url": {
+            "required": false
+          },
+          "typryx-max-asks": {
+            "required": false
           }
         },
         "missing_required_exit_code": 0
@@ -114,6 +126,10 @@
             "-stack-owner"
           ],
           "why": "the console refuses to start with the first and not the second: a passport with no owner is not a valid document, and idryx enriches an identity with the owner who answers for it, so one that names nobody enriches nothing. A dependency BETWEEN two flags is not something a reader of flag.String call sites can see, which is why it is declared. Found by TAIPANBOX/stack-up on 2026-08-28, by starting it."
+        },
+        "typryx_sends_only_the_template_fields": {
+          "value": "-typryx-url",
+          "why": "off when the flag and COSTCREW_TYPRYX_URL are empty, the default. Set, the console asks typryx's triage.anomaly_class template for a typed hint about each open anomaly after detection, sending only the fields that template names from a closed vocabulary that holds no team, owner, agent or person, and records which backend answered. Where those fields then go (nowhere, an operator's own model, or Jev hosted by TypeSafe AI) is typryx's TYPRYX_BACKEND, which nothing in this repository can see."
         }
       }
     },
@@ -263,6 +279,12 @@
           },
           "COSTCREW_GATEWAY_OPENAI": {
             "required": false
+          },
+          "COSTCREW_TYPRYX_URL": {
+            "required": false
+          },
+          "COSTCREW_TYPRYX_KEY": {
+            "required": false
           }
         },
         "flags": {
@@ -306,6 +328,9 @@
             "required": false
           },
           "supervise": {
+            "required": false
+          },
+          "typryx-url": {
             "required": false
           }
         }

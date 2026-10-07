@@ -108,4 +108,11 @@ var wireTypes = []string{
 	// a follow-up in the PR body and not done here, per the spec's own
 	// instruction not to do that chain in this step.
 	"plan_asked",
+	// Invariant 76: typryx answered (or did not) for one anomaly, before an
+	// analyst works it. Which backend answered, the class and its
+	// probability; never the fields that were sent. Emitted from
+	// internal/typryx/pass.go only, and only on an installation started with
+	// -typryx-url. Needs a registry-chain row (agent-passport 6.2), named as
+	// a follow-up in the PR body and not done here.
+	"anomaly_hinted",
 }
