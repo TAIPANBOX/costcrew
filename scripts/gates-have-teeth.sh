@@ -2111,6 +2111,182 @@ run_case $'admin answers: a reworded refusal message is not a fault' \
 	$'"you are answering for "+owner+", so a reason is needed: "+rerr.Error()' \
 	$'"a reason is needed because you are answering for "+owner+": "+rerr.Error()'
 
+run_case $'cloud focus: a negative BilledCost is refused as the gateway reader refuses it' \
+	fail \
+	./internal/connectors \
+	$'TestANegativeBilledCostIsKeptNotRefused' \
+	$'a negative cost was refused' \
+	internal/connectors/cloudfocus.go \
+	$'row.Micros = micros' \
+	$'if micros < 0 { return row, fmt.Errorf("BilledCost %q is negative", costStr) }; row.Micros = micros'
+run_case $'cloud focus: a Purchase is filed as Usage' \
+	fail \
+	./internal/connectors \
+	$'TestEveryChargeCategoryLandsAndAPurchaseIsNeverUsage' \
+	$'leaked into it' \
+	internal/connectors/cloudfocus.go \
+	$'row.Category = field("ChargeCategory")' \
+	$'row.Category = field("ChargeCategory"); if row.Category == "Purchase" { row.Category = "Usage" }'
+run_case $'cloud focus: each row is rounded to cents before the day is summed' \
+	fail \
+	./internal/connectors \
+	$'TestCloudFocusMoneyIsNeverFloatAndRoundsOnce' \
+	$'want 4 (35000 micros rounded once)' \
+	internal/connectors/cloudfocus.go \
+	$'COALESCE(invoice_id,\'\'), SUM(billed_microusd)' \
+	$'COALESCE(invoice_id,\'\'), SUM(((billed_microusd+5000)/10000)*10000)'
+run_case $'cloud focus: the charges row is written without its provenance' \
+	fail \
+	./internal/connectors \
+	$'TestAWSDataExportsFocusIsRead' \
+	$'charges differ' \
+	internal/connectors/cloudfocus.go \
+	$'int64(cents), nullIfEmpty(g.invoice), spec.id); err != nil {' \
+	$'int64(cents), nullIfEmpty(g.invoice), nil); err != nil {'
+run_case $'cloud focus: a revised file leaves its earlier version\'s rows behind' \
+	fail \
+	./internal/connectors \
+	$'TestARevisedFileReplacesItsOwnEarlierVersion' \
+	$'the old version\'s rows survived' \
+	internal/connectors/cloudfocus.go \
+	$'AND file_sha256<>?`, w.connector, f.rel, sha); err != nil {' \
+	$'AND file_sha256<>? AND 1=0`, w.connector, f.rel, sha); err != nil {'
+run_case $'cloud focus: a refused file\'s rows are not rolled back' \
+	fail \
+	./internal/connectors \
+	$'TestCloudFocusHostileInput' \
+	$'rows of a refused file survived' \
+	internal/connectors/cloudfocus.go \
+	$'if _, err := tx.Exec("ROLLBACK TO " + sp); err != nil {' \
+	$'if _, err := tx.Exec("SAVEPOINT roll_" + sp); err != nil {'
+run_case $'cloud focus: the gzip inflation cap is lifted' \
+	fail \
+	./internal/connectors \
+	$'TestAGzipBombIsRefusedByName' \
+	$'does not name the file and the setting' \
+	internal/connectors/cloudfocus.go \
+	$'capped := &capReader{r: r, left: conf.maxUnpacked,' \
+	$'capped := &capReader{r: r, left: math.MaxInt64,'
+run_case $'cloud focus: the one-record cap is lifted' \
+	fail \
+	./internal/connectors \
+	$'TestARecordWithNoEndIsRefusedBeforeItFillsMemory' \
+	$'does not say a record is too long' \
+	internal/connectors/cloudfocus.go \
+	$'rec := &recordReader{r: capped, max: cloudMaxRecordBytes}' \
+	$'rec := &recordReader{r: capped, max: math.MaxInt64}'
+run_case $'cloud focus: a symlink in the folder is followed' \
+	fail \
+	./internal/connectors \
+	$'TestCloudFocusReadsANestedSyncedFolderAndIgnoresLinks' \
+	$'the symlinked file was followed' \
+	internal/connectors/cloudfocus.go \
+	$'if d.Type()&fs.ModeSymlink != 0 || !d.Type().IsRegular() {' \
+	$'if false {'
+run_case $'cloud focus: real rows are mixed into the generated estate' \
+	fail \
+	./internal/connectors \
+	$'TestCloudFocusRefusesToMixWithTheGeneratedEstate' \
+	$'Import mixed real cloud rows into the generated estate' \
+	internal/connectors/cloudfocus.go \
+	$'if mixed && !opt.ReplaceGenerated {' \
+	$'if false {'
+run_case $'cloud focus: a file\'s refusal list grows with the file' \
+	fail \
+	./internal/connectors \
+	$'TestARefusalListIsBoundedAtItsSource' \
+	$'want 20 and 100000' \
+	internal/connectors/cloudfocus.go \
+	$'if len(s.Refusals) < cloudRefusalsShown {' \
+	$'if true {'
+run_case $'cloud focus: the sentence\'s refusal list grows with the folder' \
+	fail \
+	./internal/connectors \
+	$'TestRefusalsAcrossManyFilesAreBoundedToo' \
+	$'does not count thirty and show twenty' \
+	internal/connectors/cloudfocus.go \
+	$'for _, r := range o.Refusals {\n\t\tif len(s.Refusals) < cloudRefusalsShown {' \
+	$'for _, r := range o.Refusals {\n\t\tif true {'
+run_case $'cloud focus: a row longer than a day lands on its last day, not its first' \
+	fail \
+	./internal/connectors \
+	$'TestARowLongerThanADayLandsWholeOnItsFirstDay' \
+	$'charges differ' \
+	internal/connectors/cloudfocus.go \
+	$'row.Day = st.Format("2006-01-02")' \
+	$'row.Day = en.Add(-time.Nanosecond).Format("2006-01-02")'
+run_case $'cloud focus: the 366 day limit on one row is lifted' \
+	fail \
+	./internal/connectors \
+	$'TestCloudFocusHostileInput' \
+	$'does not say "366 day"' \
+	internal/connectors/cloudfocus.go \
+	$'if span > cloudMaxSpan {' \
+	$'if false {'
+run_case $'cloud focus: a long row is not counted in the sentence' \
+	fail \
+	./internal/connectors \
+	$'TestAFocus10FileIsReadAsWell' \
+	$'cover more than one day' \
+	internal/connectors/cloudfocus.go \
+	$'row.Multiday = span > 24*time.Hour' \
+	$'row.Multiday = false'
+run_case $'cloud focus: another provider\'s rows are read as this desk\'s' \
+	fail \
+	./internal/connectors \
+	$'TestCloudFocusHostileInput' \
+	$'another_provider\'s_export' \
+	internal/connectors/cloudfocus.go \
+	$'if !conf.providers[strings.ToLower(provider)] {' \
+	$'if false {'
+run_case $'cloud focus: E notation is refused' \
+	fail \
+	./internal/connectors \
+	$'TestFocusDecimalsInENotation' \
+	$'"35.2E-7": got' \
+	internal/connectors/cloudfocus.go \
+	$'if i := strings.IndexAny(s, "eE"); i >= 0 {' \
+	$'if i := strings.IndexAny(s, "~"); i >= 0 {'
+run_case $'cloud focus: the tag key is matched case-sensitively only' \
+	fail \
+	./internal/connectors \
+	$'TestTheTeamComesFromAConfigurableTagKey' \
+	$'want ops (second key' \
+	internal/connectors/cloudfocus.go \
+	$'if strings.EqualFold(k, want) {' \
+	$'if k == want {'
+run_case $'cloud focus: a copy of a file is counted as a second file' \
+	fail \
+	./internal/connectors \
+	$'TestTheSameBytesTwiceAreOneFileAndTwoFilesOnOneDayAdd' \
+	$'the copy is not named' \
+	internal/connectors/cloudfocus.go \
+	$'if seen[sha] {' \
+	$'if false && seen[sha] {'
+run_case $'cloud focus: Test demands a setting that has a default' \
+	fail \
+	./internal/connectors \
+	$'TestTheCloudFocusReadersAreBuiltAndAskForAFolder' \
+	$'Test with only the folder set' \
+	internal/connectors/connectors.go \
+	$'if !in.Optional && strings.TrimSpace(conn.Config[in.Name]) == "" {' \
+	$'if strings.TrimSpace(conn.Config[in.Name]) == "" {'
+run_case $'cloud focus: the connector page stops offering replace-generated' \
+	fail \
+	./internal/web \
+	$'TestAnAWSExportReachesTheConsoleThroughTheConnectorPage' \
+	$'the connector page does not contain' \
+	internal/web/templates/connector.html \
+	$'(eq .C.ID "aws-data-exports") ' \
+	$''
+run_case $'cloud focus: a reworded currency refusal is not a fault' \
+	pass \
+	./internal/connectors \
+	$'TestCloudFocusHostileInput' \
+	$'' \
+	internal/connectors/cloudfocus.go \
+	$'return row, fmt.Errorf("currency %q, this reader is USD only", currency)' \
+	$'return row, fmt.Errorf("BillingCurrency %q, and this reader is USD only", currency)'
 echo
 if [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'
