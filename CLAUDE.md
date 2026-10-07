@@ -81,14 +81,30 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 968 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 166 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 295 scenarios, both directions
+go test ./...                        # 993 tests, 20 packages
+./scripts/gates-have-teeth.sh        # 192 cases; needs a clean tree
+./scripts/features-are-bound.sh      # 320 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refused PR #19 on two findings the list above never asked for; a staticcheck built for an older Go cannot read this module, so on such a machine CI is the only place it runs
 ```
+
+Invariants 61 to 64 (a session token is never stored; every failed sign-in
+says the same thing; the console's own files are private; the console's
+egress is gated) added 25 tests (`internal/auth/session_hash_test.go`, 7;
+`internal/auth/lockout_test.go`, 4; `internal/store/permissions_test.go`, 6;
+`internal/store/permissions_internal_test.go`, 1;
+`internal/stack/shared_files_test.go`, 1; `internal/web/login_uniform_test.go`,
+1; `internal/web/egress_test.go`, 5), 26 `gates-have-teeth.sh` cases (22
+`fail`, 4 `pass`) and 25 scenarios (`features/auth-and-data-at-rest.feature`,
+new), and no route: 968 -> 993 tests, 166 -> 192 cases, 295 -> 320 scenarios,
+58 GET routes and 36 write routes unchanged, re-measured on this branch with
+the three commands this block already names. `go test ./... -cover` per
+package: `internal/auth` 26.2% -> 51.3%, `internal/store` 59.8% -> 57.7% (the
+migration's rollback and warning branches are new and untested),
+`internal/web` 80.0% -> 80.0%, `cmd/costcrew` 0.0% -> 0.0%. The numbers in
+invariants 61 to 64 are placeholders: the coordinator renumbers them at merge.
 
 Invariant 49 (a cookie is Secure when a TLS proxy in front is what actually
 terminates it, section "Read before you change anything" of this branch's
@@ -3396,7 +3412,7 @@ an absent invariant.
     `TestOnlyTheDeliveryPackageAmongThoseTheConsoleImportsReachesTheNetwork`,
     and the two tests of the walk itself, since the real source is clean and the
     gate could otherwise never be seen to go red:
-    `TestTheEgressWalkSeesEveryConstructionItNames` (24 snippets, one per shape
+    `TestTheEgressWalkSeesEveryConstructionItNames` (27 snippets, one per shape
     named above, aliases included) and `TestTheEgressWalkLeavesServerCodeAlone`
     (handlers, redirects, cookies, a mux, a server, a listener, `exec.LookPath`,
     a local variable called `http`), all in `internal/web/egress_test.go`. Five

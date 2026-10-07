@@ -148,28 +148,10 @@ func (s *Store) migrateSessions() error {
 	}
 	defer conn.Close()
 
-	rows, err := conn.QueryContext(ctx, `SELECT name FROM pragma_table_info('sessions')`)
+	exists, current, err := sessionsShape(ctx, conn)
 	if err != nil {
 		return err
 	}
-	exists, current := false, false
-	for rows.Next() {
-		var name string
-		if err := rows.Scan(&name); err != nil {
-			rows.Close()
-			return err
-		}
-		exists = true
-		if name == "token_hash" {
-			current = true
-		}
-	}
-	if err := rows.Err(); err != nil {
-		rows.Close()
-		return err
-	}
-	rows.Close()
-
 	if current {
 		return nil
 	}
@@ -178,23 +160,38 @@ func (s *Store) migrateSessions() error {
 		return err
 	}
 
-	var ended int
-	if err := conn.QueryRowContext(ctx, `SELECT COUNT(*) FROM sessions`).Scan(&ended); err != nil {
-		return err
-	}
+	// The table is the clear-text one. Overwrite what is dropped (secure_delete
+	// is a connection setting and must be on before the pages are freed), take
+	// the write lock, and LOOK AGAIN inside it: two processes started together
+	// on an old database (the console and -set-password, say) both saw the old
+	// table above, and the second must not drop the new table the first just
+	// made, with sessions already in it.
 	if _, err := conn.ExecContext(ctx, `PRAGMA secure_delete=ON`); err != nil {
 		return err
 	}
 	if _, err := conn.ExecContext(ctx, `BEGIN IMMEDIATE`); err != nil {
 		return err
 	}
-	if _, err := conn.ExecContext(ctx, `DROP TABLE sessions`); err != nil {
+	rollback := func(err error) error {
 		conn.ExecContext(ctx, `ROLLBACK`)
 		return err
 	}
-	if _, err := conn.ExecContext(ctx, sessionsSchema); err != nil {
+	if exists, current, err = sessionsShape(ctx, conn); err != nil {
+		return rollback(err)
+	}
+	if current || !exists {
 		conn.ExecContext(ctx, `ROLLBACK`)
-		return err
+		return nil
+	}
+	var ended int
+	if err := conn.QueryRowContext(ctx, `SELECT COUNT(*) FROM sessions`).Scan(&ended); err != nil {
+		return rollback(err)
+	}
+	if _, err := conn.ExecContext(ctx, `DROP TABLE sessions`); err != nil {
+		return rollback(err)
+	}
+	if _, err := conn.ExecContext(ctx, sessionsSchema); err != nil {
+		return rollback(err)
 	}
 	if _, err := conn.ExecContext(ctx, `COMMIT`); err != nil {
 		return err
@@ -216,6 +213,27 @@ func (s *Store) migrateSessions() error {
 		"reason": "session tokens are now stored as hashes; everybody signs in again once",
 	})
 	return err
+}
+
+// sessionsShape says whether a sessions table exists and whether it is the
+// current one (has token_hash) rather than the clear-text one (has token).
+func sessionsShape(ctx context.Context, conn *sql.Conn) (exists, current bool, err error) {
+	rows, err := conn.QueryContext(ctx, `SELECT name FROM pragma_table_info('sessions')`)
+	if err != nil {
+		return false, false, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return false, false, err
+		}
+		exists = true
+		if name == "token_hash" {
+			current = true
+		}
+	}
+	return exists, current, rows.Err()
 }
 
 // JournalPath is where the hash chain lives, exported so a caller can refuse
