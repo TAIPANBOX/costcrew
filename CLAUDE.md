@@ -84,9 +84,9 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 1042 tests, 21 packages
-./scripts/gates-have-teeth.sh        # 221 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 340 scenarios, both directions
+go test ./...                        # 1060 tests, 21 packages
+./scripts/gates-have-teeth.sh        # 238 cases; needs a clean tree
+./scripts/features-are-bound.sh      # 356 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
@@ -132,6 +132,17 @@ route: 993 -> 998 tests, 192 -> 196 cases, 320 -> 325 scenarios (measured
 after invariants 61 to 64 merged), one more feature file, 58 GET routes unchanged, re-measured on this branch with the
 three commands this block already names. `components.json` gained
 `checked.image` on four components.
+
+Invariant 59 (the HTTP edge: security headers on every response, request
+bodies capped, server timeouts) added 18 tests
+(`internal/web/hardening_test.go`, 16; `internal/web/httpserver_internal_test.go`,
+1; `cmd/costcrew/server_test.go`, 1), 17 `gates-have-teeth.sh` cases (sixteen
+`fail`, one `pass`) and 16 scenarios (`features/http-edge.feature`, new), and
+no route: 968 -> 986 tests, 166 -> 183 cases, 295 -> 311 scenarios, 58 GET
+routes unchanged, re-measured on this branch with the three commands this
+block already names. The placeholder number 59 is the coordinator's to
+renumber at merge. No gate in `gates-have-teeth.sh` was edited, only
+appended to.
 
 Invariant 49 (a cookie is Secure when a TLS proxy in front is what actually
 terminates it, section "Read before you change anything" of this branch's
@@ -3296,6 +3307,160 @@ an absent invariant.
     `gates-have-teeth.sh`, each switching one property of the shell gate off
     or undoing one piece of the data.)*
 
+59. **The HTTP edge: what every response carries, how much of a request is
+    read, and how long the server waits on a peer.** `@claude` 2026-10-07,
+    three defects found by reading the HTTP surface, none by a test, each with
+    one fix and one family of gates (`internal/web/edge.go`, new, holds the
+    second and third; the first is in `practice.go`).
+
+    *The downloadable results page escaped nothing.* `exportResultsHTML`
+    (`GET /export/results.html`) wrote the anomaly rows' source, service, day,
+    cause and cause kind, and the oldest open day, into a file with
+    `fmt.Fprintf` and a raw `%s`. Service and cause come from an imported FOCUS
+    file (`connectors/tokenfusefocus.go`: `ServiceName`, `x_agent_id`), so a row
+    whose `ServiceName` is a script tag became a script in a file a person saves
+    and opens in a browser with no console, and so no header, around it. It is
+    now one `html/template`, executed once into a buffer, so every value is
+    escaped by the context it lands in; the filename in `Content-Disposition`
+    goes through `mime.FormatMediaType` for the same reason (the period is read
+    from the store). The structural gate is narrow on purpose:
+    `TestResultsExportHasNoHandWrittenHTMLWriter` walks `go/ast` over that one
+    function and refuses any `Fprint*`, `Sprintf`, `Write` or `WriteString` in
+    it, and requires exactly one template `Execute`. A repo-wide rule (no `%s`
+    of a non-constant into HTML) was tried on paper and rejected: `authPage`
+    interpolates two fragments that are escaped before they reach it and
+    `pages.go` builds SVG path data with `%.1f`, so it would fire on correct
+    code and be deleted, the failure invariant 1 already names for a gate that
+    fires on prose. `TestNoPageIsBuiltWithTextTemplate` holds the other half:
+    no non-test file in the package imports `text/template`. The other writers
+    were read for the same shape and are NOT changed here: the login and
+    signup page (`authPage`) is clean (the message is `htmlEscape`d, the CSRF
+    token is hex, the joining-code field is a constant); `exportResultsMD` and
+    `exportExecPacket` write Markdown with the same raw values (a `|` or a
+    newline in a service name breaks their tables, and a Markdown viewer that
+    renders raw HTML renders a script tag); the CSV exports (`export.go`) carry
+    no formula guard, so a cell starting with `=` opens as a formula in a
+    spreadsheet. Those three are reported, not fixed.
+
+    *No response carried a browser-side defence.* `Server.ServeHTTP` now sets,
+    before any handler and so on every response including `/login`,
+    `/healthz`, `/static/`, every export, the 404 and the 413:
+    `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
+    `Referrer-Policy: same-origin`, and a Content-Security-Policy of
+    `default-src 'none'; style-src 'self' 'unsafe-inline'; form-action 'self';
+    base-uri 'none'; frame-ancestors 'none'`. That is the strictest policy the
+    pages as they stand satisfy: no template holds a `<script>`, an event
+    handler, a `javascript:` URL or any resource but `/static/app.css`, so
+    scripts fall to `default-src 'none'` and are allowed nowhere. The one
+    exception to that was Sign out, a link whose `onclick` submitted a hidden
+    form; it is a form with a submit button now (`nav .signout button`, the
+    same box as a nav link, 28.5px against 28.5px at 1440x1020 and 31px against
+    31px at 375px, so the sidebar's measured height does not move). The one
+    inline allowance is `style-src 'unsafe-inline'`, for the `style=`
+    attributes the templates carry and the inline styling of the login page and
+    the report; it cannot run code, it is the only directive that allows
+    anything inline (`TestTheContentSecurityPolicyAllowsNoScript` refuses it
+    anywhere else, and refuses `unsafe-eval`, wildcards and `http(s):`), and
+    tightening it means moving 63 `style=` attributes into the stylesheet
+    (@measured `grep -o 'style="' internal/web/templates/*.html
+    internal/web/server.go | wc -l` 2026-10-07).
+    `Strict-Transport-Security: max-age=15552000` (180 days, no
+    `includeSubDomains`, no `preload`) is sent only where the cookie posture
+    says TLS is in front (`s.behindTLS || r.TLS != nil`, the expression
+    `setCookie` uses), because it is a promise about the host that an operator
+    cannot withdraw from a browser that has heard it. What it does not do: it
+    sets no `Cache-Control`, no `Permissions-Policy` and no report endpoint;
+    and the CSP is not in force for a saved copy of a download, which is why
+    the escaping above is the defence for that file.
+
+    *No body was capped and one timeout was set.* `limitBody`, called from
+    `ServeHTTP` before any handler, refuses a body over its cap with 413 and a
+    plain message and `Connection: close`, and no handler runs for it, so it
+    changes nothing by construction (a per-handler `MaxBytesReader` was not
+    chosen: forty POST handlers read forms their own way, several ignore the
+    parse error, and "reload the page and try again" is the least useful
+    answer for a body that was too big). The cap is 1 MiB; `/intake/check` is
+    `maxIntake + 64 KiB` of multipart envelope; `/intake/apply` is
+    `6*maxIntake + 64 KiB`, because it carries the checked file back in a form
+    field and a browser URL-encodes a newline as `%0D%0A`, so a file of
+    exactly the cap honestly arrives at six times it. A declared
+    `Content-Length` over the cap is refused without reading a byte (so
+    `Expect: 100-continue` is answered before the body is sent); a declared one
+    at or under it is streamed through `http.MaxBytesReader`; a body with no
+    declared length is read to the cap plus one byte and refused if longer,
+    the only way to give a chunked body a 413 rather than a truncated form.
+    The old position was not "nothing": `ParseForm` stops a urlencoded body at
+    10 MiB, but `PostFormValue` and `ParseMultipartForm` keep `maxMemory` in
+    RAM and spool the rest of a multipart file to a temporary file with no
+    bound, which is what `/intake/check` did with `maxIntake` as the memory
+    figure and a `LimitReader` on only the one file part. The same change
+    closes a smaller fault there: the upload was read through
+    `io.LimitReader(f, maxIntake)`, so a file one byte over was previewed as its
+    first 2 MB, cut mid-row; it is read to one byte past and refused with the
+    reason (`errTooBig`, also applied to the pasted box and to `/intake/apply`'s
+    `file` field). `web.NewHTTPServer` is the one place the `http.Server` is
+    built (`cmd/costcrew/main.go` called it a literal before): `ReadHeaderTimeout`
+    10s as before, `ReadTimeout` 60s, `WriteTimeout` `2 * planAskTimeout` (180s)
+    and `IdleTimeout` 120s. `WriteTimeout` is derived from the one handler that
+    waits on something outside the process, the supervisor's plan-ask, which
+    waits on a model up to `planAskTimeout` (90s, the figure `planning.go` used
+    as a literal and `deliver/call.go` still does for its own client); a shorter
+    one would cut off a response whose call was already paid for. Every other
+    page answered in under a second: `@measured` 2026-10-07, `curl` with a
+    cookie jar against `go run ./cmd/costcrew -data <scratch> -addr
+    127.0.0.1:8399` on a fresh seeded install, 24 routes (pages, the
+    stylesheet, three exports), slowest `/cadence` at 0.68s, then `/kpis` 0.27s
+    and `/leadership` 0.27s, every status 200. What this does not do: it limits
+    no rate and no count of connections, so a peer that opens many connections
+    and sends each slowly is bounded per connection and not in total; the 60s
+    `ReadTimeout` means the worst-case 12 MiB `/intake/apply` body needs a
+    link of about 1.7 Mbit/s, which only a pathological file (a 2 MB file of
+    nothing but newlines) comes near; and an oversized body still costs the
+    bytes the server discards before it closes the connection (net/http reads
+    up to 256 KiB).
+    *(gate: `TestResultsExportEscapesWhatAnImportedRowCarries` (a
+    script tag in source, service, day, cause and cause kind, planted straight
+    into `anomalies`, each required present escaped and absent raw),
+    `TestResultsExportStillSaysWhatItSaid` (the control: the report keeps its
+    sections), `TestResultsExportHasNoHandWrittenHTMLWriter`,
+    `TestNoPageIsBuiltWithTextTemplate`; `TestEveryRouteCarriesTheSecurityHeaders`
+    (every GET and POST route `server.go` registers, the paths `ServeHTTP`
+    answers before the mux and a path that does not exist, as a stranger and as
+    a signed-in person, failures reported one line per missing header),
+    `TestTheContentSecurityPolicyAllowsNoScript`,
+    `TestNoPageReliesOnWhatThePolicyForbids` (every served page that answers 200
+    and every file in `templates/`, for `<script`, an `on*=` attribute,
+    `javascript:`, `<iframe`, `<object`, `<embed`, `@import`, `<img`, an external
+    form action and any `<link>` but the stylesheet),
+    `TestSignOutWorksWithoutAScript`,
+    `TestStrictTransportSecurityFollowsTheCookiePosture`;
+    `TestAnOversizedPostIsRefusedAndChangesNothing` (declared, far over and
+    chunked; the cadence switch must stay off and the answer carry the headers),
+    `TestANormalPostStillWorks` (exactly 1 MiB, the control),
+    `TestAStrangerCannotMakeTheLoginFormReadMegabytes`,
+    `TestIntakeStillAcceptsAFileUpToItsOwnCap`,
+    `TestIntakeRefusesAFileOverItsCapInsteadOfCuttingIt`,
+    `TestAnOversizedIntakeUploadIsRefusedAndChangesNothing`,
+    `TestIntakeApplyAcceptsTheEncodedFileItCheckedAndRefusesMore`,
+    `TestTheServerSetsEveryTimeoutAndOutlastsTheLongestHandler`
+    (`internal/web/httpserver_internal_test.go`, in package `web` to read
+    `planAskTimeout`) and `TestTheConsoleServesThroughTheServerThatOwnsItsTimeouts`
+    (`cmd/costcrew`, reads `main.go`; it is not named in a scenario because
+    `features-are-bound.sh` searches `internal/` and `tools/` only). One
+    existing test changed: `TestAnOnBehalfReasonIsCappedPlainAndEscaped`'s
+    "a megabyte" case now accepts a 413 as well as the 303, since a megabyte of
+    reason plus its form fields is over the cap and is refused before the
+    reason's validator is asked; it still requires that nothing was applied.
+    Sixteen `fail` cases and one `pass` case in `gates-have-teeth.sh`: a
+    `Fprintf` back in the report's writer, `text/template` back in its import,
+    the CSP not sent, `X-Frame-Options` not sent, the policy allowing script, a
+    template needing script again, HSTS sent over plain HTTP, HSTS ignoring a
+    handshake this process made, the body cap not applied, a chunked body
+    uncapped, the intake check and the intake round trip held to the general
+    cap, the intake reading a too-big file in part again, the write timeout not
+    longer than a model call, the write timeout unset, and a literal
+    `http.Server` back in `main.go`; the `pass` case reorders the policy's
+    directives and rewords the 413.)*
 60. **The image holds every binary a deployment runs, and its base images are
     named by digest.** costcrew#75, measured on the appliance proving run of
     2026-09-17: the image shipped `costcrew` and `costcrew-run`, while the
