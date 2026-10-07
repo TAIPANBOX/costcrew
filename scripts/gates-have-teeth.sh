@@ -2242,6 +2242,7 @@ run_case $'http edge: the console builds a literal http.Server again' \
 	cmd/costcrew/main.go \
 	$'\tsrv := web.NewHTTPServer(addr, web.New(st, au, web.Stack{' \
 	$'\tsrv := &http.Server{Addr: addr, Handler: web.New(st, au, web.Stack{' \
+	cmd/costcrew/main.go \
 	$'\t\tBehindTLS: behindTLS,\n\t}))\n' \
 	$'\t\tBehindTLS: behindTLS,\n\t})}\n'
 run_case $'http edge: reordered policy directives and a reworded refusal are not a fault' \
