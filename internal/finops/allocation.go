@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS chargeback(
   direct_cents INTEGER NOT NULL, allocated_cents INTEGER NOT NULL,
   frozen_at TEXT, closed_by TEXT,
   PRIMARY KEY (period, source, team));
-`
+` + unitRulesSchema
 
 // SeedRules writes the defaults, each with the reason it is the default.
 func SeedRules(db *sql.DB) error {

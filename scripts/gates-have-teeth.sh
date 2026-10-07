@@ -2110,6 +2110,134 @@ run_case $'admin answers: a reworded refusal message is not a fault' \
 	internal/web/decisions.go \
 	$'"you are answering for "+owner+", so a reason is needed: "+rerr.Error()' \
 	$'"a reason is needed because you are answering for "+owner+": "+rerr.Error()'
+run_case $'unit showback: the showback drops every unit a rule covers' \
+	fail \
+	./internal/finops \
+	$'TestAfterTheStampsTheShowbackHasOneRowPerUnitAndBalancesToTheCent' \
+	$'showback has 0 rows' \
+	internal/finops/unitrules.go \
+	$'	for _, u := range UnitsOf(a, rules) {' \
+	$'	for _, u := range UnitsOf(a, rules)[:0] {'
+run_case $'unit showback: the spend of a unit with no rule vanishes from the file' \
+	fail \
+	./internal/finops \
+	$'TestBeforeAnyRuleTheUnitsAreOneVisibleUnruledRowAndTheFileBalances' \
+	$'with no rule the showback is' \
+	internal/finops/unitrules.go \
+	$'	if haveUnruled {' \
+	$'	if haveUnruled && false {'
+run_case $'unit showback: an unruled unit\'s name is printed in the unruled row' \
+	fail \
+	./internal/web \
+	$'TestAHostileUnitNameNeverReachesTheShowbackFileOrTheMarkup' \
+	$'reached the showback file' \
+	internal/finops/unitrules.go \
+	$'		haveUnruled = true\n' \
+	$'		haveUnruled = true\n		unruled.BusinessUnit += u.Unit + ";"\n'
+run_case $'unit showback: the export is emptied at the route' \
+	fail \
+	./internal/web \
+	$'TestTheShowbackCarriesOneRowPerUnitOnlyAfterTheOwnersStamp' \
+	$'before any stamp the showback is' \
+	internal/web/money.go \
+	$'	for _, r := range sb {' \
+	$'	for _, r := range sb[:0] {'
+run_case $'unit showback: the chargeback page stops listing the units' \
+	fail \
+	./internal/web \
+	$'TestAnUnstampedUnitIsNamedAsUnruledOnTheChargebackPage' \
+	$'does not say "Customer units"' \
+	internal/web/templates/chargeback.html \
+	$'{{- if .Units}}' \
+	$'{{- if false}}'
+run_case $'unit showback: the close pack stops naming the units' \
+	fail \
+	./internal/deliver \
+	$'TestClosePackSectionNamesAUnitWithNoRuleAndTheShapeOfAProposal' \
+	$'the close pack does not carry' \
+	internal/deliver/packet.go \
+	$'uerr == nil && len(units) > 0 {' \
+	$'uerr == nil && len(units) > 99999 {'
+run_case $'unit rule: applied for a unit that has no rows' \
+	fail \
+	./internal/finops \
+	$'TestAUnitRuleForAUnitWithNoRowsIsRefusedAndTheOptionStaysOpen' \
+	$'a rule for a unit that has no rows was applied' \
+	internal/finops/unitrules.go \
+	$'	if reason != "" {\n		return fmt.Errorf("allocation.rule for unit %q refused' \
+	$'	if false {\n		return fmt.Errorf("allocation.rule for unit %q refused'
+run_case $'unit rule: rows a reader did not write count as a unit' \
+	fail \
+	./internal/finops \
+	$'TestAUnitRuleOnRowsTheTokenFuseReaderDidNotWriteIsRefused' \
+	$'whose rows no reader wrote' \
+	internal/crew/unitrule.go \
+	$'WHERE team=? AND provenance=?' \
+	$'WHERE team=? AND (provenance=? OR provenance IS NULL)'
+run_case $'unit rule: a roster team\'s name is accepted as a unit' \
+	fail \
+	./internal/finops \
+	$'TestAUnitRuleForARosterTeamIsRefused' \
+	$'a unit rule was applied to the roster team' \
+	internal/crew/unitrule.go \
+	$'		if tm.Name == unit {' \
+	$'		if false && tm.Name == unit {'
+run_case $'unit rule: a proposal for a unit with no rows reaches the owner' \
+	fail \
+	./internal/finops \
+	$'TestAProposalForAUnitWithNoRowsIsRefusedWhenItIsWritten' \
+	$'a proposal for a unit with no rows was accepted' \
+	internal/crew/options.go \
+	$'if tgt, isUnit, _ := ParseUnitTarget(o.Target); isUnit {' \
+	$'if tgt, isUnit, _ := ParseUnitTarget(o.Target); isUnit && false {'
+run_case $'unit rule: a name that opens as a spreadsheet formula is accepted' \
+	fail \
+	./internal/crew \
+	$'TestUnitRuleTargetHostileInputs' \
+	$'spreadsheet_formula' \
+	internal/crew/unitrule.go \
+	$'strings.ContainsRune("=+-@", rune(s[0]))' \
+	$'strings.ContainsRune("", rune(s[0]))'
+run_case $'unit rule: the supervisor applies an allocation.rule on its own' \
+	fail \
+	./internal/finops \
+	$'TestTheSupervisorNeverAppliesAUnitRule' \
+	$'the supervisor applied' \
+	internal/crew/roles.go \
+	$'	if c.Owner != "analyst" {\n		return MayDecide("supervisor", class)' \
+	$'	if c.Owner != "analyst" {\n		return true, ""'
+run_case $'unit rule: any operator may stamp another owner\'s unit rule' \
+	fail \
+	./internal/web \
+	$'TestOnlyTheOwnerOrAnAdminCanStampAUnitRule' \
+	$'stamp wrote' \
+	internal/web/decisions.go \
+	$'	return u.May("operator") && u.Username == owner' \
+	$'	return u.May("operator")'
+run_case $'money found: the crew-cost KPI sums the absolute excess again' \
+	fail \
+	./internal/finops \
+	$'TestTheCrewCostKPIDoesNotCountADropAsMoneyFound' \
+	$'does not state the signed figure' \
+	internal/finops/kpi.go \
+	$'	found, err := FoundMonthly(db)\n' \
+	$'	var found money.Cents\n	err = db.QueryRow(`SELECT COALESCE(SUM(ABS(excess_cents)),0) FROM anomalies WHERE state IN (\'explained\',\'accepted\')`).Scan(&found)\n'
+run_case $'unit rule: a reworded refusal message is not a fault' \
+	pass \
+	./internal/finops \
+	$'TestAUnitRuleForAUnitWithNoRowsIsRefusedAndTheOptionStaysOpen' \
+	$'' \
+	internal/finops/unitrules.go \
+	$'"allocation.rule for unit %q refused: %s"' \
+	$'"the unit rule for %q was refused: %s"'
+run_case $'unit showback: a reworded sentence on the units panel is not a fault' \
+	pass \
+	./internal/web \
+	$'TestAnUnstampedUnitIsNamedAsUnruledOnTheChargebackPage' \
+	$'' \
+	internal/web/templates/chargeback.html \
+	$'charged as it reports them.' \
+	$'shown the way it labelled them.'
 
 # Invariants 61 to 64: sessions stored as hashes, one answer for every failed
 # sign-in, private data files, and the console's egress. Every case plants one

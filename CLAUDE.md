@@ -84,9 +84,9 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 1120 tests, 21 packages
-./scripts/gates-have-teeth.sh        # 281 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 385 scenarios, both directions
+go test ./...                        # 1149 tests, 21 packages
+./scripts/gates-have-teeth.sh        # 297 cases; needs a clean tree
+./scripts/features-are-bound.sh      # 396 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
@@ -154,6 +154,20 @@ unchanged, re-measured on this branch with the three commands this block
 already names. The connector catalogue is still 17 entries, now 10 built and
 7 documented (README says so). Numbered 67 as a placeholder the coordinator
 renumbers at merge.
+
+Invariants 68 and 69 (a customer unit's spend is in the showback, one row per
+unit a person has ruled on, costcrew#74; the crew-cost KPI states the same
+signed money found as Results) added 29 tests
+(`internal/finops/unitrules_test.go`, 15; `internal/finops/kpi_found_test.go`,
+2; `internal/crew/options_unitrule_test.go`, 4;
+`internal/deliver/packet_unitrules_test.go`, 3;
+`internal/web/unit_showback_test.go`, 5), 16 `gates-have-teeth.sh` cases
+(fourteen `fail`, two `pass`) and 11 scenarios
+(`features/unit-showback.feature`, new, 10; `features/money-found.feature`,
+new, 1), and no route: 968 -> 997 tests, 166 -> 182 cases, 295 -> 306
+scenarios, 58 GET routes and 36 write routes unchanged, re-measured on this
+branch with the three commands this block already names. Numbered 68 and 69
+as placeholders; the coordinator renumbers at merge.
 
 Invariant 49 (a cookie is Secure when a TLS proxy in front is what actually
 terminates it, section "Read before you change anything" of this branch's
@@ -3958,6 +3972,146 @@ an absent invariant.
     the tag key matched case-sensitively, a copied file counted twice, Test
     demanding an optional setting, and the connector page dropping the
     replace-generated box; the `pass` case rewords a refusal.)*
+68. **A customer unit's spend is in the showback, one row per unit a person
+    has ruled on, and a unit rule is a stamp.** costcrew#74, measured on the
+    appliance proving run of 2026-09-17: the FOCUS reader writes a row's
+    `x_unit` as the charge's `Team`, so a box's AI spend arrives labelled
+    `aws`, `gcp`, `finops`, and nothing allocated by it. `/export/showback.csv`
+    walked `world.Teams`, the generated estate's ten teams, and nothing else,
+    so a console that held only real rows (the state `-replace-generated`
+    leaves it in) exported a file with a header and no rows for a bill of
+    several dollars; `/chargeback` already listed the units, so the two pages
+    disagreed about the same period. @measured `go test ./internal/web -run
+    TestTheShowbackCarriesOneRowPerUnitOnlyAfterTheOwnersStamp` 2026-10-07,
+    against the code before this change: `before any stamp the showback is [],
+    want one (unruled units) row of 3.08`, an import worked by hand to 3.08.
+
+    `allocation.rule` gained a second target shape, `{"unit", "business_unit"}`
+    beside invariant 35's `{"rule_id", "method", "share"}`: the unit as the
+    reader wrote it, and the business unit its spend is charged back under.
+    `crew.ParseUnitTarget` and `crew.UnitRuleRefusal` are the one place that
+    says what a well-formed one is, asked twice: by
+    `crew.ValidateAndSaveOptions` when the chargeback analyst writes the
+    proposal (so a proposal that could never be stamped is returned to the
+    analyst, not carried to an owner), and by `finops.applyUnitRule` when it
+    is stamped. A target is refused for: a field of the rule-id shape beside
+    `unit`, or any field nothing reads; a unit or business unit that is empty,
+    padded, over its bound (128 and 80 bytes), not valid text, carries a
+    control, format (zero-width, text-direction) or line-separating character,
+    or begins with `=`, `+`, `-` or `@` (a spreadsheet opens it as a formula);
+    a unit for which no charge row written by the TokenFuse reader
+    (`provenance='tokenfuse-focus'`) exists, a generated row not counting; and
+    a unit whose name is a roster team's, which the showback already gives to
+    the roster team's own row. A unit name is text out of somebody else's file
+    and travels on into a CSV and a statement, which is why the names are held
+    this tightly.
+
+    `finops.applyUnitRule` is the only writer of `unit_rules` and is reached
+    only from `applySideEffect`, so only from `ApplyAs`: a stamp. Saving a
+    proposal writes no rule, and the supervisor carries an `allocation.rule` to
+    its owner at any figure (`crew.SupervisorMaySelect` answers false for an
+    owner-owned class, invariant 53); the owner's, or an admin's with a reason
+    (invariant 58), is the only stamp. A second stamp on one unit replaces the
+    rule's business unit and its stamper rather than adding a second rule.
+
+    `finops.Showback` is what the export writes: the roster's teams in roster
+    order, exactly what the file always carried, then one row per unit a rule
+    covers, by name, under the business unit the rule names, then, only when
+    some unit has no rule, ONE `(unruled units)` row holding the spend of all
+    of them. A unit without a rule is therefore never dropped and never printed
+    under a name nobody has decided to tell a team; the rows plus
+    `Allocation.Unallocated` are the whole bill, which is the property a
+    showback is judged by. `/chargeback` gained a "Customer units" panel
+    (today's figure and the business unit, or "no rule yet", per unit; absent
+    on an estate with none), and the chargeback analyst's close pack a
+    "Customer units" section naming each unit, what it was charged, and the
+    shape a proposal is written in, so the analyst can learn the unit names
+    from its own packet.
+
+    What this does not do: it does not change how a unit's spend is allocated
+    (a unit's own rows are direct cost on desk `ai`; a TokenFuse row with no
+    `x_unit` is still a shared "Usage" pot that no seeded rule names, so it
+    stays unallocated); the showback is read from the live allocation, as it
+    always was, not from the frozen period, so it agrees with a closed period
+    only until something moves; `/team/{name}` still answers 404 for a unit,
+    so the unit names the chargeback page links to have no page behind them;
+    and a name the TokenFuse reader accepted that this gate refuses (a unit
+    with a control character in it) can be charged and never ruled on, and
+    stays inside `(unruled units)`.
+    *(gate: `TestAfterTheStampsTheShowbackHasOneRowPerUnitAndBalancesToTheCent`,
+    `TestBeforeAnyRuleTheUnitsAreOneVisibleUnruledRowAndTheFileBalances`,
+    `TestOnlyTheRuledUnitGetsItsOwnRowAndTheRestStaysVisibleInOne`,
+    `TestUnitsListsEveryUnitWithItsRuleOrTheLackOfOne`,
+    `TestUnitRowsSitBesideTheFixturesTeamsWithoutMovingThem`,
+    `TestTheImportIsWhatTheFixtureSaysItIs` (the hand-worked 1.24, 1.84 and
+    3.08 the others balance against) for the showback;
+    `TestAUnitRuleIsAppliedByAStampAndRecordsWhoStampedIt`,
+    `TestAStampOnADifferentBusinessUnitReplacesTheRuleRatherThanAddingASecond`,
+    `TestAUnitRuleForAUnitWithNoRowsIsRefusedAndTheOptionStaysOpen`,
+    `TestAUnitRuleOnRowsTheTokenFuseReaderDidNotWriteIsRefused`,
+    `TestAUnitRuleForARosterTeamIsRefused`,
+    `TestATargetNamingBothAUnitAndARuleIsRefusedAtApplyToo` for the stamp;
+    `TestTheSupervisorNeverAppliesAUnitRule`, `TestSavingAUnitRuleProposalWritesNoRule`,
+    `TestAProposalForAUnitWithNoRowsIsRefusedWhenItIsWritten` (`internal/finops`)
+    and `TestOnlyTheOwnerOrAnAdminCanStampAUnitRule` (`internal/web`: an
+    operator who is not the owner, a viewer and a request without a valid
+    token each write no rule, and the owner's own stamp, last, writes one) for
+    "no rule without a stamp"; `TestUnitRuleTargetHostileInputs` (31 shapes),
+    `TestUnitRuleTargetBoundariesAreAccepted`,
+    `TestAUnitRuleTargetIsCarriedOnTheOptionVerbatim`,
+    `TestTheRuleIdShapeIsNotMistakenForAUnitTarget` (`internal/crew`) for the
+    target; `TestTheShowbackCarriesOneRowPerUnitOnlyAfterTheOwnersStamp` (the
+    whole path through the routes: import, an empty-of-units file before the
+    stamp, the owner's POST, the close, the file and the page),
+    `TestAnUnstampedUnitIsNamedAsUnruledOnTheChargebackPage`,
+    `TestAHostileUnitNameNeverReachesTheShowbackFileOrTheMarkup`,
+    `TestTheGeneratedEstatesShowbackIsUntouchedByUnits` (`internal/web`) and
+    `TestClosePackSectionNamesAUnitWithNoRuleAndTheShapeOfAProposal`,
+    `TestClosePackSectionNamesTheBusinessUnitOfARuledUnit`,
+    `TestClosePackSectionSaysNothingOfUnitsOnTheGeneratedEstate`
+    (`internal/deliver`) for the pages and the packet. The generated estate's
+    surface was held by fetching eleven pages and exports from a build of
+    `origin/main` and from this change, each on a fresh install: ten byte for
+    byte identical but for the per-install token (both chargeback views, the
+    allocation and teams pages, results, three showback periods, the
+    allocation and ledger exports), the eleventh, `/kpis`, differing in the one
+    line invariant 69 changes on purpose. The full `tools/parity` crawl was
+    started and not finished, so this is a targeted comparison and not that
+    gate. `TestTheSupervisorNeverAppliesAUnitRule` passes on the code before
+    this change as well, because nothing could apply a unit rule then
+    (`TestSavingAUnitRuleProposalWritesNoRule` was red there only because the
+    proposal was refused); what makes them gates is the
+    `gates-have-teeth.sh` case that lets the supervisor select an owner-owned
+    class and requires the first to go red.
+    `scripts/gates-have-teeth.sh` plants fourteen faults and two harmless
+    edits: the showback dropping the ruled units, the unruled spend vanishing,
+    an unruled unit's name printed in its row, the export emptied at the
+    route, the chargeback page and the close pack no longer naming the units,
+    a rule applied for a unit with no rows, for rows a reader did not write,
+    for a roster team's name, a proposal for a unit with no rows reaching the
+    owner, a formula-looking name accepted, the supervisor applying an
+    `allocation.rule`, any operator stamping another owner's rule, and a
+    reworded refusal and a reworded sentence on the units panel as the `pass`
+    cases.)*
+
+69. **The crew-cost KPI and the Results page state one figure of money found,
+    and it is signed.** `TestADropInSpendIsNotMoneyFound` fixed the Results
+    page's sum from `ABS(excess_cents)` to a signed one, because a finding
+    whose spend fell is a real finding and not money anybody recovered; the
+    crew-cost KPI (`internal/finops/kpi.go`), two screens away, kept its own
+    copy of the absolute sum, in the one KPI whose target is "less than it
+    finds". On the fixture's crew cost, an up finding a little under it and a
+    drop of 100.00 gave a verdict of "meets" when the signed figure said it
+    did not. `finops.FoundMonthly` is the one definition, called by `Compute`
+    (Results) and by `KPIs`, so a third reader of the figure has somewhere to
+    call and no reason to write the query a third time.
+    *(gate: `TestTheCrewCostKPIDoesNotCountADropAsMoneyFound` (the fixture is
+    built so the two definitions give different VERDICTS, not only different
+    numbers: it checks the figure in the note, the return, and `Meets`),
+    `TestResultsAndTheCrewCostKPIAgreeOnMoneyFound`; the existing
+    `TestADropInSpendIsNotMoneyFound` still holds the Results side.
+    `scripts/gates-have-teeth.sh`'s `money found: the crew-cost KPI sums the
+    absolute excess again` case puts the absolute query back into `KPIs`.)*
 
 74. **Sign-in through the organisation's identity provider believes nothing it
     has not checked, and the provider decides access at every sign-in.** Until

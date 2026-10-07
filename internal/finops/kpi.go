@@ -121,9 +121,14 @@ func KPIs(db *sql.DB, period string) ([]KPI, error) {
 	// target whatever the numbers said, on a page whose own headline is that
 	// a library where everything reports a number is one where several are
 	// invented. A KPI that cannot fail is one of those.
-	var found money.Cents
-	if err := db.QueryRow(`SELECT COALESCE(SUM(ABS(excess_cents)),0) FROM anomalies
-		WHERE state IN ('explained','accepted')`).Scan(&found); err != nil {
+	//
+	// Found money is FoundMonthly, the one definition the Results page
+	// uses: SIGNED. This line carried its own copy that summed
+	// ABS(excess_cents), so a finding whose spend went down counted as money
+	// the crew found, in the KPI whose target is "less than it finds", after
+	// the same fault had been fixed on the Results page beside it.
+	found, err := FoundMonthly(db)
+	if err != nil {
 		return nil, err
 	}
 	// What of that figure is real. The rest was generated at seed time, and one
