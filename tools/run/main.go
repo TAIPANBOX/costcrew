@@ -234,6 +234,7 @@ func run(dir, ceiling string, maxTok, sprint int, live, supervise, due bool, onl
 		}
 		ests = append(ests, price(db, t, by[t.Assignee], maxTok))
 	}
+	refuseOwnerless(ests, gatewayConfig{URL: gatewayURL, OpenAIURL: gatewayOpenAIURL, Host: host, CeilingUSD: cap})
 	sort.Slice(ests, func(i, j int) bool { return ests[i].WorstMicros > ests[j].WorstMicros })
 
 	if !live {

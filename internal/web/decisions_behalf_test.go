@@ -267,7 +267,11 @@ func TestAnOnBehalfReasonIsCappedPlainAndEscaped(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			f := newBehalfFixture(t, start(t))
 			code, _ := f.boss.post(t, f.apply, url.Values{"csrf": {f.boss.csrf(t, "/board")}, "behalf_reason": {reason}})
-			if code != 303 {
+			// A megabyte of reason plus the other form fields is over the
+			// edge's 1 MiB body cap (edge.go, invariant 59), so it is refused
+			// there with 413 before the reason's own validator is asked. The
+			// property is the same either way: nothing was applied.
+			if code != 303 && !(name == "a megabyte" && code == 413) {
 				t.Fatalf("answered %d", code)
 			}
 			if got := f.option(t).State; got != crew.OptionCarried {

@@ -167,6 +167,19 @@ nav .count {
   color: var(--ink-2);
 }
 nav a[aria-current="page"] .count { background: var(--paper); }
+/* Sign out is a POST, so it is a form with a button, not a link. It was a link
+   whose onclick submitted a hidden form; the Content-Security-Policy every
+   response carries allows no script, and a control that needs one is a control
+   that does nothing. Same box as a nav link, so the sidebar's measured height
+   (see TestTheSidebarFitsAWindow) does not move. */
+nav .signout { margin: 0; }
+nav .signout button {
+  display: flex; align-items: center; width: 100%;
+  padding: 3px 20px; border: 0; border-radius: 0; background: none;
+  color: var(--ink-2); font: 400 14.5px/1.55 var(--sans); text-align: left;
+  white-space: nowrap;
+}
+nav .signout button:hover { background: var(--surface-2); color: var(--ink); filter: none; }
 
 main { flex: 1; min-width: 0; margin-left: 190px;
        padding: 28px 34px 80px; max-width: 1400px; }
@@ -375,6 +388,7 @@ dl.facts > :nth-last-child(-n+2) { border-bottom: none; }
      desktop size it took 280px of an 812px screen, so a third of every page
      was the way to other pages. */
   nav a { padding: 5px 8px; border-radius: 5px; font-size: 13.5px; }
+  nav .signout button { width: auto; padding: 5px 8px; border-radius: 5px; font-size: 13.5px; }
   nav a[aria-current="page"] { box-shadow: none; }
   main { margin-left: 0; padding: 20px 16px 60px; }
 

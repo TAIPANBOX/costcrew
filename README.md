@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/TAIPANBOX/costcrew/actions/workflows/ci.yml/badge.svg)](https://github.com/TAIPANBOX/costcrew/actions/workflows/ci.yml)
 ![Go](https://img.shields.io/badge/go-1.27-00ADD8.svg)
-![tests](https://img.shields.io/badge/tests-968-brightgreen.svg)
+![tests](https://img.shields.io/badge/tests-997-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)
 ![Status](https://img.shields.io/badge/enforces-nothing%20by%20design-success.svg)
 
@@ -100,21 +100,25 @@ flowchart TB
 ```
 
 - **Consumes**: billing exports and vendor usage APIs, never another service's
-  store. Seventeen connectors: AWS Data Exports (FOCUS 1.2), Cost Explorer, GCP
-  BigQuery billing export, Azure Cost Management, Kubecost, OpenCost, TokenFuse
+  store. Seventeen connectors: AWS Data Exports (FOCUS 1.0 and 1.2, read from a
+  synced folder), Cost Explorer, GCP billing export (a FOCUS CSV folder
+  exported from BigQuery), Azure Cost Management, Kubecost, OpenCost, TokenFuse
   FOCUS export, Anthropic and OpenRouter usage, Compute Optimizer, AWS Cost
   Explorer and GCP Recommender and Azure Advisor rightsizing recommendations,
   AWS Budgets recommended threshold, GCP Cost Recommender and Azure Advisor
-  budget-shaped recommendations, SaaS seats. Eight built, nine documented, and
+  budget-shaped recommendations, SaaS seats. Ten built, seven documented, and
   every entry declares whether running it is metered per call.
 - **Produces**: twenty-two event types on the shared agent-event bus, registered in
   `agent-passport` SPEC 6.2 under the source `costcrew`, schema v0.2.
 - **Enforces**: nothing. `enforced: false` is stamped on every event, and
   `internal/enforce` is a separate binary the console never imports. The
-  console makes no outbound call while serving a page, with one exception: the
-  supervisor's plan-ask (`POST /sprint/plan/ask`) calls a model through
-  `deliver.Call`, and only when `-gateway` or `-gateway-openai` is set. A test
-  refuses any other way for the console to build an outbound request.
+  console makes no outbound call while serving a page, with two exceptions:
+  the supervisor's plan-ask (`POST /sprint/plan/ask`) calls a model through
+  `deliver.Call`, and only when `-gateway` or `-gateway-openai` is set; and
+  sign-in through the organisation's identity provider reaches that
+  provider's discovery document, keys and token endpoint, and only when
+  `-oidc-issuer` is set. A test refuses any other way for the console to
+  build an outbound request.
 
 ## The three rules that make the numbers usable
 
@@ -127,11 +131,15 @@ invoice changes. The seeded estate is blunt about what that means: the crew has
 found 1,254.35 and cost 3,871.35 across 310 tasks, and the Results page prints
 the ratio without softening it.
 
-**A measure may refuse.** The KPI library reports nine numbers and refuses three,
-each refusal naming what is missing. A library where everything reports a number
-is one where several of them are invented. The refusal it will not talk around is
-per-agent AI spend: a charge carries a model and a workload, never an agent, and
-that becomes answerable only when the calls go through TokenFuse with an agent id.
+**A measure may refuse.** The KPI library defines twelve measures. On the
+generated fixture it reports nine and refuses three, each refusal naming what is
+missing: cost per outcome (no business metric is connected), carbon per workload
+(no carbon source is connected) and AI spend attributed to an agent. A library
+where everything reports a number is one where several of them are invented. The
+refusal it will not talk around is per-agent AI spend: a generated charge carries
+a model and a workload, never an agent, and that becomes answerable only when the
+calls go through TokenFuse with an agent id. Cost per outcome computes once an
+import carries tagged outcomes.
 
 ## The detector
 
@@ -170,6 +178,128 @@ Inside the stack, `./up.sh --with-finops` from
 shared bus. Two flags carry the whole integration: `-stack-events` names the
 NDJSON file, and the name IS the integration because genaryx keys a read offset
 off the stem; `-stack-host` sets the `agent://` authority.
+
+### Sign in through your identity provider
+
+The console can hand sign-in to the organisation's identity provider with
+OpenID Connect, so multi-factor authentication and offboarding happen where
+the organisation already does them. It is off unless `-oidc-issuer` is set.
+Register the console at the provider as a confidential web client whose
+redirect URL is the console's own address followed by `/login/oidc/callback`.
+
+| Flag (environment twin) | Meaning |
+|---|---|
+| `-oidc-issuer` (`COSTCREW_OIDC_ISSUER`) | the issuer URL; https, or http only to a loopback host |
+| `-oidc-client-id` (`COSTCREW_OIDC_CLIENT_ID`) | the client id registered at the provider |
+| `COSTCREW_OIDC_CLIENT_SECRET`, or `-oidc-client-secret-file` (`COSTCREW_OIDC_CLIENT_SECRET_FILE`) | the client secret; one of the two, never both, and there is no flag for the value, because a flag shows in the process list |
+| `-oidc-redirect-url` (`COSTCREW_OIDC_REDIRECT_URL`) | the callback as the browser reaches it, for example `https://costcrew.example/login/oidc/callback` |
+| `-oidc-roles` (`COSTCREW_OIDC_ROLES`) | claim values to roles, `finops-viewers=viewer;finops-ops=operator;finops-admins=admin`; entries split on `;` and each at its last `=`, so an LDAP distinguished name works |
+| `-oidc-roles-claim` (`COSTCREW_OIDC_ROLES_CLAIM`) | the ID token claim the mapping reads; default `groups` |
+| `-oidc-username-claim` (`COSTCREW_OIDC_USERNAME_CLAIM`) | the claim a new account is named after; default `email` |
+| `-oidc-scopes` (`COSTCREW_OIDC_SCOPES`) | the scopes requested; default `openid email profile`; add `groups` where the provider needs it asked for |
+| `-oidc-only` (`COSTCREW_OIDC_ONLY`) | switch password sign-in off, except for accounts whose password was set with `-set-password` |
+
+What it does, in short. The flow is the authorization code flow with PKCE,
+a state bound to the browser and a nonce. The ID token's signature is checked
+against the provider's published keys, and its issuer, audience, expiry,
+issue time (two minutes of clock skew), nonce and authorized party are all
+checked before anything in it is used. The first sign-in creates the account
+at the role its group maps to. Every later sign-in applies the role the
+mapping gives now, so a change at the provider takes effect at the next
+sign-in. A person whose groups map to no role is refused and gets no account:
+there is no default role. If such a person still has an account here, every
+session it holds ends at that sign-in. While a provider is configured,
+`/signup` is closed. With `-oidc-only`, a password signs in only to an
+account set from the command line, which is the way back in when the
+provider itself is down:
+
+```sh
+costcrew -data ./local -set-password 'breakglass:a-long-password-kept-offline'
+```
+
+Limits worth knowing before relying on it. A person removed from the group
+who never signs in again keeps an open session until it expires (twelve
+hours): nothing tells the console about the removal. An account that existed
+before the provider was configured is never taken over by an identity with
+the same name; remove it first. The groups claim is read from the ID token,
+not from the provider's userinfo endpoint. It has been tested against an
+identity provider running inside the test suite, not yet against a named
+commercial one.
+
+### The other two binaries in the image
+
+The image holds four binaries, all static and run as the same non-root user:
+`costcrew` (the console, the entrypoint), `costcrew-run` (the crew's runner),
+`costcrew-enforce` and `costcrew-idryxsource`. The last two are not services.
+Each runs once, prints, and exits, so a compose file runs them as separate
+containers from the same image with the entrypoint replaced, mounting the
+console's data directory. Images up to `v0.3.0` carry only the first two; the
+first release built after this change carries all four.
+
+`costcrew-enforce` shows what the console's budgets would set on a TokenFuse
+control plane and sends nothing unless told to. It is the one binary here that
+changes another system, which is why it is a two-step command:
+
+| Flag or variable | Meaning |
+|---|---|
+| `-data DIR` | the console's data directory (default `.`) |
+| `-cloud URL` | the TokenFuse control plane, for example `http://tokenfuse:8791`; required |
+| `-period YYYY-MM` | which month's budgets to push; the default is the last closed month |
+| `-apply FINGERPRINT` | send exactly the plan that a run without this flag printed with that fingerprint; refuses if the plan has changed since |
+| `TOKENFUSE_KEY` (environment) | the control plane's key; required, read from the environment and never written anywhere |
+
+`costcrew-idryxsource` writes the roster as the `agents` source idryx asks for,
+so this console's crew appears in the identity graph:
+
+| Flag | Meaning |
+|---|---|
+| `-data DIR` | the console's data directory (default `.`) |
+| `-host NAME` | the `agent://` authority, matching the console's `-stack-host` (default `costcrew.local`) |
+| `-out FILE` | where to write the JSON; `-` is stdout (default) |
+
+From a compose file that already runs the console, two services under a
+`manual` profile, so `docker compose up` does not start them:
+
+```yaml
+services:
+  costcrew:
+    image: ghcr.io/taipanbox/costcrew:<tag>
+    volumes: ["costcrew-data:/var/lib/costcrew"]
+    command: ["-data", "/var/lib/costcrew"]
+
+  costcrew-enforce:
+    image: ghcr.io/taipanbox/costcrew:<tag>
+    profiles: ["manual"]
+    entrypoint: ["/usr/local/bin/costcrew-enforce"]
+    command: ["-data", "/var/lib/costcrew", "-cloud", "http://tokenfuse:8791"]
+    # Add "-apply", "<fingerprint>" to command to send the plan a first run printed.
+    environment:
+      TOKENFUSE_KEY: ${TOKENFUSE_KEY}   # supplied by the operator's shell or an env file
+    volumes: ["costcrew-data:/var/lib/costcrew"]
+
+  costcrew-idryxsource:
+    image: ghcr.io/taipanbox/costcrew:<tag>
+    profiles: ["manual"]
+    entrypoint: ["/usr/local/bin/costcrew-idryxsource"]
+    command: ["-data", "/var/lib/costcrew", "-host", "customer.example", "-out", "/var/lib/idryx/sources/agents.json"]
+    volumes:
+      - costcrew-data:/var/lib/costcrew
+      - idryx-sources:/var/lib/idryx/sources   # must be writable by uid 65532
+
+volumes:
+  costcrew-data:
+  idryx-sources:
+```
+
+Run them with `docker compose run --rm costcrew-enforce` (the first run prints
+the plan and its fingerprint) and `docker compose run --rm costcrew-idryxsource`.
+Without compose, the same thing is `docker run --rm --entrypoint
+costcrew-enforce -e TOKENFUSE_KEY -v costcrew-data:/var/lib/costcrew
+ghcr.io/taipanbox/costcrew:<tag> -data /var/lib/costcrew -cloud URL`. In
+Kubernetes the equivalent is a `Job` or `CronJob` with `command:
+["/usr/local/bin/costcrew-enforce"]` and the same arguments. `costcrew-enforce`
+exits 2 with a message when `-cloud` or `TOKENFUSE_KEY` is missing, so a
+misconfigured job fails loudly instead of doing nothing.
 
 ## Verify the image
 
@@ -251,8 +381,9 @@ Two defects turned up, both already fixed on `main` and neither in
   box's own export cleanly (277 rows, 4 agents, 0.07 total billed cost).
   Issue #66, fixed by #70 (`cb90412`, invariant 50).
 
-Still open: no AWS or GCP billing reader exists yet, so the board worked
-the generated estate and the box's AI spend alone (#68). This run used
+Still open at the time of the run: no AWS or GCP billing reader existed, so
+the board worked the generated estate and the box's AI spend alone (#68; both
+folder readers have since been added). This run used
 `v0.2.0`, which predates the console's `-gateway` flag, so the flag was
 dropped from the command (#69); closed by `v0.2.1`, the first image that
 carries `-gateway`.

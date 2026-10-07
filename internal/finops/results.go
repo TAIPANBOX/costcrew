@@ -47,26 +47,11 @@ type Results struct {
 func Compute(db *sql.DB, period string) (Results, error) {
 	r := Results{Period: period}
 
-	// Found money is the excess on anomalies that have been explained or
-	// accepted: an open one is not found yet, it is only noticed, and a
-	// dismissed one was decided against.
-	//
-	// SIGNED, not absolute. This summed ABS(excess_cents), so a finding whose
-	// spend went DOWN against its baseline was counted as money the crew
-	// found. A drop is a real finding and worth detecting, because an
-	// unexpected one often means something stopped working, but it is not
-	// money anybody recovered.
-	//
-	// One such row in the seeded estate, Microsoft Sentinel at -152.79, made
-	// this read 1559.93 where 1254.35 was defensible, and carried into the
-	// annualised figure and into the return ratio the page uses to say whether
-	// the crew paid for itself. The bias ran in the flattering direction,
-	// which is the one nobody checks.
-	if err := db.QueryRow(`SELECT COALESCE(SUM(excess_cents),0)
-		FROM anomalies WHERE state IN ('explained','accepted')`).
-		Scan(&r.FoundMonthly); err != nil {
+	found, err := FoundMonthly(db)
+	if err != nil {
 		return r, err
 	}
+	r.FoundMonthly = found
 	// EXPLAINED only.
 	//
 	// This counted explained and accepted together, which put "5 anomalies
@@ -111,6 +96,36 @@ func Compute(db *sql.DB, period string) (Results, error) {
 		return r, err
 	}
 	return r, nil
+}
+
+// FoundMonthly is the money the crew put on the table: the excess on
+// anomalies that have been explained or accepted. An open one is not found
+// yet, it is only noticed, and a dismissed one was decided against.
+//
+// SIGNED, not absolute. This summed ABS(excess_cents), so a finding whose
+// spend went DOWN against its baseline was counted as money the crew
+// found. A drop is a real finding and worth detecting, because an
+// unexpected one often means something stopped working, but it is not
+// money anybody recovered.
+//
+// One such row in the seeded estate, Microsoft Sentinel at -152.79, made
+// this read 1559.93 where 1254.35 was defensible, and carried into the
+// annualised figure and into the return ratio the page uses to say whether
+// the crew paid for itself. The bias ran in the flattering direction,
+// which is the one nobody checks.
+//
+// It is a function of its own because two places state this figure, the
+// Results page and the crew-cost KPI, and the KPI kept the absolute sum for
+// weeks after Results was corrected: two copies of one definition is how
+// they disagree. Both call this one.
+func FoundMonthly(db *sql.DB) (money.Cents, error) {
+	var found money.Cents
+	if err := db.QueryRow(`SELECT COALESCE(SUM(excess_cents),0)
+		FROM anomalies WHERE state IN ('explained','accepted')`).
+		Scan(&found); err != nil {
+		return 0, err
+	}
+	return found, nil
 }
 
 // Return is the crew's own economics: money found against what the crew cost

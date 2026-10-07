@@ -7,8 +7,8 @@
 // imports are fmt and two of this module's own packages, and that is the
 // whole of what it can reach. It was once described, in components.json and
 // in the architecture dossier, as a read-only report of a cloud account
-// (costcrew#68); the cloud FOCUS readers that would let a real customer
-// estate reach the crew are separate, later work.
+// (costcrew#68); the cloud FOCUS readers that let a real customer estate
+// reach the crew are connectors in internal/connectors, which this does not use.
 package main
 
 import (

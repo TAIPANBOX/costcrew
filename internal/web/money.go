@@ -123,6 +123,14 @@ func (s *Server) chargeback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	trueUp, _, _ := finops.TrueUpFor(s.db, p)
+	// Customer units (costcrew#74): read off the allocation already in hand,
+	// so this panel and the table below it cannot disagree.
+	unitRules, err := finops.UnitRules(s.db)
+	if err != nil {
+		http.Error(w, "store unavailable", http.StatusInternalServerError)
+		return
+	}
+	units := finops.UnitsOf(live, unitRules)
 
 	// C2-SPEC.md section 2: "the chargeback page shows the last close pack's
 	// figures beside the live ones." The last CLOSE overall, not necessarily
@@ -169,8 +177,9 @@ func (s *Server) chargeback(w http.ResponseWriter, r *http.Request) {
 		LastClose     finops.Period
 		HaveLastClose bool
 		LiveTotal     money.Cents
+		Units         []finops.UnitLine
 	}{s.shellFor(r, "Chargeback", "chargeback"), frozen, live, trueUp,
-		months, p, u.May("operator"), sp, tp, lastClose, haveLastClose, liveTotal})
+		months, p, u.May("operator"), sp, tp, lastClose, haveLastClose, liveTotal, units})
 }
 
 func (s *Server) closePeriod(w http.ResponseWriter, r *http.Request) {
@@ -283,39 +292,22 @@ func (s *Server) exportShowback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p, _ := s.period(r)
-	a, err := finops.Allocate(s.db, p)
+	sb, err := finops.Showback(s.db, p)
 	if err != nil {
 		http.Error(w, "store unavailable", http.StatusInternalServerError)
 		return
 	}
-	byTeam := map[string][2]int64{}
-	for _, t := range a.Teams {
-		v := byTeam[t.Team]
-		byTeam[t.Team] = [2]int64{v[0] + int64(t.Direct), v[1] + int64(t.Allocated)}
-	}
-	var rows [][]string
-	for _, team := range world.Teams {
-		v, ok := byTeam[team.Name]
-		if !ok {
-			continue
-		}
-		rows = append(rows, []string{p, team.Name, team.Unit,
-			cents(v[0]), cents(v[1]), cents(v[0] + v[1])})
+	// The rows come from finops.Showback: the roster's teams as the file
+	// always carried them, one row per customer unit a stamped rule covers,
+	// and, if any unit has none, one "(unruled units)" row, so the file
+	// accounts for the whole bill (costcrew#74).
+	rows := make([][]string, 0, len(sb))
+	for _, r := range sb {
+		rows = append(rows, []string{p, r.Team, r.BusinessUnit,
+			r.Direct.String(), r.Allocated.String(), r.Loaded().String()})
 	}
 	writeCSV(w, "showback-"+p+".csv", []string{
 		"period", "team", "business_unit", "direct_usd", "allocated_usd", "fully_loaded_usd"}, rows)
-}
-
-func cents(v int64) string {
-	neg := v < 0
-	if neg {
-		v = -v
-	}
-	s := fmt.Sprintf("%d.%02d", v/100, v%100)
-	if neg {
-		return "-" + s
-	}
-	return s
 }
 
 func (s *Server) exportResultsCSV(w http.ResponseWriter, r *http.Request) {

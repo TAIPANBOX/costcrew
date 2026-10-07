@@ -39,6 +39,7 @@ func runDueOn(db, roDB *sql.DB, cap money.Cents, hasCap bool, maxTok int, live b
 	if err != nil {
 		return err
 	}
+	refuseOwnerless(ests, gw)
 	if !live {
 		// The same shape -live's own preflight prints (report(), reused
 		// unchanged below): a dry run never hard-refuses over the ceiling,
@@ -265,6 +266,7 @@ func dueExecute(db, roDB *sql.DB, items []crew.PlanItem, ests []estimate, label,
 		return err
 	}
 	liveEsts := priceTasks(db, roster, liveTasks, maxTok)
+	refuseOwnerless(liveEsts, gw)
 
 	fmt.Printf("cadence-due: %d task(s) created under %s (%d in this run, worst case %s).\n",
 		n, label, wouldRun, usd(worst))

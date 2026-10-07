@@ -148,7 +148,7 @@ func TestCallAnthropicCarriesTheGatewaysSettlementOnItsResult(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	gw := Gateway{URL: srv.URL, RunID: "crew-1", AgentID: "agent://x/y.mercer", BudgetUSD: "1.00"}
+	gw := Gateway{URL: srv.URL, RunID: "crew-1", AgentID: "agent://x/y.mercer", OnBehalfOf: testChain, BudgetUSD: "1.00"}
 	res, err := callAnthropic(context.Background(), "claude-x", "hello", 100, gw)
 	if err != nil {
 		t.Fatalf("callAnthropic: %v", err)
@@ -172,7 +172,7 @@ func TestCallAnthropicCarriesTheGatewaysSettlementOnItsResult(t *testing.T) {
 			`"stop_reason":"end_turn","usage":{"input_tokens":10,"output_tokens":5}}`)
 	}))
 	defer srv2.Close()
-	gw2 := Gateway{URL: srv2.URL, RunID: "crew-1", AgentID: "agent://x/y.mercer", BudgetUSD: "1.00"}
+	gw2 := Gateway{URL: srv2.URL, RunID: "crew-1", AgentID: "agent://x/y.mercer", OnBehalfOf: testChain, BudgetUSD: "1.00"}
 	res2, err := callAnthropic(context.Background(), "claude-x", "hello", 100, gw2)
 	if err != nil {
 		t.Fatalf("callAnthropic: %v", err)
