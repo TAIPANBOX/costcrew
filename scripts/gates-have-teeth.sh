@@ -2128,8 +2128,8 @@ run_case $'owner chain: the tool loop builds its own headers again' \
 	$'TestTheToolLoopAndDeliverCallSendTheSameFuseHeaders' \
 	$'the tool loop sends' \
 	tools/run/loop.go \
-	$'		// that had never learned x-fuse-on-behalf-of (costcrew#73).\n		deliver.SetFuseHeaders(req, gw)' \
-	$'		// that had never learned x-fuse-on-behalf-of (costcrew#73).\n		req.Header.Set("x-fuse-run-id", gw.RunID)\n		req.Header.Set("x-fuse-agent-id", gw.AgentID)\n		req.Header.Set("x-fuse-budget-usd", gw.BudgetUSD)\n		if gw.ParentRunID != "" {\n			req.Header.Set("x-fuse-parent-run-id", gw.ParentRunID)\n		}'
+	$'		// never learned x-fuse-on-behalf-of (costcrew#73).\n		deliver.SetFuseHeaders(req, gw)' \
+	$'		// never learned x-fuse-on-behalf-of (costcrew#73).\n		req.Header.Set("x-fuse-run-id", gw.RunID)\n		req.Header.Set("x-fuse-agent-id", gw.AgentID)\n		req.Header.Set("x-fuse-budget-usd", gw.BudgetUSD)\n		if gw.ParentRunID != "" {\n			req.Header.Set("x-fuse-parent-run-id", gw.ParentRunID)\n		}'
 run_case $'owner chain: the owner goes into the chain unescaped' \
 	fail \
 	./internal/deliver \
@@ -2169,7 +2169,7 @@ run_case $'owner chain: the runner builds its Gateway without the chain' \
 	$'no owner chain' \
 	tools/run/live.go \
 	$'		BudgetUSD:  gatewayBudgetUSD(cfg.CeilingUSD, taskGuard),\n		OnBehalfOf: chain,' \
-	$'		BudgetUSD:  gatewayBudgetUSD(cfg.CeilingUSD, taskGuard),'
+	$'		BudgetUSD:  gatewayBudgetUSD(cfg.CeilingUSD, taskGuard),\n		OnBehalfOf: chain[:0],'
 run_case $'owner chain: the bench builds its Gateway without the chain' \
 	fail \
 	./tools/bench \
@@ -2177,7 +2177,7 @@ run_case $'owner chain: the bench builds its Gateway without the chain' \
 	$'no owner chain' \
 	tools/bench/gateway.go \
 	$'		BudgetUSD:  budgetUSD,\n		OnBehalfOf: chain,' \
-	$'		BudgetUSD:  budgetUSD,'
+	$'		BudgetUSD:  budgetUSD,\n		OnBehalfOf: chain[:0],'
 run_case $'owner chain: the console builds its plan-ask Gateway without the chain' \
 	fail \
 	./internal/web \
@@ -2185,7 +2185,7 @@ run_case $'owner chain: the console builds its plan-ask Gateway without the chai
 	$'want 1' \
 	internal/web/planning.go \
 	$'		BudgetUSD:  deliver.GatewayBudgetUSD(sup.PerTask, sup.PerTask),\n		OnBehalfOf: chain,' \
-	$'		BudgetUSD:  deliver.GatewayBudgetUSD(sup.PerTask, sup.PerTask),'
+	$'		BudgetUSD:  deliver.GatewayBudgetUSD(sup.PerTask, sup.PerTask),\n		OnBehalfOf: chain[:0],'
 run_case $'owner chain: the plan-ask names the supervisor\'s roster owner, not the person who asked' \
 	fail \
 	./internal/web \
