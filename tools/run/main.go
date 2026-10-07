@@ -507,7 +507,7 @@ func report(db *sql.DB, ests []estimate, maxTok int, cap money.Cents, hasCap boo
 	fmt.Println()
 	fmt.Printf("How the worst case is built: the prompt is this task and its analyst's\n")
 	fmt.Printf("brief, bounded at one token per byte, which no tokeniser can exceed.\n")
-	fmt.Printf("An engine on the tool loop (anthropic, openrouter) also sends the tool\n")
+	fmt.Printf("An engine on the tool loop (anthropic, openrouter, local) also sends the tool\n")
 	fmt.Printf("catalogue on every round, %d or %d bytes, counted at the same rule, and\n",
 		deliver.ToolCatalogueTokens("anthropic"), deliver.ToolCatalogueTokens("openrouter"))
 	fmt.Printf("the whole call is reserved %d times over for the loop's rounds.\n", maxToolRounds)
