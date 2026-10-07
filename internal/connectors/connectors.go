@@ -86,6 +86,8 @@ var readers = map[string]Reader{
 	"aws-budgets-recommended":     awsBudgetsRecommendedReader,
 	"gcp-cost-recommender-budget": gcpCostRecommenderBudgetReader,
 	"azure-advisor-budget":        azureAdvisorBudgetReader,
+	"anthropic-usage":             providerUsageReader(anthropicUsageSpec),
+	"openai-usage":                providerUsageReader(openaiUsageSpec),
 }
 
 type Kind string
@@ -104,6 +106,9 @@ type Input struct {
 	Hint   string
 	Secret bool
 	EnvVar string
+	// Optional is a setting the reader has a stated default for, so Test
+	// does not list it as still needed. An empty filter keeps everything.
+	Optional bool
 }
 
 type Connector struct {
@@ -232,17 +237,62 @@ var Catalogue = []Connector{
 	},
 	{
 		ID: "anthropic-usage", Name: "Anthropic usage and cost", Provider: "ai",
-		Kind: API, Feeds: "charges (ai)", Metered: false,
-		Auth:     "an ADMIN key (sk-ant-admin...), not an ordinary API key",
-		CostNote: "The usage endpoint is not billed. The tokens it reports certainly were.",
-		Note: "The reader is not written; the export's shape and cost are documented " +
-			"so the decision can be made before it is.",
-		Doc: "https://docs.claude.com/en/api/admin-api",
-		Inputs: []Input{{Name: "key", Label: "Admin key", Secret: true,
-			EnvVar: "ANTHROPIC_ADMIN_KEY", Hint: "an admin key, not an API key"}},
-		Cannot: "It cannot tell you which AGENT spent it. That needs the calls to " +
-			"carry an agent header through a gateway, and until they do this " +
-			"console says team, not agent, and says so on the page.",
+		Kind: API, Feeds: "provider_usage", Metered: false,
+		Auth: "none for the console: it reads a folder. costcrew-usage fetches the folder with an " +
+			"Admin API key read from ANTHROPIC_ADMIN_KEY (sk-ant-admin..., not an ordinary API key), " +
+			"never stored and never printed",
+		CostNote: "Neither the Usage and Cost API guide nor its reference names a charge for " +
+			"calling these endpoints (read 2026-10-07). The tokens it reports certainly were billed.",
+		Note: "The provider's own cost per model per day (GET /v1/organizations/cost_report) and " +
+			"tokens per model, key and day (GET /v1/organizations/usage_report/messages), saved as " +
+			"JSON by costcrew-usage or by hand into usage-*.json and cost-*.json files. Read into " +
+			"provider_usage and set beside the gateway's own rows on the reconciliation page. " +
+			"It never writes charges: it is a check on the gateway's figure, not a second copy of it.",
+		Doc: "https://platform.claude.com/docs/en/build-with-claude/usage-cost-api",
+		Inputs: []Input{
+			{Name: "path", Label: "Folder costcrew-usage writes to",
+				Hint: "the local path holding usage-*.json and cost-*.json"},
+			{Name: "api_key_ids", Label: "API key ids the gateway uses", Optional: true,
+				Hint: "comma-separated apikey_... ids; empty keeps every key"},
+			{Name: "workspace_ids", Label: "Workspace ids", Optional: true,
+				Hint: "comma-separated wrkspc_... ids; empty keeps every workspace"},
+			{Name: "tolerance_cents", Label: "Tolerance, cents", Optional: true,
+				Hint: "a day and model within this many cents is matched; default 1"},
+			{Name: "tolerance_bp", Label: "Tolerance, basis points of the provider's figure", Optional: true,
+				Hint: "or within this share of it, whichever is larger; default 50 (0.5%)"},
+		},
+		Cannot: "It cannot tell you which AGENT spent it: one key is shared, and only the " +
+			"gateway's rows name the agent. Its cost report carries no API key, so money is " +
+			"scoped by workspace, not by key. Priority Tier costs are not in the cost report at all.",
+	},
+	{
+		ID: "openai-usage", Name: "OpenAI organization usage and costs", Provider: "ai",
+		Kind: API, Feeds: "provider_usage", Metered: false,
+		Auth: "none for the console: it reads a folder. costcrew-usage fetches the folder with an " +
+			"Admin key read from OPENAI_ADMIN_KEY, never stored and never printed",
+		CostNote: "OpenAI's API reference for these endpoints names no charge for calling them " +
+			"(read 2026-10-07). The tokens they report certainly were billed.",
+		Note: "The organization's own cost per line item, project and key per day " +
+			"(GET /v1/organization/costs) and completions tokens per model, key and day " +
+			"(GET /v1/organization/usage/completions), saved as JSON into usage-*.json and " +
+			"cost-*.json files. Read into provider_usage and set beside the gateway's own rows " +
+			"on the reconciliation page. It never writes charges.",
+		Doc: "https://platform.openai.com/docs/api-reference/usage",
+		Inputs: []Input{
+			{Name: "path", Label: "Folder costcrew-usage writes to",
+				Hint: "the local path holding usage-*.json and cost-*.json"},
+			{Name: "api_key_ids", Label: "API key ids the gateway uses", Optional: true,
+				Hint: "comma-separated key_... ids; empty keeps every key"},
+			{Name: "project_ids", Label: "Project ids", Optional: true,
+				Hint: "comma-separated proj_... ids; empty keeps every project"},
+			{Name: "tolerance_cents", Label: "Tolerance, cents", Optional: true,
+				Hint: "a day and model within this many cents is matched; default 1"},
+			{Name: "tolerance_bp", Label: "Tolerance, basis points of the provider's figure", Optional: true,
+				Hint: "or within this share of it, whichever is larger; default 50 (0.5%)"},
+		},
+		Cannot: "It cannot tell you which AGENT spent it, for the same reason as the Anthropic " +
+			"entry. A cost line item is read as \"model, token type\"; one in any other shape is " +
+			"kept whole as its own row rather than guessed into a model.",
 	},
 	{
 		ID: "openrouter-usage", Name: "OpenRouter activity", Provider: "ai",
@@ -512,7 +562,7 @@ func Test(db *sql.DB, id string, env func(string) string) (string, bool, error) 
 			}
 			continue
 		}
-		if strings.TrimSpace(conn.Config[in.Name]) == "" {
+		if strings.TrimSpace(conn.Config[in.Name]) == "" && !in.Optional {
 			missing = append(missing, in.Label)
 		}
 	}

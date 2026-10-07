@@ -1,0 +1,79 @@
+[
+ {
+  "data": [
+   {
+    "starting_at": "2026-10-01T00:00:00Z",
+    "ending_at": "2026-10-02T00:00:00Z",
+    "results": [
+     {
+      "amount": "35.0",
+      "currency": "USD",
+      "model": "claude-haiku-4-5",
+      "token_type": "uncached_input_tokens",
+      "cost_type": "tokens",
+      "description": "Claude Haiku 4.5 Usage - Input Tokens",
+      "workspace_id": null,
+      "context_window": "0-200k",
+      "service_tier": "standard",
+      "inference_geo": "global"
+     },
+     {
+      "amount": "70.5",
+      "currency": "USD",
+      "model": "claude-haiku-4-5",
+      "token_type": "output_tokens",
+      "cost_type": "tokens",
+      "description": "Claude Haiku 4.5 Usage - Output Tokens",
+      "workspace_id": null,
+      "context_window": "0-200k"
+     },
+     {
+      "amount": "0.00005",
+      "currency": "USD",
+      "model": "claude-haiku-4-5",
+      "token_type": "output_tokens",
+      "cost_type": "tokens",
+      "description": "Claude Haiku 4.5 Usage - Output Tokens",
+      "workspace_id": null,
+      "context_window": "200k-1M"
+     },
+     {
+      "amount": "123.78912",
+      "currency": "USD",
+      "model": "claude-sonnet-4-5",
+      "token_type": "cache_read_input_tokens",
+      "cost_type": "tokens",
+      "description": "Claude Sonnet 4.5 Usage - Cache Read",
+      "workspace_id": "wrkspc_1"
+     },
+     {
+      "amount": "1000",
+      "currency": "USD",
+      "model": null,
+      "token_type": null,
+      "cost_type": "web_search",
+      "description": "Web Search Usage",
+      "workspace_id": null
+     }
+    ]
+   },
+   {
+    "starting_at": "2026-10-02T00:00:00Z",
+    "ending_at": "2026-10-03T00:00:00Z",
+    "results": [
+     {
+      "amount": "10",
+      "currency": "USD",
+      "model": "claude-haiku-4-5",
+      "token_type": "output_tokens",
+      "cost_type": "tokens",
+      "description": "x",
+      "workspace_id": null
+     }
+    ]
+   }
+  ],
+  "has_more": false,
+  "next_page": null
+ }
+]

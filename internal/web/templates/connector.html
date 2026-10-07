@@ -59,6 +59,9 @@
     {{- if or (eq .C.ID "aws-rightsizing") (eq .C.ID "gcp-recommender") (eq .C.ID "azure-advisor")}}
     <p class="note"><a href="/rightsizing">View imported rightsizing recommendations</a></p>
     {{end}}
+    {{- if or (eq .C.ID "anthropic-usage") (eq .C.ID "openai-usage")}}
+    <p class="note"><a href="/reconciliation?connector={{.C.ID}}">Reconcile the provider's figures against the gateway's rows</a></p>
+    {{end}}
     {{if .CanAct}}
     <div class="row" style="align-items:flex-start">
       <form class="action" method="post" action="/connectors/{{.C.ID}}/test">

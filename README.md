@@ -100,13 +100,13 @@ flowchart TB
 ```
 
 - **Consumes**: billing exports and vendor usage APIs, never another service's
-  store. Seventeen connectors: AWS Data Exports (FOCUS 1.2), Cost Explorer, GCP
+  store. Eighteen connectors: AWS Data Exports (FOCUS 1.2), Cost Explorer, GCP
   BigQuery billing export, Azure Cost Management, Kubecost, OpenCost, TokenFuse
-  FOCUS export, Anthropic and OpenRouter usage, Compute Optimizer, AWS Cost
-  Explorer and GCP Recommender and Azure Advisor rightsizing recommendations,
-  AWS Budgets recommended threshold, GCP Cost Recommender and Azure Advisor
-  budget-shaped recommendations, SaaS seats. Eight built, nine documented, and
-  every entry declares whether running it is metered per call.
+  FOCUS export, Anthropic, OpenAI and OpenRouter usage, Compute Optimizer, AWS
+  Cost Explorer and GCP Recommender and Azure Advisor rightsizing
+  recommendations, AWS Budgets recommended threshold, GCP Cost Recommender and
+  Azure Advisor budget-shaped recommendations, SaaS seats. Ten built, eight
+  documented, and every entry declares whether running it is metered per call.
 - **Produces**: twenty-two event types on the shared agent-event bus, registered in
   `agent-passport` SPEC 6.2 under the source `costcrew`, schema v0.2.
 - **Enforces**: nothing. `enforced: false` is stamped on every event, and
@@ -171,15 +171,16 @@ shared bus. Two flags carry the whole integration: `-stack-events` names the
 NDJSON file, and the name IS the integration because genaryx keys a read offset
 off the stem; `-stack-host` sets the `agent://` authority.
 
-### The other two binaries in the image
+### The other binaries in the image
 
-The image holds four binaries, all static and run as the same non-root user:
+The image holds five binaries, all static and run as the same non-root user:
 `costcrew` (the console, the entrypoint), `costcrew-run` (the crew's runner),
-`costcrew-enforce` and `costcrew-idryxsource`. The last two are not services.
-Each runs once, prints, and exits, so a compose file runs them as separate
-containers from the same image with the entrypoint replaced, mounting the
-console's data directory. Images up to `v0.3.0` carry only the first two; the
-first release built after this change carries all four.
+`costcrew-enforce`, `costcrew-idryxsource` and `costcrew-usage`. The last
+three are not services. Each runs once, prints, and exits, so a compose file
+runs them as separate containers from the same image with the entrypoint
+replaced, mounting the console's data directory. Images up to `v0.3.0` carry
+only the first two; `costcrew-usage` is in the first release built after the
+provider usage readers landed.
 
 `costcrew-enforce` shows what the console's budgets would set on a TokenFuse
 control plane and sends nothing unless told to. It is the one binary here that
@@ -192,6 +193,25 @@ changes another system, which is why it is a two-step command:
 | `-period YYYY-MM` | which month's budgets to push; the default is the last closed month |
 | `-apply FINGERPRINT` | send exactly the plan that a run without this flag printed with that fingerprint; refuses if the plan has changed since |
 | `TOKENFUSE_KEY` (environment) | the control plane's key; required, read from the environment and never written anywhere |
+
+`costcrew-usage` fetches a model provider's own usage and cost reports into a
+folder, which the console's `anthropic-usage` and `openai-usage` connectors
+read. The agents share one provider key, so which agent spent what comes only
+from the gateway's per-call rows; the console's `/reconciliation` page sets
+the provider's own cost per model per day beside the sum of those rows, with
+the gap as its own column and its own line. The console itself never calls the
+provider: it reads the folder, and this binary is the one thing that talks to
+the provider, with GET requests to read-only report endpoints and no model
+call. Neither provider's documentation names a charge for these reports.
+
+| Flag or variable | Meaning |
+|---|---|
+| `-vendor NAME` | `anthropic` or `openai`; required |
+| `-out DIR` | the folder to write into, the path saved on the console's connector; required unless `-dry-run` |
+| `-from DAY`, `-to DAY` | the days to fetch, `YYYY-MM-DD`, inclusive; the default is the 31 days ending yesterday (UTC), at most 366 |
+| `-dry-run` | fetch and check, print what would be written, write nothing |
+| `-base-url URL` | replace the provider's origin, for a proxy; `https` only, except a loopback address |
+| `ANTHROPIC_ADMIN_KEY`, `OPENAI_ADMIN_KEY` (environment) | an admin key for the chosen provider, read from the environment and never written or printed; an ordinary API key is refused by the provider, and the refusal is reported as a key that may lack admin scope |
 
 `costcrew-idryxsource` writes the roster as the `agents` source idryx asks for,
 so this console's crew appears in the identity graph:
