@@ -374,12 +374,6 @@ func TestADocumentTheContractWouldRefuseIsNeverWritten(t *testing.T) {
 
 // --------------------------------------------------------------------- emit
 
-type line struct {
-	event string
-	ts    float64
-	data  map[string]any
-}
-
 func journal(t *testing.T, crew string, lines ...string) {
 	t.Helper()
 	body := strings.Join(lines, "\n") + "\n"

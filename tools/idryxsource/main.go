@@ -46,12 +46,16 @@ func main() { os.Exit(run(os.Args[1:], os.Stdout, os.Stderr)) }
 // a test can read what a person at a terminal would read and see what was
 // written to disk.
 func run(args []string, stdout, stderr io.Writer) int {
-	fs := flag.NewFlagSet("idryxsource", flag.ContinueOnError)
-	fs.SetOutput(stderr)
-	dir := fs.String("data", ".", "the console's data directory")
-	host := fs.String("host", "costcrew.local", "the agent:// authority, matching -stack-host")
-	out := fs.String("out", "-", "where to write it; - is stdout")
-	if err := fs.Parse(args); err != nil {
+	// Declared through the package-level flag.String calls on a fresh
+	// CommandLine, the shape internal/manifest reads components.json against
+	// (tools/bench/main.go says why at length); ContinueOnError so a test gets a
+	// bad flag back as a status and not as os.Exit.
+	flag.CommandLine = flag.NewFlagSet("idryxsource", flag.ContinueOnError)
+	flag.CommandLine.SetOutput(stderr)
+	dir := flag.String("data", ".", "the console's data directory")
+	host := flag.String("host", "costcrew.local", "the agent:// authority, matching -stack-host")
+	out := flag.String("out", "-", "where to write it; - is stdout")
+	if err := flag.CommandLine.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
 		}

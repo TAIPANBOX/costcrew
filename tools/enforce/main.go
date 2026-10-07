@@ -32,14 +32,18 @@ func main() {
 // is read through getenv so a test can hand it one without touching the real
 // environment, and so no test can pick up a real TokenFuse key by accident.
 func run(prog string, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
-	fs := flag.NewFlagSet("enforce", flag.ContinueOnError)
-	fs.SetOutput(stderr)
-	dir := fs.String("data", ".", "the console's data directory")
-	base := fs.String("cloud", "", "TokenFuse control plane, e.g. http://127.0.0.1:8791")
-	period := fs.String("period", "", "which month's budgets to push; default is the last closed one")
-	expect := fs.String("apply", "", "the plan's fingerprint, from a run without this flag. "+
+	// Declared through the package-level flag.String calls on a fresh
+	// CommandLine, the shape internal/manifest reads components.json against
+	// (tools/bench/main.go says why at length); ContinueOnError so a test gets a
+	// bad flag back as a status and not as os.Exit.
+	flag.CommandLine = flag.NewFlagSet("enforce", flag.ContinueOnError)
+	flag.CommandLine.SetOutput(stderr)
+	dir := flag.String("data", ".", "the console's data directory")
+	base := flag.String("cloud", "", "TokenFuse control plane, e.g. http://127.0.0.1:8791")
+	period := flag.String("period", "", "which month's budgets to push; default is the last closed one")
+	expect := flag.String("apply", "", "the plan's fingerprint, from a run without this flag. "+
 		"Sends exactly the plan that was printed with that fingerprint, and refuses if it has changed")
-	if err := fs.Parse(args); err != nil {
+	if err := flag.CommandLine.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
 		}
