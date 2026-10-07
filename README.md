@@ -397,9 +397,9 @@ estate-gates repository's own PROVEN record:
 ## Gates
 
 ```sh
-go test ./...                        # 1020 tests, 20 packages
+go test ./...                        # 1050 tests, 20 packages
 ./scripts/features-are-bound.sh      # every scenario bound to a named test, both ways
-./scripts/gates-have-teeth.sh        # 190 cases: each gate is made to fail on purpose
+./scripts/gates-have-teeth.sh        # 220 cases: each gate is made to fail on purpose
 gofmt -l . && go vet ./...
 ```
 

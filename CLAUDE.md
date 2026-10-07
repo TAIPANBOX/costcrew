@@ -84,9 +84,9 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 998 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 196 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 325 scenarios, both directions
+go test ./...                        # 1050 tests, 20 packages
+./scripts/gates-have-teeth.sh        # 220 cases; needs a clean tree
+./scripts/features-are-bound.sh      # 341 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
@@ -124,7 +124,7 @@ run priced at 0) added 52 tests (`internal/engines/local_test.go`, 8;
 `internal/deliver/local_test.go`, 18; `tools/run/local_test.go`, 7;
 `tools/run/local_bound_test.go`, 19), 24 `gates-have-teeth.sh` cases (twenty-one
 `fail`, three `pass`) and 16 scenarios (`features/local-model.feature`, new),
-and no route: 968 -> 1020 tests, 166 -> 190 cases, 295 -> 311 scenarios, 58 GET
+and no route: 998 -> 1050 tests, 196 -> 220 cases, 325 -> 341 scenarios, 58 GET
 routes unchanged, re-measured on this branch with the three commands this
 block already names. `components.json` gained the runner's `-model-url`,
 `-model-name`, `-local-price-in`, `-local-price-out` and `-max-run-tokens` and
