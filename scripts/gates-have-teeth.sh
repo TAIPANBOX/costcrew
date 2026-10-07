@@ -3543,16 +3543,16 @@ run_case $'idryxsource: an agent acts on behalf of itself, not its parent' \
 	$'TestTheRosterIsWrittenAsAnIdryxAgentsSource' \
 	$'--- FAIL: TestTheRosterIsWrittenAsAnIdryxAgentsSource' \
 	tools/idryxsource/main.go \
-	$'e.OnBehalfOf = "agent://" + *host + "/" + a.Parent' \
-	$'e.OnBehalfOf = "agent://" + *host + "/" + a.Name'
+	$'e.OnBehalfOf = "agent://" + host + "/" + a.Parent' \
+	$'e.OnBehalfOf = "agent://" + host + "/" + a.Name'
 run_case $'idryxsource: the skills are written where the rights belong' \
 	fail \
 	./tools/idryxsource \
 	$'TestTheRosterIsWrittenAsAnIdryxAgentsSource' \
 	$'--- FAIL: TestTheRosterIsWrittenAsAnIdryxAgentsSource' \
 	tools/idryxsource/main.go \
-	$'append([]string(nil), a.Rights...)' \
-	$'append([]string(nil), a.Skills...)'
+	$'append(make([]string, 0, len(a.Rights)), a.Rights...)' \
+	$'append(make([]string, 0, len(a.Skills)), a.Skills...)'
 run_case $'idryxsource: the hire date is passed on as a bare date, not RFC 3339' \
 	fail \
 	./tools/idryxsource \
