@@ -22,6 +22,7 @@
       "class": "service",
       "checked": {
         "package": "github.com/TAIPANBOX/costcrew/cmd/costcrew",
+        "image": true,
         "listen_default": "127.0.0.1:8321",
         "health_path": "/healthz",
         "env": {
@@ -121,6 +122,7 @@
       "class": "tool",
       "checked": {
         "package": "github.com/TAIPANBOX/costcrew/tools/enforce",
+        "image": true,
         "flags": {
           "apply": {
             "required": false
@@ -152,6 +154,7 @@
       "class": "tool",
       "checked": {
         "package": "github.com/TAIPANBOX/costcrew/tools/idryxsource",
+        "image": true,
         "flags": {
           "data": {
             "required": false
@@ -243,7 +246,7 @@
       },
       "declared": {
         "role": {
-          "value": "reconciles the generated estate's own planes (utilisation rows, SaaS seats, commitments) against the generated ledger, world.Generate(), for the last full month, and prints where they do not add up; it opens no store, reads no cloud account and makes no network call (its only imports are fmt, internal/money and internal/world). No AWS or GCP billing reader exists in this repository yet; the two folder readers that would make a real customer estate reach the crew are tracked in costcrew#68",
+          "value": "reconciles the generated estate's own planes (utilisation rows, SaaS seats, commitments) against the generated ledger, world.Generate(), for the last full month, and prints where they do not add up; it opens no store, reads no cloud account and makes no network call (its only imports are fmt, internal/money and internal/world). The AWS Data Exports and GCP billing export folder readers that make a real customer estate reach the crew are connectors in internal/connectors, which this tool does not use (costcrew#68)",
           "why": "as above"
         }
       }
@@ -253,6 +256,7 @@
       "class": "tool",
       "checked": {
         "package": "github.com/TAIPANBOX/costcrew/tools/run",
+        "image": true,
         "env": {
           "COSTCREW_GATEWAY": {
             "required": false

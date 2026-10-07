@@ -100,18 +100,22 @@ flowchart TB
 ```
 
 - **Consumes**: billing exports and vendor usage APIs, never another service's
-  store. Seventeen connectors: AWS Data Exports (FOCUS 1.2), Cost Explorer, GCP
-  BigQuery billing export, Azure Cost Management, Kubecost, OpenCost, TokenFuse
+  store. Seventeen connectors: AWS Data Exports (FOCUS 1.0 and 1.2, read from a
+  synced folder), Cost Explorer, GCP billing export (a FOCUS CSV folder
+  exported from BigQuery), Azure Cost Management, Kubecost, OpenCost, TokenFuse
   FOCUS export, Anthropic and OpenRouter usage, Compute Optimizer, AWS Cost
   Explorer and GCP Recommender and Azure Advisor rightsizing recommendations,
   AWS Budgets recommended threshold, GCP Cost Recommender and Azure Advisor
-  budget-shaped recommendations, SaaS seats. Eight built, nine documented, and
+  budget-shaped recommendations, SaaS seats. Ten built, seven documented, and
   every entry declares whether running it is metered per call.
 - **Produces**: twenty-two event types on the shared agent-event bus, registered in
   `agent-passport` SPEC 6.2 under the source `costcrew`, schema v0.2.
-- **Enforces**: nothing. `enforced: false` is stamped on every event, the console
-  makes no outbound call while serving a page, and `internal/enforce` is a
-  separate binary it never imports.
+- **Enforces**: nothing. `enforced: false` is stamped on every event, and
+  `internal/enforce` is a separate binary the console never imports. The
+  console makes no outbound call while serving a page, with one exception: the
+  supervisor's plan-ask (`POST /sprint/plan/ask`) calls a model through
+  `deliver.Call`, and only when `-gateway` or `-gateway-openai` is set. A test
+  refuses any other way for the console to build an outbound request.
 
 ## The three rules that make the numbers usable
 
@@ -171,6 +175,81 @@ Inside the stack, `./up.sh --with-finops` from
 shared bus. Two flags carry the whole integration: `-stack-events` names the
 NDJSON file, and the name IS the integration because genaryx keys a read offset
 off the stem; `-stack-host` sets the `agent://` authority.
+
+### The other two binaries in the image
+
+The image holds four binaries, all static and run as the same non-root user:
+`costcrew` (the console, the entrypoint), `costcrew-run` (the crew's runner),
+`costcrew-enforce` and `costcrew-idryxsource`. The last two are not services.
+Each runs once, prints, and exits, so a compose file runs them as separate
+containers from the same image with the entrypoint replaced, mounting the
+console's data directory. Images up to `v0.3.0` carry only the first two; the
+first release built after this change carries all four.
+
+`costcrew-enforce` shows what the console's budgets would set on a TokenFuse
+control plane and sends nothing unless told to. It is the one binary here that
+changes another system, which is why it is a two-step command:
+
+| Flag or variable | Meaning |
+|---|---|
+| `-data DIR` | the console's data directory (default `.`) |
+| `-cloud URL` | the TokenFuse control plane, for example `http://tokenfuse:8791`; required |
+| `-period YYYY-MM` | which month's budgets to push; the default is the last closed month |
+| `-apply FINGERPRINT` | send exactly the plan that a run without this flag printed with that fingerprint; refuses if the plan has changed since |
+| `TOKENFUSE_KEY` (environment) | the control plane's key; required, read from the environment and never written anywhere |
+
+`costcrew-idryxsource` writes the roster as the `agents` source idryx asks for,
+so this console's crew appears in the identity graph:
+
+| Flag | Meaning |
+|---|---|
+| `-data DIR` | the console's data directory (default `.`) |
+| `-host NAME` | the `agent://` authority, matching the console's `-stack-host` (default `costcrew.local`) |
+| `-out FILE` | where to write the JSON; `-` is stdout (default) |
+
+From a compose file that already runs the console, two services under a
+`manual` profile, so `docker compose up` does not start them:
+
+```yaml
+services:
+  costcrew:
+    image: ghcr.io/taipanbox/costcrew:<tag>
+    volumes: ["costcrew-data:/var/lib/costcrew"]
+    command: ["-data", "/var/lib/costcrew"]
+
+  costcrew-enforce:
+    image: ghcr.io/taipanbox/costcrew:<tag>
+    profiles: ["manual"]
+    entrypoint: ["/usr/local/bin/costcrew-enforce"]
+    command: ["-data", "/var/lib/costcrew", "-cloud", "http://tokenfuse:8791"]
+    # Add "-apply", "<fingerprint>" to command to send the plan a first run printed.
+    environment:
+      TOKENFUSE_KEY: ${TOKENFUSE_KEY}   # supplied by the operator's shell or an env file
+    volumes: ["costcrew-data:/var/lib/costcrew"]
+
+  costcrew-idryxsource:
+    image: ghcr.io/taipanbox/costcrew:<tag>
+    profiles: ["manual"]
+    entrypoint: ["/usr/local/bin/costcrew-idryxsource"]
+    command: ["-data", "/var/lib/costcrew", "-host", "customer.example", "-out", "/var/lib/idryx/sources/agents.json"]
+    volumes:
+      - costcrew-data:/var/lib/costcrew
+      - idryx-sources:/var/lib/idryx/sources   # must be writable by uid 65532
+
+volumes:
+  costcrew-data:
+  idryx-sources:
+```
+
+Run them with `docker compose run --rm costcrew-enforce` (the first run prints
+the plan and its fingerprint) and `docker compose run --rm costcrew-idryxsource`.
+Without compose, the same thing is `docker run --rm --entrypoint
+costcrew-enforce -e TOKENFUSE_KEY -v costcrew-data:/var/lib/costcrew
+ghcr.io/taipanbox/costcrew:<tag> -data /var/lib/costcrew -cloud URL`. In
+Kubernetes the equivalent is a `Job` or `CronJob` with `command:
+["/usr/local/bin/costcrew-enforce"]` and the same arguments. `costcrew-enforce`
+exits 2 with a message when `-cloud` or `TOKENFUSE_KEY` is missing, so a
+misconfigured job fails loudly instead of doing nothing.
 
 ## Verify the image
 
@@ -252,8 +331,9 @@ Two defects turned up, both already fixed on `main` and neither in
   box's own export cleanly (277 rows, 4 agents, 0.07 total billed cost).
   Issue #66, fixed by #70 (`cb90412`, invariant 50).
 
-Still open: no AWS or GCP billing reader exists yet, so the board worked
-the generated estate and the box's AI spend alone (#68). This run used
+Still open at the time of the run: no AWS or GCP billing reader existed, so
+the board worked the generated estate and the box's AI spend alone (#68; both
+folder readers have since been added). This run used
 `v0.2.0`, which predates the console's `-gateway` flag, so the flag was
 dropped from the command (#69); closed by `v0.2.1`, the first image that
 carries `-gateway`.

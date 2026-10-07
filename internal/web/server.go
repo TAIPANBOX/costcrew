@@ -119,6 +119,13 @@ func New(st *store.Store, au *auth.Auth, sk Stack) *Server {
 // are addresses somebody else's software builds; the console accommodates
 // them rather than requiring them to be escaped.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Before anything else, so no response, an error or a redirect included,
+	// leaves without the headers, and no handler reads a body that is over its
+	// cap (edge.go, invariant 59).
+	s.securityHeaders(w, r)
+	if !limitBody(w, r) {
+		return
+	}
 	switch {
 	case strings.HasPrefix(r.URL.Path, "/a/"):
 		r.SetPathValue("uri", strings.TrimPrefix(r.URL.Path, "/a/"))

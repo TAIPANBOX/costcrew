@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/TAIPANBOX/costcrew/internal/crew"
 	"github.com/TAIPANBOX/costcrew/internal/deliver"
 	"github.com/TAIPANBOX/costcrew/internal/engines"
 	"github.com/TAIPANBOX/costcrew/internal/estate"
@@ -40,14 +41,23 @@ import (
 // agent id TokenFuse's own trace, and the console's own bus, would not
 // recognise as the same installation. main.go's run() requires -stack-host
 // whenever -gateway is set, before this is ever called.
-func gatewayFor(url, openaiURL, runID, host, analystName, budgetUSD string) deliver.Gateway {
-	return deliver.Gateway{
-		URL:       url,
-		OpenAIURL: openaiURL,
-		RunID:     runID,
-		AgentID:   stack.AgentURI(host, analystName),
-		BudgetUSD: budgetUSD,
+//
+// It also names whose spend this is (costcrew#73): the analyst's owner from
+// the roster as a user:// root, then the analyst's agent
+// (deliver.OnBehalfOfChain). An analyst with no owner is an error naming it.
+func gatewayFor(url, openaiURL, runID, host string, analyst crew.Analyst, budgetUSD string) (deliver.Gateway, error) {
+	chain, err := deliver.AnalystOnBehalfOf(host, analyst)
+	if err != nil {
+		return deliver.Gateway{}, err
 	}
+	return deliver.Gateway{
+		URL:        url,
+		OpenAIURL:  openaiURL,
+		RunID:      runID,
+		AgentID:    stack.AgentURI(host, analyst.Name),
+		BudgetUSD:  budgetUSD,
+		OnBehalfOf: chain,
+	}, nil
 }
 
 // benchRunID names one bench invocation's live scoring, the same shape
@@ -92,9 +102,21 @@ func scoreLive(db *sql.DB, cases []knownCase, engine, model string, p engines.Pr
 		return nil, err
 	}
 
+	// Every case's gateway is built BEFORE the first call, so a case whose
+	// analyst has no owner refuses the whole run with nothing spent, instead
+	// of scoring the cases before it and failing on that one (costcrew#73).
+	gws := make([]deliver.Gateway, len(cases))
+	for i, c := range cases {
+		gw, err := gatewayFor(gatewayURL, gatewayOpenAIURL, runID, host, c.Analyst, budgetUSD)
+		if err != nil {
+			return nil, fmt.Errorf("case %s: %w", c.Anomaly.ID, err)
+		}
+		gws[i] = gw
+	}
+
 	out := make([]caseResult, 0, len(cases))
-	for _, c := range cases {
-		gw := gatewayFor(gatewayURL, gatewayOpenAIURL, runID, host, c.Analyst.Name, budgetUSD)
+	for i, c := range cases {
+		gw := gws[i]
 		sent := promptFor(db, c.Anomaly, c.Analyst)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)

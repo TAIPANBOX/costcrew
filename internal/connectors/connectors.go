@@ -78,6 +78,8 @@ type Recorder interface {
 // is resolved before deriveStatus can read it, regardless of which file
 // tokenFuseFocusReader is defined in.
 var readers = map[string]Reader{
+	"aws-data-exports":            cloudFocusReader(awsDataExportsSpec),
+	"gcp-billing-export":          cloudFocusReader(gcpBillingExportSpec),
 	"tokenfuse-focus":             tokenFuseFocusReader,
 	"aws-rightsizing":             awsRightsizingReader,
 	"gcp-recommender":             gcpRecommenderReader,
@@ -104,6 +106,9 @@ type Input struct {
 	Hint   string
 	Secret bool
 	EnvVar string
+	// Optional means Test does not demand it before it will run the reader:
+	// a setting with a sensible default, such as a limit or a tag key.
+	Optional bool
 }
 
 type Connector struct {
@@ -132,24 +137,50 @@ CREATE TABLE IF NOT EXISTS connections(
   ok INTEGER DEFAULT 0);
 `
 
+// cloudFocusInputs is the form the two plain-FOCUS folder readers share: a
+// required folder and four optional settings, each with a default the reader
+// documents in cloudfocus.go.
+func cloudFocusInputs(pathLabel, pathHint string) []Input {
+	return []Input{
+		{Name: "path", Label: pathLabel, Hint: pathHint},
+		{Name: "team_tag", Label: "Tag key that names the team", Optional: true,
+			Hint: "default team; several keys, comma separated, are tried in order"},
+		{Name: "provider_names", Label: "ProviderName values to accept", Optional: true,
+			Hint: "default per provider; set it if the export names its provider differently"},
+		{Name: "max_file_mb", Label: "Largest file on disk, in MB", Optional: true,
+			Hint: "default 4096; a larger file is refused by name"},
+		{Name: "max_unpacked_mb", Label: "Largest a gzip may inflate to, in MB", Optional: true,
+			Hint: "default 20480; a gzip that inflates past it is refused by name"},
+	}
+}
+
 // Catalogue is written out rather than discovered, so what the console claims
 // it can read can be read here and argued with.
 var Catalogue = []Connector{
 	{
-		ID: "aws-data-exports", Name: "AWS Data Exports (FOCUS 1.2)", Provider: "aws",
+		ID: "aws-data-exports", Name: "AWS Data Exports (FOCUS 1.0 and 1.2)", Provider: "aws",
 		Kind: ExportDrop, Feeds: "charges", Metered: false,
 		Auth: "none for the reader: it reads files already delivered to a folder",
-		CostNote: "No charge for the export itself. You pay S3 storage and requests for " +
+		CostNote: "No charge for the export itself, or for reading it. You pay S3 storage and requests for " +
 			"the delivered objects, which is pennies a month at this size.",
-		Note: "AWS ships FOCUS 1.0 and 1.2 tables only. Delivery is at least daily, and " +
-			"the previous period can still be revised for about two weeks after month end. " +
-			"The reader is not written; the export's shape and cost are documented so the " +
-			"decision can be made before it is.",
-		Doc: "https://docs.aws.amazon.com/cur/latest/userguide/what-is-data-exports.html",
-		Inputs: []Input{{Name: "path", Label: "Folder the export lands in",
-			Hint: "the local path, or drop the unzipped folder on this page"}},
+		Note: "Reads the FOCUS 1.0 or 1.2 with AWS columns tables (FOCUS_1_0_AWS, FOCUS_1_2_AWS) as " +
+			"CSV or CSV.gz from a folder you synced the export to; there is no S3 client in this " +
+			"binary, and the folder is walked recursively. Create the export as text/csv with gzip, " +
+			"time granularity DAILY or HOURLY, file versioning \"Overwrite existing data export " +
+			"file\", and sync with deletion: a folder holding two versions of one period counts it " +
+			"twice. USD only. All five charge categories land under their own name, so a Savings " +
+			"Plan fee, tax or credit never counts as usage and credits stay on their own line; a " +
+			"negative BilledCost is kept. A row longer than a day (AWS writes the month's Tax as " +
+			"one) lands whole on the day it starts. The team comes from the Tags column, key " +
+			"team_tag (default team). Delivery is at least daily, and the previous period can " +
+			"still be revised for about two weeks after month end; re-sync and import again and " +
+			"the revised file replaces its earlier version. Measured on a real FOCUS 1.0 file; " +
+			"1.2 is read from the spec and AWS's dictionary only.",
+		Doc:    "https://docs.aws.amazon.com/cur/latest/userguide/table-dictionary-focus-1-2-aws.html",
+		Inputs: cloudFocusInputs("Folder the export was synced to", "the local path of the synced export"),
 		Cannot: "It cannot tell you WHY something cost what it did. It carries no " +
-			"application context beyond the tags already on the resource.",
+			"application context beyond the tags already on the resource. It does not fetch from " +
+			"S3, read Parquet or zip, convert other currencies, or feed the commitments table.",
 	},
 	{
 		ID: "aws-cost-explorer", Name: "AWS Cost Explorer", Provider: "aws",
@@ -165,22 +196,24 @@ var Catalogue = []Connector{
 		Cannot: "It cannot give you resource-level detail. That is the export's job.",
 	},
 	{
-		ID: "gcp-billing-export", Name: "GCP BigQuery billing export", Provider: "gcp",
+		ID: "gcp-billing-export", Name: "GCP billing export (FOCUS CSV folder)", Provider: "gcp",
 		Kind: ExportDrop, Feeds: "charges", Metered: false,
-		Auth:     "a service account with BigQuery read on the billing dataset",
-		CostNote: "Free to enable. You pay BigQuery storage and whatever your queries scan.",
-		Note: "Enabling it is console-only by Google's design; there is no public API. " +
-			"Backfill reaches to the start of the PREVIOUS month, so enabling in " +
-			"September still captures August and loses everything before it. The reader " +
-			"is not written; the export's shape and cost are documented so the decision " +
-			"can be made before it is.",
-		Doc: "https://cloud.google.com/billing/docs/how-to/export-data-bigquery",
-		Inputs: []Input{
-			{Name: "project", Label: "Project", Hint: "where the dataset lives"},
-			{Name: "dataset", Label: "Dataset", Hint: "usually billing_export"},
-		},
-		Cannot: "It cannot show you anything before you switched it on, beyond that " +
-			"one month of backfill. There is no way to buy the history back.",
+		Auth: "none for the reader: it reads a CSV already exported from the BigQuery FOCUS view",
+		CostNote: "No charge for reading the folder. Producing the CSV is yours: BigQuery storage, " +
+			"the bytes your query scans, and wherever the file sits meanwhile.",
+		Note: "This entry is a folder reader, not a BigQuery client. Google's FOCUS export is a " +
+			"BigQuery view (Preview when this was written); run a query over it that writes " +
+			"ChargePeriodStart and ChargePeriodEnd as RFC 3339 text and its x_Tags as JSON text, " +
+			"export the result to CSV or CSV.gz, and point this at the folder. The same engine as " +
+			"the AWS reader: USD only, every charge category kept under its own name, a negative " +
+			"BilledCost kept, a row longer than a day landing whole on the day it starts, the " +
+			"team from the tag named by team_tag. " +
+			"Google does not state its ProviderName value on the page this was written from, so " +
+			"Google Cloud is assumed, not measured: provider_names overrides it.",
+		Doc:    "https://docs.cloud.google.com/billing/docs/how-to/export-data-bigquery-focus-setup",
+		Inputs: cloudFocusInputs("Folder the exported CSV files are in", "the local path of the exported CSV files"),
+		Cannot: "It cannot query BigQuery, and it cannot show you anything before the FOCUS export " +
+			"was switched on. It does not feed the commitments table.",
 	},
 	{
 		ID: "azure-focus", Name: "Azure Cost Management (FOCUS)", Provider: "azure",
@@ -512,7 +545,7 @@ func Test(db *sql.DB, id string, env func(string) string) (string, bool, error) 
 			}
 			continue
 		}
-		if strings.TrimSpace(conn.Config[in.Name]) == "" {
+		if !in.Optional && strings.TrimSpace(conn.Config[in.Name]) == "" {
 			missing = append(missing, in.Label)
 		}
 	}

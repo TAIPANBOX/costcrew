@@ -6,7 +6,14 @@
 parity/captures/*
 !parity/captures/golden/
 *.db
+*.db-wal
+*.db-shm
 *.duckdb
+# The data directory's own files (invariant 63). .session-secret signs every
+# session and CSRF token; events.ndjson is the journal, with the account names
+# in it. A -data directory pointed inside a checkout must not be committable.
+.session-secret
+events.ndjson
 bin/
 passports/
 events/
