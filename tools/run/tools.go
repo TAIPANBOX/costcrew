@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/TAIPANBOX/costcrew/internal/anomaly"
+	"github.com/TAIPANBOX/costcrew/internal/deliver"
 	"github.com/TAIPANBOX/costcrew/internal/estate"
 	"github.com/TAIPANBOX/costcrew/internal/finops"
 	"github.com/TAIPANBOX/costcrew/internal/money"
@@ -194,10 +195,64 @@ func intProp(desc string, max int) map[string]any {
 	return map[string]any{"type": "integer", "description": desc, "maximum": max}
 }
 
+// offered is the catalogue as this installation's -prompt-data setting lets
+// it be seen. Full offers all of it. A restricting mode offers the tools whose
+// answer it can mask, and not the two whose argument is SQL the model writes
+// (a model that can write SELECT can select any identifier in a column, or in
+// an expression that cuts one in two, and no scrub of the result can be
+// trusted to recognise half a name). The catalogue is a table, so the
+// decision lives in one place with it: internal/deliver's ToolOffered.
+func offered() []toolDef {
+	pol := deliver.ActivePolicy()
+	out := make([]toolDef, 0, len(catalogue))
+	for _, t := range catalogue {
+		if pol.ToolOffered(t.Name) {
+			out = append(out, maskedDef(pol, t))
+		}
+	}
+	return out
+}
+
+// maskedDef is a tool as the model is shown it. The descriptions carry
+// examples ("the desk, e.g. aws", "the service name, e.g. Amazon EC2") that
+// are real names when the installation is one that has an AWS desk, and a
+// model told "aws" in the schema and "desk-815b" in the data would be shown
+// two names for one thing. Under a restricting mode the examples are masked
+// like everything else, which also gives the model a token that works.
+func maskedDef(pol *deliver.Policy, t toolDef) toolDef {
+	if pol.Full() {
+		return t
+	}
+	t.Description = pol.MaskText(t.Description)
+	t.Schema = maskSchema(pol, t.Schema).(map[string]any)
+	return t
+}
+
+// maskSchema copies a schema with every "description" masked. The catalogue
+// itself is never changed: it is a table shared by every call.
+func maskSchema(pol *deliver.Policy, v any) any {
+	switch x := v.(type) {
+	case map[string]any:
+		out := make(map[string]any, len(x))
+		for k, val := range x {
+			if s, ok := val.(string); ok && k == "description" {
+				out[k] = pol.MaskText(s)
+				continue
+			}
+			out[k] = maskSchema(pol, val)
+		}
+		return out
+	case []string:
+		return append([]string(nil), x...)
+	}
+	return v
+}
+
 // anthropicTools renders the catalogue as Anthropic's `tools` array.
 func anthropicTools() []map[string]any {
-	out := make([]map[string]any, 0, len(catalogue))
-	for _, t := range catalogue {
+	tools := offered()
+	out := make([]map[string]any, 0, len(tools))
+	for _, t := range tools {
 		out = append(out, map[string]any{
 			"name":         t.Name,
 			"description":  t.Description,
@@ -210,8 +265,9 @@ func anthropicTools() []map[string]any {
 // openAITools renders the catalogue as the OpenAI-style `tools` array
 // OpenRouter's chat-completions route reads.
 func openAITools() []map[string]any {
-	out := make([]map[string]any, 0, len(catalogue))
-	for _, t := range catalogue {
+	tools := offered()
+	out := make([]map[string]any, 0, len(tools))
+	for _, t := range tools {
 		out = append(out, map[string]any{
 			"type": "function",
 			"function": map[string]any{
@@ -290,8 +346,14 @@ func runDriversTool(_ context.Context, db, _ *sql.DB, args json.RawMessage) (str
 		if in.Since != "" && d.End < in.Since {
 			continue
 		}
+		// A driver's label is text somebody typed: not sent under a
+		// restricting mode (invariant 70).
+		label := d.Label
+		if !deliver.ActivePolicy().Full() {
+			label = deliver.WithheldLabel
+		}
 		fmt.Fprintf(&b, "%s to %s  %s  %s (%s) source=%s\n",
-			d.Start, d.End, d.Scope, d.Label, d.Kind, d.Source)
+			d.Start, d.End, d.Scope, label, d.Kind, d.Source)
 		n++
 	}
 	if n == 0 {
@@ -334,6 +396,16 @@ func runTeamMonthTool(_ context.Context, db, _ *sql.DB, args json.RawMessage) (s
 	}
 	variance := money.Cents(spent) - money.Cents(budget)
 
+	var b strings.Builder
+	fmt.Fprintf(&b, "team %s, %s\n", in.Team, in.Period)
+	fmt.Fprintf(&b, "budget:   %s\n", money.Cents(budget))
+	fmt.Fprintf(&b, "spend:    %s\n", money.Cents(spent))
+	fmt.Fprintf(&b, "variance: %s\n", variance)
+	// The top services are rows of the ledger: not sent under aggregates.
+	if deliver.ActivePolicy().Aggregates() {
+		return b.String(), nil
+	}
+
 	top, err := db.Query(`SELECT service, SUM(billed_cents) v FROM charges
 		WHERE team=? AND substr(day,1,7)=? GROUP BY service ORDER BY v DESC LIMIT 5`, in.Team, in.Period)
 	if err != nil {
@@ -341,11 +413,6 @@ func runTeamMonthTool(_ context.Context, db, _ *sql.DB, args json.RawMessage) (s
 	}
 	defer top.Close()
 
-	var b strings.Builder
-	fmt.Fprintf(&b, "team %s, %s\n", in.Team, in.Period)
-	fmt.Fprintf(&b, "budget:   %s\n", money.Cents(budget))
-	fmt.Fprintf(&b, "spend:    %s\n", money.Cents(spent))
-	fmt.Fprintf(&b, "variance: %s\n", variance)
 	b.WriteString("top services:\n")
 	for top.Next() {
 		var svc string
@@ -478,6 +545,12 @@ func runShowbackTool(_ context.Context, db, _ *sql.DB, args json.RawMessage) (st
 		for _, f := range fp.Teams {
 			if f.Team != in.Team {
 				continue
+			}
+			// Who closed it is a person: not sent under aggregates, which
+			// sends no people at all (invariant 70).
+			if deliver.ActivePolicy().Aggregates() {
+				return fmt.Sprintf("FROZEN %s, %s: direct %s, allocated %s, loaded %s (closed %s)\n",
+					in.Team, in.Period, f.Direct, f.Allocated, f.Loaded(), fp.FrozenAt), nil
 			}
 			return fmt.Sprintf("FROZEN %s, %s: direct %s, allocated %s, loaded %s (closed %s by %s)\n",
 				in.Team, in.Period, f.Direct, f.Allocated, f.Loaded(), fp.FrozenAt, fp.ClosedBy), nil

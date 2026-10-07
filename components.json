@@ -70,6 +70,9 @@
           },
           "COSTCREW_OIDC_ONLY": {
             "required": false
+          },
+          "COSTCREW_PROMPT_DATA": {
+            "required": false
           }
         },
         "flags": {
@@ -113,6 +116,9 @@
             "required": false
           },
           "oidc-only": {
+            "required": false
+          },
+          "prompt-data": {
             "required": false
           },
           "stack-events": {
@@ -339,6 +345,9 @@
           },
           "COSTCREW_MODEL_KEY": {
             "required": false
+          },
+          "COSTCREW_PROMPT_DATA": {
+            "required": false
           }
         },
         "flags": {
@@ -385,6 +394,9 @@
             "required": false
           },
           "prices": {
+            "required": false
+          },
+          "prompt-data": {
             "required": false
           },
           "sprint": {

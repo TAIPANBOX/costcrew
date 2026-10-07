@@ -206,7 +206,24 @@ func Packet(db *sql.DB, t crew.Task, a crew.Analyst, hideDriver bool) string {
 	if len(sections) == 0 {
 		return ""
 	}
-	body := "\nTASK PACKET\n" + strings.Join(sections, "\n")
+	// The policy (promptdata.go). Every section above has already left out
+	// what its mode does not send (free text, rows); what is left is masked
+	// here, ONCE, over the whole body and BEFORE the cap, so the 12 KiB bound
+	// is a bound on what is sent and a token longer than the name it replaced
+	// cannot push the packet past it. A mode that is not full also says, at
+	// the top where the cap cannot cut it, what it is not sending.
+	pol := ActivePolicy()
+	joined := strings.Join(sections, "\n")
+	note := ""
+	if !pol.Full() {
+		joined = pol.maskStore(db, joined, []string{a.Name})
+		if pol.Aggregates() {
+			// Added after the mask: it is this console's own sentence, and a
+			// word in it that is somebody's team name must not be garbled.
+			note = aggregatesNote + "\n\n"
+		}
+	}
+	body := "\nTASK PACKET\n" + note + joined
 	return BoundBytes(body, packetMaxBytes)
 }
 
@@ -243,13 +260,18 @@ func HasString(list []string, want ...string) bool {
 // -------------------------------------------------------------- the anomaly
 
 func AnomalySection(an anomaly.Anomaly, hideDriver bool) string {
+	pol := ActivePolicy()
 	var b strings.Builder
 	b.WriteString("The anomaly\n")
 	fmt.Fprintf(&b, "source:    %s\n", an.Source)
 	if an.Team != "" {
 		fmt.Fprintf(&b, "team:      %s\n", an.Team)
 	}
-	fmt.Fprintf(&b, "service:   %s\n", an.Service)
+	// Aggregates send "the amount, baseline, z and day but no service": a
+	// service is a row of the ledger, not a total.
+	if !pol.Aggregates() {
+		fmt.Fprintf(&b, "service:   %s\n", an.Service)
+	}
 	fmt.Fprintf(&b, "day:       %s\n", an.Day)
 	fmt.Fprintf(&b, "direction: %s\n", an.Direction)
 	fmt.Fprintf(&b, "amount:    %s\n", an.Amount)
@@ -259,10 +281,16 @@ func AnomalySection(an anomaly.Anomaly, hideDriver bool) string {
 	if an.Rule != "" {
 		fmt.Fprintf(&b, "rule:      %s\n", an.Rule)
 	}
-	if an.Driver != "" && !hideDriver {
-		fmt.Fprintf(&b, "driver:    %s\n", an.Driver)
+	// A driver's label is text somebody typed ("Migration to Datadog, led by
+	// Priya"): withheld under masked, not sent under aggregates.
+	if an.Driver != "" && !hideDriver && !pol.Aggregates() {
+		if pol.Full() {
+			fmt.Fprintf(&b, "driver:    %s\n", an.Driver)
+		} else {
+			fmt.Fprintf(&b, "driver:    %s\n", WithheldLabel)
+		}
 	}
-	if an.CausedBy != "" {
+	if an.CausedBy != "" && !pol.Aggregates() {
 		fmt.Fprintf(&b, "caused by: %s (%s)\n", an.CausedBy, an.CausedByKind)
 	}
 	return b.String()
@@ -300,6 +328,11 @@ func seriesSection(db *sql.DB, an anomaly.Anomaly) string {
 	}
 	anWeekday := weekdayOf(an.Day)
 
+	// Aggregates send the series as sums, not as the days.
+	if ActivePolicy().Aggregates() {
+		return seriesSums(an, days, vals, from, idx, to)
+	}
+
 	var b strings.Builder
 	b.WriteString("The series (28 days before, 7 after; * marks the same " +
 		"weekday as the anomaly; -> marks the anomaly's own day)\n")
@@ -315,6 +348,25 @@ func seriesSection(db *sql.DB, an anomaly.Anomaly) string {
 		}
 		fmt.Fprintf(&b, "%s %s%s  %s%s\n", days[i], wd, mark, vals[i], arrow)
 	}
+	return b.String()
+}
+
+// seriesSums is the series under aggregates: the sum of the days before the
+// anomaly, the anomaly's own day, and the sum of the days after, which is
+// what "series sums" means -- the same money, none of the days.
+func seriesSums(an anomaly.Anomaly, days []string, vals []money.Cents, from, idx, to int) string {
+	var before, after money.Cents
+	for i := from; i < idx; i++ {
+		before += vals[i]
+	}
+	for i := idx + 1; i <= to; i++ {
+		after += vals[i]
+	}
+	var b strings.Builder
+	b.WriteString("The series, summed (the days before the anomaly, its own day, the days after)\n")
+	fmt.Fprintf(&b, "%d days before: %s\n", idx-from, before)
+	fmt.Fprintf(&b, "%s (the anomaly's own day): %s\n", an.Day, vals[idx])
+	fmt.Fprintf(&b, "%d days after: %s\n", to-idx, after)
 	return b.String()
 }
 
@@ -342,6 +394,10 @@ const (
 // covering the six months ending on the anomaly's day: a row counts when its
 // range reaches into that window and it started on or before the anomaly.
 func driversSection(db *sql.DB, an anomaly.Anomaly, desk string) string {
+	pol := ActivePolicy()
+	if pol.Aggregates() {
+		return "" // a driver is a row, and its label is typed text
+	}
 	all, err := estate.Drivers(db)
 	if err != nil || len(all) == 0 {
 		return ""
@@ -378,7 +434,11 @@ func driversSection(db *sql.DB, an anomaly.Anomaly, desk string) string {
 		if !matches(d) {
 			continue
 		}
-		fmt.Fprintf(&b, "%s to %s  %s (%s)\n", d.Start, d.End, d.Label, d.Kind)
+		label := d.Label
+		if !pol.Full() {
+			label = WithheldLabel
+		}
+		fmt.Fprintf(&b, "%s to %s  %s (%s)\n", d.Start, d.End, label, d.Kind)
 		shown++
 	}
 	if total > shown {
@@ -426,6 +486,10 @@ func teamMonthSection(db *sql.DB, an anomaly.Anomaly) string {
 // a written, human-approved answer for the same service is useful context
 // regardless of which specific incident produced it.
 func lastExplanationSection(db *sql.DB, an anomaly.Anomaly) string {
+	pol := ActivePolicy()
+	if pol.Aggregates() {
+		return "" // a past deliverable is typed text about one service
+	}
 	var body, created, author string
 	err := db.QueryRow(`
 		SELECT ar.body, COALESCE(ar.stamped, ar.created, ''), COALESCE(ar.author,'')
@@ -441,7 +505,11 @@ func lastExplanationSection(db *sql.DB, an anomaly.Anomaly) string {
 	var b strings.Builder
 	b.WriteString("The last posted explanation on this service\n")
 	fmt.Fprintf(&b, "by %s, %s\n", author, created)
-	b.WriteString(trimBytes(body, 600))
+	if pol.Full() {
+		b.WriteString(trimBytes(body, 600))
+	} else {
+		b.WriteString(WithheldFreeText)
+	}
 	b.WriteString("\n")
 	return b.String()
 }
@@ -473,6 +541,10 @@ func trimBytes(s string, n int) string {
 func ownHistorySection(db *sql.DB, a crew.Analyst, desk string) string {
 	if a.Name == "" || desk == "" {
 		return ""
+	}
+	pol := ActivePolicy()
+	if pol.Aggregates() {
+		return "" // past deliverables and the fate of each option are rows of typed text
 	}
 	rows, err := db.Query(`
 		SELECT ar.id, t.title, COALESCE(ar.stamped, ar.created, ''), ar.body
@@ -508,17 +580,43 @@ func ownHistorySection(db *sql.DB, a crew.Analyst, desk string) string {
 	b.WriteString("What you posted on this desk before, and what happened to it\n")
 	for _, r := range got {
 		fmt.Fprintf(&b, "\n%s, posted %s\n", r.title, r.when)
-		b.WriteString(trimBytes(r.body, 240))
+		if pol.Full() {
+			b.WriteString(trimBytes(r.body, 240))
+		} else {
+			b.WriteString(WithheldFreeText)
+		}
 		b.WriteString("\n")
 		opts, err := crew.Options(db, r.id)
 		if err != nil {
 			continue
 		}
 		for _, o := range opts {
-			fmt.Fprintf(&b, "  - %s: %s (%s)\n", o.Class, trimBytes(o.Summary, 80), fateOf(db, o))
+			if pol.Full() {
+				fmt.Fprintf(&b, "  - %s: %s (%s)\n", o.Class, trimBytes(o.Summary, 80), fateOf(db, o))
+			} else {
+				fmt.Fprintf(&b, "  - %s: %s (%s)\n", o.Class, WithheldLabel, fateOfWithheld(db, o))
+			}
 		}
 	}
 	return b.String()
+}
+
+// fateOfWithheld is fateOf for a restricting mode: who decided and what they
+// decided stay (the person is masked afterwards, like every name), the reason
+// they typed does not.
+func fateOfWithheld(db *sql.DB, o crew.Option) string {
+	switch o.State {
+	case crew.OptionApplied:
+		return "applied by " + o.DecidedBy
+	case crew.OptionRefused:
+		return "refused by " + o.DecidedBy + ": " + WithheldLabel
+	case crew.OptionNotChosen:
+		return "not chosen (" + WithheldLabel + ")"
+	case crew.OptionCarried:
+		return "still waiting on " + waitingOwner(db, o.Artifact)
+	default:
+		return "open"
+	}
 }
 
 // fateOf is one option's fate in words: what a person on this job would
@@ -640,6 +738,11 @@ func reportingSection(db *sql.DB, desk string) string {
 	return b.String()
 }
 
+// driversAppliedMarker is where finops.ProjectWithDrivers starts listing the
+// drivers it applied inside its basis sentence. TestTheForecastBasisIsCutWhereItStartsNamingDrivers
+// holds it against that function's real output.
+const driversAppliedMarker = "; drivers applied: "
+
 // forecastingSection is the driver-aware run-rate projection for the desk
 // and the basis it was built from, plus the most recently frozen forecast
 // and, once its own period has closed, the miss against what happened.
@@ -648,6 +751,7 @@ func forecastingSection(db *sql.DB, desk string) string {
 	if desk == "" {
 		return ""
 	}
+	pol := ActivePolicy()
 	period, err := finops.OpenPeriod(db)
 	if err != nil || period == "" {
 		return ""
@@ -695,11 +799,23 @@ func forecastingSection(db *sql.DB, desk string) string {
 	fmt.Fprintf(&b, "Forecasting (%s, %s)\n", desk, period)
 	if ok {
 		fmt.Fprintf(&b, "run-rate projection: %s\n", amt)
+		// The basis sentence ends in "; drivers applied: " and every driver's
+		// own label, which is typed text. The lines below carry the rest of
+		// it (kind, window, effect) with the label withheld.
+		if !pol.Full() {
+			if i := strings.Index(basis, driversAppliedMarker); i >= 0 {
+				basis = basis[:i]
+			}
+		}
 		fmt.Fprintf(&b, "basis: %s\n", basis)
-		if len(lines) > 0 {
+		if len(lines) > 0 && !pol.Aggregates() {
 			b.WriteString("drivers applied:\n")
 			for _, l := range lines {
-				fmt.Fprintf(&b, "  %s (%s, %s to %s): %s\n", l.Label, l.Kind, l.Start, l.End, l.Effect)
+				label := l.Label
+				if !pol.Full() {
+					label = WithheldLabel
+				}
+				fmt.Fprintf(&b, "  %s (%s, %s to %s): %s\n", label, l.Kind, l.Start, l.End, l.Effect)
 			}
 		}
 	}
@@ -720,10 +836,14 @@ func forecastingSection(db *sql.DB, desk string) string {
 		diff := scored.Actual - scored.Forecast
 		fmt.Fprintf(&b, "miss (%s): frozen %s, actual %s, difference %s\n",
 			scored.Period, scored.Forecast, scored.Actual, diff)
-		if missed, merr := finops.Missed(db, desk, scored.Period, scored.Basis); merr == nil && len(missed) > 0 {
+		if missed, merr := finops.Missed(db, desk, scored.Period, scored.Basis); merr == nil && len(missed) > 0 && !pol.Aggregates() {
 			b.WriteString("missed drivers:\n")
 			for _, d := range missed {
-				fmt.Fprintf(&b, "  %s (%s, %s to %s)\n", d.Label, d.Kind, d.Start, d.End)
+				label := d.Label
+				if !pol.Full() {
+					label = WithheldLabel
+				}
+				fmt.Fprintf(&b, "  %s (%s, %s to %s)\n", label, d.Kind, d.Start, d.End)
 			}
 		}
 	}
@@ -779,6 +899,11 @@ func aiSpendSection(db *sql.DB) string {
 			"%d blocked\n", settled, estimated, float64(estimated)/float64(n)*100, blockedBasis)
 	}
 
+	// Aggregates stop at the desk's totals: per agent and per model are rows.
+	if ActivePolicy().Aggregates() {
+		return b.String()
+	}
+
 	b.WriteString("\nBy agent, top ten by cost\n")
 	shown := 0
 	for _, r := range byAgent {
@@ -815,6 +940,9 @@ func aiSpendSection(db *sql.DB) string {
 // entirely until real AI spend has landed, the same convention as
 // aiSpendSection above.
 func unitEconomicsSection(db *sql.DB) string {
+	if ActivePolicy().Aggregates() {
+		return "" // cost per outcome is read per agent: a row for each
+	}
 	month, ok, err := finops.LatestRealAIMonth(db)
 	if err != nil || !ok {
 		return ""
@@ -967,6 +1095,10 @@ func closePackSection(db *sql.DB, a crew.Analyst, t crew.Task) string {
 		}
 	}
 
+	// Invoices are rows with an id each: not sent under aggregates.
+	if ActivePolicy().Aggregates() {
+		return b.String()
+	}
 	b.WriteString("\nInvoice reconciliation\n")
 	if invoices, uncovered, has, ierr := finops.InvoiceReconciliation(db, period); ierr == nil {
 		if !has {
@@ -1002,6 +1134,8 @@ func executiveSection(db *sql.DB) string {
 	for _, f := range figs {
 		b.WriteString(executiveFigureLine(f))
 	}
+	// The explanations are past deliverables, typed text (withheld under
+	// masked, not sent under aggregates; movedDesksSection says which).
 	if s := movedDesksSection(db, period, previous); s != "" {
 		b.WriteString("\n")
 		b.WriteString(s)
@@ -1046,6 +1180,10 @@ func executiveFigureLine(f finops.ExecutiveFigure) string {
 // contributes nothing, and the next desk in the ranking fills the rest,
 // which is why this reads "desks" and not "the desk".
 func movedDesksSection(db *sql.DB, period, previous string) string {
+	pol := ActivePolicy()
+	if pol.Aggregates() {
+		return ""
+	}
 	if previous == "" {
 		return "" // nothing to compare a move against yet: the estate's first period
 	}
@@ -1097,7 +1235,11 @@ func movedDesksSection(db *sql.DB, period, previous string) string {
 		}
 		for _, r := range rows {
 			fmt.Fprintf(&b, "\n%s, %s, %s\n", r.title, r.desk, r.when)
-			b.WriteString(trimBytes(r.body, 200))
+			if pol.Full() {
+				b.WriteString(trimBytes(r.body, 200))
+			} else {
+				b.WriteString(WithheldFreeText)
+			}
 			b.WriteString("\n")
 		}
 		shown += len(rows)
@@ -1165,6 +1307,9 @@ const renewalsSectionWindowDays = 90
 // the store), so a fresh install omits this section entirely, the same
 // additive rule every section in this file already holds.
 func renewalsSection(db *sql.DB, today string) string {
+	if ActivePolicy().Aggregates() {
+		return "" // a renewal is a vendor and a product: a row each
+	}
 	rows, err := finops.RenewalsWithin(db, renewalsSectionWindowDays, today)
 	if err != nil || len(rows) == 0 {
 		return ""
@@ -1242,6 +1387,12 @@ func commitmentsSection(db *sql.DB) string {
 			fmt.Fprintf(&b, "  %-8s refused: no eligible spend to be a percentage of "+
 				"(%s committed)\n", c.Source, c.CommittedCents)
 		}
+	}
+
+	// Coverage is per desk, a total. Utilisation, the calendar and break-even
+	// are per commitment: rows, each with an id. Aggregates stop here.
+	if ActivePolicy().Aggregates() {
+		return b.String()
 	}
 
 	if util, uerr := finops.CommitmentUtilisation(db, period); uerr == nil && len(util) > 0 {
