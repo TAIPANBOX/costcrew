@@ -57,7 +57,7 @@ which binaries a repository builds is the repository, so a component that was
 FORGOTTEN is invisible from outside by construction.
 
 Seven binaries. Four of them are in the published image (`checked.image` in
-`components.json`, held to the Dockerfile by invariant 64) and three are tools
+`components.json`, held to the Dockerfile by invariant 60) and three are tools
 run from source; a binary built and not declared is invisible from outside,
 which is exactly why the estate's own registry could not be the place this is
 written.
@@ -84,9 +84,9 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 973 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 170 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 300 scenarios, both directions
+go test ./...                        # 998 tests, 20 packages
+./scripts/gates-have-teeth.sh        # 196 cases; needs a clean tree
+./scripts/features-are-bound.sh      # 325 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
@@ -94,13 +94,28 @@ govulncheck ./...                    # CI runs it, pinned at v1.8.0; reports onl
 staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refused PR #19 on two findings the list above never asked for; a staticcheck built for an older Go cannot read this module, so on such a machine CI is the only place it runs
 ```
 
-Invariant 64 (the image holds every binary a deployment runs, from a base
+Invariants 61 to 64 (a session token is never stored; every failed sign-in
+says the same thing; the console's own files are private; the console's
+egress is gated) added 25 tests (`internal/auth/session_hash_test.go`, 7;
+`internal/auth/lockout_test.go`, 4; `internal/store/permissions_test.go`, 6;
+`internal/store/permissions_internal_test.go`, 1;
+`internal/stack/shared_files_test.go`, 1; `internal/web/login_uniform_test.go`,
+1; `internal/web/egress_test.go`, 5), 26 `gates-have-teeth.sh` cases (22
+`fail`, 4 `pass`) and 25 scenarios (`features/auth-and-data-at-rest.feature`,
+new), and no route: 968 -> 993 tests, 166 -> 192 cases, 295 -> 320 scenarios,
+58 GET routes and 36 write routes unchanged, re-measured on this branch with
+the three commands this block already names. `go test ./... -cover` per
+package: `internal/auth` 26.2% -> 51.3%, `internal/store` 59.8% -> 57.7% (the
+migration's rollback and warning branches are new and untested),
+`internal/web` 80.0% -> 80.0%, `cmd/costcrew` 0.0% -> 0.0%.
+
+Invariant 60 (the image holds every binary a deployment runs, from a base
 nobody can move, costcrew#75) added 5 tests
 (`internal/manifest/image_test.go`), 4 `gates-have-teeth.sh` cases (three
 `fail`, one `pass`) and 5 scenarios
 (`features/the-image-holds-what-a-deployment-runs.feature`, new), and no
-route: 968 -> 973 tests, 166 -> 170 cases, 295 -> 300 scenarios, 37 -> 38
-feature files, 58 GET routes unchanged, re-measured on this branch with the
+route: 993 -> 998 tests, 192 -> 196 cases, 320 -> 325 scenarios (measured
+after invariants 61 to 64 merged), one more feature file, 58 GET routes unchanged, re-measured on this branch with the
 three commands this block already names. `components.json` gained
 `checked.image` on four components.
 
@@ -3265,7 +3280,7 @@ an absent invariant.
     `gates-have-teeth.sh`, each switching one property of the shell gate off
     or undoing one piece of the data.)*
 
-64. **The image holds every binary a deployment runs, and its base images are
+60. **The image holds every binary a deployment runs, and its base images are
     named by digest.** costcrew#75, measured on the appliance proving run of
     2026-09-17: the image shipped `costcrew` and `costcrew-run`, while the
     documentation named `costcrew-enforce` (pushes decided budgets to a
@@ -3315,6 +3330,157 @@ an absent invariant.
     `gates-have-teeth.sh`: a declared binary not copied, a base image back to a
     tag, the comparison ignoring a missing copy (each `fail`), and a reworded
     comment above a digest, which must not trip it (`pass`).)*
+61. **A session token is never stored.** `StartSession` generated 32 random bytes, handed them to the
+    browser as the cookie, and wrote the same string into `sessions.token`, so
+    anybody able to read `app.db` (a backup, a volume snapshot, a file read
+    through some other fault) held every live login and could present it as
+    is. Now the cookie is unchanged and the database holds `sessions.token_hash`,
+    the hex SHA-256 of it (`auth.sessionKey`); `SessionUser` and `EndSession`
+    look up by the hash of what the browser sent. SHA-256 and not a slow hash
+    because the token is 256 bits from `crypto/rand`: there is no dictionary
+    to attack, no salt would add anything, and a slow hash would cost every
+    request for nothing. The CSRF token is untouched: it stays the
+    HMAC-SHA256 of the cookie value under `.session-secret` (`CSRFToken`), so
+    a page rendered before the change still verifies after it.
+
+    The migration (`store.migrateSessions`, run by `Open`) is the part that
+    can lose data, so it is stated plainly. A database with the old `token`
+    column cannot be carried over: the cookie is the only thing a row could be
+    hashed from, and it is exactly what must not be kept. **Everybody signs in
+    again once, after the upgrade.** The old table is dropped under
+    `PRAGMA secure_delete=ON` so its pages are overwritten and not merely
+    unlinked, the file is `VACUUM`ed so a copy left in a freed page goes too,
+    the write-ahead log is checkpointed and truncated, and the sign-out is
+    journaled as `sessions_reset` with the number of sessions ended. A
+    database that already has `token_hash` is left alone, so a restart signs
+    nobody out. Accounts are not touched. If the vacuum or the truncation
+    cannot run, that is a warning the console prints at start
+    (`Store.Warnings`), not a silent skip.
+    *(gate: `TestTheDatabaseHoldsNoSessionTokenInTheClear` (every column of the
+    stored row is compared with the cookie, then the hash is checked against
+    SHA-256, then app.db and its -wal are searched for the cookie bytes),
+    `TestAHashReadFromTheDatabaseIsNotACookie` (every value read from the row
+    is presented as a cookie and must sign nobody in),
+    `TestSessionUserSurvivesHostileCookies` (empty, SQL tail, NUL, one
+    megabyte, the hash of a real cookie, upper-cased, a space on the end,
+    non-ASCII), `TestSessionLifecycleByTheCookieValue`,
+    `TestCSRFStaysBoundToTheCookieValue` (recomputes the HMAC independently
+    from `.session-secret`), `TestOldClearTextSessionsAreEndedAndErasedByTheMigration`
+    (a legacy database built with the driver directly, its marker confirmed
+    present in the file first, then absent from app.db and its -wal after Open,
+    the accounts intact, `sessions_reset` in the journal) and
+    `TestTheMigrationRunsOnceAndKeepsTheSessionsItDidNotWrite` (two restarts).
+    Five `fail` cases and one `pass` case in `gates-have-teeth.sh`.)*
+    What this does not do: it does not shorten or rotate sessions (twelve
+    hours, as before); a cookie stolen from a browser, or read from a process's
+    memory, is still a login; and the journal is not encrypted.
+
+62. **Every failed sign-in says the same thing.** A locked account answered
+    "locked for another Ns after repeated failures" while an unknown name and a
+    wrong password answered "unknown account or wrong password", so three
+    wrong guesses at any name and one more would show whether the name
+    existed. Now `auth.Authenticate` returns one constant, `auth.LoginRefused`,
+    for an unknown name, a wrong password and a locked account (even with the
+    right password), and the sign-in form answers all three with the same
+    status and the same redirect. The lockout itself is unchanged: three
+    failures lock the account for 10 times 2 to the power of the count seconds,
+    up to 300, the right password is refused while it lasts, and each wrong
+    password is journaled as `login_failed`. A locked account now also pays
+    one password hash, as an unknown name already did; it used to return
+    before any hashing and was the fast one of the three.
+
+    A per-account lockout lets a stranger lock out a KNOWN account by guessing
+    at it. That is the design and this change does not alter it; it only removes
+    the way to learn which accounts are there.
+    *(gate: `TestEveryFailedSignInSaysTheSame` (also requires that the text names
+    no lock and no duration), `TestTheRefusalDoesNotChangeAsFailuresAccumulate`,
+    `TestTheLockoutItselfIsStillThere`, `TestALockedAccountCostsAsMuchAsAnUnknownOne`
+    (a ratio of minimums over four tries, so a loaded machine slows both sides)
+    in `internal/auth`; `TestEveryFailedSignInLooksTheSameFromOutside` in
+    `internal/web`, through the real form. Five `fail` cases and one `pass`
+    case in `gates-have-teeth.sh`.)*
+    What this does not cover: the timing is held for the hash only. A wrong
+    password also writes a row and a journal line that an unknown name does
+    not, which costs a few milliseconds against a hash of about thirty, and was
+    already so; and `/signup` answers "that name is taken", which is open to a
+    stranger only while nobody can administer the installation (invariant 10).
+
+63. **The files this console owns are private to the account running it.** The
+    data directory was created 0755, the journal 0644, and `app.db` with its
+    `-wal` and `-shm` took the process umask, so on an ordinary host any local
+    user could read every username and decision in the journal and the whole
+    database. Now `store.Open` creates a directory it makes 0700, creates
+    `app.db` 0600 before SQLite sees it (SQLite gives the `-wal` and `-shm` the
+    main file's mode, so they are born private), appends to the journal at 0600,
+    and after opening chmods `app.db`, `-wal`, `-shm` and the journal to 0600
+    whether or not they existed before, so an installation from before this
+    change is tightened the first time it starts. A directory that already
+    exists is NOT changed: the default `-data` is `.`, the operator's working
+    directory, which is theirs. A chmod the filesystem refuses (a mount that
+    does not allow it, a file somebody else owns) does not stop the console, and
+    is not silent either: it is a warning printed at start. `.gitignore` now
+    names `.session-secret`, `*.db-wal`, `*.db-shm` and `events.ndjson`.
+    **The passport files (`-stack-passports`) and the `-stack-events` file are
+    shared with other services by design and are left at 0644**: heraldyx,
+    idryx, genaryx and trailryx read them, usually under another account, and
+    making them private would stop the integration with no error on this side.
+    *(gate: `TestTheDataDirectoryIsPrivateWhenTheStoreCreatesIt`,
+    `TestAnExistingDataDirectoryKeepsItsMode`, `TestEveryFileTheStoreCreatesIsPrivate`
+    (measured on the files actually created, `-wal` and `-shm` included, on two
+    successive starts, because the second start recreates them),
+    `TestFilesFromBeforeTheChangeAreTightenedOnOpen`,
+    `TestTheJournalIsCreatedPrivateByTheFirstAppend`,
+    `TestTheSessionSecretAndTheDatabaseFilesCannotBeCommitted`,
+    `TestAChmodTheFilesystemRefusesIsAWarningNotSilenceNotAnOutage` in
+    `internal/store`; `TestSharedFilesStayReadableByOtherServices` in
+    `internal/stack`, which holds the deliberate non-change. Seven `fail` cases
+    and one `pass` case in `gates-have-teeth.sh`.)*
+    What this does not do: the pre-created `app.db` closes the window in which
+    `-wal` and `-shm` could exist at the umask's mode, but that window is not
+    separately tested, because the chmod after opening hides it from any test of
+    the final state; the `-data` directory of an installation that already
+    exists keeps whatever mode it has, which is the operator's to tighten; and a
+    deployment where a second account reads this directory (a sidecar, a backup
+    job) will find it closed.
+
+64. **The console makes no outbound call of its own; `deliver.Call` is the one
+    route, and only behind `-gateway`.** README.md and the Dockerfile said the
+    console makes no outbound call while serving a page, and this file listed
+    that as a decision with no gate. The exception is real and is the only one:
+    `POST /sprint/plan/ask` calls a model through `deliver.Call`
+    (`internal/web/planning.go`), refusing when neither `-gateway` nor
+    `-gateway-openai` is set (invariant 33). A `go/ast` walk over every non-test
+    file in `internal/web` and `cmd/costcrew` now refuses any reference to an
+    outbound client or request: `http.Client`, `http.Get`, `Post`, `PostForm`,
+    `Head`, `NewRequest`, `NewRequestWithContext`, `DefaultClient`, `Transport`,
+    `DefaultTransport`; `net.Dial*`, `net.Dialer`, `net.Lookup*`, `net.Resolver`;
+    `exec.Command` and `exec.CommandContext`; an import of `net/smtp`,
+    `net/rpc` or `net/http/httputil`. Import aliases are resolved, and a dot
+    import of `net/http`, `net` or `os/exec` is refused by name because the walk
+    cannot read it. `deliver.Call` must appear in exactly one place, the
+    plan-ask handler. A second walk follows the module's own imports from both
+    roots and requires that, among the packages reached, only `internal/deliver`
+    builds outbound requests and `internal/enforce` is not reached at all.
+
+    This is a reading of today's source, the same limit invariants 49 and 50
+    state for their own walks. It catches the shapes a reasonable accident
+    produces. It does not see a client built through reflection, a function
+    value handed in from elsewhere, or anything inside a third-party library the
+    console imports (go-spiffe dials the local workload socket; the SQLite
+    driver and the standard library are not scanned), and it does not look
+    inside `internal/deliver` beyond saying that it is the one door: a new
+    exported function there that reaches out would not be seen.
+    *(gate: `TestTheConsoleConstructsNoOutboundHTTPClientOrRequest`,
+    `TestDeliverCallIsReachedFromExactlyOnePlace`,
+    `TestOnlyTheDeliveryPackageAmongThoseTheConsoleImportsReachesTheNetwork`,
+    and the two tests of the walk itself, since the real source is clean and the
+    gate could otherwise never be seen to go red:
+    `TestTheEgressWalkSeesEveryConstructionItNames` (27 snippets, one per shape
+    named above, aliases included) and `TestTheEgressWalkLeavesServerCodeAlone`
+    (handlers, redirects, cookies, a mux, a server, a listener, `exec.LookPath`,
+    a local variable called `http`), all in `internal/web/egress_test.go`. Five
+    `fail` cases and one `pass` case in `gates-have-teeth.sh`, each planting one
+    construction in a real file.)*
 
 ## Decisions that have no gate yet
 
@@ -3337,18 +3503,6 @@ sentences.
   `internal/web`: none in non-test code). A cheaper race run of web would
   need a memory store behind the same interface, which is a design change,
   not a test change.
-
-- **The console never reaches the network, unless `-gateway` (or
-  `-gateway-openai`, for a supervisor on openrouter) is configured for the
-  supervisor's own planning calls.** True by default, and true unqualified
-  before this step: the only outbound HTTP client in the repo used to be
-  `internal/enforce`, a separate binary the console never calls, with every
-  stack integration behind a flag that defaults to off. Invariant 33 adds the
-  one exception, itself gated: `internal/web/planning.go`'s `askPlan` reaches
-  `deliver.Call` only when `-gateway` is set, refusing with one sentence
-  otherwise, so an installation that never passes the flag keeps the old
-  property exactly. *(not enforced: nothing would catch a handler that grew a
-  client outside that one gated path.)*
 
 - **Money is integer cents.** `money.Cents` is an `int64` and `Float()` exists
   only for presentation. *(not enforced: nothing stops a new float from being
