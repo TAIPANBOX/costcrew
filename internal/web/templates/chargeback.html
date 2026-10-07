@@ -26,6 +26,23 @@
   </div>
 </div>
 
+{{if .Units}}
+<div class="panel">
+  <h2>Customer units</h2>
+  <div class="body">
+    <p class="note">The units the AI gateway already knows, charged as it reports them. A unit is charged back under a business unit only once a person has stamped a rule for it; until then its spend is one "(unruled units)" line in the showback export, so the file still adds up. These are today's figures.</p>
+  </div>
+  <div class="scroll"><table>
+    <thead><tr><th>Unit</th><th>Business unit</th><th class="num">Today</th></tr></thead>
+    <tbody>{{range .Units}}
+      <tr><td>{{.Unit}}</td>
+          <td>{{if .Ruled}}{{.BusinessUnit}}{{else}}<span class="note">no rule yet</span>{{end}}</td>
+          <td class="num">{{.Loaded}}</td></tr>
+    {{end}}</tbody>
+  </table></div>
+</div>
+{{end}}
+
 {{if .P.Closed}}
 <div class="panel">
   <h2>{{.Period}} · closed</h2>

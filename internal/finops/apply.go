@@ -206,7 +206,7 @@ func applySideEffect(db *sql.DB, opt crew.Option, t crew.Task, actor string, rec
 		}
 		return Reopen(db, periods[0], reason)
 	case "allocation.rule": // class:allocation.rule
-		return applyAllocationRule(db, opt)
+		return applyAllocationRule(db, opt, actor)
 	case "explainer.publish": // class:explainer.publish
 		return applyExplainerPublish(db, opt, actor)
 	case "data.halt": // class:data.halt
@@ -293,7 +293,18 @@ type allocationRuleTarget struct {
 // this store does not have, a method string it does not define -- are what
 // refuse it; duplicating either check here would only risk the two
 // disagreeing.
-func applyAllocationRule(db *sql.DB, opt crew.Option) error {
+//
+// A target carrying a "unit" key is the other shape (costcrew#74), a rule
+// keyed by a customer unit rather than by a rule id, and goes to
+// applyUnitRule; one that mixes the two shapes is refused rather than read
+// as whichever the decoder met first.
+func applyAllocationRule(db *sql.DB, opt crew.Option, actor string) error {
+	if tgt, isUnit, reason := crew.ParseUnitTarget(opt.Target); isUnit {
+		if reason != "" {
+			return fmt.Errorf("allocation.rule's target is refused: %s", reason)
+		}
+		return applyUnitRule(db, opt, tgt, actor)
+	}
 	if len(opt.Target) == 0 {
 		return nil
 	}

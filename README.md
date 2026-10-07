@@ -124,11 +124,15 @@ invoice changes. The seeded estate is blunt about what that means: the crew has
 found 1,254.35 and cost 3,871.35 across 310 tasks, and the Results page prints
 the ratio without softening it.
 
-**A measure may refuse.** The KPI library reports nine numbers and refuses three,
-each refusal naming what is missing. A library where everything reports a number
-is one where several of them are invented. The refusal it will not talk around is
-per-agent AI spend: a charge carries a model and a workload, never an agent, and
-that becomes answerable only when the calls go through TokenFuse with an agent id.
+**A measure may refuse.** The KPI library defines twelve measures. On the
+generated fixture it reports nine and refuses three, each refusal naming what is
+missing: cost per outcome (no business metric is connected), carbon per workload
+(no carbon source is connected) and AI spend attributed to an agent. A library
+where everything reports a number is one where several of them are invented. The
+refusal it will not talk around is per-agent AI spend: a generated charge carries
+a model and a workload, never an agent, and that becomes answerable only when the
+calls go through TokenFuse with an agent id. Cost per outcome computes once an
+import carries tagged outcomes.
 
 ## The detector
 

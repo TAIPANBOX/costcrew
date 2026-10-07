@@ -242,7 +242,15 @@ func validateAllocationRuleTarget(raw json.RawMessage) (reason string) {
 	}
 	if len(raw) == 0 {
 		return "allocation.rule needs a target naming the rule and the method " +
-			`("target": {"rule_id": ..., "method": ..., "share": ...}); none was given`
+			`("target": {"rule_id": ..., "method": ..., "share": ...}), or, for a customer unit, ` +
+			`the unit and the business unit it is charged back under ` +
+			`("target": {"unit": ..., "business_unit": ...}); none was given`
+	}
+	// The unit-keyed shape (costcrew#74) is judged by its own parser; here
+	// only its structure is, because whether the unit has rows needs the
+	// store and is checked beside this call in ValidateAndSaveOptions.
+	if _, isUnit, reason := ParseUnitTarget(raw); isUnit {
+		return reason
 	}
 	var tgt allocationRuleTarget
 	if err := json.Unmarshal(raw, &tgt); err != nil {
@@ -484,6 +492,20 @@ func ValidateAndSaveOptions(db *sql.DB, artifactID int, roleName, body string, r
 			if reason := validateAllocationRuleTarget(o.Target); reason != "" {
 				journalOptionRefused(rec, roleName, artifactID, reason)
 				return true, reason, nil
+			}
+			// A unit rule is refused here, when the analyst writes it, if
+			// the store says it could never be stamped: no row the
+			// TokenFuse reader wrote carries the unit, or it is a roster
+			// team. The same function refuses it again at the stamp.
+			if tgt, isUnit, _ := ParseUnitTarget(o.Target); isUnit {
+				reason, err := UnitRuleRefusal(db, tgt.Unit)
+				if err != nil {
+					return false, "", err
+				}
+				if reason != "" {
+					journalOptionRefused(rec, roleName, artifactID, reason)
+					return true, reason, nil
+				}
 			}
 		}
 		// driver.recurring and driver.one-time alone carry a structured
