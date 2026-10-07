@@ -10,12 +10,18 @@
 #
 # TWO BINARIES, AND THAT IS THE PRODUCT'S OWN SEPARATION
 #
-# The console reads, shows and records; it holds no credential and makes no
-# outbound call. `tools/run` is what calls a model, and it is the only half ever
-# given a key. Baking both in keeps that visible where a deployment can act on
-# it: one Deployment with no Secret, one suspended Job with one. Dissolving them
-# into a single entrypoint that could do either would take the distinction away
-# from whoever is writing the manifest.
+# The console reads, shows and records; while it serves a page it makes no
+# outbound call. The one exception is the supervisor's plan-ask (POST
+# /sprint/plan/ask), which calls a model through the TokenFuse gateway and only
+# when -gateway or -gateway-openai is set; a console started without either has
+# no outbound path at all, and a test refuses any second one. `tools/run` is
+# what calls a model for the crew, and it is the only half that needs a key
+# unless plan-ask is switched on, in which case the console reads the provider
+# key from its environment for that one call. Baking both in keeps that visible
+# where a deployment can act on it: one Deployment with no Secret (until
+# plan-ask is wanted), one suspended Job with one. Dissolving them into a single
+# entrypoint that could do either would take the distinction away from whoever
+# is writing the manifest.
 #
 # CROSS-COMPILED, NOT EMULATED
 #
