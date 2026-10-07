@@ -84,15 +84,25 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 1368 tests, 28 packages
-./scripts/gates-have-teeth.sh        # 407 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 468 scenarios, both directions
+go test ./...                        # 1373 tests, 28 packages
+./scripts/gates-have-teeth.sh        # 411 cases; needs a clean tree
+./scripts/features-are-bound.sh      # 472 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 govulncheck ./...                    # CI runs it, pinned at v1.8.0; reports only vulnerabilities the code can reach
 staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refused PR #19 on two findings the list above never asked for; a staticcheck built for an older Go cannot read this module, so on such a machine CI is the only place it runs
 ```
+
+Invariant 82 (a thinking model's reasoning is counted as output, whichever
+way an OpenAI-shaped server splits the count) added 5 tests
+(`internal/deliver/reasoning_usage_test.go`, 2;
+`internal/deliver/openai_usage_test.go`, 1;
+`tools/run/reasoning_usage_test.go`, 2), 4 `gates-have-teeth.sh` cases (3
+`fail`, 1 `pass`) and 4 scenarios (`features/thinking-model-tokens.feature`,
+new), and no route: 1368 -> 1373 tests, 28 packages unchanged, 407 -> 411
+cases, 468 -> 472 scenarios, re-measured on this branch after merging
+`main` past #104, with the commands this block names.
 
 Invariants 74 and 75 (sign-in through the organisation's identity provider
 with OpenID Connect; registration closed and passwords kept only for the
@@ -4771,6 +4781,68 @@ an absent invariant.
     Two `fail` cases and one `pass` case in `gates-have-teeth.sh`.)*
     What this does not do: it does not clear what a browser cached before
     this change, and it says nothing to a cache that ignores the header.
+
+82. **What a thinking model generated is counted as output, whichever way its
+    server splits the count.** @measured control call to Vertex AI's
+    OpenAI-compatible endpoint (google/gemini-2.5-flash) through the local
+    engine, 2026-10-07, recorded in the R3 run folder of that evening: a
+    non-streamed answer's usage was `completion_tokens` 59,
+    `completion_tokens_details.reasoning_tokens` 560, `prompt_tokens` 14,
+    `total_tokens` 633. Google's `completion_tokens` leaves the reasoning out
+    (633 = 14 + 59 + 560); OpenAI's keeps it inside (total = prompt +
+    completion). The three readers of the OpenAI-shaped usage block (the
+    single-shot openrouter and local calls in `internal/deliver`, the tool
+    loop's round in `tools/run`) read `completion_tokens` alone, so a thinking
+    model's round was counted at 59 output tokens of 619: the token ceiling of
+    invariant 73, the runner's own price when no settlement header arrives
+    (invariant 51), and the `tool_call` event's `output_tokens` all saw a
+    tenth of it. Now all three decode into one type, `deliver.OpenAIUsage`,
+    and read `OutputTokens()`: `completion_tokens`, or `total_tokens` minus
+    `prompt_tokens` when that is larger. For OpenAI's shape the two are equal,
+    so nothing is counted twice; `reasoning_tokens` is deliberately not read,
+    because it is inside the completion on one vendor and outside on the
+    other. A total that is absent, below zero, smaller than its own parts or
+    smaller than the prompt never lowers the count and never underflows it,
+    and a negative prompt is not believed as a reason to raise it.
+
+    The reservation side, which is reasoning and not a measurement: a round's
+    output is bounded in every worst case by the `max_tokens` the request
+    sends (`openRouterBody`), and whether Vertex's OpenAI-compatible endpoint
+    holds reasoning inside that bound is NOT measured here (the control
+    call's own `max_tokens` was not recorded, and no call was made for this
+    change). If it does not, a round can generate more than its reservation
+    allowed for. Nothing new then goes wrong silently: the count is now the
+    real one, it is booked above the reservation, and the next task is
+    checked against it, the same after-the-fact limit invariants 44 and 73
+    already state for a conversation that grows from round to round.
+
+    What this does not do: it does not fix the gateway's own count
+    (TokenFuse reads `completion_tokens` alone too, a separate fix in that
+    repository), so on a gateway route the settled CHARGE stays whatever the
+    gateway settled while the token counts here are right; it does not touch
+    the Anthropic wire, whose `output_tokens` already includes thinking, or
+    Bedrock; and it does not price reasoning differently from other output,
+    which is how the measured vendor bills it.
+    *(gate: `TestALocalCallCountsAThinkingModelsReasoningAsOutput`,
+    `TestAnOpenRouterCallCountsAThinkingModelsReasoningAsOutput` (seven usage
+    shapes each, through `deliver.Call` against a fake server, the openrouter
+    one through the OpenAI-shaped gateway so nothing leaves loopback),
+    `TestOpenAIUsageOutputTokens` (the rule on its own, the extremes of `int`
+    included) in `internal/deliver`;
+    `TestTheToolLoopsRoundCountsAThinkingModelsReasoningAsOutput` (the round
+    parser on both OpenAI-shaped engines) and
+    `TestTheTokenCeilingCountsAThinkingModelsReasoning` (a whole local task:
+    the ceiling counts 633, the price is 14 in and 619 out, the event says
+    619, and the next task is refused for the room the reasoning used) in
+    `tools/run`. @measured `go test ./internal/deliver ./tools/run -run
+    ThinkingModel -count=1` 2026-10-07 at `e6e6118`, before the fix: "counted
+    14 in and 59 out, want 14 and 619" on both calls and both rounds; "the
+    token ceiling counted 73 tokens, want 633"; "tasks.live_micros = 132000,
+    want 1252000"; "the tool_call event says output_tokens = 59, want 619";
+    and the second task let through. Three `fail` cases and one `pass` case
+    in `gates-have-teeth.sh`: the round reading `completion_tokens` alone, the
+    shared rule ignoring the total, a total smaller than its parts believed,
+    and the rule rewritten as one `max`, which must not trip it.)*
 
 ## Decisions that have no gate yet
 

@@ -4149,6 +4149,39 @@ run_case $'prompt data: a longer token and a reworded stand-in are not faults' \
 	$'[withheld: free text is not sent to the model' \
 	$'[withheld: typed text is not sent to the model'
 
+run_case $'reasoning tokens: the tool loop reads completion_tokens alone' \
+	fail \
+	./tools/run \
+	$'TestTheTokenCeilingCountsAThinkingModelsReasoning' \
+	$'the token ceiling counted 73 tokens' \
+	tools/run/loop.go \
+	$'inTok, outTok := out.Usage.PromptTokens, out.Usage.OutputTokens()\n' \
+	$'inTok, outTok := out.Usage.PromptTokens, out.Usage.CompletionTokens\n'
+run_case $'reasoning tokens: the shared rule ignores total_tokens' \
+	fail \
+	./internal/deliver \
+	$'TestALocalCallCountsAThinkingModelsReasoningAsOutput|TestAnOpenRouterCallCountsAThinkingModelsReasoningAsOutput' \
+	$'counted 14 in and 59 out, want 14 and 619' \
+	internal/deliver/openai_usage.go \
+	$'beyondPrompt > out {' \
+	$'false && beyondPrompt > out {'
+run_case $'reasoning tokens: a total smaller than its parts is believed' \
+	fail \
+	./internal/deliver \
+	$'TestALocalCallCountsAThinkingModelsReasoningAsOutput|TestOpenAIUsageOutputTokens' \
+	$'counted 14 in and 6 out, want 14 and 59' \
+	internal/deliver/openai_usage.go \
+	$'beyondPrompt > out {' \
+	$'beyondPrompt > out || true {'
+run_case $'reasoning tokens: the rule written as one max is not a fault' \
+	pass \
+	./internal/deliver \
+	$'TestALocalCallCountsAThinkingModelsReasoningAsOutput|TestAnOpenRouterCallCountsAThinkingModelsReasoningAsOutput|TestOpenAIUsageOutputTokens' \
+	$'' \
+	internal/deliver/openai_usage.go \
+	$'\tif beyondPrompt := u.TotalTokens - u.PromptTokens; beyondPrompt > out {\n\t\treturn beyondPrompt\n\t}\n\treturn out\n' \
+	$'\treturn max(out, u.TotalTokens-u.PromptTokens)\n'
+
 echo
 if [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'

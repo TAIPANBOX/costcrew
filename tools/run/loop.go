@@ -530,10 +530,7 @@ func openAIRound(ctx context.Context, engine, model string, messages []openAIMsg
 			} `json:"message"`
 			FinishReason string `json:"finish_reason"`
 		} `json:"choices"`
-		Usage struct {
-			PromptTokens     int `json:"prompt_tokens"`
-			CompletionTokens int `json:"completion_tokens"`
-		} `json:"usage"`
+		Usage deliver.OpenAIUsage `json:"usage"`
 	}
 	if err := json.Unmarshal(raw, &out); err != nil {
 		return roundResult{}, openAIMsg{}, fmt.Errorf("%s's answer did not parse: %w", who, err)
@@ -545,7 +542,7 @@ func openAIRound(ctx context.Context, engine, model string, messages []openAIMsg
 	if gw.OpenAIURL != "" {
 		st = deliver.ParseSettlement(resp.Header)
 	}
-	inTok, outTok := out.Usage.PromptTokens, out.Usage.CompletionTokens
+	inTok, outTok := out.Usage.PromptTokens, out.Usage.OutputTokens()
 	if local {
 		// A server that reports no usage must not make the round free. On this
 		// engine the price may be 0, so the token count is what a run's
