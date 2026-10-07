@@ -31,16 +31,31 @@ import (
 // which is right both for a task with no figures section to show and for
 // every existing caller that has never heard of a packet.
 func Prompt(t crew.Task, a crew.Analyst, today, packetText string) string {
+	// The policy (promptdata.go). The pieces that carry this installation's
+	// DATA (the task's title, a packet handed in) go through the mask. The
+	// working analyst's own persona (its name, role, desk, brief and job
+	// description) does not: it is told who it is, its name already says which
+	// desk (investigator-gcp), and its job description is the same words in
+	// every installation, several of which are also the names of analysts
+	// ("renewals", "commitments"), so a scrub would turn its instructions into
+	// tokens and hide nothing. The goal is typed text and is not sent.
+	pol := ActivePolicy()
+	mask := func(s string) string { return pol.MaskText(s, a.Name) }
+
 	var b strings.Builder
 	fmt.Fprintf(&b, "You are %s, %s on the %s desk of a FinOps practice.\n", a.Name, a.Role, a.Desk)
 	if a.Mission != "" {
-		fmt.Fprintf(&b, "Your brief: %s\n", a.Mission)
+		fmt.Fprintf(&b, "Your brief: %s\n", briefFor(pol, a))
 	}
 	b.WriteString(JobDescriptionBlock(a.Name, a.Desk))
-	b.WriteString(packetText)
-	fmt.Fprintf(&b, "\nThe task on your desk is %q.\n", t.Title)
+	b.WriteString(mask(packetText))
+	fmt.Fprintf(&b, "\nThe task on your desk is %q.\n", mask(t.Title))
 	if t.Goal != "" {
-		fmt.Fprintf(&b, "What it asks for: %s\n", t.Goal)
+		if pol.Full() {
+			fmt.Fprintf(&b, "What it asks for: %s\n", t.Goal)
+		} else {
+			fmt.Fprintf(&b, "What it asks for: %s\n", WithheldFreeText)
+		}
 	}
 	// The date, because it asked for one and got no answer.
 	//
@@ -49,6 +64,10 @@ func Prompt(t crew.Task, a crew.Analyst, today, packetText string) string {
 	// choices are to give it the date or to have it guess; and this console's
 	// whole argument is that a figure nobody can check is worse than no figure.
 	fmt.Fprintf(&b, "\nToday is %s.\n", today)
+
+	// Whatever the mode, the prompt says which it was built under, so a
+	// recorded prompt can be read without the flags that produced it.
+	b.WriteString(pol.ModeLine() + "\n")
 
 	// The format, kept to what the console renders.
 	//
@@ -64,6 +83,22 @@ func Prompt(t crew.Task, a crew.Analyst, today, packetText string) string {
 	b.WriteString("\nWrite the deliverable. Be specific, say what you do not know, " +
 		"and do not invent a number you were not given.\n")
 	return b.String()
+}
+
+// briefFor is the analyst's mission as it goes into the prompt. A mission that
+// is the role family's own sentence (every seeded analyst's is) is the same in
+// every installation and goes as it is. A mission somebody typed when they
+// hired the analyst is free text and can name a team or a person, so under a
+// restricting mode it is withheld rather than scrubbed: a scrub only knows the
+// names the store holds.
+func briefFor(pol *Policy, a crew.Analyst) string {
+	if pol.Full() {
+		return a.Mission
+	}
+	if r, ok := crew.RoleForDesk(a.Name, a.Desk); ok && r.Mission == a.Mission {
+		return a.Mission
+	}
+	return WithheldFreeText
 }
 
 // optionsBlockInstructions tells the model the one shape it must not use

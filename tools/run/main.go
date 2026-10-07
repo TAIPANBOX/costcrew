@@ -74,6 +74,34 @@ func main() {
 		"TokenFuse gateway for the OpenRouter route (a gateway whose TOKENFUSE_WIRE is openai), "+
 			"e.g. http://127.0.0.1:4178; empty calls openrouter.ai directly unless -gateway is "+
 			"set, in which case openrouter calls are refused. Falls back to COSTCREW_GATEWAY_OPENAI.")
+	// The local engine: a model the organisation hosts itself (Ollama, vLLM, LM
+	// Studio, llama.cpp), reached over the OpenAI wire. Nothing here names a
+	// vendor. -model-url and -model-name fall back to their environment
+	// variables the way the gateway flags do; the price and the token ceiling
+	// are flags only, because a price that arrives from the environment is a
+	// price nobody typed on this command line.
+	modelURL := flag.String("model-url", modelURLEnvDefault(),
+		"base URL of your own OpenAI-compatible model server for the local engine, "+
+			"e.g. http://127.0.0.1:11434/v1; no credentials in the URL. "+
+			"Falls back to COSTCREW_MODEL_URL. With -gateway-openai set, the call goes through "+
+			"that gateway instead.")
+	modelName := flag.String("model-name", modelNameEnvDefault(),
+		"the model your server serves, for the local engine, e.g. llama3.1:8b. "+
+			"Falls back to COSTCREW_MODEL_NAME. An optional bearer token goes in COSTCREW_MODEL_KEY.")
+	localIn := flag.Float64("local-price-in", 0,
+		"what your own hardware costs per million input tokens on the local engine, in USD (default 0)")
+	localOut := flag.Float64("local-price-out", 0,
+		"what your own hardware costs per million output tokens on the local engine, in USD (default 0)")
+	maxRunTokens := flag.Int("max-run-tokens", 0,
+		"ceiling on the tokens a live run may use, counted over every task and reserved before each "+
+			"call; required when the local engine is priced at 0, because money cannot bound it then")
+	// How much of this installation's billing data a model may be sent
+	// (invariant 70). Read from the environment by internal/deliver, like the
+	// gateway above, so this file stays the one that provably cannot spend.
+	promptData := flag.String("prompt-data", deliver.PromptDataEnvDefault(),
+		"how much billing data a model may be sent: full (as it always was), masked (every "+
+			"name replaced by a stable token, free text withheld, no SQL tools) or aggregates "+
+			"(totals only). Anything else refuses to start. Falls back to COSTCREW_PROMPT_DATA.")
 	flag.Parse()
 
 	if *showPrices {
@@ -84,7 +112,17 @@ func main() {
 		return
 	}
 
-	if err := run(*dir, *ceiling, *maxTok, *sprint, *live, *supervise, *due, *only, *engine, *events, *host, *gateway, *gatewayOpenAI); err != nil {
+	// Before the store is opened, the bus is opened or anything is priced: a
+	// misspelt setting that fell back to sending everything is the one mistake
+	// this flag exists to prevent.
+	if _, err := deliver.ConfigurePromptData(*promptData, *dir); err != nil {
+		fmt.Fprintln(os.Stderr, "run:", err)
+		os.Exit(1)
+	}
+
+	local := localOptions{ModelURL: *modelURL, ModelName: *modelName,
+		PriceIn: *localIn, PriceOut: *localOut, MaxRunTokens: *maxRunTokens}
+	if err := run(*dir, *ceiling, *maxTok, *sprint, *live, *supervise, *due, *only, *engine, *events, *host, *gateway, *gatewayOpenAI, local); err != nil {
 		fmt.Fprintln(os.Stderr, "run:", err)
 		os.Exit(dueExitCode(err))
 	}
@@ -146,7 +184,7 @@ type estimate struct {
 	Refused bool
 }
 
-func run(dir, ceiling string, maxTok, sprint int, live, supervise, due bool, only int, engine, events, host, gateway, gatewayOpenAI string) error {
+func run(dir, ceiling string, maxTok, sprint int, live, supervise, due bool, only int, engine, events, host, gateway, gatewayOpenAI string, local localOptions) error {
 	// Validated before the store or the bus are even opened. A bad -gateway
 	// value is a configuration mistake, not a spending one, and the sooner it
 	// is reported the less of the run has already happened around it.
@@ -158,6 +196,15 @@ func run(dir, ceiling string, maxTok, sprint int, live, supervise, due bool, onl
 	if err != nil {
 		return err
 	}
+	// And the local engine's, in the same breath: its address, its price and its
+	// token ceiling are configuration mistakes too, and the estimator below
+	// reads the price from what apply() publishes.
+	modelURL, err := local.apply()
+	if err != nil {
+		return err
+	}
+	gwCfg := gatewayConfig{URL: gatewayURL, OpenAIURL: gatewayOpenAIURL, Host: host,
+		ModelURL: modelURL, MaxRunTokens: local.MaxRunTokens}
 
 	st, err := store.Open(dir)
 	if err != nil {
@@ -191,6 +238,18 @@ func run(dir, ceiling string, maxTok, sprint int, live, supervise, due bool, onl
 	// comment.
 	b.rec = st.AsRecorder()
 
+	// The policy masks the names in THIS store, so it is bound to it now, and
+	// the mode is recorded on the events this run writes. Said out loud when
+	// it is not the default, because it changes what every prompt below
+	// contains.
+	deliver.BindActivePolicy(db)
+	pol := deliver.ActivePolicy()
+	b.promptData = string(pol.Mode())
+	if !pol.Full() {
+		fmt.Println(pol.ModeLine())
+		fmt.Println()
+	}
+
 	if supervise {
 		if sprint == 0 {
 			return fmt.Errorf("-supervise needs -sprint: a pass over every sprint on the " +
@@ -210,7 +269,8 @@ func run(dir, ceiling string, maxTok, sprint int, live, supervise, due bool, onl
 	}
 
 	if due {
-		return runDue(db, roDB, cap, hasCap, maxTok, live, b, gatewayConfig{URL: gatewayURL, OpenAIURL: gatewayOpenAIURL, Host: host, CeilingUSD: cap})
+		gwCfg.CeilingUSD = cap
+		return runDue(db, roDB, cap, hasCap, maxTok, live, b, gwCfg)
 	}
 
 	all, err := crew.Tasks(db, crew.TaskFilter{OpenOnly: true, Sprint: sprint})
@@ -234,6 +294,7 @@ func run(dir, ceiling string, maxTok, sprint int, live, supervise, due bool, onl
 		}
 		ests = append(ests, price(db, t, by[t.Assignee], maxTok))
 	}
+	refuseOwnerless(ests, gatewayConfig{URL: gatewayURL, OpenAIURL: gatewayOpenAIURL, Host: host, CeilingUSD: cap})
 	sort.Slice(ests, func(i, j int) bool { return ests[i].WorstMicros > ests[j].WorstMicros })
 
 	if !live {
@@ -248,7 +309,8 @@ func run(dir, ceiling string, maxTok, sprint int, live, supervise, due bool, onl
 		return fmt.Errorf("-live needs -ceiling: a run that can spend has to be " +
 			"bounded by a figure somebody typed")
 	}
-	return spend(db, roDB, ests, maxTok, cap, only, b, gatewayConfig{URL: gatewayURL, OpenAIURL: gatewayOpenAIURL, Host: host, CeilingUSD: cap})
+	gwCfg.CeilingUSD = cap
+	return spend(db, roDB, ests, maxTok, cap, only, b, gwCfg)
 }
 
 // price puts a worst case on one task.
@@ -309,7 +371,15 @@ func price(db *sql.DB, t crew.Task, a crew.Analyst, maxTok int) estimate {
 
 	p, ok := engines.PriceFor(a.Engine, e.Model)
 	if !ok {
-		e.Verdict, e.Refused = "no price is known for "+a.Engine+"/"+e.Model, true
+		if a.Engine == engines.LocalID {
+			// Not "no price is known": the operator is the price list for this
+			// engine, and what is missing is the model they have to name.
+			e.Verdict = "the local engine needs -model-name (COSTCREW_MODEL_NAME): the operator " +
+				"names the model their own server serves"
+		} else {
+			e.Verdict = "no price is known for " + a.Engine + "/" + e.Model
+		}
+		e.Refused = true
 		return e
 	}
 	e.Price, e.Priced = p, true
@@ -391,7 +461,7 @@ func report(db *sql.DB, ests []estimate, maxTok int, cap money.Cents, hasCap boo
 	fmt.Println()
 
 	var worstMicros int64
-	var wouldRun, refused, free int
+	var wouldRun, refused, free, localAtZero int
 	for _, e := range ests {
 		switch {
 		case e.Refused:
@@ -400,6 +470,9 @@ func report(db *sql.DB, ests []estimate, maxTok int, cap money.Cents, hasCap boo
 			free++
 		default:
 			wouldRun++
+			if e.Engine == engines.LocalID && priceIsZero(e.Price) {
+				localAtZero++
+			}
 			// Summed BEFORE rounding. Forty-two calls at a quarter of a cent
 			// each is ten cents; forty-two roundings of a quarter of a cent
 			// is nothing.
@@ -416,6 +489,12 @@ func report(db *sql.DB, ests []estimate, maxTok int, cap money.Cents, hasCap boo
 	fmt.Printf("  %3d would run, worst case %s in total\n", wouldRun, usd(worstMicros))
 	fmt.Printf("  %3d on a subscription, nothing new billed\n", free)
 	fmt.Printf("  %3d refused before any call\n", refused)
+	if localAtZero > 0 {
+		// The worst case above counts these at 0, which is a statement about the
+		// price and not about the work: money cannot bound them.
+		fmt.Printf("  %3d of the above are on the local engine at a price of 0: money cannot bound\n"+
+			"      them, so a live run needs -max-run-tokens (or a price for your hardware)\n", localAtZero)
+	}
 	fmt.Println()
 
 	if hasCap {
@@ -456,7 +535,7 @@ func report(db *sql.DB, ests []estimate, maxTok int, cap money.Cents, hasCap boo
 	fmt.Println()
 	fmt.Printf("How the worst case is built: the prompt is this task and its analyst's\n")
 	fmt.Printf("brief, bounded at one token per byte, which no tokeniser can exceed.\n")
-	fmt.Printf("An engine on the tool loop (anthropic, openrouter) also sends the tool\n")
+	fmt.Printf("An engine on the tool loop (anthropic, openrouter, local) also sends the tool\n")
 	fmt.Printf("catalogue on every round, %d or %d bytes, counted at the same rule, and\n",
 		deliver.ToolCatalogueTokens("anthropic"), deliver.ToolCatalogueTokens("openrouter"))
 	fmt.Printf("the whole call is reserved %d times over for the loop's rounds.\n", maxToolRounds)

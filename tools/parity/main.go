@@ -18,6 +18,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -319,7 +320,7 @@ func safeName(p string) string {
 	return n
 }
 
-func capture(base, out, from string, perFamily int) error {
+func capture(w io.Writer, base, out, from string, perFamily int) error {
 	s, err := newSession(base)
 	if err != nil {
 		return err
@@ -390,8 +391,8 @@ func capture(base, out, from string, perFamily int) error {
 	if err := os.WriteFile(filepath.Join(out, "manifest.json"), append(buf, '\n'), 0o644); err != nil {
 		return err
 	}
-	fmt.Printf("captured %d surfaces from %s\n", m.Count, base)
-	fmt.Printf("digest   %s\n", m.Digest)
+	fmt.Fprintf(w, "captured %d surfaces from %s\n", m.Count, base)
+	fmt.Fprintf(w, "digest   %s\n", m.Digest)
 	return nil
 }
 
@@ -443,7 +444,7 @@ func clip(b []byte) string {
 //
 // The distinction matters because during a port the two failures need opposite
 // responses: "not yet" is a to-do list, "differs" is a bug.
-func compare(dirA, dirB string, partial bool) error {
+func compare(w io.Writer, dirA, dirB string, partial bool) error {
 	ma, err := load(dirA)
 	if err != nil {
 		return err
@@ -499,14 +500,14 @@ func compare(dirA, dirB string, partial bool) error {
 			dirA, ma.Count, dirB, mb.Count)
 	}
 
-	fmt.Printf("golden %s  %d surfaces\n", dirA, ma.Count)
-	fmt.Printf("actual %s  %d surfaces\n", dirB, mb.Count)
+	fmt.Fprintf(w, "golden %s  %d surfaces\n", dirA, ma.Count)
+	fmt.Fprintf(w, "actual %s  %d surfaces\n", dirB, mb.Count)
 
 	if partial {
 		done := ma.Count - len(notYet) - len(differ) - len(missing)
 		pct := float64(done) / float64(ma.Count) * 100
-		fmt.Printf("\nPROGRESS: %d of %d surfaces identical (%.1f%%)\n", done, ma.Count, pct)
-		fmt.Printf("          %d not built yet, %d differing\n", len(notYet), len(differ))
+		fmt.Fprintf(w, "\nPROGRESS: %d of %d surfaces identical (%.1f%%)\n", done, ma.Count, pct)
+		fmt.Fprintf(w, "          %d not built yet, %d differing\n", len(notYet), len(differ))
 		if done == 0 {
 			return fmt.Errorf("measured nothing: not one surface matched")
 		}
@@ -514,18 +515,18 @@ func compare(dirA, dirB string, partial bool) error {
 			for _, p := range differ {
 				ea, eb := a[p], b[p]
 				if ea.Status != eb.Status {
-					fmt.Printf("\nSTATUS   %s: golden %d, actual %d\n", p, ea.Status, eb.Status)
+					fmt.Fprintf(w, "\nSTATUS   %s: golden %d, actual %d\n", p, ea.Status, eb.Status)
 					continue
 				}
 				if ea.Location != eb.Location {
-					fmt.Printf("\nREDIRECT %s: golden -> %q, actual -> %q\n", p, ea.Location, eb.Location)
+					fmt.Fprintf(w, "\nREDIRECT %s: golden -> %q, actual -> %q\n", p, ea.Location, eb.Location)
 					continue
 				}
-				fmt.Printf("\nCONTENT  %s\n", p)
+				fmt.Fprintf(w, "\nCONTENT  %s\n", p)
 				ba, e1 := os.ReadFile(filepath.Join(dirA, "bodies", ea.File))
 				bb, e2 := os.ReadFile(filepath.Join(dirB, "bodies", eb.File))
 				if e1 == nil && e2 == nil {
-					fmt.Printf("      %s\n", firstDiff(ba, bb))
+					fmt.Fprintf(w, "      %s\n", firstDiff(ba, bb))
 				}
 			}
 			return fmt.Errorf("%d surfaces are built but wrong", len(differ))
@@ -534,32 +535,32 @@ func compare(dirA, dirB string, partial bool) error {
 	}
 
 	if len(missing) == 0 && len(added) == 0 && len(differ) == 0 {
-		fmt.Printf("\nPARITY: all %d surfaces identical\n", ma.Count)
-		fmt.Printf("digest %s\n", ma.Digest)
+		fmt.Fprintf(w, "\nPARITY: all %d surfaces identical\n", ma.Count)
+		fmt.Fprintf(w, "digest %s\n", ma.Digest)
 		return nil
 	}
 
 	for _, p := range missing {
-		fmt.Printf("\nGONE     %s (in golden, absent here)\n", p)
+		fmt.Fprintf(w, "\nGONE     %s (in golden, absent here)\n", p)
 	}
 	for _, p := range added {
-		fmt.Printf("\nEXTRA    %s (here, not in golden)\n", p)
+		fmt.Fprintf(w, "\nEXTRA    %s (here, not in golden)\n", p)
 	}
 	for _, p := range differ {
 		ea, eb := a[p], b[p]
 		if ea.Status != eb.Status {
-			fmt.Printf("\nSTATUS   %s: golden %d, actual %d\n", p, ea.Status, eb.Status)
+			fmt.Fprintf(w, "\nSTATUS   %s: golden %d, actual %d\n", p, ea.Status, eb.Status)
 			continue
 		}
 		if ea.Location != eb.Location {
-			fmt.Printf("\nREDIRECT %s: golden -> %q, actual -> %q\n", p, ea.Location, eb.Location)
+			fmt.Fprintf(w, "\nREDIRECT %s: golden -> %q, actual -> %q\n", p, ea.Location, eb.Location)
 			continue
 		}
-		fmt.Printf("\nCONTENT  %s\n", p)
+		fmt.Fprintf(w, "\nCONTENT  %s\n", p)
 		ba, err1 := os.ReadFile(filepath.Join(dirA, "bodies", ea.File))
 		bb, err2 := os.ReadFile(filepath.Join(dirB, "bodies", eb.File))
 		if err1 == nil && err2 == nil {
-			fmt.Printf("      %s\n", firstDiff(ba, bb))
+			fmt.Fprintf(w, "      %s\n", firstDiff(ba, bb))
 		}
 	}
 	return fmt.Errorf("%d gone, %d extra, %d differing", len(missing), len(added), len(differ))
@@ -673,8 +674,8 @@ func dropEntry(dir, path string) error {
 
 // -------------------------------------------------------------------- main
 
-func usage() {
-	fmt.Fprintln(os.Stderr, `parity - hold one CostCrew implementation against another
+func usage(w io.Writer) {
+	fmt.Fprintln(w, `parity - hold one CostCrew implementation against another
 
   parity capture -base URL -out DIR [-max N]
   parity compare -a GOLDEN -b ACTUAL
@@ -689,67 +690,97 @@ bytes, count and digest all kept consistent), for parity/gate-has-teeth.sh
 to run against a COPY of parity/captures/golden with nothing running.`)
 }
 
-func main() {
-	if len(os.Args) < 2 {
-		usage()
-		os.Exit(2)
+func main() { os.Exit(run(os.Args[1:], os.Stdout, os.Stderr)) }
+
+// run is main minus os: the arguments, the two streams and an exit status, so
+// a test can read what the gate says and what it exits with, which is the
+// whole of what parity/gate-has-teeth.sh judges.
+func run(args []string, stdout, stderr io.Writer) int {
+	if len(args) < 1 {
+		usage(stderr)
+		return 2
 	}
-	switch os.Args[1] {
+	newFlags := func(name string) *flag.FlagSet {
+		fs := flag.NewFlagSet(name, flag.ContinueOnError)
+		fs.SetOutput(stderr)
+		return fs
+	}
+	// parse returns -1 when the arguments parsed, and otherwise the status to
+	// exit with: 0 for -h, 2 for anything the flag package refused.
+	parse := func(fs *flag.FlagSet, rest []string) int {
+		if err := fs.Parse(rest); err != nil {
+			if errors.Is(err, flag.ErrHelp) {
+				return 0
+			}
+			return 2
+		}
+		return -1
+	}
+	switch args[0] {
 	case "capture":
-		fs := flag.NewFlagSet("capture", flag.ExitOnError)
+		fs := newFlags("capture")
 		base := fs.String("base", "http://127.0.0.1:8422", "running instance")
 		out := fs.String("out", "captures/py", "directory to write")
 		per := fs.Int("per-family", 25, "surfaces sampled per rendering family")
 		from := fs.String("from", "", "take the path list from this golden capture instead of crawling")
-		fs.Parse(os.Args[2:])
-		if err := capture(*base, *out, *from, *per); err != nil {
-			fmt.Fprintln(os.Stderr, "capture failed:", err)
-			os.Exit(1)
+		if c := parse(fs, args[1:]); c >= 0 {
+			return c
+		}
+		if err := capture(stdout, *base, *out, *from, *per); err != nil {
+			fmt.Fprintln(stderr, "capture failed:", err)
+			return 1
 		}
 	case "compare":
-		fs := flag.NewFlagSet("compare", flag.ExitOnError)
+		fs := newFlags("compare")
 		a := fs.String("a", "", "golden capture directory")
 		b := fs.String("b", "", "actual capture directory")
 		partial := fs.Bool("partial", false, "progress mode: count unbuilt surfaces separately from wrong ones")
-		fs.Parse(os.Args[2:])
-		if *a == "" || *b == "" {
-			usage()
-			os.Exit(2)
+		if c := parse(fs, args[1:]); c >= 0 {
+			return c
 		}
-		if err := compare(*a, *b, *partial); err != nil {
-			fmt.Fprintln(os.Stderr, "\nNO PARITY:", err)
-			os.Exit(1)
+		if *a == "" || *b == "" {
+			usage(stderr)
+			return 2
+		}
+		if err := compare(stdout, *a, *b, *partial); err != nil {
+			fmt.Fprintln(stderr, "\nNO PARITY:", err)
+			return 1
 		}
 	case "mutate":
-		fs := flag.NewFlagSet("mutate", flag.ExitOnError)
+		fs := newFlags("mutate")
 		dir := fs.String("dir", "", "capture directory to mutate in place")
 		path := fs.String("path", "", "captured path whose body to edit, e.g. /kpis")
 		old := fs.String("old", "", "substring that must occur exactly once")
 		newv := fs.String("new", "", "its replacement")
-		fs.Parse(os.Args[2:])
+		if c := parse(fs, args[1:]); c >= 0 {
+			return c
+		}
 		if *dir == "" || *path == "" || *old == "" {
-			usage()
-			os.Exit(2)
+			usage(stderr)
+			return 2
 		}
 		if err := mutateBody(*dir, *path, *old, *newv); err != nil {
-			fmt.Fprintln(os.Stderr, "mutate failed:", err)
-			os.Exit(1)
+			fmt.Fprintln(stderr, "mutate failed:", err)
+			return 1
 		}
 	case "drop":
-		fs := flag.NewFlagSet("drop", flag.ExitOnError)
+		fs := newFlags("drop")
 		dir := fs.String("dir", "", "capture directory to mutate in place")
 		path := fs.String("path", "", "captured path to remove entirely")
-		fs.Parse(os.Args[2:])
+		if c := parse(fs, args[1:]); c >= 0 {
+			return c
+		}
 		if *dir == "" || *path == "" {
-			usage()
-			os.Exit(2)
+			usage(stderr)
+			return 2
 		}
 		if err := dropEntry(*dir, *path); err != nil {
-			fmt.Fprintln(os.Stderr, "drop failed:", err)
-			os.Exit(1)
+			fmt.Fprintln(stderr, "drop failed:", err)
+			return 1
 		}
 	default:
-		usage()
-		os.Exit(2)
+		usage(stderr)
+		return 2
 	}
+	return 0
 }

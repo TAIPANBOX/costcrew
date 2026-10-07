@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/TAIPANBOX/costcrew/internal/crew"
+	"github.com/TAIPANBOX/costcrew/internal/deliver"
 	"github.com/TAIPANBOX/costcrew/internal/money"
 	"github.com/TAIPANBOX/costcrew/internal/stack"
 )
@@ -39,6 +40,22 @@ type bus struct {
 	// actor... so the audit page shows who decided what and on which
 	// evidence" -- that page reads store.Store's journal, not the stack bus.
 	rec crew.Recorder
+
+	// promptData is the -prompt-data mode this run built its prompts under
+	// (full, masked or aggregates), set once in run() from the active policy
+	// and recorded on the events that say a model was called or a run
+	// finished, so a run's evidence says what could have left the process
+	// (CLAUDE.md invariant 70). Empty reads as full: a bus built by a test, or
+	// by anything that never configured a policy, sent what it always sent.
+	promptData string
+}
+
+// mode is the prompt-data setting to record, never empty.
+func (b bus) mode() string {
+	if b.promptData == "" {
+		return string(deliver.PromptFull)
+	}
+	return b.promptData
 }
 
 // toolCall says an analyst called a model, in the estate's own word for it.
@@ -65,7 +82,8 @@ func (b bus) toolCall(e estimate, res callResult) error {
 		"worst_micros":  e.WorstMicros,
 		"priced_micros": res.ActualMicros, // the runner's own price, kept beside the charge for reconciliation
 		"settled":       res.Settled,
-		"price_basis":   res.PriceBasis,
+		"price_basis":   priceBasis(e.Engine, res.Settlement),
+		"prompt_data":   b.mode(),
 	}, nil)
 }
 
@@ -103,6 +121,7 @@ func (b bus) crewRan(label string, tasksRun, tasksRefused int, costMicros int64,
 		"tasks_run": tasksRun, "tasks_refused": tasksRefused,
 		"cost_micros": costMicros, "ceiling_cents": int64(ceiling),
 		"switched_on_by": switchedOnBy,
+		"prompt_data":    b.mode(),
 	}
 	var firstErr error
 	if b.rec != nil {

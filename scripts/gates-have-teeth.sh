@@ -756,8 +756,8 @@ run_case 'a deliverable that does not say a model wrote it' fail ./tools/run \
 	'TestARunnerDeliverableIsMarkedLive' \
 	'indistinguishable' \
 	tools/run/live.go \
-	"datetime('now'), 'live')" \
-	"datetime('now'), 'fixture')"
+	"'draft', datetime('now'), 'live'" \
+	"'draft', datetime('now'), 'fixture'"
 
 run_case 'a marker no page displays' fail ./internal/web \
 	'TestTheTaskPageShowsWhichDeliverableWasWrittenLive' \
@@ -1002,8 +1002,8 @@ run_case 'bench: the driver: line is left in a hiding-mode packet' \
 	$'TestBenchPacketHidesTheDriverLabelAndItsKind' \
 	$'still names the driver label' \
 	internal/deliver/packet.go \
-	$'if an.Driver != "" && !hideDriver {' \
-	$'if an.Driver != "" {'
+	$'if an.Driver != "" && !hideDriver && !pol.Aggregates() {' \
+	$'if an.Driver != "" && !pol.Aggregates() {'
 
 # B7-SPEC.md section 5's second named mutant: "score cause by substring of
 # the whole deliverable instead of the named cause". A deliverable can
@@ -2110,6 +2110,134 @@ run_case $'admin answers: a reworded refusal message is not a fault' \
 	internal/web/decisions.go \
 	$'"you are answering for "+owner+", so a reason is needed: "+rerr.Error()' \
 	$'"a reason is needed because you are answering for "+owner+": "+rerr.Error()'
+run_case $'unit showback: the showback drops every unit a rule covers' \
+	fail \
+	./internal/finops \
+	$'TestAfterTheStampsTheShowbackHasOneRowPerUnitAndBalancesToTheCent' \
+	$'showback has 0 rows' \
+	internal/finops/unitrules.go \
+	$'	for _, u := range UnitsOf(a, rules) {' \
+	$'	for _, u := range UnitsOf(a, rules)[:0] {'
+run_case $'unit showback: the spend of a unit with no rule vanishes from the file' \
+	fail \
+	./internal/finops \
+	$'TestBeforeAnyRuleTheUnitsAreOneVisibleUnruledRowAndTheFileBalances' \
+	$'with no rule the showback is' \
+	internal/finops/unitrules.go \
+	$'	if haveUnruled {' \
+	$'	if haveUnruled && false {'
+run_case $'unit showback: an unruled unit\'s name is printed in the unruled row' \
+	fail \
+	./internal/web \
+	$'TestAHostileUnitNameNeverReachesTheShowbackFileOrTheMarkup' \
+	$'reached the showback file' \
+	internal/finops/unitrules.go \
+	$'		haveUnruled = true\n' \
+	$'		haveUnruled = true\n		unruled.BusinessUnit += u.Unit + ";"\n'
+run_case $'unit showback: the export is emptied at the route' \
+	fail \
+	./internal/web \
+	$'TestTheShowbackCarriesOneRowPerUnitOnlyAfterTheOwnersStamp' \
+	$'before any stamp the showback is' \
+	internal/web/money.go \
+	$'	for _, r := range sb {' \
+	$'	for _, r := range sb[:0] {'
+run_case $'unit showback: the chargeback page stops listing the units' \
+	fail \
+	./internal/web \
+	$'TestAnUnstampedUnitIsNamedAsUnruledOnTheChargebackPage' \
+	$'does not say "Customer units"' \
+	internal/web/templates/chargeback.html \
+	$'{{- if .Units}}' \
+	$'{{- if false}}'
+run_case $'unit showback: the close pack stops naming the units' \
+	fail \
+	./internal/deliver \
+	$'TestClosePackSectionNamesAUnitWithNoRuleAndTheShapeOfAProposal' \
+	$'the close pack does not carry' \
+	internal/deliver/packet.go \
+	$'uerr == nil && len(units) > 0 {' \
+	$'uerr == nil && len(units) > 99999 {'
+run_case $'unit rule: applied for a unit that has no rows' \
+	fail \
+	./internal/finops \
+	$'TestAUnitRuleForAUnitWithNoRowsIsRefusedAndTheOptionStaysOpen' \
+	$'a rule for a unit that has no rows was applied' \
+	internal/finops/unitrules.go \
+	$'	if reason != "" {\n		return fmt.Errorf("allocation.rule for unit %q refused' \
+	$'	if false {\n		return fmt.Errorf("allocation.rule for unit %q refused'
+run_case $'unit rule: rows a reader did not write count as a unit' \
+	fail \
+	./internal/finops \
+	$'TestAUnitRuleOnRowsTheTokenFuseReaderDidNotWriteIsRefused' \
+	$'whose rows no reader wrote' \
+	internal/crew/unitrule.go \
+	$'WHERE team=? AND provenance=?' \
+	$'WHERE team=? AND (provenance=? OR provenance IS NULL)'
+run_case $'unit rule: a roster team\'s name is accepted as a unit' \
+	fail \
+	./internal/finops \
+	$'TestAUnitRuleForARosterTeamIsRefused' \
+	$'a unit rule was applied to the roster team' \
+	internal/crew/unitrule.go \
+	$'		if tm.Name == unit {' \
+	$'		if false && tm.Name == unit {'
+run_case $'unit rule: a proposal for a unit with no rows reaches the owner' \
+	fail \
+	./internal/finops \
+	$'TestAProposalForAUnitWithNoRowsIsRefusedWhenItIsWritten' \
+	$'a proposal for a unit with no rows was accepted' \
+	internal/crew/options.go \
+	$'if tgt, isUnit, _ := ParseUnitTarget(o.Target); isUnit {' \
+	$'if tgt, isUnit, _ := ParseUnitTarget(o.Target); isUnit && false {'
+run_case $'unit rule: a name that opens as a spreadsheet formula is accepted' \
+	fail \
+	./internal/crew \
+	$'TestUnitRuleTargetHostileInputs' \
+	$'spreadsheet_formula' \
+	internal/crew/unitrule.go \
+	$'strings.ContainsRune("=+-@", rune(s[0]))' \
+	$'strings.ContainsRune("", rune(s[0]))'
+run_case $'unit rule: the supervisor applies an allocation.rule on its own' \
+	fail \
+	./internal/finops \
+	$'TestTheSupervisorNeverAppliesAUnitRule' \
+	$'the supervisor applied' \
+	internal/crew/roles.go \
+	$'	if c.Owner != "analyst" {\n		return MayDecide("supervisor", class)' \
+	$'	if c.Owner != "analyst" {\n		return true, ""'
+run_case $'unit rule: any operator may stamp another owner\'s unit rule' \
+	fail \
+	./internal/web \
+	$'TestOnlyTheOwnerOrAnAdminCanStampAUnitRule' \
+	$'stamp wrote' \
+	internal/web/decisions.go \
+	$'	return u.May("operator") && u.Username == owner' \
+	$'	return u.May("operator")'
+run_case $'money found: the crew-cost KPI sums the absolute excess again' \
+	fail \
+	./internal/finops \
+	$'TestTheCrewCostKPIDoesNotCountADropAsMoneyFound' \
+	$'does not state the signed figure' \
+	internal/finops/kpi.go \
+	$'	found, err := FoundMonthly(db)\n' \
+	$'	var found money.Cents\n	err = db.QueryRow(`SELECT COALESCE(SUM(ABS(excess_cents)),0) FROM anomalies WHERE state IN (\'explained\',\'accepted\')`).Scan(&found)\n'
+run_case $'unit rule: a reworded refusal message is not a fault' \
+	pass \
+	./internal/finops \
+	$'TestAUnitRuleForAUnitWithNoRowsIsRefusedAndTheOptionStaysOpen' \
+	$'' \
+	internal/finops/unitrules.go \
+	$'"allocation.rule for unit %q refused: %s"' \
+	$'"the unit rule for %q was refused: %s"'
+run_case $'unit showback: a reworded sentence on the units panel is not a fault' \
+	pass \
+	./internal/web \
+	$'TestAnUnstampedUnitIsNamedAsUnruledOnTheChargebackPage' \
+	$'' \
+	internal/web/templates/chargeback.html \
+	$'charged as it reports them.' \
+	$'shown the way it labelled them.'
 
 # Invariants 61 to 64: sessions stored as hashes, one answer for every failed
 # sign-in, private data files, and the console's egress. Every case plants one
@@ -2314,7 +2442,7 @@ run_case $'egress: a package the console imports starts building requests' \
 	fail \
 	./internal/web \
 	$'TestOnlyTheDeliveryPackageAmongThoseTheConsoleImportsReachesTheNetwork' \
-	$'want exactly [internal/deliver]' \
+	$'want exactly [internal/deliver internal/sso]' \
 	internal/money/money.go \
 	$'import (\n' \
 	$'import (\n	"net/http"\n' \
@@ -2380,6 +2508,1475 @@ run_case 'image: a reworded comment above a digest is not a fault' \
 	Dockerfile \
 	$'\n# golang:1.27-alpine\nFROM' \
 	$'\n# the golang 1.27 alpine build image\nFROM'
+# Invariant 59: the HTTP edge. Each fault below is one the three defects were
+# made of, planted back; the last of each group is a harmless edit the gate must
+# not mind, so a gate that merely pinned today's literal would read OVEREAGER.
+run_case $'http edge: a hand-written HTML writer is back in the results export' \
+	fail \
+	./internal/web \
+	$'TestResultsExportHasNoHandWrittenHTMLWriter' \
+	$'exportResultsHTML calls Fprintf' \
+	internal/web/practice.go \
+	$'\t_, _ = buf.WriteTo(w)\n}\n' \
+	$'\t_, _ = buf.WriteTo(w)\n\tfmt.Fprintf(w, "<!-- %s -->", a.Unallocated)\n}\n'
+run_case $'http edge: the results export is built with text/template, which does not escape' \
+	fail \
+	./internal/web \
+	$'TestResultsExportEscapesWhatAnImportedRowCarries' \
+	$'is written into /export/results.html raw' \
+	internal/web/practice.go \
+	$'\t"html/template"\n' \
+	$'\t"text/template"\n'
+run_case $'http edge: the Content-Security-Policy is not sent' \
+	fail \
+	./internal/web \
+	$'TestEveryRouteCarriesTheSecurityHeaders' \
+	$'no Content-Security-Policy' \
+	internal/web/edge.go \
+	$'\th.Set("Content-Security-Policy", contentSecurityPolicy)\n' \
+	$'\t_ = contentSecurityPolicy\n'
+run_case $'http edge: X-Frame-Options is not sent' \
+	fail \
+	./internal/web \
+	$'TestEveryRouteCarriesTheSecurityHeaders' \
+	$'X-Frame-Options' \
+	internal/web/edge.go \
+	$'\th.Set("X-Frame-Options", "DENY")\n' \
+	$'\t_ = "DENY"\n'
+run_case $'http edge: the policy allows inline script' \
+	fail \
+	./internal/web \
+	$'TestTheContentSecurityPolicyAllowsNoScript' \
+	$'script-src' \
+	internal/web/edge.go \
+	$'const contentSecurityPolicy = "default-src \'none\'; style-src' \
+	$'const contentSecurityPolicy = "default-src \'none\'; script-src \'self\' \'unsafe-inline\'; style-src'
+run_case $'http edge: Sign out needs a script again' \
+	fail \
+	./internal/web \
+	$'TestNoPageReliesOnWhatThePolicyForbids' \
+	$'relies on' \
+	internal/web/templates/layout.html \
+	$'<form class="signout" method="post" action="/logout">' \
+	$'<form class="signout" method="post" action="/logout" onsubmit="return true">'
+run_case $'http edge: Strict-Transport-Security is sent over plain HTTP too' \
+	fail \
+	./internal/web \
+	$'TestStrictTransportSecurityFollowsTheCookiePosture' \
+	$'Strict-Transport-Security' \
+	internal/web/edge.go \
+	$'\tif s.behindTLS || r.TLS != nil {\n\t\th.Set("Strict-Transport-Security"' \
+	$'\tif true {\n\t\th.Set("Strict-Transport-Security"'
+run_case $'http edge: Strict-Transport-Security ignores a TLS handshake this process made' \
+	fail \
+	./internal/web \
+	$'TestStrictTransportSecurityFollowsTheCookiePosture' \
+	$'TLS terminated here' \
+	internal/web/edge.go \
+	$'\tif s.behindTLS || r.TLS != nil {\n\t\th.Set("Strict-Transport-Security"' \
+	$'\tif s.behindTLS {\n\t\th.Set("Strict-Transport-Security"'
+run_case $'http edge: the body cap is not applied' \
+	fail \
+	./internal/web \
+	$'TestAnOversizedPostIsRefusedAndChangesNothing' \
+	$'want 413' \
+	internal/web/server.go \
+	$'\tif !limitBody(w, r) {' \
+	$'\tif false {'
+run_case $'http edge: a chunked body is handed to the handler uncapped' \
+	fail \
+	./internal/web \
+	$'TestAnOversizedPostIsRefusedAndChangesNothing' \
+	$'chunked:' \
+	internal/web/edge.go \
+	$'\tif r.ContentLength >= 0 {\n\t\tr.Body = http.MaxBytesReader' \
+	$'\tif true {\n\t\tr.Body = http.MaxBytesReader'
+run_case $'http edge: the intake upload is held to the general cap' \
+	fail \
+	./internal/web \
+	$'TestIntakeStillAcceptsAFileUpToItsOwnCap' \
+	$'answered 413' \
+	internal/web/edge.go \
+	$'\t\treturn maxIntake + multipartOverhead\n' \
+	$'\t\treturn maxBody\n'
+run_case $'http edge: the intake round trip is held to the general cap' \
+	fail \
+	./internal/web \
+	$'TestIntakeApplyAcceptsTheEncodedFileItCheckedAndRefusesMore' \
+	$'refused as too large' \
+	internal/web/edge.go \
+	$'\t\treturn 6*maxIntake + multipartOverhead\n' \
+	$'\t\treturn maxBody\n'
+run_case $'http edge: the intake reads a file over its cap in part again' \
+	fail \
+	./internal/web \
+	$'TestIntakeRefusesAFileOverItsCapInsteadOfCuttingIt' \
+	$'want a redirect with the reason' \
+	internal/web/intake.go \
+	$'io.LimitReader(f, maxIntake+1)' \
+	$'io.LimitReader(f, maxIntake)'
+run_case $'http edge: the write timeout is not longer than a model call' \
+	fail \
+	./internal/web \
+	$'TestTheServerSetsEveryTimeoutAndOutlastsTheLongestHandler' \
+	$'is under twice' \
+	internal/web/edge.go \
+	$'\tWriteTimeout = 2 * planAskTimeout\n' \
+	$'\tWriteTimeout = planAskTimeout\n'
+run_case $'http edge: the write timeout is not set' \
+	fail \
+	./internal/web \
+	$'TestTheServerSetsEveryTimeoutAndOutlastsTheLongestHandler' \
+	$'WriteTimeout is 0s' \
+	internal/web/edge.go \
+	$'\t\tWriteTimeout:      WriteTimeout,\n' \
+	$''
+run_case $'http edge: the console builds a literal http.Server again' \
+	fail \
+	./cmd/costcrew \
+	$'TestTheConsoleServesThroughTheServerThatOwnsItsTimeouts' \
+	$'builds a literal http.Server' \
+	cmd/costcrew/main.go \
+	$'\tsrv := web.NewHTTPServer(addr, web.New(st, au, web.Stack{' \
+	$'\tsrv := &http.Server{Addr: addr, Handler: web.New(st, au, web.Stack{' \
+	cmd/costcrew/main.go \
+	$'\t\tBehindTLS: behindTLS, OIDC: oidcProv,\n\t}))\n' \
+	$'\t\tBehindTLS: behindTLS, OIDC: oidcProv,\n\t})}\n'
+run_case $'http edge: reordered policy directives and a reworded refusal are not a fault' \
+	pass \
+	./internal/web \
+	$'TestTheContentSecurityPolicyAllowsNoScript|TestAnOversizedPostIsRefusedAndChangesNothing' \
+	$'' \
+	internal/web/edge.go \
+	$'"form-action \'self\'; base-uri \'none\'; frame-ancestors \'none\'"' \
+	$'"frame-ancestors \'none\'; base-uri \'none\'; form-action \'self\'"' \
+	internal/web/edge.go \
+	$'request too large: this page accepts at most %d bytes' \
+	$'request too large: at most %d bytes are read here'
+# Invariant 65 (costcrew#73): every gateway call names the person it spends
+# for, and an analyst with no owner is refused rather than sent with an empty
+# chain. Twelve faults and two harmless rewordings.
+run_case $'owner chain: the header is left out of the one function that sets them' \
+	fail \
+	./internal/deliver \
+	$'TestEveryRequestShapeCarriesTheOnBehalfOfChain' \
+	$'x-fuse-on-behalf-of' \
+	internal/deliver/call.go \
+	$'		req.Header.Set("x-fuse-on-behalf-of", strings.Join(gw.OnBehalfOf, ","))' \
+	$'		_ = strings.Join(gw.OnBehalfOf, ",")'
+run_case $'owner chain: the tool loop builds its own headers again' \
+	fail \
+	./tools/run \
+	$'TestTheToolLoopAndDeliverCallSendTheSameFuseHeaders' \
+	$'the tool loop sends' \
+	tools/run/loop.go \
+	$'		// never learned x-fuse-on-behalf-of (costcrew#73).\n		deliver.SetFuseHeaders(req, gw)' \
+	$'		// never learned x-fuse-on-behalf-of (costcrew#73).\n		req.Header.Set("x-fuse-run-id", gw.RunID)\n		req.Header.Set("x-fuse-agent-id", gw.AgentID)\n		req.Header.Set("x-fuse-budget-usd", gw.BudgetUSD)\n		if gw.ParentRunID != "" {\n			req.Header.Set("x-fuse-parent-run-id", gw.ParentRunID)\n		}'
+run_case $'owner chain: the owner goes into the chain unescaped' \
+	fail \
+	./internal/deliver \
+	$'TestHostileOwnersCannotForgeOrBreakAChain' \
+	$'TestHostileOwnersCannotForgeOrBreakAChain' \
+	internal/deliver/call.go \
+	$'	chain := []string{"user://" + host + "/" + url.PathEscape(owner), agent}' \
+	$'	chain := []string{"user://" + host + "/" + owner, agent}'
+run_case $'owner chain: an empty owner is accepted' \
+	fail \
+	./internal/deliver \
+	$'TestAnAnalystWithNoOwnerGetsNoChainAndIsNamed' \
+	$'is exactly what must never be sent' \
+	internal/deliver/call.go \
+	$'	owner = strings.TrimSpace(owner)\n	if owner == "" {' \
+	$'	owner = strings.TrimSpace(owner)\n	if false {'
+run_case $'owner chain: the door lets a gateway call through with no chain' \
+	fail \
+	./internal/deliver \
+	$'TestAGatewayCallWithNoOwnerChainIsRefusedBeforeAnyRequest' \
+	$'the gateway was reached by a call that names nobody' \
+	internal/deliver/call.go \
+	$'	if len(gw.OnBehalfOf) == 0 {' \
+	$'	if false {'
+run_case $'owner chain: pricing no longer refuses an ownerless analyst' \
+	fail \
+	./tools/run \
+	$'TestWithAGatewayAnOwnerlessAnalystsTaskIsRefusedWhenItIsPriced' \
+	$'was priced to run' \
+	tools/run/live.go \
+	$'func refuseOwnerless(ests []estimate, gw gatewayConfig) {\n	if !gw.on() {' \
+	$'func refuseOwnerless(ests []estimate, gw gatewayConfig) {\n	if true {'
+run_case $'owner chain: the runner builds its Gateway without the chain' \
+	fail \
+	./tools/run \
+	$'TestEveryRoundOfAnAnthropicTaskCarriesTheAnalystsOwner' \
+	$'no owner chain' \
+	tools/run/live.go \
+	$'		BudgetUSD:  gatewayBudgetUSD(cfg.CeilingUSD, taskGuard),\n		OnBehalfOf: chain,' \
+	$'		BudgetUSD:  gatewayBudgetUSD(cfg.CeilingUSD, taskGuard),\n		OnBehalfOf: chain[:0],'
+run_case $'owner chain: the bench builds its Gateway without the chain' \
+	fail \
+	./tools/bench \
+	$'TestLiveSendsTheAnalystsOwnerOnEveryCase' \
+	$'no owner chain' \
+	tools/bench/gateway.go \
+	$'		BudgetUSD:  budgetUSD,\n		OnBehalfOf: chain,' \
+	$'		BudgetUSD:  budgetUSD,\n		OnBehalfOf: chain[:0],'
+run_case $'owner chain: the console builds its plan-ask Gateway without the chain' \
+	fail \
+	./internal/web \
+	$'TestThePlanAskNamesTheAskingPersonAsTheRoot' \
+	$'want 1' \
+	internal/web/planning.go \
+	$'		BudgetUSD:  deliver.GatewayBudgetUSD(sup.PerTask, sup.PerTask),\n		OnBehalfOf: chain,' \
+	$'		BudgetUSD:  deliver.GatewayBudgetUSD(sup.PerTask, sup.PerTask),\n		OnBehalfOf: chain[:0],'
+run_case $'owner chain: the plan-ask names the supervisor\'s roster owner, not the person who asked' \
+	fail \
+	./internal/web \
+	$'TestThePlanAskNamesTheAskingPersonAsTheRoot' \
+	$'x-fuse-on-behalf-of =' \
+	internal/web/planning.go \
+	$'deliver.OnBehalfOfChain(s.host, u.Username, "supervisor")' \
+	$'deliver.OnBehalfOfChain(s.host, sup.Owner, "supervisor")'
+run_case $'owner chain: the roster placeholder is accepted as an owner' \
+	fail \
+	./internal/deliver \
+	$'TestAnUnclaimedRosterOwnerIsNoOwner' \
+	$'the placeholder owner produced a chain' \
+	internal/deliver/call.go \
+	$'	if strings.TrimSpace(a.Owner) == crew.SeededOwner("") {' \
+	$'	if false {'
+run_case $'owner chain: a chain the gateway would silently ignore is sent' \
+	fail \
+	./internal/deliver \
+	$'TestAChainTheGatewayWouldSilentlyIgnoreIsRefusedHere' \
+	$'that TokenFuse ignores' \
+	internal/deliver/call.go \
+	$'	if n := len(strings.Join(chain, ",")); n > maxOnBehalfOfBytes {' \
+	$'	if n := len(strings.Join(chain, ",")); n < 0 {'
+run_case $'owner chain: a reworded placeholder refusal is not a fault' \
+	pass \
+	./internal/deliver \
+	$'TestAnUnclaimedRosterOwnerIsNoOwner' \
+	$'' \
+	internal/deliver/call.go \
+	$'it is refused rather than "+' \
+	$'we refuse it rather than "+'
+run_case $'owner chain: a reworded refusal prefix in execute is not a fault' \
+	pass \
+	./tools/run \
+	$'TestAnAnalystWithNoOwnerIsRefusedBeforeAnyCall' \
+	$'' \
+	tools/run/live.go \
+	$'refused before the call: %w", herr' \
+	$'not run: %w", herr'
+
+# Invariant 66: a task a person blocks while its call is in flight does not get
+# its deliverable, and the call it already paid for is still recorded. Five
+# faults and one harmless rewording.
+run_case $'blocked meanwhile: the draft insert stops looking at the task\'s state' \
+	fail \
+	./tools/run \
+	$'TestATaskBlockedWhileItsCallWasInFlightGetsNoDeliverable' \
+	$'were written for a task a person blocked' \
+	tools/run/live.go \
+	$'WHERE NOT EXISTS (SELECT 1 FROM tasks WHERE id = ? AND state = \'blocked\')' \
+	$'WHERE NOT EXISTS (SELECT 1 FROM tasks WHERE id = ? AND state = \'a state nobody uses\')'
+run_case $'blocked meanwhile: the discarded answer\'s charge is not booked' \
+	fail \
+	./tools/run \
+	$'TestATaskBlockedWhileItsCallWasInFlightGetsNoDeliverable' \
+	$'tasks.live_micros =' \
+	tools/run/live.go \
+	$'			if charge > 0 {\n				if e2 := recordCharge(db, e.Task.ID, charge); e2 != nil {\n					fmt.Fprintf(os.Stderr, "  could not record the charge of the discarded' \
+	$'			if false {\n				if e2 := recordCharge(db, e.Task.ID, charge); e2 != nil {\n					fmt.Fprintf(os.Stderr, "  could not record the charge of the discarded'
+run_case $'blocked meanwhile: the run counts a discarded answer as a failed task' \
+	fail \
+	./tools/run \
+	$'TestARunLeavesAPersonsBlockAloneAndCountsTheDiscardedAnswer' \
+	$'the summary does not say 0 of 1 done and 1 discarded' \
+	tools/run/live.go \
+	$'			if errors.As(err, &d) {\n				// Already blocked by a person' \
+	$'			if errors.As(err, &d) && false {\n				// Already blocked by a person'
+run_case $'blocked meanwhile: the discard is not said' \
+	fail \
+	./tools/run \
+	$'TestATaskBlockedWhileItsCallWasInFlightGetsNoDeliverable' \
+	$'no line says the answer was discarded' \
+	tools/run/live.go \
+	$'DISCARDED: the answer came back' \
+	$'dropped: the answer came back'
+run_case $'blocked meanwhile: the summary does not count the discard' \
+	fail \
+	./tools/run \
+	$'TestARunLeavesAPersonsBlockAloneAndCountsTheDiscardedAnswer' \
+	$'the summary does not say' \
+	tools/run/live.go \
+	$'				discarded++\n' \
+	$''
+run_case $'blocked meanwhile: a failed call overwrites the person\'s reason' \
+	fail \
+	./tools/run \
+	$'TestAFailedCallLeavesAPersonsBlockReasonAlone' \
+	$'a failed call rewrote the person\'s block' \
+	tools/run/live.go \
+	$'WHERE id=? AND state <> \'blocked\'`,' \
+	$'WHERE id=?`,'
+run_case $'blocked meanwhile: a reworded discard line is not a fault' \
+	pass \
+	./tools/run \
+	$'TestATaskBlockedWhileItsCallWasInFlightGetsNoDeliverable' \
+	$'' \
+	tools/run/live.go \
+	$'so no draft was saved; the call cost' \
+	$'so nothing was saved; the call cost'
+
+# 74 and 75. Sign-in through the organisation's identity provider. Every case
+# switches off one check the flow makes, in the place it is made, and requires
+# the test written for that check to go red for that reason. go-oidc's own
+# checks (signature, audience, expiry) are switched off through its Config,
+# which is how a mistake in this repository would switch them off.
+run_case $'oidc: the signature is not checked' \
+	fail \
+	./internal/sso \
+	$'TestTheIDTokenIsCheckedClaimByClaim' \
+	$'bad_signature' \
+	internal/sso/flow.go \
+	$'&oidc.Config{ClientID: p.cfg.ClientID}' \
+	$'&oidc.Config{ClientID: p.cfg.ClientID, InsecureSkipSignatureCheck: true}'
+run_case $'oidc: the audience is not checked' \
+	fail \
+	./internal/web \
+	$'TestEveryRefusedSignInLeavesNoSessionAndNoAccount' \
+	$'wrong_audience' \
+	internal/sso/flow.go \
+	$'&oidc.Config{ClientID: p.cfg.ClientID}' \
+	$'&oidc.Config{SkipClientIDCheck: true}'
+run_case $'oidc: the expiry is not checked' \
+	fail \
+	./internal/web \
+	$'TestEveryRefusedSignInLeavesNoSessionAndNoAccount' \
+	$'expired_token' \
+	internal/sso/flow.go \
+	$'&oidc.Config{ClientID: p.cfg.ClientID}' \
+	$'&oidc.Config{ClientID: p.cfg.ClientID, SkipExpiryCheck: true}'
+run_case $'oidc: the nonce is not checked' \
+	fail \
+	./internal/web \
+	$'TestEveryRefusedSignInLeavesNoSessionAndNoAccount' \
+	$'missing_nonce' \
+	internal/sso/flow.go \
+	$'	if idt.Nonce == "" {' \
+	$'	if false {' \
+	internal/sso/flow.go \
+	$'	if subtle.ConstantTimeCompare([]byte(idt.Nonce), []byte(pend.nonce)) != 1 {' \
+	$'	if false {'
+run_case $'oidc: an iat from the future is accepted' \
+	fail \
+	./internal/sso \
+	$'TestTheIDTokenIsCheckedClaimByClaim' \
+	$'want it refused for "in the future"' \
+	internal/sso/flow.go \
+	$'	case idt.IssuedAt.After(now.Add(MaxClockSkew)):' \
+	$'	case false:'
+run_case $'oidc: an iat from before the sign-in began is accepted' \
+	fail \
+	./internal/sso \
+	$'TestTheIDTokenIsCheckedClaimByClaim' \
+	$'want it refused for "before this sign-in began"' \
+	internal/sso/flow.go \
+	$'	case idt.IssuedAt.Before(pend.created.Add(-MaxClockSkew)):' \
+	$'	case false:'
+run_case $'oidc: the authorized party is not checked' \
+	fail \
+	./internal/sso \
+	$'TestTheIDTokenIsCheckedClaimByClaim' \
+	$'want it refused for "issued to"' \
+	internal/sso/flow.go \
+	$'	if (len(idt.Audience) > 1 && azp != p.cfg.ClientID) || (azp != "" && azp != p.cfg.ClientID) {' \
+	$'	if false {'
+# The end-to-end replay test alone was TOOTHLESS against this one, measured
+# 2026-10-07: the fake provider's own one-use code refuses the second exchange,
+# so the replay failed for the provider's reason, not this console's. The sso
+# test also requires the replay to never reach the token endpoint.
+run_case $'oidc: a state is read instead of spent' \
+	fail \
+	./internal/sso \
+	$'TestAStateIsSpentByItsFirstUse' \
+	$'unknown or was already used' \
+	internal/sso/flow.go \
+	$'`DELETE FROM oidc_pending WHERE state_hash=? RETURNING nonce, verifier, created, expires`' \
+	$'`SELECT nonce, verifier, created, expires FROM oidc_pending WHERE state_hash=?`'
+run_case $'oidc: the state is not bound to the browser that started it' \
+	fail \
+	./internal/web \
+	$'TestACallbackInABrowserThatDidNotStartItIsRefused' \
+	$'callback without the state cookie' \
+	internal/sso/flow.go \
+	$'	if browserState == "" || subtle.ConstantTimeCompare([]byte(state), []byte(browserState)) != 1 {' \
+	$'	if false {'
+run_case $'oidc: an unmapped group gets a default role' \
+	fail \
+	./internal/web \
+	$'TestEveryRefusedSignInLeavesNoSessionAndNoAccount' \
+	$'unmapped_group' \
+	internal/sso/sso.go \
+	$'	best := ""' \
+	$'	best := "viewer"'
+run_case $'oidc: removal from the group leaves the sessions alive' \
+	fail \
+	./internal/web \
+	$'TestRemovalFromTheGroupEndsEverySessionAtTheNextSignIn' \
+	$'the session from before the removal still signs in' \
+	internal/auth/external.go \
+	$'`DELETE FROM sessions WHERE username=?`, linked)' \
+	$'`DELETE FROM sessions WHERE username=? AND 0`, linked)'
+run_case $'oidc: a role change at the provider is not applied' \
+	fail \
+	./internal/web \
+	$'TestARoleDowngradeAtTheProviderAppliesAtTheNextSignIn' \
+	$'after the provider moved her to viewers' \
+	internal/auth/external.go \
+	$'		if u.Role != role {' \
+	$'		if false {'
+run_case $'oidc: an identity adopts a local account by its name' \
+	fail \
+	./internal/auth \
+	$'TestALocalAccountIsNeverAdoptedByName' \
+	$'an identity named like a local admin signed in' \
+	internal/auth/external.go \
+	$'		} else if u != nil || taken {' \
+	$'		} else if (u != nil || taken) && false {'
+run_case $'oidc: -oidc-only still takes any password' \
+	fail \
+	./internal/web \
+	$'TestOIDCOnlyRefusesPasswordsExceptTheCommandLinesBreakGlass' \
+	$'a local password under -oidc-only' \
+	internal/web/server.go \
+	$'		authenticate = s.au.AuthenticateBreakGlass' \
+	$'		_ = s.au.AuthenticateBreakGlass'
+run_case $'oidc: registration stays open while a provider is configured' \
+	fail \
+	./internal/web \
+	$'TestRegistrationIsClosedWhileAProviderIsConfigured' \
+	$'GET /signup' \
+	internal/web/server.go \
+	$'	if s.oidc != nil {\n		return false, nil\n	}\n	return s.au.SignupOpen()' \
+	$'	return s.au.SignupOpen()'
+run_case $'oidc: the sign-in page posts a form to the provider' \
+	fail \
+	./internal/web \
+	$'TestTheSignInPageReachesTheProviderByALinkNotAForm' \
+	$'has no link to' \
+	internal/web/oidc.go \
+	$'	out := `<p class="row"><a class="button" href="` + sso.StartPath +\n		`">Sign in with your organisation</a></p>`' \
+	$'	out := `<form method="get" action="` + s.oidc.Config().Issuer + `/authorize"><button>Sign in with your organisation</button></form>`'
+run_case $'oidc: the client follows a redirect from the provider' \
+	fail \
+	./internal/sso \
+	$'TestNoRedirectFromTheProviderIsFollowed' \
+	$'followed the provider\'s redirect' \
+	internal/sso/client.go \
+	$'		CheckRedirect: func(req *http.Request, _ []*http.Request) error {\n' \
+	$'		CheckRedirect: func(req *http.Request, _ []*http.Request) error {\n			return nil\n'
+run_case $'oidc: a response body is read whole' \
+	fail \
+	./internal/sso \
+	$'TestAResponseOverTheCapIsRefusedNotRead' \
+	$'larger than 1 MiB' \
+	internal/sso/client.go \
+	$'	resp.Body = &capped{r: resp.Body, left: maxResponseBytes}' \
+	$'	_ = &capped{r: resp.Body, left: maxResponseBytes}'
+run_case $'oidc: the client reaches plain http off this machine' \
+	fail \
+	./internal/sso \
+	$'TestTheSignInClientReachesOnlyHTTPSOrLoopback' \
+	$'want refused before any connection' \
+	internal/sso/client.go \
+	$'	if req.URL.Scheme != "https" && !(req.URL.Scheme == "http" && Loopback(req.URL.Hostname())) {' \
+	$'	if false {'
+run_case $'oidc: the client secret prints' \
+	fail \
+	./internal/sso \
+	$'TestTheClientSecretComesFromOnePlaceAndNeverPrints' \
+	$'the client secret is printed' \
+	internal/sso/sso.go \
+	$'func (Secret) Format(f fmt.State, _ rune) { fmt.Fprint(f, "[redacted]") }' \
+	$'func (s Secret) Format(f fmt.State, _ rune) { fmt.Fprint(f, string(s)) }'
+run_case $'oidc: the sign-in package grows a second outbound construction' \
+	fail \
+	./internal/web \
+	$'TestOnlyTheDeliveryPackageAmongThoseTheConsoleImportsReachesTheNetwork' \
+	$'may reach the network only from client.go' \
+	internal/sso/flow.go \
+	$'import (\n' \
+	$'import (\n	"net/http"\n' \
+	internal/sso/flow.go \
+	$'\nfunc randomToken() (string, error) {' \
+	$'\nvar _ = http.Get\n\nfunc randomToken() (string, error) {'
+run_case $'oidc: what the provider says reaches the journal unbounded' \
+	fail \
+	./internal/sso \
+	$'TestWhatTheProviderSaysReachesTheJournalBoundedAndPlain' \
+	$'want at most 512' \
+	internal/sso/flow.go \
+	$'Detail: bound(fmt.Sprintf(format, args...), maxDetailBytes)}' \
+	$'Detail: fmt.Sprintf(format, args...)}'
+run_case $'oidc: a discovered authorization endpoint is not checked' \
+	fail \
+	./internal/sso \
+	$'TestADiscoveredAuthorizationEndpointOverPlainHTTPIsRefused' \
+	$'want a refusal naming the authorization endpoint' \
+	internal/sso/flow.go \
+	$'	if _, err := endpoint("the discovered authorization endpoint", prov.Endpoint().AuthURL); err != nil {' \
+	$'	if _, err := endpoint("the discovered authorization endpoint", prov.Endpoint().AuthURL); err != nil \x26\x26 false {'
+run_case $'oidc: rewording what a refused person is shown is not a fault' \
+	pass \
+	./internal/web \
+	$'TestEveryRefusedSignInLeavesNoSessionAndNoAccount' \
+	$'' \
+	internal/sso/flow.go \
+	$'MsgStartAgain  = "the sign-in could not be completed; start it again"' \
+	$'MsgStartAgain  = "signing in did not finish; please start again"'
+run_case $'oidc: a comment naming http.Client in the flow is not a second door' \
+	pass \
+	./internal/web \
+	$'TestOnlyTheDeliveryPackageAmongThoseTheConsoleImportsReachesTheNetwork' \
+	$'' \
+	internal/sso/flow.go \
+	$'\nfunc randomToken() (string, error) {' \
+	$'\n// Not an http.Client, nor http.Get: a comment the walk must not read.\nfunc randomToken() (string, error) {'
+
+run_case $'cloud focus: a negative BilledCost is refused as the gateway reader refuses it' \
+	fail \
+	./internal/connectors \
+	$'TestANegativeBilledCostIsKeptNotRefused' \
+	$'a negative cost was refused' \
+	internal/connectors/cloudfocus.go \
+	$'row.Micros = micros' \
+	$'if micros < 0 { return row, fmt.Errorf("BilledCost %q is negative", costStr) }; row.Micros = micros'
+run_case $'cloud focus: a Purchase is filed as Usage' \
+	fail \
+	./internal/connectors \
+	$'TestEveryChargeCategoryLandsAndAPurchaseIsNeverUsage' \
+	$'leaked into it' \
+	internal/connectors/cloudfocus.go \
+	$'row.Category = field("ChargeCategory")' \
+	$'row.Category = field("ChargeCategory"); if row.Category == "Purchase" { row.Category = "Usage" }'
+run_case $'cloud focus: each row is rounded to cents before the day is summed' \
+	fail \
+	./internal/connectors \
+	$'TestCloudFocusMoneyIsNeverFloatAndRoundsOnce' \
+	$'want 4 (35000 micros rounded once)' \
+	internal/connectors/cloudfocus.go \
+	$'COALESCE(invoice_id,\'\'), SUM(billed_microusd)' \
+	$'COALESCE(invoice_id,\'\'), SUM(((billed_microusd+5000)/10000)*10000)'
+run_case $'cloud focus: the charges row is written without its provenance' \
+	fail \
+	./internal/connectors \
+	$'TestAWSDataExportsFocusIsRead' \
+	$'charges differ' \
+	internal/connectors/cloudfocus.go \
+	$'int64(cents), nullIfEmpty(g.invoice), spec.id); err != nil {' \
+	$'int64(cents), nullIfEmpty(g.invoice), nil); err != nil {'
+run_case $'cloud focus: a revised file leaves its earlier version\'s rows behind' \
+	fail \
+	./internal/connectors \
+	$'TestARevisedFileReplacesItsOwnEarlierVersion' \
+	$'the old version\'s rows survived' \
+	internal/connectors/cloudfocus.go \
+	$'AND file_sha256<>?`, w.connector, f.rel, sha); err != nil {' \
+	$'AND file_sha256<>? AND 1=0`, w.connector, f.rel, sha); err != nil {'
+run_case $'cloud focus: a refused file\'s rows are not rolled back' \
+	fail \
+	./internal/connectors \
+	$'TestCloudFocusHostileInput' \
+	$'rows of a refused file survived' \
+	internal/connectors/cloudfocus.go \
+	$'if _, err := tx.Exec("ROLLBACK TO " + sp); err != nil {' \
+	$'if _, err := tx.Exec("SAVEPOINT roll_" + sp); err != nil {'
+run_case $'cloud focus: the gzip inflation cap is lifted' \
+	fail \
+	./internal/connectors \
+	$'TestAGzipBombIsRefusedByName' \
+	$'does not name the file and the setting' \
+	internal/connectors/cloudfocus.go \
+	$'capped := &capReader{r: r, left: conf.maxUnpacked,' \
+	$'capped := &capReader{r: r, left: math.MaxInt64,'
+run_case $'cloud focus: the one-record cap is lifted' \
+	fail \
+	./internal/connectors \
+	$'TestARecordWithNoEndIsRefusedBeforeItFillsMemory' \
+	$'does not say a record is too long' \
+	internal/connectors/cloudfocus.go \
+	$'rec := &recordReader{r: capped, max: cloudMaxRecordBytes}' \
+	$'rec := &recordReader{r: capped, max: math.MaxInt64}'
+run_case $'cloud focus: a symlink in the folder is followed' \
+	fail \
+	./internal/connectors \
+	$'TestCloudFocusReadsANestedSyncedFolderAndIgnoresLinks' \
+	$'the symlinked file was followed' \
+	internal/connectors/cloudfocus.go \
+	$'if d.Type()&fs.ModeSymlink != 0 || !d.Type().IsRegular() {' \
+	$'if false {'
+run_case $'cloud focus: real rows are mixed into the generated estate' \
+	fail \
+	./internal/connectors \
+	$'TestCloudFocusRefusesToMixWithTheGeneratedEstate' \
+	$'Import mixed real cloud rows into the generated estate' \
+	internal/connectors/cloudfocus.go \
+	$'if mixed && !opt.ReplaceGenerated {' \
+	$'if false {'
+run_case $'cloud focus: a file\'s refusal list grows with the file' \
+	fail \
+	./internal/connectors \
+	$'TestARefusalListIsBoundedAtItsSource' \
+	$'want 20 and 100000' \
+	internal/connectors/cloudfocus.go \
+	$'if len(s.Refusals) < cloudRefusalsShown {' \
+	$'if true {'
+run_case $'cloud focus: the sentence\'s refusal list grows with the folder' \
+	fail \
+	./internal/connectors \
+	$'TestRefusalsAcrossManyFilesAreBoundedToo' \
+	$'does not count thirty and show twenty' \
+	internal/connectors/cloudfocus.go \
+	$'for _, r := range o.Refusals {\n\t\tif len(s.Refusals) < cloudRefusalsShown {' \
+	$'for _, r := range o.Refusals {\n\t\tif true {'
+run_case $'cloud focus: a row longer than a day lands on its last day, not its first' \
+	fail \
+	./internal/connectors \
+	$'TestARowLongerThanADayLandsWholeOnItsFirstDay' \
+	$'charges differ' \
+	internal/connectors/cloudfocus.go \
+	$'row.Day = st.Format("2006-01-02")' \
+	$'row.Day = en.Add(-time.Nanosecond).Format("2006-01-02")'
+run_case $'cloud focus: the 366 day limit on one row is lifted' \
+	fail \
+	./internal/connectors \
+	$'TestCloudFocusHostileInput' \
+	$'does not say "366 day"' \
+	internal/connectors/cloudfocus.go \
+	$'if span > cloudMaxSpan {' \
+	$'if false {'
+run_case $'cloud focus: a long row is not counted in the sentence' \
+	fail \
+	./internal/connectors \
+	$'TestAFocus10FileIsReadAsWell' \
+	$'cover more than one day' \
+	internal/connectors/cloudfocus.go \
+	$'row.Multiday = span > 24*time.Hour' \
+	$'row.Multiday = false'
+run_case $'cloud focus: another provider\'s rows are read as this desk\'s' \
+	fail \
+	./internal/connectors \
+	$'TestCloudFocusHostileInput' \
+	$'another_provider\'s_export' \
+	internal/connectors/cloudfocus.go \
+	$'if !conf.providers[strings.ToLower(provider)] {' \
+	$'if false {'
+run_case $'cloud focus: E notation is refused' \
+	fail \
+	./internal/connectors \
+	$'TestFocusDecimalsInENotation' \
+	$'"35.2E-7": got' \
+	internal/connectors/cloudfocus.go \
+	$'if i := strings.IndexAny(s, "eE"); i >= 0 {' \
+	$'if i := strings.IndexAny(s, "~"); i >= 0 {'
+run_case $'cloud focus: the tag key is matched case-sensitively only' \
+	fail \
+	./internal/connectors \
+	$'TestTheTeamComesFromAConfigurableTagKey' \
+	$'want ops (second key' \
+	internal/connectors/cloudfocus.go \
+	$'if strings.EqualFold(k, want) {' \
+	$'if k == want {'
+run_case $'cloud focus: a copy of a file is counted as a second file' \
+	fail \
+	./internal/connectors \
+	$'TestTheSameBytesTwiceAreOneFileAndTwoFilesOnOneDayAdd' \
+	$'the copy is not named' \
+	internal/connectors/cloudfocus.go \
+	$'if seen[sha] {' \
+	$'if false && seen[sha] {'
+run_case $'cloud focus: Test demands a setting that has a default' \
+	fail \
+	./internal/connectors \
+	$'TestTheCloudFocusReadersAreBuiltAndAskForAFolder' \
+	$'Test with only the folder set' \
+	internal/connectors/connectors.go \
+	$'if !in.Optional && strings.TrimSpace(conn.Config[in.Name]) == "" {' \
+	$'if strings.TrimSpace(conn.Config[in.Name]) == "" {'
+run_case $'cloud focus: the connector page stops offering replace-generated' \
+	fail \
+	./internal/web \
+	$'TestAnAWSExportReachesTheConsoleThroughTheConnectorPage' \
+	$'the connector page does not contain' \
+	internal/web/templates/connector.html \
+	$'(eq .C.ID "aws-data-exports") ' \
+	$''
+run_case $'cloud focus: a reworded currency refusal is not a fault' \
+	pass \
+	./internal/connectors \
+	$'TestCloudFocusHostileInput' \
+	$'' \
+	internal/connectors/cloudfocus.go \
+	$'return row, fmt.Errorf("currency %q, this reader is USD only", currency)' \
+	$'return row, fmt.Errorf("BillingCurrency %q, and this reader is USD only", currency)'
+# ---- tools/{enforce,parity,stack,idryxsource,recon} and internal/spiffe ----
+#
+# These binaries had no tests at all; their main() is now a one-line wrapper
+# over run(). Each case breaks one thing a person relies on and requires the
+# test that was written for it to name itself in the failure.
+
+run_case $'enforce: the default run falls back to the wrong month' \
+	fail \
+	./tools/enforce \
+	$'TestTheDefaultPeriodIsTheLastClosedMonth' \
+	$'--- FAIL: TestTheDefaultPeriodIsTheLastClosedMonth' \
+	tools/enforce/main.go \
+	$'world.DayBefore(world.LastDay, 40)[:7]' \
+	$'world.DayBefore(world.LastDay, 10)[:7]'
+run_case $'enforce: a team budget is the last desk\'s, not the sum across desks' \
+	fail \
+	./tools/enforce \
+	$'TestATeamsBudgetIsTheSumAcrossDesksForTheMonthAsked' \
+	$'--- FAIL: TestATeamsBudgetIsTheSumAcrossDesksForTheMonthAsked' \
+	tools/enforce/main.go \
+	$'out[b.Team] += b.Budget' \
+	$'out[b.Team] = b.Budget'
+run_case $'enforce: the tool is not off without an address and a key' \
+	fail \
+	./tools/enforce \
+	$'TestItIsOffWithoutAnAddressAndAKey' \
+	$'--- FAIL: TestItIsOffWithoutAnAddressAndAKey' \
+	tools/enforce/main.go \
+	$'if !cfg.On() {' \
+	$'if false {'
+run_case $'enforce: -apply is handed the plan\'s own fingerprint, so any value is approved' \
+	fail \
+	./tools/enforce \
+	$'TestAWrongFingerprintSendsNothing' \
+	$'--- FAIL: TestAWrongFingerprintSendsNothing' \
+	tools/enforce/main.go \
+	$'enforce.Apply(ctx, cfg, plan, *expect)' \
+	$'enforce.Apply(ctx, cfg, plan, fp)'
+run_case $'enforce: a lowering is no longer marked as the direction that stops work' \
+	fail \
+	./tools/enforce \
+	$'TestTheDefaultRunPrintsTheDiffAndSendsNothing' \
+	$'--- FAIL: TestTheDefaultRunPrintsTheDiffAndSendsNothing' \
+	tools/enforce/main.go \
+	$'case c.Lowered:' \
+	$'case c.Lowered && false:'
+run_case $'enforce: a wider UNIT column is not a fault' \
+	pass \
+	./tools/enforce \
+	$'.' \
+	$'' \
+	tools/enforce/main.go \
+	$'"%-22s %14s %14s\\n", "UNIT"' \
+	$'"%-24s %14s %14s\\n", "UNIT"'
+
+run_case $'parity: a redirect to a different page is no longer a difference' \
+	fail \
+	./tools/parity \
+	$'TestCompareNamesEachKindOfDifference' \
+	$'--- FAIL: TestCompareNamesEachKindOfDifference' \
+	tools/parity/main.go \
+	$'ea.SHA256 != eb.SHA256 || ea.Location != eb.Location {' \
+	$'ea.SHA256 != eb.SHA256 {'
+run_case $'parity: a comparison over an empty capture passes' \
+	fail \
+	./tools/parity \
+	$'TestACaptureOfNothingIsRefusedNotPassed' \
+	$'--- FAIL: TestACaptureOfNothingIsRefusedNotPassed' \
+	tools/parity/main.go \
+	$'if ma.Count == 0 || mb.Count == 0 {' \
+	$'if false {'
+run_case $'parity: a planted fault may change the body more than once' \
+	fail \
+	./tools/parity \
+	$'TestMutateRefusesZeroOrManyOccurrencesAndUnknownPaths' \
+	$'--- FAIL: TestMutateRefusesZeroOrManyOccurrencesAndUnknownPaths' \
+	tools/parity/main.go \
+	$'n != 1 {' \
+	$'n < 1 {'
+run_case $'parity: the CSRF token is not scrubbed, so two captures of one console differ' \
+	fail \
+	./tools/parity \
+	$'TestCapturingTheSameConsoleTwiceGivesTheSameBytes' \
+	$'--- FAIL: TestCapturingTheSameConsoleTwiceGivesTheSameBytes' \
+	tools/parity/main.go \
+	$'name="csrf" value="[^"]*"`),' \
+	$'name="csrfX" value="[^"]*"`),'
+run_case $'parity: the crawl walks /logout and ends its own session' \
+	fail \
+	./tools/parity \
+	$'TestTheCrawlIsBoundedPerFamilyAndAvoidsForbiddenRoutes' \
+	$'--- FAIL: TestTheCrawlIsBoundedPerFamilyAndAvoidsForbiddenRoutes' \
+	tools/parity/main.go \
+	$'"/logout": true,' \
+	$'"/logout": false,'
+run_case $'parity: a reworded justification for a scrub is not a fault' \
+	pass \
+	./tools/parity \
+	$'.' \
+	$'' \
+	tools/parity/main.go \
+	$'"minted per session; carries no product meaning",' \
+	$'"minted per session",'
+
+run_case $'stack: three of four requested agents are connected without a word' \
+	fail \
+	./tools/stack \
+	$'TestSelectionErrorsAreRefusedAndWriteNothing' \
+	$'--- FAIL: TestSelectionErrorsAreRefusedAndWriteNothing' \
+	tools/stack/main.go \
+	$'if len(want) > 0 {' \
+	$'if false {'
+run_case $'stack: an emit that wrote no event reports success' \
+	fail \
+	./tools/stack \
+	$'TestEmitThatMeasuredNothingFails' \
+	$'--- FAIL: TestEmitThatMeasuredNothingFails' \
+	tools/stack/main.go \
+	$'if written == 0 {' \
+	$'if false {'
+run_case $'stack: a blocked event is no longer raised above info' \
+	fail \
+	./tools/stack \
+	$'TestSeverityOfRaisesOnlyGovernanceEvents' \
+	$'--- FAIL: TestSeverityOfRaisesOnlyGovernanceEvents' \
+	tools/stack/main.go \
+	$'case strings.Contains(kind, "blocked"), strings.Contains(kind, "suspend"):' \
+	$'case strings.Contains(kind, "suspend"):'
+run_case $'stack: the passport the tool built is not round-tripped through the contract' \
+	fail \
+	./tools/stack \
+	$'TestADocumentTheContractWouldRefuseIsNeverWritten' \
+	$'--- FAIL: TestADocumentTheContractWouldRefuseIsNeverWritten' \
+	tools/stack/main.go \
+	$'if _, err := passport.Parse(buf); err != nil {' \
+	$'if _, err := passport.Parse(buf); false && err != nil {'
+run_case $'stack: the supervisor is made its own parent' \
+	fail \
+	./tools/stack \
+	$'TestConnectAllWritesOneValidPassportPerAnalyst' \
+	$'--- FAIL: TestConnectAllWritesOneValidPassportPerAnalyst' \
+	tools/stack/main.go \
+	$'if j.Name != supervisor {' \
+	$'if true {'
+run_case $'stack: a reworded attestation note is not a fault' \
+	pass \
+	./tools/stack \
+	$'.' \
+	$'' \
+	tools/stack/main.go \
+	$'Idryx will read it as declared.' \
+	$'Idryx will read it as declared by the installation.'
+
+run_case $'idryxsource: agents are written in reverse name order' \
+	fail \
+	./tools/idryxsource \
+	$'TestAgentsAreSortedByName' \
+	$'--- FAIL: TestAgentsAreSortedByName' \
+	tools/idryxsource/main.go \
+	$'return roster[i].Name < roster[j].Name' \
+	$'return roster[i].Name > roster[j].Name'
+run_case $'idryxsource: an agent acts on behalf of itself, not its parent' \
+	fail \
+	./tools/idryxsource \
+	$'TestTheRosterIsWrittenAsAnIdryxAgentsSource' \
+	$'--- FAIL: TestTheRosterIsWrittenAsAnIdryxAgentsSource' \
+	tools/idryxsource/main.go \
+	$'e.OnBehalfOf = "agent://" + *host + "/" + a.Parent' \
+	$'e.OnBehalfOf = "agent://" + *host + "/" + a.Name'
+run_case $'idryxsource: the skills are written where the rights belong' \
+	fail \
+	./tools/idryxsource \
+	$'TestTheRosterIsWrittenAsAnIdryxAgentsSource' \
+	$'--- FAIL: TestTheRosterIsWrittenAsAnIdryxAgentsSource' \
+	tools/idryxsource/main.go \
+	$'append([]string(nil), a.Rights...)' \
+	$'append([]string(nil), a.Skills...)'
+run_case $'idryxsource: the hire date is passed on as a bare date, not RFC 3339' \
+	fail \
+	./tools/idryxsource \
+	$'TestTheRosterIsWrittenAsAnIdryxAgentsSource' \
+	$'--- FAIL: TestTheRosterIsWrittenAsAnIdryxAgentsSource' \
+	tools/idryxsource/main.go \
+	$'e.Created = t.UTC().Format(time.RFC3339)' \
+	$'e.Created = t.UTC().Format("2006-01-02")'
+run_case $'idryxsource: a reworded -host help text is not a fault' \
+	pass \
+	./tools/idryxsource \
+	$'.' \
+	$'' \
+	tools/idryxsource/main.go \
+	$'"the agent:// authority, matching -stack-host"' \
+	$'"the agent:// authority (match -stack-host)"'
+
+run_case $'recon: a resource line that does not add up is not reported' \
+	fail \
+	./tools/recon \
+	$'TestAResourceOffByACentIsNamedAsAMismatch' \
+	$'--- FAIL: TestAResourceOffByACentIsNamedAsAMismatch' \
+	tools/recon/main.go \
+	$'if v != byKey[k] {' \
+	$'if v == byKey[k] {'
+run_case $'recon: the gap to a SaaS invoice loses its sign' \
+	fail \
+	./tools/recon \
+	$'TestEveryLicenceShowsItsGapToTheInvoice' \
+	$'--- FAIL: TestEveryLicenceShowsItsGapToTheInvoice' \
+	tools/recon/main.go \
+	$'l.PerSeat, paid, bill, paid-bill)' \
+	$'l.PerSeat, paid, bill, bill-paid)'
+run_case $'recon: a commitment\'s monthly figure uses 720 hours' \
+	fail \
+	./tools/recon \
+	$'TestEveryCommitmentShowsItsShareOfCommittableSpend' \
+	$'--- FAIL: TestEveryCommitmentShowsItsShareOfCommittableSpend' \
+	tools/recon/main.go \
+	$'monthly := c.Hourly * 730' \
+	$'monthly := c.Hourly * 720'
+run_case $'recon: a wider vendor column is not a fault' \
+	pass \
+	./tools/recon \
+	$'.' \
+	$'' \
+	tools/recon/main.go \
+	$'"  %-12s %-16s %3d seats' \
+	$'"  %-14s %-16s %3d seats'
+
+run_case $'spiffe: a bare socket path is not treated as a unix socket' \
+	fail \
+	./internal/spiffe \
+	$'TestABarePathIsAUnixSocket' \
+	$'--- FAIL: TestABarePathIsAUnixSocket' \
+	internal/spiffe/spiffe.go \
+	$'socket = "unix://" + socket' \
+	$'socket = "" + socket'
+run_case $'spiffe: a rotated identity is remembered from startup, not re-read' \
+	fail \
+	./internal/spiffe \
+	$'TestARotatedIdentityIsPickedUp' \
+	$'--- FAIL: TestARotatedIdentityIsPickedUp' \
+	internal/spiffe/spiffe.go \
+	$'if svid, err := s.src.GetX509SVID(); err == nil && len(svid.Certificates) > 0 {' \
+	$'if svid, err := s.src.GetX509SVID(); false && err == nil && len(svid.Certificates) > 0 {'
+run_case $'spiffe: the certificate serial is written in decimal, not hex' \
+	fail \
+	./internal/spiffe \
+	$'TestOpenReadsTheIssuedIdentity' \
+	$'--- FAIL: TestOpenReadsTheIssuedIdentity' \
+	internal/spiffe/spiffe.go \
+	$'svid.Certificates[0].SerialNumber.Text(16))' \
+	$'svid.Certificates[0].SerialNumber.Text(10))' \
+	internal/spiffe/spiffe.go \
+	$'svid.Certificates[0].SerialNumber.Text(16))' \
+	$'svid.Certificates[0].SerialNumber.Text(10))'
+run_case $'spiffe: a failed Open stops telling the operator where to look' \
+	fail \
+	./internal/spiffe \
+	$'TestOpenFailsLoudlyWhenNothingIsListening' \
+	$'--- FAIL: TestOpenFailsLoudlyWhenNothingIsListening' \
+	internal/spiffe/spiffe.go \
+	$'Either nothing is listening there' \
+	$'Something went wrong there'
+run_case $'spiffe: a longer first-SVID wait is not a fault' \
+	pass \
+	./internal/spiffe \
+	$'.' \
+	$'' \
+	internal/spiffe/spiffe.go \
+	$'context.WithTimeout(ctx, 20*time.Second)' \
+	$'context.WithTimeout(ctx, 30*time.Second)'
+
+# Invariant 72 (the local engine: a model the organisation hosts itself): where
+# a local call goes, and what bounds a run whose price is 0. Each mutant undoes
+# one piece and is caught by the test that holds it; three non-faults reword a
+# refusal, change a timeout and reword the other refusal, which the gates must
+# not mind.
+run_case $'local engine: a gateway that does not front the OpenAI wire still lets a local call through' \
+	fail \
+	./internal/deliver \
+	$'TestTheLocalEngineIsNeverSentDirectBehindAGatewaysBack' \
+	$'want one wrapping ErrNoGatewayRoute' \
+	internal/deliver/call.go \
+	$'	case "local":\n		if g.OpenAIURL != "" {\n			return g.OpenAIURL, nil\n		}' \
+	$'	case "local":\n		if true {\n			return g.OpenAIURL, nil\n		}'
+run_case $'local engine: the call ignores the gateway and goes to the operator\'s server' \
+	fail \
+	./internal/deliver \
+	$'TestACallToTheLocalEngineThroughTheOpenAIGatewayIsMetered' \
+	$'was called directly' \
+	internal/deliver/local.go \
+	$'		if base != "" {\n			return base + OpenAICompletionsPath, true, nil\n		}' \
+	$'		if false && base != "" {\n			return base + OpenAICompletionsPath, true, nil\n		}'
+run_case $'local engine: the direct route is a vendor\'s host' \
+	fail \
+	./internal/deliver \
+	$'TestNoVendorHostAppearsInTheLocalRoute' \
+	$'OpenRouterDirectEndpoint' \
+	internal/deliver/local.go \
+	$'		return gw.ModelURL + "/chat/completions", false, nil' \
+	$'		return OpenRouterDirectEndpoint, false, nil'
+run_case $'local engine: a server that reports no usage is counted as using nothing' \
+	fail \
+	./internal/deliver \
+	$'TestAServerThatReportsNoUsageIsCountedAtTheWorstCase' \
+	$'prompt tokens, want the request' \
+	internal/deliver/local.go \
+	$'	return requestBytes, maxTok, true' \
+	$'	return 0, 0, true'
+run_case $'local engine: the tool loop does not count an unreported round' \
+	fail \
+	./tools/run \
+	$'TestALocalServerThatReportsNoUsageIsCountedAtTheWorstCaseNotZero' \
+	$'was counted as using nothing' \
+	tools/run/loop.go \
+	$'	if local {\n		// A server that reports no usage must not make the round free.' \
+	$'	if false {\n		// A server that reports no usage must not make the round free.'
+run_case $'local engine: an address with a password in it is accepted' \
+	fail \
+	./internal/deliver \
+	$'TestNormalizeModelURL' \
+	$'was accepted as' \
+	internal/deliver/local.go \
+	$'		if u.User != nil {' \
+	$'		if false && u.User != nil {'
+run_case $'local engine: an empty key is sent as a bearer token' \
+	fail \
+	./internal/deliver \
+	$'TestACallToTheLocalEngineGoesToTheOperatorsServerWithNoKey' \
+	$'Authorization = ' \
+	internal/deliver/local.go \
+	$'	if k := modelKey(); k != "" {' \
+	$'	if k := modelKey(); true {'
+run_case $'local engine: an unreachable server is reported without its URL' \
+	fail \
+	./internal/deliver \
+	$'TestAnUnreachableServerIsOneLineNamingItsURL' \
+	$'does not name the server' \
+	internal/deliver/local.go \
+	$'"%s at %s did not answer: %s", what, base, trim(reason, 160))' \
+	$'"%s did not answer: %s", what, trim(reason, 160))'
+run_case $'local engine: a local task loops one round, not six' \
+	fail \
+	./internal/deliver \
+	$'TestTheLocalEngineLoopsAndSendsTheOpenAICatalogue' \
+	$'LoopsFor(local)' \
+	internal/deliver/estimate.go \
+	$'	case "anthropic", "openrouter", "local":\n		return MaxToolRounds' \
+	$'	case "anthropic", "openrouter":\n		return MaxToolRounds'
+run_case $'local engine: it reads as unmetered, so the estimator waves it through' \
+	fail \
+	./internal/engines \
+	$'TestTheLocalEngineIsKnownAndReadsAsMetered' \
+	$'reads as unmetered' \
+	internal/engines/engines.go \
+	$'Family: SelfHosted, Metered: true,' \
+	$'Family: SelfHosted, Metered: false,'
+run_case $'local engine: a negative price is accepted' \
+	fail \
+	./internal/engines \
+	$'TestConfigureLocalRefusesAPriceThatIsNotAPrice' \
+	$'accepted' \
+	internal/engines/local.go \
+	$'v.p < 0 {' \
+	$'v.p < -1e18 {'
+run_case $'local engine: a run priced at zero starts with no token ceiling' \
+	fail \
+	./tools/run \
+	$'TestALocalRunAtPriceZeroIsRefusedAtStartWithoutATokenCeiling' \
+	$'started with no token ceiling' \
+	tools/run/local.go \
+	$'	if zero > 0 && gw.MaxRunTokens <= 0 {' \
+	$'	if false && zero > 0 && gw.MaxRunTokens <= 0 {'
+run_case $'local engine: the whole run\'s worst case is not checked against the token ceiling' \
+	fail \
+	./tools/run \
+	$'TestTheWholeRunsWorstCaseOverTheTokenCeilingIsRefusedBeforeAnyCall' \
+	$'want the whole-run token refusal' \
+	tools/run/local.go \
+	$'	if gw.MaxRunTokens > 0 && tokens > int64(gw.MaxRunTokens) {' \
+	$'	if false && gw.MaxRunTokens > 0 && tokens > int64(gw.MaxRunTokens) {'
+run_case $'local engine: a token reservation is never refused' \
+	fail \
+	./tools/run \
+	$'TestTheTokenCeilingRefusesTheNextTaskOnceTheLastOneUsedIt' \
+	$'want a refusal' \
+	tools/run/live.go \
+	$'	if r.tokensSpent+r.tokensReserved+worst > r.tokenCeiling {' \
+	$'	if false {'
+run_case $'local engine: settling does not book the tokens a task used' \
+	fail \
+	./tools/run \
+	$'TestTheTokenCeilingRefusesTheNextTaskOnceTheLastOneUsedIt' \
+	$'want 61000' \
+	tools/run/live.go \
+	$'	r.tokensSpent += actual' \
+	$'	r.tokensSpent += 0 * actual'
+run_case $'local engine: a refused token reservation keeps the money it took' \
+	fail \
+	./tools/run \
+	$'TestTheTokenCeilingRefusesTheNextTaskOnceTheLastOneUsedIt' \
+	$'a refusal reserves nothing' \
+	tools/run/live.go \
+	$'		run.settle(reserveMicros, 0)\n		return refusal{err}' \
+	$'		return refusal{err}'
+run_case $'local engine: the local round sends a different request than the openrouter one' \
+	fail \
+	./tools/run \
+	$'TestBothOpenAIEnginesSendTheSameRequestShape' \
+	$'the request bodies differ' \
+	tools/run/loop.go \
+	$'	body, err := openRouterRoundBody(model, messages, tools, maxTok)' \
+	$'	if engine == engines.LocalID {\n		tools = nil\n	}\n	body, err := openRouterRoundBody(model, messages, tools, maxTok)'
+run_case $'local engine: the bus says a vendor price was involved' \
+	fail \
+	./tools/run \
+	$'TestThePriceBasisOfALocalCallIsLocalWhateverTheGatewaySaid' \
+	$'want "local"' \
+	tools/run/local.go \
+	$'	if engine == engines.LocalID {\n		return "local"\n	}\n	return s.PriceBasis' \
+	$'	return s.PriceBasis'
+run_case $'local engine: execute is not handed the operator\'s server' \
+	fail \
+	./tools/run \
+	$'TestALocalTaskRunsTheToolLoopAndIsChargedAtTheOperatorsPrice' \
+	$'execute:' \
+	tools/run/live.go \
+	$'	gh.ModelURL = gw.ModelURL' \
+	$'	_ = gw.ModelURL'
+run_case $'local engine: a server that is not there is not noticed at start' \
+	fail \
+	./tools/run \
+	$'TestAnUnreachableLocalServerStopsTheRunAtStartWithOneLine' \
+	$'started' \
+	tools/run/local.go \
+	$'			return deliver.ProbeModelServer(context.Background(), gw.ModelURL)' \
+	$'			_ = context.Background()\n			return nil'
+run_case $'local engine: the dry run stops warning about tasks money cannot bound' \
+	fail \
+	./tools/run \
+	$'TestTheDryRunSaysWhichLocalTasksMoneyCannotBound' \
+	$'does not warn' \
+	tools/run/main.go \
+	$'	if localAtZero > 0 {' \
+	$'	if false && localAtZero > 0 {'
+run_case $'local engine: rewording the gateway refusal is not a fault' \
+	pass \
+	./internal/deliver \
+	$'TestRouteForLocalFollowsTheOpenAIGatewayOrRefuses' \
+	$'' \
+	internal/deliver/call.go \
+	$'so the call is refused rather than made directly to the local model server; set ' \
+	$'so the call is refused and not made directly to the local model server; set '
+run_case $'local engine: rewording the zero-price refusal is not a fault' \
+	pass \
+	./tools/run \
+	$'TestALocalRunAtPriceZeroIsRefusedAtStartWithoutATokenCeiling' \
+	$'' \
+	tools/run/local.go \
+	$'so money cannot bound "+' \
+	$'so money can not bound "+'
+run_case $'local engine: a longer round timeout is not a fault' \
+	pass \
+	./internal/deliver \
+	$'TestACallToTheLocalEngineGoesToTheOperatorsServerWithNoKey' \
+	$'' \
+	internal/deliver/local.go \
+	$'const LocalRoundTimeout = 5 * time.Minute' \
+	$'const LocalRoundTimeout = 6 * time.Minute'
+# Invariants 70 and 71: what a model is sent is what -prompt-data allows, and a
+# pseudonym is stable, private and reversible. Each case plants the fault one
+# of the new tests exists for, in the product, and requires that test to say
+# so: a source of names dropped from the list the mask reads, the mask removed,
+# typed text or a driver label sent, a service sent under aggregates, a past
+# deliverable sent, the SQL tools offered, a tool run when asked for anyway, a
+# tool result left unmasked, the model's tokens not put back into a tool call,
+# or put back by splicing into its text, a draft saved in tokens, an answer
+# handed back in tokens, a name given a new token each time, two names given
+# one, a key anybody can read, a misspelling accepted by either binary, the
+# mode missing from an event, a column nobody has decided about. The last case
+# is two edits that are not faults (a longer token, a reworded stand-in), which
+# the gates must not mind.
+run_case $'prompt data: the invoice ids are left out of the list of names to mask' \
+	fail \
+	./internal/deliver \
+	$'TestNoRealIdentifierLeavesInMaskedOrAggregatesPackets' \
+	$'(charges.invoice_id)' \
+	internal/deliver/pseudonym.go \
+	$'{kindInvoice, "charges", "invoice_id", ""}, {kindInvoice, "ai_calls", "invoice_id", ""},\n' \
+	$''
+run_case $'prompt data: a business unit a person named is left out of the list of names to mask' \
+	fail \
+	./internal/deliver \
+	$'TestNoRealIdentifierLeavesInMaskedOrAggregatesPackets' \
+	$'(unit_rules.business_unit)' \
+	internal/deliver/pseudonym.go \
+	$', {kindTeam, "unit_rules", "business_unit", ""}' \
+	$''
+run_case $'prompt data: the packet is not masked at all' \
+	fail \
+	./internal/deliver \
+	$'TestNoRealIdentifierLeavesInMaskedOrAggregatesPackets' \
+	$'(masked mode) leaks' \
+	internal/deliver/packet.go \
+	$'\t\tjoined = pol.maskStore(db, joined, []string{a.Name})\n' \
+	$'\t\tjoined = strings.Clone(joined)\n'
+run_case $'prompt data: a past deliverable body is sent under masked' \
+	fail \
+	./internal/deliver \
+	$'TestFreeTextIsWithheldUnderMaskedAndAggregates' \
+	$'sent free text' \
+	internal/deliver/packet.go \
+	$'\tif pol.Full() {\n\t\tb.WriteString(trimBytes(body, 600))' \
+	$'\tif true {\n\t\tb.WriteString(trimBytes(body, 600))'
+run_case $'prompt data: the drivers a forecast names are sent under masked' \
+	fail \
+	./internal/deliver \
+	$'TestFreeTextIsWithheldUnderMaskedAndAggregates' \
+	$'sent free text' \
+	internal/deliver/packet.go \
+	$'\t\t\tif i := strings.Index(basis, driversAppliedMarker); i >= 0 {' \
+	$'\t\t\tif i := strings.Index(basis, driversAppliedMarker); i >= 0 && false {'
+run_case $'prompt data: aggregates sends the service of an anomaly' \
+	fail \
+	./internal/deliver \
+	$'TestAggregatesCarryNoRowLevelSections' \
+	$'aggregates sent row-level text' \
+	internal/deliver/packet.go \
+	$'\tif !pol.Aggregates() {\n\t\tfmt.Fprintf(&b, "service:   %s\\n", an.Service)' \
+	$'\tif true {\n\t\tfmt.Fprintf(&b, "service:   %s\\n", an.Service)'
+run_case $'prompt data: the answer comes back from the shared caller still in tokens' \
+	fail \
+	./internal/deliver \
+	$'TestCallHandsBackTheAnswerWithItsRealNames' \
+	$'the caller must see the real name' \
+	internal/deliver/call.go \
+	$'\t\tres.Text = ActivePolicy().Reidentify(res.Text)\n' \
+	$'\t\tres.Text = res.Text + ""\n'
+run_case $'prompt data: a name gets a new token every time it is masked' \
+	fail \
+	./internal/deliver \
+	$'TestTheSameNameIsTheSameTokenInEveryRoundAndEveryText' \
+	$'instead of' \
+	internal/deliver/pseudonym.go \
+	$'\tif t, ok := p.fwd[value]; ok {\n\t\treturn t\n\t}\n' \
+	$''
+run_case $'prompt data: two names are given the same token' \
+	fail \
+	./internal/deliver \
+	$'TestTokensNeverCollideEvenWhenThereAreMoreNamesThanFourHexDigitsHold' \
+	$'were given the same token' \
+	internal/deliver/pseudonym.go \
+	$'\t\tif _, taken := p.rev[cand]; !taken {' \
+	$'\t\tif true {'
+run_case $'prompt data: a misspelling falls back to full' \
+	fail \
+	./internal/deliver \
+	$'TestPromptDataIsAClosedVocabulary' \
+	$'want a refusal' \
+	internal/deliver/promptdata.go \
+	$'\tcase PromptFull, PromptMasked, PromptAggregates:\n\t\treturn m, nil\n\t}' \
+	$'\tcase PromptFull, PromptMasked, PromptAggregates:\n\t\treturn m, nil\n\tdefault:\n\t\treturn PromptFull, nil\n\t}'
+run_case $'prompt data: the data directory the key creates is readable by others' \
+	fail \
+	./internal/deliver \
+	$'TestADataDirectoryTheKeyCreatesIsPrivateAndAnExistingOneIsLeftAlone' \
+	$'the data directory the key made' \
+	internal/deliver/pseudonym.go \
+	$'\tif err := os.MkdirAll(dir, 0o700); err != nil {' \
+	$'\tif err := os.MkdirAll(dir, 0o755); err != nil {'
+run_case $'prompt data: the key is no longer ignored by version control' \
+	fail \
+	./internal/deliver \
+	$'TestThePseudonymKeyCannotBeCommitted' \
+	$'has no "prompt-data.key" line' \
+	.gitignore \
+	$'events.ndjson\nprompt-data.key\n' \
+	$'events.ndjson\n'
+run_case $'prompt data: the key is made readable by others' \
+	fail \
+	./internal/deliver \
+	$'TestTheKeyLivesInTheDataDirWithMode0600' \
+	$'is mode' \
+	internal/deliver/pseudonym.go \
+	$'\tif err := tmp.Chmod(0o600); err != nil {' \
+	$'\tif err := tmp.Chmod(0o644); err != nil {'
+run_case $'prompt data: a key anybody can read is accepted' \
+	fail \
+	./internal/deliver \
+	$'TestAKeyFileOthersCanReadIsRefused' \
+	$'world-readable key file was accepted' \
+	internal/deliver/pseudonym.go \
+	$'\tif fi.Mode().Perm()&0o077 != 0 {' \
+	$'\tif false {'
+run_case $'prompt data: the typed goal is sent under masked' \
+	fail \
+	./internal/deliver \
+	$'TestTheOperatorsGoalAndATaskGoalAreWithheldUnderMaskedAndAggregates' \
+	$'sent the typed goal' \
+	internal/deliver/prompt.go \
+	$'\t\tif pol.Full() {\n\t\t\tfmt.Fprintf(&b, "What it asks for: %s\\n", t.Goal)' \
+	$'\t\tif true {\n\t\t\tfmt.Fprintf(&b, "What it asks for: %s\\n", t.Goal)'
+run_case $'prompt data: the prompt stops stating its mode' \
+	fail \
+	./internal/deliver \
+	$'TestThePromptSaysWhichModeItWasBuiltUnder' \
+	$'does not state its mode exactly once' \
+	internal/deliver/prompt.go \
+	$'\tb.WriteString(pol.ModeLine() + "\\n")\n' \
+	$''
+run_case $'prompt data: a mission somebody typed when hiring is sent under masked' \
+	fail \
+	./internal/deliver \
+	$'TestOnlyTheRoleFamilysOwnBriefIsSentUnderMasked' \
+	$'a hand-typed mission was sent' \
+	internal/deliver/prompt.go \
+	$'\treturn WithheldFreeText\n}\n\n// optionsBlockInstructions' \
+	$'\treturn a.Mission\n}\n\n// optionsBlockInstructions'
+run_case $'prompt data: the plan packet lists every analyst under aggregates' \
+	fail \
+	./internal/deliver \
+	$'TestThePlanPacketLeaksNoIdentifierOrGoalUnderMaskedAndAggregates' \
+	$'carries the token' \
+	internal/deliver/plan_packet.go \
+	$'\tif ActivePolicy().Aggregates() {\n\t\t// One line per analyst' \
+	$'\tif false {\n\t\t// One line per analyst'
+run_case $'prompt data: the operator goal is sent in the plan packet' \
+	fail \
+	./internal/deliver \
+	$'TestThePlanPacketLeaksNoIdentifierOrGoalUnderMaskedAndAggregates' \
+	$'the plan prompt leaks' \
+	internal/deliver/plan_packet.go \
+	$'\tif !pol.Full() {\n\t\tgoal = WithheldFreeText' \
+	$'\tif false {\n\t\tgoal = WithheldFreeText'
+run_case $'prompt data: full mode changes the text of a section' \
+	fail \
+	./internal/deliver \
+	$'TestFullModeBuildsTheSamePacketItAlwaysDid' \
+	$'no longer the one main built' \
+	internal/deliver/packet.go \
+	$'\t\t\tfmt.Fprintf(&b, "driver:    %s\\n", an.Driver)' \
+	$'\t\t\tfmt.Fprintf(&b, "driver:   %s\\n", an.Driver)'
+run_case $'prompt data: a column nobody has decided about is added to the schema' \
+	fail \
+	./internal/deliver \
+	$'TestEveryTextColumnIsClassified' \
+	$'plan_asks.signed_off_by' \
+	internal/crew/crew.go \
+	$'  outcome TEXT NOT NULL, reason TEXT, created TEXT);\nCREATE INDEX IF NOT EXISTS tasks_sprint' \
+	$'  outcome TEXT NOT NULL, reason TEXT, created TEXT, signed_off_by TEXT);\nCREATE INDEX IF NOT EXISTS tasks_sprint'
+run_case $'prompt data: the SQL tools are offered under masked' \
+	fail \
+	./tools/run \
+	$'TestSQLToolsAreNotOfferedUnderMaskedOrAggregates' \
+	$'offered charges_query' \
+	internal/deliver/promptdata.go \
+	$'\t\t"anomaly": true, "series": true,' \
+	$'\t\t"charges_query": true, "ai_calls_query": true, "anomaly": true, "series": true,'
+run_case $'prompt data: a tool the policy does not offer is run when asked for' \
+	fail \
+	./tools/run \
+	$'TestSQLToolsAreNotOfferedUnderMaskedOrAggregates' \
+	$'gave outcome' \
+	tools/run/dispatch.go \
+	$'\tif !pol.ToolOffered(def.Name) {' \
+	$'\tif false {'
+run_case $'prompt data: a tool result is not masked' \
+	fail \
+	./tools/run \
+	$'TestNoRealIdentifierLeavesInAnyToolResult' \
+	$'leaks identifier' \
+	tools/run/dispatch.go \
+	$'\t\t\tr.Text = pol.MaskText(r.Text, a.Name)\n' \
+	$'\t\t\t_ = a\n'
+run_case $'prompt data: aggregates names the person who closed a period' \
+	fail \
+	./tools/run \
+	$'TestNoRealIdentifierLeavesInAnyToolResult' \
+	$'which names a row-level thing' \
+	tools/run/tools.go \
+	$'\t\t\tif deliver.ActivePolicy().Aggregates() {\n\t\t\t\treturn fmt.Sprintf("FROZEN' \
+	$'\t\t\tif false {\n\t\t\t\treturn fmt.Sprintf("FROZEN'
+run_case $'prompt data: the model\'s tokens are not put back into a tool call' \
+	fail \
+	./tools/run \
+	$'TestAMaskedToolResultIsTheFullResultWithItsNamesMasked' \
+	$'is not the masked full result' \
+	tools/run/dispatch.go \
+	$'\targs = reidentifyArgs(pol, args)\n' \
+	$'\t_ = reidentifyArgs(pol, args)\n'
+run_case $'prompt data: a name is spliced into the text of a tool call' \
+	fail \
+	./tools/run \
+	$'TestPuttingANameBackCannotWriteArgumentsOfItsOwn' \
+	$'the name rewrote the call' \
+	tools/run/dispatch.go \
+	$'\tdec := json.NewDecoder(bytes.NewReader(args))\n\tdec.UseNumber()\n\tvar v any\n\tif err := dec.Decode(&v); err != nil {\n\t\treturn args\n\t}\n\tout, err := json.Marshal(mapStrings(v, pol.Reidentify))\n\tif err != nil {\n\t\treturn args\n\t}\n\treturn out\n' \
+	$'\t_ = bytes.NewReader(args)\n\treturn json.RawMessage(pol.Reidentify(string(args)))\n'
+run_case $'prompt data: the examples in the tool schemas are not masked' \
+	fail \
+	./tools/run \
+	$'TestMaskingTheCatalogueOnlyChangesItsExamples' \
+	$'the schema of' \
+	tools/run/tools.go \
+	$'\tt.Schema = maskSchema(pol, t.Schema).(map[string]any)\n' \
+	$''
+run_case $'prompt data: the draft is saved in tokens' \
+	fail \
+	./tools/run \
+	$'TestWhatReachesTheModelOverTheWireLeaksNoIdentifierAndTheDraftComesBackNamed' \
+	$'the saved draft was not re-identified' \
+	tools/run/loop.go \
+	$'\t\tres, err := anthropicToolLoop(ctx, db, roDB, e, sentPrompt, maxTok, gw, a, b)\n\t\tres.Text = deliver.ActivePolicy().Reidentify(res.Text)\n' \
+	$'\t\tres, err := anthropicToolLoop(ctx, db, roDB, e, sentPrompt, maxTok, gw, a, b)\n'
+run_case $'prompt data: a tool_call event stops carrying the mode' \
+	fail \
+	./tools/run \
+	$'TestTheModeIsOnTheToolCallEventsAndTheCrewRanSummary' \
+	$'a tool_call event says prompt_data=' \
+	tools/run/bus.go \
+	$'\t\t"prompt_data":   b.mode(),\n' \
+	$''
+run_case $'prompt data: the crew_ran summary stops carrying the mode' \
+	fail \
+	./tools/run \
+	$'TestTheModeIsOnTheToolCallEventsAndTheCrewRanSummary' \
+	$'crew_ran on the bus says prompt_data=' \
+	tools/run/bus.go \
+	$'\t\t"prompt_data":    b.mode(),\n' \
+	$''
+run_case $'prompt data: the runner starts on a misspelt setting' \
+	fail \
+	./tools/run \
+	$'TestAMisspeltPromptDataFlagRefusesToStartTheRunner' \
+	$'opened a store before refusing' \
+	tools/run/main.go \
+	$'\tif _, err := deliver.ConfigurePromptData(*promptData, *dir); err != nil {' \
+	$'\tif _, err := deliver.ConfigurePromptData(*promptData, *dir); err != nil && false {'
+run_case $'prompt data: the console starts on a misspelt setting' \
+	fail \
+	./cmd/costcrew \
+	$'TestAMisspeltPromptDataFlagRefusesToStartTheConsole' \
+	$'started the console' \
+	cmd/costcrew/main.go \
+	$'\tif _, err := deliver.ConfigurePromptData(*promptData, *dir); err != nil {' \
+	$'\tif _, err := deliver.ConfigurePromptData(*promptData, *dir); err != nil && false {'
+run_case $'prompt data: a longer token and a reworded stand-in are not faults' \
+	pass \
+	./internal/deliver \
+	$'TestATokenIsReadableAndShaped|TestTokensNeverCollideEvenWhenThereAreMoreNamesThanFourHexDigitsHold|TestFreeTextIsWithheldUnderMaskedAndAggregates|TestReidentifyBringsBackExactlyTheNamesThatWereMasked' \
+	$'' \
+	internal/deliver/pseudonym.go \
+	$'\tfor n := 4; n <= len(digest); n++ {' \
+	$'\tfor n := 6; n <= len(digest); n++ {' \
+	internal/deliver/promptdata.go \
+	$'[withheld: free text is not sent to the model' \
+	$'[withheld: typed text is not sent to the model'
 
 # Invariant 80: the provider usage readers read strictly, exactly and once.
 run_case 'provider usage: a duplicate key is no longer refused' \

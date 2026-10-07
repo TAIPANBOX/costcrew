@@ -46,7 +46,7 @@ func TestWithNoGatewayTheRequestGoesToAnthropicDirectly(t *testing.T) {
 // one: a runner with no notion of a parent run must not invent one.
 func TestAGatewayRequestCarriesTheThreeHeadersAndNeverInventsAParent(t *testing.T) {
 	gw := Gateway{
-		URL: "http://127.0.0.1:1", RunID: "crew-9", AgentID: "agent://x/y.mercer", BudgetUSD: "1.00",
+		URL: "http://127.0.0.1:1", RunID: "crew-9", AgentID: "agent://x/y.mercer", OnBehalfOf: testChain, BudgetUSD: "1.00",
 	}
 	req, err := anthropicRequest(context.Background(), "a-key", "claude-x", "hello", 100, gw)
 	if err != nil {

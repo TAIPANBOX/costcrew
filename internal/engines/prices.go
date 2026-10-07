@@ -114,6 +114,11 @@ func PriceFor(engine, model string) (Price, bool) {
 	if engine == "" {
 		return Price{}, false
 	}
+	if engine == LocalID {
+		// Any model the operator names, at the price the operator set. Never the
+		// bare-model fallback below: "llama3" must not pick up a vendor's row.
+		return localPrice()
+	}
 	if p, ok := prices[engine+"/"+model]; ok {
 		return p, true
 	}
@@ -127,6 +132,12 @@ func PriceFor(engine, model string) (Price, bool) {
 // something has to choose. The cheapest model the engine offers, deliberately:
 // a default that costs the most is a default nobody meant to accept.
 func DefaultModel(engine string) string {
+	if engine == LocalID {
+		// The operator's own model, or nothing: there is no cheapest one to
+		// choose on somebody else's server.
+		s, _ := Local()
+		return s.Model
+	}
 	for _, e := range Catalogue {
 		if e.ID != engine || len(e.Models) == 0 {
 			continue
@@ -193,6 +204,11 @@ func PriceTable() string {
 		p := prices[k]
 		fmt.Fprintf(&b, "  %-38s in %6.2f  out %6.2f  per million   %s, %s\n",
 			k, p.InPerM, p.OutPerM, p.Recorded, p.Source)
+	}
+	if s, ok := Local(); ok {
+		p, _ := localPrice()
+		fmt.Fprintf(&b, "  %-38s in %6.2f  out %6.2f  per million   %s, %s\n",
+			LocalID+"/"+s.Model, p.InPerM, p.OutPerM, p.Recorded, p.Source)
 	}
 	return b.String()
 }

@@ -38,7 +38,7 @@
       <input type="hidden" name="csrf" value="{{.CSRF}}">
       {{range .C.Inputs}}
         <div>
-          <label for="i{{.Name}}">{{.Label}}</label>
+          <label for="i{{.Name}}">{{.Label}}{{if .Optional}} (optional){{end}}</label>
           {{if .Secret}}
             <p class="note">Lives in the environment variable <code>{{.EnvVar}}</code>, never in this console's database. {{if index $.Env .EnvVar}}<strong>It is set.</strong>{{else}}<strong>Not set in this process.</strong>{{end}}</p>
           {{else}}
@@ -73,7 +73,7 @@
         {{if .C.Metered}}
         <label><input type="checkbox" name="confirm" value="yes" style="width:auto"> I understand this call is billed</label>
         {{end}}
-        {{- if eq .C.ID "tokenfuse-focus"}}
+        {{- if or (eq .C.ID "tokenfuse-focus") (eq .C.ID "aws-data-exports") (eq .C.ID "gcp-billing-export")}}
         <label><input type="checkbox" name="replace-generated" value="yes" style="width:auto"> Replace the generated estate with this real data</label>
         <p class="note">Only asked for, and only matters, while this store still has generated charges with no provenance. Removes them, the generated drivers and attribution, and the seeded anomalies, tasks, artifacts, sprints, forecasts and chargeback rows, in one transaction, before writing what this file holds. The roster, accounts and connections are not touched.</p>
         {{end}}

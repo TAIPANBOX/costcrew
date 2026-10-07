@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/TAIPANBOX/costcrew/actions/workflows/ci.yml/badge.svg)](https://github.com/TAIPANBOX/costcrew/actions/workflows/ci.yml)
 ![Go](https://img.shields.io/badge/go-1.27-00ADD8.svg)
-![tests](https://img.shields.io/badge/tests-968-brightgreen.svg)
+![tests](https://img.shields.io/badge/tests-997-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)
 ![Status](https://img.shields.io/badge/enforces-nothing%20by%20design-success.svg)
 
@@ -100,21 +100,25 @@ flowchart TB
 ```
 
 - **Consumes**: billing exports and vendor usage APIs, never another service's
-  store. Eighteen connectors: AWS Data Exports (FOCUS 1.2), Cost Explorer, GCP
-  BigQuery billing export, Azure Cost Management, Kubecost, OpenCost, TokenFuse
-  FOCUS export, Anthropic, OpenAI and OpenRouter usage, Compute Optimizer, AWS
-  Cost Explorer and GCP Recommender and Azure Advisor rightsizing
-  recommendations, AWS Budgets recommended threshold, GCP Cost Recommender and
-  Azure Advisor budget-shaped recommendations, SaaS seats. Ten built, eight
-  documented, and every entry declares whether running it is metered per call.
+  store. Eighteen connectors: AWS Data Exports (FOCUS 1.0 and 1.2, read from a
+  synced folder), Cost Explorer, GCP billing export (a FOCUS CSV folder
+  exported from BigQuery), Azure Cost Management, Kubecost, OpenCost, TokenFuse
+  FOCUS export, Anthropic, OpenAI and OpenRouter usage, Compute Optimizer, AWS Cost
+  Explorer and GCP Recommender and Azure Advisor rightsizing recommendations,
+  AWS Budgets recommended threshold, GCP Cost Recommender and Azure Advisor
+  budget-shaped recommendations, SaaS seats. Twelve built, six documented, and
+  every entry declares whether running it is metered per call.
 - **Produces**: twenty-two event types on the shared agent-event bus, registered in
   `agent-passport` SPEC 6.2 under the source `costcrew`, schema v0.2.
 - **Enforces**: nothing. `enforced: false` is stamped on every event, and
   `internal/enforce` is a separate binary the console never imports. The
-  console makes no outbound call while serving a page, with one exception: the
-  supervisor's plan-ask (`POST /sprint/plan/ask`) calls a model through
-  `deliver.Call`, and only when `-gateway` or `-gateway-openai` is set. A test
-  refuses any other way for the console to build an outbound request.
+  console makes no outbound call while serving a page, with two exceptions:
+  the supervisor's plan-ask (`POST /sprint/plan/ask`) calls a model through
+  `deliver.Call`, and only when `-gateway` or `-gateway-openai` is set; and
+  sign-in through the organisation's identity provider reaches that
+  provider's discovery document, keys and token endpoint, and only when
+  `-oidc-issuer` is set. A test refuses any other way for the console to
+  build an outbound request.
 
 ## The three rules that make the numbers usable
 
@@ -127,11 +131,15 @@ invoice changes. The seeded estate is blunt about what that means: the crew has
 found 1,254.35 and cost 3,871.35 across 310 tasks, and the Results page prints
 the ratio without softening it.
 
-**A measure may refuse.** The KPI library reports nine numbers and refuses three,
-each refusal naming what is missing. A library where everything reports a number
-is one where several of them are invented. The refusal it will not talk around is
-per-agent AI spend: a charge carries a model and a workload, never an agent, and
-that becomes answerable only when the calls go through TokenFuse with an agent id.
+**A measure may refuse.** The KPI library defines twelve measures. On the
+generated fixture it reports nine and refuses three, each refusal naming what is
+missing: cost per outcome (no business metric is connected), carbon per workload
+(no carbon source is connected) and AI spend attributed to an agent. A library
+where everything reports a number is one where several of them are invented. The
+refusal it will not talk around is per-agent AI spend: a generated charge carries
+a model and a workload, never an agent, and that becomes answerable only when the
+calls go through TokenFuse with an agent id. Cost per outcome computes once an
+import carries tagged outcomes.
 
 ## The detector
 
@@ -170,6 +178,53 @@ Inside the stack, `./up.sh --with-finops` from
 shared bus. Two flags carry the whole integration: `-stack-events` names the
 NDJSON file, and the name IS the integration because genaryx keys a read offset
 off the stem; `-stack-host` sets the `agent://` authority.
+
+### Sign in through your identity provider
+
+The console can hand sign-in to the organisation's identity provider with
+OpenID Connect, so multi-factor authentication and offboarding happen where
+the organisation already does them. It is off unless `-oidc-issuer` is set.
+Register the console at the provider as a confidential web client whose
+redirect URL is the console's own address followed by `/login/oidc/callback`.
+
+| Flag (environment twin) | Meaning |
+|---|---|
+| `-oidc-issuer` (`COSTCREW_OIDC_ISSUER`) | the issuer URL; https, or http only to a loopback host |
+| `-oidc-client-id` (`COSTCREW_OIDC_CLIENT_ID`) | the client id registered at the provider |
+| `COSTCREW_OIDC_CLIENT_SECRET`, or `-oidc-client-secret-file` (`COSTCREW_OIDC_CLIENT_SECRET_FILE`) | the client secret; one of the two, never both, and there is no flag for the value, because a flag shows in the process list |
+| `-oidc-redirect-url` (`COSTCREW_OIDC_REDIRECT_URL`) | the callback as the browser reaches it, for example `https://costcrew.example/login/oidc/callback` |
+| `-oidc-roles` (`COSTCREW_OIDC_ROLES`) | claim values to roles, `finops-viewers=viewer;finops-ops=operator;finops-admins=admin`; entries split on `;` and each at its last `=`, so an LDAP distinguished name works |
+| `-oidc-roles-claim` (`COSTCREW_OIDC_ROLES_CLAIM`) | the ID token claim the mapping reads; default `groups` |
+| `-oidc-username-claim` (`COSTCREW_OIDC_USERNAME_CLAIM`) | the claim a new account is named after; default `email` |
+| `-oidc-scopes` (`COSTCREW_OIDC_SCOPES`) | the scopes requested; default `openid email profile`; add `groups` where the provider needs it asked for |
+| `-oidc-only` (`COSTCREW_OIDC_ONLY`) | switch password sign-in off, except for accounts whose password was set with `-set-password` |
+
+What it does, in short. The flow is the authorization code flow with PKCE,
+a state bound to the browser and a nonce. The ID token's signature is checked
+against the provider's published keys, and its issuer, audience, expiry,
+issue time (two minutes of clock skew), nonce and authorized party are all
+checked before anything in it is used. The first sign-in creates the account
+at the role its group maps to. Every later sign-in applies the role the
+mapping gives now, so a change at the provider takes effect at the next
+sign-in. A person whose groups map to no role is refused and gets no account:
+there is no default role. If such a person still has an account here, every
+session it holds ends at that sign-in. While a provider is configured,
+`/signup` is closed. With `-oidc-only`, a password signs in only to an
+account set from the command line, which is the way back in when the
+provider itself is down:
+
+```sh
+costcrew -data ./local -set-password 'breakglass:a-long-password-kept-offline'
+```
+
+Limits worth knowing before relying on it. A person removed from the group
+who never signs in again keeps an open session until it expires (twelve
+hours): nothing tells the console about the removal. An account that existed
+before the provider was configured is never taken over by an identity with
+the same name; remove it first. The groups claim is read from the ID token,
+not from the provider's userinfo endpoint. It has been tested against an
+identity provider running inside the test suite, not yet against a named
+commercial one.
 
 ### The other binaries in the image
 
@@ -310,6 +365,117 @@ otherwise passes `costcrew-run`.
 Flipping stack-k8s's `suspend`, or adding a stack-single routine, is a
 platform act and a separate decision; neither is done in this repository.
 
+## Running the crew on a model inside your own network
+
+If billing data may not leave your network, run the crew on a model you host
+yourself. The `local` engine calls a server that answers the OpenAI
+chat-completions route (`POST /v1/chat/completions`): Ollama, vLLM, LM Studio
+and the llama.cpp server all do. Nothing is sent to a vendor, no vendor
+address appears anywhere in that route, and no key is needed.
+
+Hire an analyst onto the `local` engine from the hire form, then point the
+runner at your server and say which model it serves. With Ollama:
+
+```sh
+ollama serve &                       # listens on 127.0.0.1:11434
+ollama pull llama3.1:8b
+
+costcrew-run -data ./local -live -engine local -ceiling 1.00 \
+  -model-url http://127.0.0.1:11434/v1 \
+  -model-name llama3.1:8b \
+  -max-run-tokens 400000
+```
+
+`-model-url` is the base URL of the server, with its `/v1`; the runner adds
+`/chat/completions`. It must be an `http` or `https` address with no password
+in it, no query string and no fragment, and the runner refuses it before it
+opens anything otherwise. `-model-name` is whatever your server calls the
+model. Both fall back to `COSTCREW_MODEL_URL` and `COSTCREW_MODEL_NAME`. Most
+self-hosted servers want no key. If yours does, put it in
+`COSTCREW_MODEL_KEY`: it is sent as a bearer token and is never printed or
+stored.
+
+A model on your own hardware costs no vendor money, but every guard in the
+runner counts money, and a reservation of zero never refuses anything. So a
+run on the local engine is bounded one of two ways. Price your hardware with
+`-local-price-in` and `-local-price-out` (USD per million tokens, whatever
+the machine costs you), and the run ceiling and the per-task guards work as
+they do for any other engine. Or leave the price at 0 and give
+`-max-run-tokens`, a ceiling on the tokens the whole run may use, reserved
+before each task the way money is. A run on the local engine at a price of 0
+with no token ceiling is refused before the first call. The count is the
+server's own. A server that reports no usage is counted at the worst case for
+that round, the bytes sent plus the whole output cap, rather than at nothing,
+and the runner says so.
+
+If the server is not there, the run stops before the first task with one
+line naming the address. No task is blocked for a call that never happened.
+
+To meter these calls like any other, set `-gateway-openai` to a TokenFuse
+gateway whose upstream is your server. The runner then sends the call to the
+gateway with the usual run and agent headers, and the charge recorded is what
+the gateway settled. With only `-gateway` set (the Anthropic wire), a local
+task is refused, not sent straight to your server behind the gateway's back.
+
+Each local call is recorded on the shared bus with `price_basis` set to
+`local`, so the record says no vendor price was involved. The console's own
+supervisor planning call does not run on the local engine yet.
+
+## What a model is shown
+
+The crew's analysts and the supervisor are language models, and what they read
+is your bill: team names, service names, money, agent ids, invoice ids,
+vendors, commitments, resource ids, the names of the people who answered, past
+deliverables, the goal an operator typed. One setting per installation decides
+how much of that leaves the process. It is `-prompt-data` on `costcrew` and on
+`costcrew-run`, or `COSTCREW_PROMPT_DATA` in the environment, and it takes
+three values, spelled exactly. Anything else, a capital letter included,
+refuses to start.
+
+`full` is the default and is what this console has always sent. Nothing changes
+unless you set something else.
+
+`masked` replaces every name with a stable token before a prompt or a tool
+result leaves the process: teams, desks, services, agents, people, invoices,
+vendors, products, commitments, resources, models and run ids. A token looks
+like `team-7f3a`, and the same name is the same token in every packet, every
+tool result and every round of a task, so the model can still tell that two
+rows are one team. Money, dates, counts and ratios are real. Text that a person
+or a model typed can carry a name the store never held, so it is not scrubbed,
+it is left out, with a one-line stand-in saying so: past deliverables, option
+summaries and refusal reasons, driver labels, the goal an operator typed, a
+mission someone wrote by hand. The two tools whose argument is SQL the model
+writes are not offered, because a statement can select any name in a column or
+cut one in two, and no scrub of the result can be trusted to recognise half a
+name. When the model answers in tokens, the draft is put back into real names
+before it is saved, so a person reads real names. A token the model made up
+stays as it wrote it.
+
+`aggregates` sends no row at all: per-desk and per-team totals, variances, KPIs
+and series sums, with team and desk names masked as above. An anomaly gives its
+amount, baseline, z score and day but no service. Drivers, past deliverables,
+recommendations, renewals, commitments, per-agent AI spend and invoices are
+not sent, and neither is any tool that returns rows.
+
+Whatever the mode, the prompt says which one it was built under, in one line,
+and the `tool_call` events and the `crew_ran` summary on the bus carry it as
+`prompt_data`, so a run's record says what could have left.
+
+The tokens come from a key kept in your data directory (`prompt-data.key`, mode
+0600, made on the first start in a restricting mode). The same key gives the
+same tokens on every start; a different key gives different ones, so nobody
+without it can test a guessed name against a token. A key file that others can
+read, or that is not 64 hex digits, is refused rather than replaced.
+
+What this does not do. It masks the names this installation's store holds, and
+nothing else. The working analyst keeps its own name, its role and its job
+description, which say which desk it is on. Amounts are real, and an amount can
+identify. The gateway still receives the analyst's real agent id in its metering
+headers, because that is what it meters. `costcrew-bench` has no such flag and
+sends what it always sent. The plan prompt of the console's supervisor follows
+the console's setting; the answer is put back into real names before the plan
+is checked.
+
 ## Measured on a box behind a home router (2026-09-17)
 
 stack-single v1.1.3 ran `ghcr.io/taipanbox/costcrew:v0.2.0` on a Debian 13
@@ -346,8 +512,9 @@ Two defects turned up, both already fixed on `main` and neither in
   box's own export cleanly (277 rows, 4 agents, 0.07 total billed cost).
   Issue #66, fixed by #70 (`cb90412`, invariant 50).
 
-Still open: no AWS or GCP billing reader exists yet, so the board worked
-the generated estate and the box's AI spend alone (#68). This run used
+Still open at the time of the run: no AWS or GCP billing reader existed, so
+the board worked the generated estate and the box's AI spend alone (#68; both
+folder readers have since been added). This run used
 `v0.2.0`, which predates the console's `-gateway` flag, so the flag was
 dropped from the command (#69); closed by `v0.2.1`, the first image that
 carries `-gateway`.
@@ -361,9 +528,9 @@ estate-gates repository's own PROVEN record:
 ## Gates
 
 ```sh
-go test ./...                        # 968 tests, 20 packages
+go test ./...                        # 1050 tests, 20 packages
 ./scripts/features-are-bound.sh      # every scenario bound to a named test, both ways
-./scripts/gates-have-teeth.sh        # 166 cases: each gate is made to fail on purpose
+./scripts/gates-have-teeth.sh        # 220 cases: each gate is made to fail on purpose
 gofmt -l . && go vet ./...
 ```
 

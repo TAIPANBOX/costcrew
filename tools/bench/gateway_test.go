@@ -18,6 +18,9 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/TAIPANBOX/costcrew/internal/crew"
+	"github.com/TAIPANBOX/costcrew/internal/engines"
 )
 
 // fakeAnthropicResponse builds a valid Anthropic Messages API response body
@@ -259,7 +262,11 @@ func TestLiveWithStackHostMintsTheAgentIdUnderIt(t *testing.T) {
 // as costcrew.local regardless of what trust domain the console this bench
 // stands in for actually runs under.
 func TestGatewayForBuildsThePerCaseGateway(t *testing.T) {
-	gw := gatewayFor("http://127.0.0.1:4177", "", "bench-9", "gcp.taipanbox.local", "investigator-gcp", "0.05")
+	gw, err := gatewayFor("http://127.0.0.1:4177", "", "bench-9", "gcp.taipanbox.local",
+		crew.Analyst{Name: "investigator-gcp", Owner: "bench"}, "0.05")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if gw.URL != "http://127.0.0.1:4177" {
 		t.Errorf("URL = %q", gw.URL)
 	}
@@ -279,7 +286,11 @@ func TestGatewayForBuildsThePerCaseGateway(t *testing.T) {
 // the same "empty means off, and off is not an error" rule
 // TestNormalizeGatewayEmptyMeansOff already holds for tools/run.
 func TestGatewayForWithNoURLBuildsAnOffGateway(t *testing.T) {
-	gw := gatewayFor("", "", "bench-9", "gcp.taipanbox.local", "investigator-gcp", "0.05")
+	gw, err := gatewayFor("", "", "bench-9", "gcp.taipanbox.local",
+		crew.Analyst{Name: "investigator-gcp", Owner: "bench"}, "0.05")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if gw.URL != "" {
 		t.Errorf("URL = %q, want empty", gw.URL)
 	}
@@ -358,5 +369,85 @@ func TestLiveRefusesANonHTTPOpenAIGatewayURLBeforeTheStoreOpens(t *testing.T) {
 	}
 	if _, err := os.Stat(dir + "/app.db"); err == nil {
 		t.Error("app.db exists: the store was opened despite the bad -gateway-openai value")
+	}
+}
+
+// costcrew#73: a live bench call names the analyst's owner, from the roster,
+// the way a crew call does. The fixture roster is seeded under the owner
+// "bench" (ensureSeeded), so each case's chain is that root and then its own
+// analyst.
+func TestLiveSendsTheAnalystsOwnerOnEveryCase(t *testing.T) {
+	t.Setenv("ANTHROPIC_API_KEY", "sk-ant-stub-not-real")
+	var heads []http.Header
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		heads = append(heads, r.Header.Clone())
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(fakeAnthropicResponse("cause noted.", 1, 1))
+	}))
+	defer srv.Close()
+
+	dir := t.TempDir()
+	code, out, errOut := runArgs(t, "-dir", dir, "-live", "-skill", "investigate",
+		"-engine", "anthropic", "-gateway", srv.URL, "-stack-host", "gcp.taipanbox.local", "-n", "5")
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stdout: %s stderr: %s", code, out, errOut)
+	}
+	if len(heads) != 2 {
+		t.Fatalf("the fake gateway received %d request(s), want 2", len(heads))
+	}
+	for i, h := range heads {
+		agent := h.Get("x-fuse-agent-id")
+		want := "user://gcp.taipanbox.local/bench," + agent
+		if got := h.Get("x-fuse-on-behalf-of"); got != want {
+			t.Errorf("case %d: x-fuse-on-behalf-of = %q, want %q", i, got, want)
+		}
+	}
+}
+
+// An analyst with no owner refuses the whole run before the first call: the
+// case before it is not scored and billed first.
+func TestLiveRefusesBeforeAnyCallWhenACasesAnalystHasNoOwner(t *testing.T) {
+	t.Setenv("ANTHROPIC_API_KEY", "sk-ant-stub-not-real")
+	var seen int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen++
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(fakeAnthropicResponse("cause noted.", 1, 1))
+	}))
+	defer srv.Close()
+
+	db := seededTestDB(t)
+	cases, _, _, err := selectKnownCases(db, "investigate", 5, 1)
+	if err != nil || len(cases) != 2 {
+		t.Fatalf("selectKnownCases: %d cases, %v; the fixture is expected to hold both known cases", len(cases), err)
+	}
+	// The SECOND case's analyst loses its owner, so a run that scored case
+	// one before reaching case two would already have spent.
+	bare := cases[1].Analyst.Name
+	if _, err := db.Exec(`UPDATE analysts SET owner = '' WHERE name = ?`, bare); err != nil {
+		t.Fatal(err)
+	}
+	for i := range cases {
+		a, err := crew.GetAnalyst(db, cases[i].Analyst.Name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		cases[i].Analyst = a
+	}
+
+	model := engines.DefaultModel("anthropic")
+	p, ok := engines.PriceFor("anthropic", model)
+	if !ok {
+		t.Fatal("no price for the default anthropic model")
+	}
+	_, err = scoreLive(db, cases, "anthropic", model, p, 200, srv.URL, "", "gcp.taipanbox.local")
+	if err == nil {
+		t.Fatal("a live run with an ownerless analyst among its cases was accepted")
+	}
+	if !strings.Contains(err.Error(), bare) {
+		t.Errorf("the refusal does not name the analyst %q: %v", bare, err)
+	}
+	if seen != 0 {
+		t.Errorf("the gateway received %d request(s) before the refusal, want 0", seen)
 	}
 }
