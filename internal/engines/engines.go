@@ -24,7 +24,11 @@ const (
 	APIKey       Family = "api-key"      // billed per token
 	Existing     Family = "existing"     // an assistant the organisation already pays for
 	CloudRole    Family = "cloud-role"   // billed to a cloud account, no key to paste
+	SelfHosted   Family = "self-hosted"  // a model the organisation runs itself, nothing leaves its network
 )
+
+// LocalID is the engine for a model the organisation hosts itself.
+const LocalID = "local"
 
 type Engine struct {
 	ID     string
@@ -43,6 +47,12 @@ type Engine struct {
 	Command string // the local command, when it is one
 	BaseURL string
 	Models  []string
+
+	// EndpointEnv is for an engine that is a SERVER somebody runs rather than a
+	// vendor's: the environment variable holding its base URL. Set means the
+	// operator has pointed the crew somewhere; it says nothing about whether the
+	// server answers, which Check does not call anything to find out.
+	EndpointEnv string
 
 	// EnvAny is for an engine whose credential comes from a CHAIN rather than
 	// from one variable somebody pastes. Any of these being set is taken as
@@ -131,6 +141,36 @@ var Catalogue = []Engine{
 		},
 	},
 	{
+		// A model the organisation hosts itself: Ollama, vLLM, LM Studio, the
+		// llama.cpp server, anything that speaks POST /v1/chat/completions.
+		//
+		// No Models list on purpose. Every other engine offers the models a
+		// vendor sells; here the operator names whatever their own server
+		// serves (-model-name), and a list written here would be a claim about
+		// somebody else's machine.
+		//
+		// Metered is TRUE although no vendor bills anything, and that is
+		// deliberate. Metered decides whether a call goes through the
+		// estimator's bound or is waved through as already paid for
+		// (prices.go's own header records what that reading costs), and a
+		// model on the organisation's own hardware is not "already paid for"
+		// in the sense that matters: it burns capacity the organisation owns,
+		// at a price the operator sets (-local-price-in, -local-price-out)
+		// and at zero by default, where the run is bounded in tokens instead
+		// (-max-run-tokens).
+		ID: LocalID, Name: "A model you host yourself", Family: SelfHosted, Metered: true,
+		When: "Billing data may not leave your network. The crew runs on a model " +
+			"your own server hosts, and nothing is sent to any vendor.",
+		Cost: "No vendor bill. You set what your own hardware costs per million " +
+			"tokens (-local-price-in, -local-price-out); left at 0, the run is " +
+			"bounded by a token ceiling (-max-run-tokens) instead of by money.",
+		How: "Run any server that speaks /v1/chat/completions (Ollama, vLLM, LM " +
+			"Studio, llama.cpp), give its base URL as -model-url or " +
+			"COSTCREW_MODEL_URL, and name the model it serves with -model-name.",
+		Doc:         "https://github.com/TAIPANBOX/costcrew#running-the-crew-on-a-model-inside-your-own-network",
+		EndpointEnv: "COSTCREW_MODEL_URL",
+	},
+	{
 		ID: "local-cli", Name: "A local assistant already paid for", Family: Existing,
 		When: "Your organisation already pays for an assistant that runs on this " +
 			"machine under its own sign-in. Nothing outbound to approve, and the " +
@@ -170,6 +210,12 @@ func Check(lookup func(string) string, look func(string) (string, error)) []Avai
 				a.Ready, a.Reason = true, "a key is set in "+e.EnvVar
 			} else {
 				a.Reason = e.EnvVar + " is not set in this process's environment"
+			}
+		case e.EndpointEnv != "":
+			if v := strings.TrimSpace(lookup(e.EndpointEnv)); v != "" {
+				a.Ready, a.Reason = true, e.EndpointEnv+" names a server (not called to check that it answers)"
+			} else {
+				a.Reason = e.EndpointEnv + " is not set in this process's environment"
 			}
 		case e.Command != "":
 			if p, err := look(e.Command); err == nil {
@@ -237,6 +283,8 @@ func FamilyTitle(f Family) string {
 		return "An assistant the organisation already pays for"
 	case CloudRole:
 		return "Your cloud's own models, billed to that account"
+	case SelfHosted:
+		return "A model your own organisation hosts"
 	}
 	return string(f)
 }
@@ -255,6 +303,10 @@ func FamilyNote(f Family) string {
 		return "No key to paste and none stored here: the call is signed with the " +
 			"credentials the cloud already gives this workload. The bill lands on " +
 			"that cloud account rather than on a model vendor's."
+	case SelfHosted:
+		return "Nothing is sent to a vendor. The server is the organisation's own, " +
+			"so no bill arrives; the crew is bounded by the price the operator " +
+			"sets for their hardware, or by a token ceiling when that price is 0."
 	}
 	return ""
 }

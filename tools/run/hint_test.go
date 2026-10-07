@@ -80,7 +80,7 @@ func TestADryRunAsksTypryxNothing(t *testing.T) {
 	var asks int32
 	srv := fakeTypryx(t, &asks)
 	dir, _ := runnerHintDir(t)
-	if err := run(dir, "", 2000, 0, false, false, false, 0, "", "", "", "", "", srv.URL); err != nil {
+	if err := run(dir, "", 2000, 0, false, false, false, 0, "", "", "", "", "", localOptions{}, srv.URL); err != nil {
 		t.Fatal(err)
 	}
 	if asks != 0 {
@@ -95,7 +95,7 @@ func TestALiveRunAsksTypryxBeforeTheTaskIsPriced(t *testing.T) {
 	var asks int32
 	srv := fakeTypryx(t, &asks)
 	dir, _ := runnerHintDir(t)
-	err := run(dir, "0.10", 2000, 0, true, false, false, 0, "", "", "", "", "", srv.URL)
+	err := run(dir, "0.10", 2000, 0, true, false, false, 0, "", "", "", "", "", localOptions{}, srv.URL)
 	if err == nil || !strings.Contains(err.Error(), "nothing to run") {
 		t.Fatalf("want the run to stop at 'nothing to run' (the task has no assignee), got %v", err)
 	}
@@ -117,7 +117,7 @@ func TestALiveRunWithNoCeilingAsksTypryxNothing(t *testing.T) {
 	var asks int32
 	srv := fakeTypryx(t, &asks)
 	dir, _ := runnerHintDir(t)
-	if err := run(dir, "", 2000, 0, true, false, false, 0, "", "", "", "", "", srv.URL); err == nil {
+	if err := run(dir, "", 2000, 0, true, false, false, 0, "", "", "", "", "", localOptions{}, srv.URL); err == nil {
 		t.Fatal("-live with no ceiling was accepted")
 	}
 	if asks != 0 {
@@ -126,7 +126,7 @@ func TestALiveRunWithNoCeilingAsksTypryxNothing(t *testing.T) {
 }
 
 func TestABadTypryxURLIsRefusedBeforeTheStoreOpens(t *testing.T) {
-	err := run(t.TempDir()+"/nope/deeper", "", 2000, 0, false, false, false, 0, "", "", "", "", "", "http://u:p@h")
+	err := run(t.TempDir()+"/nope/deeper", "", 2000, 0, false, false, false, 0, "", "", "", "", "", localOptions{}, "http://u:p@h")
 	if err == nil || !strings.Contains(err.Error(), "-typryx-url") {
 		t.Errorf("got %v", err)
 	}

@@ -71,6 +71,12 @@ type Gateway struct {
 	// this is a separate gateway process and a separate URL from URL, never
 	// the same one reached on another path.
 	OpenAIURL string
+	// ModelURL is the base URL of the operator's OWN OpenAI-compatible server
+	// (-model-url), where the "local" engine's calls go when no gateway is
+	// configured. It is not a gateway and does not make On() true: it is the
+	// upstream a call reaches directly, and RouteFor still refuses the local
+	// engine when any gateway is configured and none fronts the OpenAI wire.
+	ModelURL  string
 	RunID     string
 	AgentID   string
 	BudgetUSD string // already formatted, two decimals minimum
@@ -183,6 +189,14 @@ func (g Gateway) RouteFor(engine string) (string, error) {
 			"configured, so the call is refused rather than made directly to openrouter.ai; set "+
 			"-gateway-openai (COSTCREW_GATEWAY_OPENAI) to a TokenFuse gateway whose TOKENFUSE_WIRE "+
 			"is openai", ErrNoGatewayRoute, engine)
+	case "local":
+		if g.OpenAIURL != "" {
+			return g.OpenAIURL, nil
+		}
+		return "", fmt.Errorf("%w: engine %q speaks the OpenAI wire and no OpenAI-shaped gateway is "+
+			"configured, so the call is refused rather than made directly to the local model server; set "+
+			"-gateway-openai (COSTCREW_GATEWAY_OPENAI) to a TokenFuse gateway whose TOKENFUSE_WIRE "+
+			"is openai and whose upstream is that server", ErrNoGatewayRoute, engine)
 	case "bedrock":
 		return "", fmt.Errorf("%w: engine %q speaks neither wire TokenFuse fronts (Anthropic Messages, "+
 			"OpenAI chat completions), so with a gateway configured the call is refused rather than "+
@@ -213,6 +227,8 @@ func Call(ctx context.Context, engine, model, prompt string, maxTok int, gw Gate
 		return callAnthropic(ctx, model, prompt, maxTok, gw)
 	case "bedrock":
 		return callBedrock(ctx, model, prompt, maxTok)
+	case "local":
+		return callLocal(ctx, model, prompt, maxTok, gw)
 	}
 	return Result{}, fmt.Errorf("no caller is written for engine %q", engine)
 }
