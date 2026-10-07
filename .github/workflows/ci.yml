@@ -72,6 +72,14 @@ jobs:
       # whole suite would make every push a half-hour wait, which is not a trade
       # worth making. So -race runs on the packages where it costs seconds, and
       # internal/web is checked plain.
+      # Known vulnerabilities in the module graph AND the standard library the
+      # pinned toolchain ships, reported only where this code reaches them.
+      # Pinned like staticcheck above: a floating @latest would change what
+      # fails CI without a change to this repository.
+      - name: govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@v1.8.0
+          govulncheck ./...
       - name: tests
         run: go test ./...
       - name: tests, with the race detector where it is cheap

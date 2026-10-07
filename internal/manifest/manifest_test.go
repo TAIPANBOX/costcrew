@@ -34,6 +34,7 @@ type manifest struct {
 			Package       string                             `json:"package"`
 			ListenDefault string                             `json:"listen_default"`
 			HealthPath    string                             `json:"health_path"`
+			Image         bool                               `json:"image"`
 			Env           map[string]struct{ Required bool } `json:"env"`
 			Flags         map[string]struct{ Required bool } `json:"flags"`
 		} `json:"checked"`

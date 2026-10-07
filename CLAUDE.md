@@ -56,8 +56,11 @@ reason for being here rather than in estate-gates: the only thing that knows
 which binaries a repository builds is the repository, so a component that was
 FORGOTTEN is invisible from outside by construction.
 
-Seven binaries and six of them are tools no deployment installs, which is
-exactly why the estate's own registry could not be the place this is written.
+Seven binaries. Four of them are in the published image (`checked.image` in
+`components.json`, held to the Dockerfile by invariant 60) and three are tools
+run from source; a binary built and not declared is invisible from outside,
+which is exactly why the estate's own registry could not be the place this is
+written.
 
 **This one is configured by FLAGS**, unlike its neighbours. The two environment
 variables it reads are not how a deployment wires it, so `checked.flags` is the
@@ -81,12 +84,13 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 993 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 192 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 320 scenarios, both directions
+go test ./...                        # 998 tests, 20 packages
+./scripts/gates-have-teeth.sh        # 196 cases; needs a clean tree
+./scripts/features-are-bound.sh      # 325 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
+govulncheck ./...                    # CI runs it, pinned at v1.8.0; reports only vulnerabilities the code can reach
 staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refused PR #19 on two findings the list above never asked for; a staticcheck built for an older Go cannot read this module, so on such a machine CI is the only place it runs
 ```
 
@@ -103,8 +107,17 @@ new), and no route: 968 -> 993 tests, 166 -> 192 cases, 295 -> 320 scenarios,
 the three commands this block already names. `go test ./... -cover` per
 package: `internal/auth` 26.2% -> 51.3%, `internal/store` 59.8% -> 57.7% (the
 migration's rollback and warning branches are new and untested),
-`internal/web` 80.0% -> 80.0%, `cmd/costcrew` 0.0% -> 0.0%. The numbers in
-invariants 61 to 64 are placeholders: the coordinator renumbers them at merge.
+`internal/web` 80.0% -> 80.0%, `cmd/costcrew` 0.0% -> 0.0%.
+
+Invariant 60 (the image holds every binary a deployment runs, from a base
+nobody can move, costcrew#75) added 5 tests
+(`internal/manifest/image_test.go`), 4 `gates-have-teeth.sh` cases (three
+`fail`, one `pass`) and 5 scenarios
+(`features/the-image-holds-what-a-deployment-runs.feature`, new), and no
+route: 993 -> 998 tests, 192 -> 196 cases, 320 -> 325 scenarios (measured
+after invariants 61 to 64 merged), one more feature file, 58 GET routes unchanged, re-measured on this branch with the
+three commands this block already names. `components.json` gained
+`checked.image` on four components.
 
 Invariant 49 (a cookie is Secure when a TLS proxy in front is what actually
 terminates it, section "Read before you change anything" of this branch's
@@ -3267,6 +3280,56 @@ an absent invariant.
     `gates-have-teeth.sh`, each switching one property of the shell gate off
     or undoing one piece of the data.)*
 
+60. **The image holds every binary a deployment runs, and its base images are
+    named by digest.** costcrew#75, measured on the appliance proving run of
+    2026-09-17: the image shipped `costcrew` and `costcrew-run`, while the
+    documentation named `costcrew-enforce` (pushes decided budgets to a
+    TokenFuse control plane) and `costcrew-idryxsource` (writes the `agents`
+    source idryx asks for) as part of closing the loop, and a machine with no
+    Go toolchain could not run either. The Dockerfile and `components.json`
+    each held a list of the binaries and nothing compared them, so the gap was
+    found by an operator and not by a gate. `checked.image: true` on a
+    component in `components.json` is now the declaration, the Dockerfile
+    builds and copies all four (`costcrew`, `costcrew-run`, `costcrew-enforce`,
+    `costcrew-idryxsource`) with the same static flags into the same
+    distroless nonroot runtime, and `internal/manifest` reads the Dockerfile
+    as text and requires: every declared binary is copied to
+    `/usr/local/bin/<name>`, every copied binary is declared, every copied
+    binary is built by a `go build -o /out/<name> ./<dir>` whose directory is
+    the one the manifest names, and nothing is built and left out of the
+    runtime stage. The enforce binary stays a separate entrypoint on purpose:
+    the console never invokes it (that separation is why `enforces_nothing`
+    is true), so a launcher runs it as its own container from the same image
+    with the entrypoint replaced; the README says how.
+
+    The second half is supply chain. Both `FROM` lines name a `sha256` digest
+    (the multi-arch index, so the one pin serves amd64 and arm64) with the tag
+    kept in a comment beside it, because a tag can be repointed under an
+    operator without anyone choosing that. `.github/dependabot.yml` proposes
+    the next digest through its `docker` ecosystem, so the pin is kept fresh by
+    review. The build-stage `ARG GO_VERSION` was dropped for this: dependabot
+    cannot update a tag that is a build argument. CI also gained a
+    `govulncheck ./...` step, installed at a pinned version, and dependabot
+    gained a weekly `gomod` ecosystem.
+
+    What this does not cover: it reads the Dockerfile, it does not build the
+    image, so a copy path that exists in the text and fails in a build is
+    caught by the release workflow's build and not here; it does not check
+    that a digest is the current one or that it exists in a registry (dependabot
+    and the build do); and the new `govulncheck` and dependabot entries are CI
+    and repository configuration, held by nothing in this repository's tests.
+    *(gate: `TestTheDockerfileShipsExactlyTheBinariesTheManifestSaysItDoes`,
+    `TestTheImageCarriesTheEnforceAndIdryxSourceBinaries`,
+    `TestEveryBaseImageIsPinnedByDigest`,
+    `TestTheDockerfileComparisonSeesEachWayTheyCanDisagree` (the comparison on
+    Dockerfiles written for the purpose, so a parser regression cannot pass the
+    real-file test by seeing nothing) and
+    `TestADigestPinIsRecognisedOnlyWhenItIsThere` in `internal/manifest`; the
+    first and the third were red on the unfixed Dockerfile with the missing
+    binaries and the two tag-only `FROM` lines named. Four cases in
+    `gates-have-teeth.sh`: a declared binary not copied, a base image back to a
+    tag, the comparison ignoring a missing copy (each `fail`), and a reworded
+    comment above a digest, which must not trip it (`pass`).)*
 61. **A session token is never stored.** `StartSession` generated 32 random bytes, handed them to the
     browser as the cookie, and wrote the same string into `sessions.token`, so
     anybody able to read `app.db` (a backup, a volume snapshot, a file read
