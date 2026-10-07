@@ -1002,8 +1002,8 @@ run_case 'bench: the driver: line is left in a hiding-mode packet' \
 	$'TestBenchPacketHidesTheDriverLabelAndItsKind' \
 	$'still names the driver label' \
 	internal/deliver/packet.go \
-	$'if an.Driver != "" && !hideDriver {' \
-	$'if an.Driver != "" {'
+	$'if an.Driver != "" && !hideDriver && !pol.Aggregates() {' \
+	$'if an.Driver != "" && !pol.Aggregates() {'
 
 # B7-SPEC.md section 5's second named mutant: "score cause by substring of
 # the whole deliverable instead of the named cause". A deliverable can
@@ -3860,6 +3860,294 @@ run_case $'local engine: a longer round timeout is not a fault' \
 	internal/deliver/local.go \
 	$'const LocalRoundTimeout = 5 * time.Minute' \
 	$'const LocalRoundTimeout = 6 * time.Minute'
+# Invariants 70 and 71: what a model is sent is what -prompt-data allows, and a
+# pseudonym is stable, private and reversible. Each case plants the fault one
+# of the new tests exists for, in the product, and requires that test to say
+# so: a source of names dropped from the list the mask reads, the mask removed,
+# typed text or a driver label sent, a service sent under aggregates, a past
+# deliverable sent, the SQL tools offered, a tool run when asked for anyway, a
+# tool result left unmasked, the model's tokens not put back into a tool call,
+# or put back by splicing into its text, a draft saved in tokens, an answer
+# handed back in tokens, a name given a new token each time, two names given
+# one, a key anybody can read, a misspelling accepted by either binary, the
+# mode missing from an event, a column nobody has decided about. The last case
+# is two edits that are not faults (a longer token, a reworded stand-in), which
+# the gates must not mind.
+run_case $'prompt data: the invoice ids are left out of the list of names to mask' \
+	fail \
+	./internal/deliver \
+	$'TestNoRealIdentifierLeavesInMaskedOrAggregatesPackets' \
+	$'(charges.invoice_id)' \
+	internal/deliver/pseudonym.go \
+	$'{kindInvoice, "charges", "invoice_id", ""}, {kindInvoice, "ai_calls", "invoice_id", ""},\n' \
+	$''
+run_case $'prompt data: a business unit a person named is left out of the list of names to mask' \
+	fail \
+	./internal/deliver \
+	$'TestNoRealIdentifierLeavesInMaskedOrAggregatesPackets' \
+	$'(unit_rules.business_unit)' \
+	internal/deliver/pseudonym.go \
+	$', {kindTeam, "unit_rules", "business_unit", ""}' \
+	$''
+run_case $'prompt data: the packet is not masked at all' \
+	fail \
+	./internal/deliver \
+	$'TestNoRealIdentifierLeavesInMaskedOrAggregatesPackets' \
+	$'(masked mode) leaks' \
+	internal/deliver/packet.go \
+	$'\t\tjoined = pol.maskStore(db, joined, []string{a.Name})\n' \
+	$'\t\tjoined = strings.Clone(joined)\n'
+run_case $'prompt data: a past deliverable body is sent under masked' \
+	fail \
+	./internal/deliver \
+	$'TestFreeTextIsWithheldUnderMaskedAndAggregates' \
+	$'sent free text' \
+	internal/deliver/packet.go \
+	$'\tif pol.Full() {\n\t\tb.WriteString(trimBytes(body, 600))' \
+	$'\tif true {\n\t\tb.WriteString(trimBytes(body, 600))'
+run_case $'prompt data: the drivers a forecast names are sent under masked' \
+	fail \
+	./internal/deliver \
+	$'TestFreeTextIsWithheldUnderMaskedAndAggregates' \
+	$'sent free text' \
+	internal/deliver/packet.go \
+	$'\t\t\tif i := strings.Index(basis, driversAppliedMarker); i >= 0 {' \
+	$'\t\t\tif i := strings.Index(basis, driversAppliedMarker); i >= 0 && false {'
+run_case $'prompt data: aggregates sends the service of an anomaly' \
+	fail \
+	./internal/deliver \
+	$'TestAggregatesCarryNoRowLevelSections' \
+	$'aggregates sent row-level text' \
+	internal/deliver/packet.go \
+	$'\tif !pol.Aggregates() {\n\t\tfmt.Fprintf(&b, "service:   %s\\n", an.Service)' \
+	$'\tif true {\n\t\tfmt.Fprintf(&b, "service:   %s\\n", an.Service)'
+run_case $'prompt data: the answer comes back from the shared caller still in tokens' \
+	fail \
+	./internal/deliver \
+	$'TestCallHandsBackTheAnswerWithItsRealNames' \
+	$'the caller must see the real name' \
+	internal/deliver/call.go \
+	$'\t\tres.Text = ActivePolicy().Reidentify(res.Text)\n' \
+	$'\t\tres.Text = res.Text + ""\n'
+run_case $'prompt data: a name gets a new token every time it is masked' \
+	fail \
+	./internal/deliver \
+	$'TestTheSameNameIsTheSameTokenInEveryRoundAndEveryText' \
+	$'instead of' \
+	internal/deliver/pseudonym.go \
+	$'\tif t, ok := p.fwd[value]; ok {\n\t\treturn t\n\t}\n' \
+	$''
+run_case $'prompt data: two names are given the same token' \
+	fail \
+	./internal/deliver \
+	$'TestTokensNeverCollideEvenWhenThereAreMoreNamesThanFourHexDigitsHold' \
+	$'were given the same token' \
+	internal/deliver/pseudonym.go \
+	$'\t\tif _, taken := p.rev[cand]; !taken {' \
+	$'\t\tif true {'
+run_case $'prompt data: a misspelling falls back to full' \
+	fail \
+	./internal/deliver \
+	$'TestPromptDataIsAClosedVocabulary' \
+	$'want a refusal' \
+	internal/deliver/promptdata.go \
+	$'\tcase PromptFull, PromptMasked, PromptAggregates:\n\t\treturn m, nil\n\t}' \
+	$'\tcase PromptFull, PromptMasked, PromptAggregates:\n\t\treturn m, nil\n\tdefault:\n\t\treturn PromptFull, nil\n\t}'
+run_case $'prompt data: the data directory the key creates is readable by others' \
+	fail \
+	./internal/deliver \
+	$'TestADataDirectoryTheKeyCreatesIsPrivateAndAnExistingOneIsLeftAlone' \
+	$'the data directory the key made' \
+	internal/deliver/pseudonym.go \
+	$'\tif err := os.MkdirAll(dir, 0o700); err != nil {' \
+	$'\tif err := os.MkdirAll(dir, 0o755); err != nil {'
+run_case $'prompt data: the key is no longer ignored by version control' \
+	fail \
+	./internal/deliver \
+	$'TestThePseudonymKeyCannotBeCommitted' \
+	$'has no "prompt-data.key" line' \
+	.gitignore \
+	$'events.ndjson\nprompt-data.key\n' \
+	$'events.ndjson\n'
+run_case $'prompt data: the key is made readable by others' \
+	fail \
+	./internal/deliver \
+	$'TestTheKeyLivesInTheDataDirWithMode0600' \
+	$'is mode' \
+	internal/deliver/pseudonym.go \
+	$'\tif err := tmp.Chmod(0o600); err != nil {' \
+	$'\tif err := tmp.Chmod(0o644); err != nil {'
+run_case $'prompt data: a key anybody can read is accepted' \
+	fail \
+	./internal/deliver \
+	$'TestAKeyFileOthersCanReadIsRefused' \
+	$'world-readable key file was accepted' \
+	internal/deliver/pseudonym.go \
+	$'\tif fi.Mode().Perm()&0o077 != 0 {' \
+	$'\tif false {'
+run_case $'prompt data: the typed goal is sent under masked' \
+	fail \
+	./internal/deliver \
+	$'TestTheOperatorsGoalAndATaskGoalAreWithheldUnderMaskedAndAggregates' \
+	$'sent the typed goal' \
+	internal/deliver/prompt.go \
+	$'\t\tif pol.Full() {\n\t\t\tfmt.Fprintf(&b, "What it asks for: %s\\n", t.Goal)' \
+	$'\t\tif true {\n\t\t\tfmt.Fprintf(&b, "What it asks for: %s\\n", t.Goal)'
+run_case $'prompt data: the prompt stops stating its mode' \
+	fail \
+	./internal/deliver \
+	$'TestThePromptSaysWhichModeItWasBuiltUnder' \
+	$'does not state its mode exactly once' \
+	internal/deliver/prompt.go \
+	$'\tb.WriteString(pol.ModeLine() + "\\n")\n' \
+	$''
+run_case $'prompt data: a mission somebody typed when hiring is sent under masked' \
+	fail \
+	./internal/deliver \
+	$'TestOnlyTheRoleFamilysOwnBriefIsSentUnderMasked' \
+	$'a hand-typed mission was sent' \
+	internal/deliver/prompt.go \
+	$'\treturn WithheldFreeText\n}\n\n// optionsBlockInstructions' \
+	$'\treturn a.Mission\n}\n\n// optionsBlockInstructions'
+run_case $'prompt data: the plan packet lists every analyst under aggregates' \
+	fail \
+	./internal/deliver \
+	$'TestThePlanPacketLeaksNoIdentifierOrGoalUnderMaskedAndAggregates' \
+	$'carries the token' \
+	internal/deliver/plan_packet.go \
+	$'\tif ActivePolicy().Aggregates() {\n\t\t// One line per analyst' \
+	$'\tif false {\n\t\t// One line per analyst'
+run_case $'prompt data: the operator goal is sent in the plan packet' \
+	fail \
+	./internal/deliver \
+	$'TestThePlanPacketLeaksNoIdentifierOrGoalUnderMaskedAndAggregates' \
+	$'the plan prompt leaks' \
+	internal/deliver/plan_packet.go \
+	$'\tif !pol.Full() {\n\t\tgoal = WithheldFreeText' \
+	$'\tif false {\n\t\tgoal = WithheldFreeText'
+run_case $'prompt data: full mode changes the text of a section' \
+	fail \
+	./internal/deliver \
+	$'TestFullModeBuildsTheSamePacketItAlwaysDid' \
+	$'no longer the one main built' \
+	internal/deliver/packet.go \
+	$'\t\t\tfmt.Fprintf(&b, "driver:    %s\\n", an.Driver)' \
+	$'\t\t\tfmt.Fprintf(&b, "driver:   %s\\n", an.Driver)'
+run_case $'prompt data: a column nobody has decided about is added to the schema' \
+	fail \
+	./internal/deliver \
+	$'TestEveryTextColumnIsClassified' \
+	$'plan_asks.signed_off_by' \
+	internal/crew/crew.go \
+	$'  outcome TEXT NOT NULL, reason TEXT, created TEXT);\nCREATE INDEX IF NOT EXISTS tasks_sprint' \
+	$'  outcome TEXT NOT NULL, reason TEXT, created TEXT, signed_off_by TEXT);\nCREATE INDEX IF NOT EXISTS tasks_sprint'
+run_case $'prompt data: the SQL tools are offered under masked' \
+	fail \
+	./tools/run \
+	$'TestSQLToolsAreNotOfferedUnderMaskedOrAggregates' \
+	$'offered charges_query' \
+	internal/deliver/promptdata.go \
+	$'\t\t"anomaly": true, "series": true,' \
+	$'\t\t"charges_query": true, "ai_calls_query": true, "anomaly": true, "series": true,'
+run_case $'prompt data: a tool the policy does not offer is run when asked for' \
+	fail \
+	./tools/run \
+	$'TestSQLToolsAreNotOfferedUnderMaskedOrAggregates' \
+	$'gave outcome' \
+	tools/run/dispatch.go \
+	$'\tif !pol.ToolOffered(def.Name) {' \
+	$'\tif false {'
+run_case $'prompt data: a tool result is not masked' \
+	fail \
+	./tools/run \
+	$'TestNoRealIdentifierLeavesInAnyToolResult' \
+	$'leaks identifier' \
+	tools/run/dispatch.go \
+	$'\t\t\tr.Text = pol.MaskText(r.Text, a.Name)\n' \
+	$'\t\t\t_ = a\n'
+run_case $'prompt data: aggregates names the person who closed a period' \
+	fail \
+	./tools/run \
+	$'TestNoRealIdentifierLeavesInAnyToolResult' \
+	$'which names a row-level thing' \
+	tools/run/tools.go \
+	$'\t\t\tif deliver.ActivePolicy().Aggregates() {\n\t\t\t\treturn fmt.Sprintf("FROZEN' \
+	$'\t\t\tif false {\n\t\t\t\treturn fmt.Sprintf("FROZEN'
+run_case $'prompt data: the model\'s tokens are not put back into a tool call' \
+	fail \
+	./tools/run \
+	$'TestAMaskedToolResultIsTheFullResultWithItsNamesMasked' \
+	$'is not the masked full result' \
+	tools/run/dispatch.go \
+	$'\targs = reidentifyArgs(pol, args)\n' \
+	$'\t_ = reidentifyArgs(pol, args)\n'
+run_case $'prompt data: a name is spliced into the text of a tool call' \
+	fail \
+	./tools/run \
+	$'TestPuttingANameBackCannotWriteArgumentsOfItsOwn' \
+	$'the name rewrote the call' \
+	tools/run/dispatch.go \
+	$'\tdec := json.NewDecoder(bytes.NewReader(args))\n\tdec.UseNumber()\n\tvar v any\n\tif err := dec.Decode(&v); err != nil {\n\t\treturn args\n\t}\n\tout, err := json.Marshal(mapStrings(v, pol.Reidentify))\n\tif err != nil {\n\t\treturn args\n\t}\n\treturn out\n' \
+	$'\t_ = bytes.NewReader(args)\n\treturn json.RawMessage(pol.Reidentify(string(args)))\n'
+run_case $'prompt data: the examples in the tool schemas are not masked' \
+	fail \
+	./tools/run \
+	$'TestMaskingTheCatalogueOnlyChangesItsExamples' \
+	$'the schema of' \
+	tools/run/tools.go \
+	$'\tt.Schema = maskSchema(pol, t.Schema).(map[string]any)\n' \
+	$''
+run_case $'prompt data: the draft is saved in tokens' \
+	fail \
+	./tools/run \
+	$'TestWhatReachesTheModelOverTheWireLeaksNoIdentifierAndTheDraftComesBackNamed' \
+	$'the saved draft was not re-identified' \
+	tools/run/loop.go \
+	$'\t\tres, err := anthropicToolLoop(ctx, db, roDB, e, sentPrompt, maxTok, gw, a, b)\n\t\tres.Text = deliver.ActivePolicy().Reidentify(res.Text)\n' \
+	$'\t\tres, err := anthropicToolLoop(ctx, db, roDB, e, sentPrompt, maxTok, gw, a, b)\n'
+run_case $'prompt data: a tool_call event stops carrying the mode' \
+	fail \
+	./tools/run \
+	$'TestTheModeIsOnTheToolCallEventsAndTheCrewRanSummary' \
+	$'a tool_call event says prompt_data=' \
+	tools/run/bus.go \
+	$'\t\t"prompt_data":   b.mode(),\n' \
+	$''
+run_case $'prompt data: the crew_ran summary stops carrying the mode' \
+	fail \
+	./tools/run \
+	$'TestTheModeIsOnTheToolCallEventsAndTheCrewRanSummary' \
+	$'crew_ran on the bus says prompt_data=' \
+	tools/run/bus.go \
+	$'\t\t"prompt_data":    b.mode(),\n' \
+	$''
+run_case $'prompt data: the runner starts on a misspelt setting' \
+	fail \
+	./tools/run \
+	$'TestAMisspeltPromptDataFlagRefusesToStartTheRunner' \
+	$'opened a store before refusing' \
+	tools/run/main.go \
+	$'\tif _, err := deliver.ConfigurePromptData(*promptData, *dir); err != nil {' \
+	$'\tif _, err := deliver.ConfigurePromptData(*promptData, *dir); err != nil && false {'
+run_case $'prompt data: the console starts on a misspelt setting' \
+	fail \
+	./cmd/costcrew \
+	$'TestAMisspeltPromptDataFlagRefusesToStartTheConsole' \
+	$'started the console' \
+	cmd/costcrew/main.go \
+	$'\tif _, err := deliver.ConfigurePromptData(*promptData, *dir); err != nil {' \
+	$'\tif _, err := deliver.ConfigurePromptData(*promptData, *dir); err != nil && false {'
+run_case $'prompt data: a longer token and a reworded stand-in are not faults' \
+	pass \
+	./internal/deliver \
+	$'TestATokenIsReadableAndShaped|TestTokensNeverCollideEvenWhenThereAreMoreNamesThanFourHexDigitsHold|TestFreeTextIsWithheldUnderMaskedAndAggregates|TestReidentifyBringsBackExactlyTheNamesThatWereMasked' \
+	$'' \
+	internal/deliver/pseudonym.go \
+	$'\tfor n := 4; n <= len(digest); n++ {' \
+	$'\tfor n := 6; n <= len(digest); n++ {' \
+	internal/deliver/promptdata.go \
+	$'[withheld: free text is not sent to the model' \
+	$'[withheld: typed text is not sent to the model'
 
 echo
 if [ -n "$(git status --porcelain)" ]; then

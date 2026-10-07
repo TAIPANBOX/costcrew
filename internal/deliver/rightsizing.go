@@ -35,6 +35,11 @@ func recommendationsSection(db *sql.DB, desk string) string {
 	if desk == "" {
 		return ""
 	}
+	// One recommendation is one resource: a row, and its id is a name. Not
+	// sent under aggregates (promptdata.go).
+	if ActivePolicy().Aggregates() {
+		return ""
+	}
 	recs, err := connectors.Recommendations(db, desk)
 	if err != nil || len(recs) == 0 {
 		return ""
