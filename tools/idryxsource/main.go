@@ -76,26 +76,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 
 	agents := make([]agent, 0, len(roster))
 	for _, a := range roster {
-		e := agent{
-			ID:      "agent://" + *host + "/" + a.Name,
-			Runtime: "costcrew",
-			Owner:   a.Owner,
-			// The RIGHTS, not the skills. idryx's graph is about what an
-			// identity may reach; a skill is what this console asked it to be
-			// good at, which is a different question and not one an identity
-			// graph can check.
-			Tools: append([]string(nil), a.Rights...),
-		}
-		if a.Parent != "" {
-			e.OnBehalfOf = "agent://" + *host + "/" + a.Parent
-		}
-		if a.Hired != "" {
-			// idryx's own format. A date with no time is not what it reads.
-			if t, err := time.Parse("2006-01-02", a.Hired); err == nil {
-				e.Created = t.UTC().Format(time.RFC3339)
-			}
-		}
-		agents = append(agents, e)
+		agents = append(agents, entryFor(a, *host))
 	}
 
 	buf, err := json.MarshalIndent(map[string]any{"agents": agents}, "", "  ")
@@ -112,6 +93,32 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 	fmt.Fprintf(stderr, "%d agents written to %s\n", len(agents), *out)
 	return 0
+}
+
+// entryFor is one roster entry as idryx's agents source writes it.
+func entryFor(a crew.Analyst, host string) agent {
+	e := agent{
+		ID:      "agent://" + host + "/" + a.Name,
+		Runtime: "costcrew",
+		Owner:   a.Owner,
+		// The RIGHTS, not the skills. idryx's graph is about what an
+		// identity may reach; a skill is what this console asked it to be
+		// good at, which is a different question and not one an identity
+		// graph can check. A fresh, non-nil slice: an agent with no rights
+		// reaches nothing, which is [], and nil marshals as null, which a
+		// reader takes for "not stated".
+		Tools: append(make([]string, 0, len(a.Rights)), a.Rights...),
+	}
+	if a.Parent != "" {
+		e.OnBehalfOf = "agent://" + host + "/" + a.Parent
+	}
+	if a.Hired != "" {
+		// idryx's own format. A date with no time is not what it reads.
+		if t, err := time.Parse("2006-01-02", a.Hired); err == nil {
+			e.Created = t.UTC().Format(time.RFC3339)
+		}
+	}
+	return e
 }
 
 func fail(stderr io.Writer, err error) int {

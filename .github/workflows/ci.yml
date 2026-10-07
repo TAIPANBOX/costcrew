@@ -83,7 +83,7 @@ jobs:
       - name: tests
         run: go test ./...
       - name: tests, with the race detector where it is cheap
-        run: go test ./internal/crew/... ./internal/stack/... ./internal/anomaly/... ./internal/manifest/... -race
+        run: go test ./internal/crew/... ./internal/stack/... ./internal/anomaly/... ./internal/manifest/... ./internal/spiffe/... -race
       - name: every scenario is bound to a test
         run: ./scripts/features-are-bound.sh
       # The manifest's `checked` bucket claims to be proved in this
