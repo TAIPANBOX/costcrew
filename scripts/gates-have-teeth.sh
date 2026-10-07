@@ -3647,6 +3647,204 @@ run_case $'spiffe: a longer first-SVID wait is not a fault' \
 	$'context.WithTimeout(ctx, 20*time.Second)' \
 	$'context.WithTimeout(ctx, 30*time.Second)'
 
+# Invariant 72 (the local engine: a model the organisation hosts itself): where
+# a local call goes, and what bounds a run whose price is 0. Each mutant undoes
+# one piece and is caught by the test that holds it; three non-faults reword a
+# refusal, change a timeout and reword the other refusal, which the gates must
+# not mind.
+run_case $'local engine: a gateway that does not front the OpenAI wire still lets a local call through' \
+	fail \
+	./internal/deliver \
+	$'TestTheLocalEngineIsNeverSentDirectBehindAGatewaysBack' \
+	$'want one wrapping ErrNoGatewayRoute' \
+	internal/deliver/call.go \
+	$'	case "local":\n		if g.OpenAIURL != "" {\n			return g.OpenAIURL, nil\n		}' \
+	$'	case "local":\n		if true {\n			return g.OpenAIURL, nil\n		}'
+run_case $'local engine: the call ignores the gateway and goes to the operator\'s server' \
+	fail \
+	./internal/deliver \
+	$'TestACallToTheLocalEngineThroughTheOpenAIGatewayIsMetered' \
+	$'was called directly' \
+	internal/deliver/local.go \
+	$'		if base != "" {\n			return base + OpenAICompletionsPath, true, nil\n		}' \
+	$'		if false && base != "" {\n			return base + OpenAICompletionsPath, true, nil\n		}'
+run_case $'local engine: the direct route is a vendor\'s host' \
+	fail \
+	./internal/deliver \
+	$'TestNoVendorHostAppearsInTheLocalRoute' \
+	$'OpenRouterDirectEndpoint' \
+	internal/deliver/local.go \
+	$'		return gw.ModelURL + "/chat/completions", false, nil' \
+	$'		return OpenRouterDirectEndpoint, false, nil'
+run_case $'local engine: a server that reports no usage is counted as using nothing' \
+	fail \
+	./internal/deliver \
+	$'TestAServerThatReportsNoUsageIsCountedAtTheWorstCase' \
+	$'prompt tokens, want the request' \
+	internal/deliver/local.go \
+	$'	return requestBytes, maxTok, true' \
+	$'	return 0, 0, true'
+run_case $'local engine: the tool loop does not count an unreported round' \
+	fail \
+	./tools/run \
+	$'TestALocalServerThatReportsNoUsageIsCountedAtTheWorstCaseNotZero' \
+	$'was counted as using nothing' \
+	tools/run/loop.go \
+	$'	if local {\n		// A server that reports no usage must not make the round free.' \
+	$'	if false {\n		// A server that reports no usage must not make the round free.'
+run_case $'local engine: an address with a password in it is accepted' \
+	fail \
+	./internal/deliver \
+	$'TestNormalizeModelURL' \
+	$'was accepted as' \
+	internal/deliver/local.go \
+	$'		if u.User != nil {' \
+	$'		if false && u.User != nil {'
+run_case $'local engine: an empty key is sent as a bearer token' \
+	fail \
+	./internal/deliver \
+	$'TestACallToTheLocalEngineGoesToTheOperatorsServerWithNoKey' \
+	$'Authorization = ' \
+	internal/deliver/local.go \
+	$'	if k := modelKey(); k != "" {' \
+	$'	if k := modelKey(); true {'
+run_case $'local engine: an unreachable server is reported without its URL' \
+	fail \
+	./internal/deliver \
+	$'TestAnUnreachableServerIsOneLineNamingItsURL' \
+	$'does not name the server' \
+	internal/deliver/local.go \
+	$'"%s at %s did not answer: %s", what, base, trim(reason, 160))' \
+	$'"%s did not answer: %s", what, trim(reason, 160))'
+run_case $'local engine: a local task loops one round, not six' \
+	fail \
+	./internal/deliver \
+	$'TestTheLocalEngineLoopsAndSendsTheOpenAICatalogue' \
+	$'LoopsFor(local)' \
+	internal/deliver/estimate.go \
+	$'	case "anthropic", "openrouter", "local":\n		return MaxToolRounds' \
+	$'	case "anthropic", "openrouter":\n		return MaxToolRounds'
+run_case $'local engine: it reads as unmetered, so the estimator waves it through' \
+	fail \
+	./internal/engines \
+	$'TestTheLocalEngineIsKnownAndReadsAsMetered' \
+	$'reads as unmetered' \
+	internal/engines/engines.go \
+	$'Family: SelfHosted, Metered: true,' \
+	$'Family: SelfHosted, Metered: false,'
+run_case $'local engine: a negative price is accepted' \
+	fail \
+	./internal/engines \
+	$'TestConfigureLocalRefusesAPriceThatIsNotAPrice' \
+	$'accepted' \
+	internal/engines/local.go \
+	$'v.p < 0 {' \
+	$'v.p < -1e18 {'
+run_case $'local engine: a run priced at zero starts with no token ceiling' \
+	fail \
+	./tools/run \
+	$'TestALocalRunAtPriceZeroIsRefusedAtStartWithoutATokenCeiling' \
+	$'started with no token ceiling' \
+	tools/run/local.go \
+	$'	if zero > 0 && gw.MaxRunTokens <= 0 {' \
+	$'	if false && zero > 0 && gw.MaxRunTokens <= 0 {'
+run_case $'local engine: the whole run\'s worst case is not checked against the token ceiling' \
+	fail \
+	./tools/run \
+	$'TestTheWholeRunsWorstCaseOverTheTokenCeilingIsRefusedBeforeAnyCall' \
+	$'want the whole-run token refusal' \
+	tools/run/local.go \
+	$'	if gw.MaxRunTokens > 0 && tokens > int64(gw.MaxRunTokens) {' \
+	$'	if false && gw.MaxRunTokens > 0 && tokens > int64(gw.MaxRunTokens) {'
+run_case $'local engine: a token reservation is never refused' \
+	fail \
+	./tools/run \
+	$'TestTheTokenCeilingRefusesTheNextTaskOnceTheLastOneUsedIt' \
+	$'want a refusal' \
+	tools/run/live.go \
+	$'	if r.tokensSpent+r.tokensReserved+worst > r.tokenCeiling {' \
+	$'	if false {'
+run_case $'local engine: settling does not book the tokens a task used' \
+	fail \
+	./tools/run \
+	$'TestTheTokenCeilingRefusesTheNextTaskOnceTheLastOneUsedIt' \
+	$'want 61000' \
+	tools/run/live.go \
+	$'	r.tokensSpent += actual' \
+	$'	r.tokensSpent += 0 * actual'
+run_case $'local engine: a refused token reservation keeps the money it took' \
+	fail \
+	./tools/run \
+	$'TestTheTokenCeilingRefusesTheNextTaskOnceTheLastOneUsedIt' \
+	$'a refusal reserves nothing' \
+	tools/run/live.go \
+	$'		run.settle(reserveMicros, 0)\n		return refusal{err}' \
+	$'		return refusal{err}'
+run_case $'local engine: the local round sends a different request than the openrouter one' \
+	fail \
+	./tools/run \
+	$'TestBothOpenAIEnginesSendTheSameRequestShape' \
+	$'the request bodies differ' \
+	tools/run/loop.go \
+	$'	body, err := openRouterRoundBody(model, messages, tools, maxTok)' \
+	$'	if engine == engines.LocalID {\n		tools = nil\n	}\n	body, err := openRouterRoundBody(model, messages, tools, maxTok)'
+run_case $'local engine: the bus says a vendor price was involved' \
+	fail \
+	./tools/run \
+	$'TestThePriceBasisOfALocalCallIsLocalWhateverTheGatewaySaid' \
+	$'want "local"' \
+	tools/run/local.go \
+	$'	if engine == engines.LocalID {\n		return "local"\n	}\n	return s.PriceBasis' \
+	$'	return s.PriceBasis'
+run_case $'local engine: execute is not handed the operator\'s server' \
+	fail \
+	./tools/run \
+	$'TestALocalTaskRunsTheToolLoopAndIsChargedAtTheOperatorsPrice' \
+	$'execute:' \
+	tools/run/live.go \
+	$'	gh.ModelURL = gw.ModelURL' \
+	$'	_ = gw.ModelURL'
+run_case $'local engine: a server that is not there is not noticed at start' \
+	fail \
+	./tools/run \
+	$'TestAnUnreachableLocalServerStopsTheRunAtStartWithOneLine' \
+	$'started' \
+	tools/run/local.go \
+	$'			return deliver.ProbeModelServer(context.Background(), gw.ModelURL)' \
+	$'			_ = context.Background()\n			return nil'
+run_case $'local engine: the dry run stops warning about tasks money cannot bound' \
+	fail \
+	./tools/run \
+	$'TestTheDryRunSaysWhichLocalTasksMoneyCannotBound' \
+	$'does not warn' \
+	tools/run/main.go \
+	$'	if localAtZero > 0 {' \
+	$'	if false && localAtZero > 0 {'
+run_case $'local engine: rewording the gateway refusal is not a fault' \
+	pass \
+	./internal/deliver \
+	$'TestRouteForLocalFollowsTheOpenAIGatewayOrRefuses' \
+	$'' \
+	internal/deliver/call.go \
+	$'so the call is refused rather than made directly to the local model server; set ' \
+	$'so the call is refused and not made directly to the local model server; set '
+run_case $'local engine: rewording the zero-price refusal is not a fault' \
+	pass \
+	./tools/run \
+	$'TestALocalRunAtPriceZeroIsRefusedAtStartWithoutATokenCeiling' \
+	$'' \
+	tools/run/local.go \
+	$'so money cannot bound "+' \
+	$'so money can not bound "+'
+run_case $'local engine: a longer round timeout is not a fault' \
+	pass \
+	./internal/deliver \
+	$'TestACallToTheLocalEngineGoesToTheOperatorsServerWithNoKey' \
+	$'' \
+	internal/deliver/local.go \
+	$'const LocalRoundTimeout = 5 * time.Minute' \
+	$'const LocalRoundTimeout = 6 * time.Minute'
+
 echo
 if [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'
