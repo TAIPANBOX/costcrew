@@ -30,6 +30,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 )
 
@@ -50,8 +51,15 @@ type Identity struct {
 type Source struct {
 	mu     sync.RWMutex
 	id     Identity
-	src    *workloadapi.X509Source
+	src    svidSource
 	closed bool
+}
+
+// svidSource is the part of workloadapi.X509Source this package uses, named so
+// a test can stand in for the workload API.
+type svidSource interface {
+	GetX509SVID() (*x509svid.SVID, error)
+	Close() error
 }
 
 // Open connects to the workload API socket and waits for the first SVID.
@@ -102,6 +110,15 @@ func (s *Source) Identity() Identity {
 	if s == nil {
 		return Identity{}
 	}
+	// A closed source is not asked again; what it last held is the answer.
+	s.mu.RLock()
+	closed := s.closed
+	s.mu.RUnlock()
+	if closed {
+		s.mu.RLock()
+		defer s.mu.RUnlock()
+		return s.id
+	}
 	if svid, err := s.src.GetX509SVID(); err == nil && len(svid.Certificates) > 0 {
 		s.set(svid.ID.String(), svid.Certificates[0].NotAfter,
 			svid.Certificates[0].SerialNumber.Text(16))
@@ -114,8 +131,17 @@ func (s *Source) Identity() Identity {
 // On reports whether this console holds an attested identity.
 func (s *Source) On() bool { return s != nil && s.Identity().ID != "" }
 
+// Close closes the workload source once. The flag is read and set under the
+// same lock Identity takes: it used to be touched with no lock at all, which
+// the race detector reports against Identity on another goroutine and which
+// could close the source twice.
 func (s *Source) Close() error {
-	if s == nil || s.closed {
+	if s == nil {
+		return nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
 		return nil
 	}
 	s.closed = true

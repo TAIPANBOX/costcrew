@@ -318,7 +318,7 @@ func (s *Server) exportResultsHTML(w http.ResponseWriter, r *http.Request) {
 	totals, _ := estate.Totals(s.db, p)
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Header().Set("Content-Disposition", "attachment; filename=costcrew-results-"+p+".html")
+	setDisposition(w, "attachment", "costcrew-results-"+p+".html")
 
 	fmt.Fprintf(w, `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">

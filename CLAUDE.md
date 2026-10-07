@@ -511,8 +511,8 @@ an absent invariant.
     the pairs are known to people and not to the code.)*
 
 14. **Every scenario in `features/` names a test, and every name is real.**
-    The scenarios are Yurii's own words, quoted above each one, and are not
-    derived from the code: a scenario written by reading what was built only
+    The scenarios come from the owner's own asks, written above each one, and
+    are not derived from the code: a scenario written by reading what was built only
     proves it can be described.
     *(gate: `scripts/features-are-bound.sh`, reachable from the suite as
     `TestFeatureBindingsHold`. It checks the POINTER in both directions and
@@ -588,7 +588,7 @@ an absent invariant.
     middle one made it worse, so all three are written down in the CSS itself.
     Sticky gave the panel its own scrollbar, invisible and reset by every page
     load. Static put it in the flow, where a trackpad's momentum slid the whole
-    list after the finger had left it: Yurii clicked Accounts four times and got
+    list after the finger had left it: the owner clicked Accounts four times and got
     Desks, Crew and Budgets, 574px, 682px and 466px away. Fixed is the only one
     the page cannot touch.
     *(gate: `TestThePageCannotMoveTheSidebar` and `TestTheSidebarFitsAWindow`,
@@ -598,10 +598,11 @@ an absent invariant.
     zero mismatches; 92 page-and-size combinations clean afterwards. Below
     936px of viewport the panel keeps an internal scroll, which is what any
     list too long for its box does; the structural answer is fewer
-    destinations and that is Yurii's call. He made it in the other direction
-    on 2026-09-03, for the one page nothing led to: `@yurii 2026-09-03`,
-    reading the site's own screenshot of it, "я не бачу в боковому меню
-    вкладки такої Right Sizing. Так і не зміг знайти." Rightsizing is the
+    destinations and that is the owner's call. It was made in the other
+    direction on 2026-09-03, for the one page nothing led to:
+    `@decided 2026-09-03`, Rightsizing goes on the sidebar, because reading
+    the site's own screenshot of it, the owner looked for a Rightsizing tab
+    in the side menu and could not find one. Rightsizing is the
     28th link, and the budget moved with it rather than the link going in
     under a stale number. @measured 2026-09-03, the in-app browser against a
     real console on a fresh store, five viewport heights, reading
@@ -795,10 +796,10 @@ an absent invariant.
 
 27. **An analyst's deliverable ends in options, never an action; a stamp is
     what applies one, and options in the SAME deliverable are alternatives,
-    never independent actions.** `@yurii 2026-09-02`: "він має давати на
-    вибір якісь певні рішення, які він вважає за потрібне спочатку
-    супервайзеру, тобто головному агенту, а вже той має запитувати юзера,
-    користувача, власника цих агентів, що робити далі." A fenced `options`
+    never independent actions.** `@decided 2026-09-02`: an analyst offers a
+    choice of the decisions it considers right, first to the supervisor (the
+    lead agent), and the supervisor in turn asks the user who owns these
+    agents what to do next. A fenced `options`
     block at the end of the body (`crew.ParseOptions`) names one to three
     classes from the SAME closed vocabulary `jobDescriptionBlock` already
     shows the model (`crew.ValidClassesFor`, the writing role's own
@@ -941,7 +942,7 @@ an absent invariant.
     so the "Drivers on this service and desk" section was empty for every
     seeded anomaly in every live run, and no test noticed because every
     packet test planted its own driver row with the desk already right.
-    `@yurii 2026-09-02` found it reading the code. The live apply path
+    Found on 2026-09-02 by the owner, reading the code. The live apply path
     (`internal/finops.applyDriver`) always wrote the desk; the fixture now
     does too, and the packet is proven non-empty on the seeded estate itself.
     *(gate: `TestEveryFixtureDriverCarriesItsDesk` (every fixture driver's
@@ -1410,8 +1411,8 @@ an absent invariant.
     renders on its own pages, `allocation.rule` is refused without a
     structured target naming which rule and method, and applying
     `period.close` queues the statements rather than only freezing a
-    number.** C2-SPEC.md. `@yurii 2026-09-02`, the ask this step serves:
-    "більш повною мірою замінити людей на цих посадах" -- a chargeback
+    number.** C2-SPEC.md. `@decided 2026-09-02`, the ask this step serves:
+    replace the people in these roles more fully -- a chargeback
     analyst's last three days of the month: reconcile, allocate, freeze,
     send the statements, answer the arguments.
 
@@ -1623,8 +1624,8 @@ an absent invariant.
     (`Numeric-PrevNumeric`) would not have caught on its own.)*
 37. **The owner of an anomaly's team is told the moment its explanation is
     posted, never before and never invented, and the queue measures how
-    long that actually takes.** C1-SPEC.md. `@yurii 2026-09-02`: "більш
-    повною мірою замінити людей на цих посадах." The two ends of the desk a
+    long that actually takes.** C1-SPEC.md. `@decided 2026-09-02`: replace
+    the people in these roles more fully. The two ends of the desk a
     person did without thinking, until now: `crew.OwnerOfAnomaly` maps an
     anomaly to who to tell -- the team's own named owner in `teams` when it
     has one, and otherwise the analyst's own owner, read off `tasks.owner`
@@ -1845,8 +1846,8 @@ an absent invariant.
     (`internal/web/practice.go`'s `saas`) shows the imported figures when
     there are any and says so; otherwise it shows the generated fixture and
     says that instead, the same split the AI page already holds between
-    `finops.AIUnits` and `world.AIUnits()`. `@yurii 2026-09-02`:
-    "переговори з вендером проводити він сам особі не може" --
+    `finops.AIUnits` and `world.AIUnits()`. `@decided 2026-09-02`: the
+    agent cannot conduct a negotiation with a vendor itself --
     `vendor.negotiate` is owned by `nobody` in `roles.yaml`, the same as
     `purchase` and `infra.change`, so it never enters
     `internal/finops/apply.go`'s table and `crew.MayDecide` already refuses
@@ -2078,9 +2079,9 @@ an absent invariant.
     of the one that was actually frozen.)*
 42. **A Purchase row is never usage, and a commitment's coverage and
     utilisation are read from the store, never generated, once any real
-    commitment exists.** C4-SPEC.md. `@yurii 2026-09-02`: "більш повною
-    мірою замінити людей на цих посадах" is the ask; "він має сам не
-    купувати" is the boundary this invariant holds for the one class that
+    commitment exists.** C4-SPEC.md. `@decided 2026-09-02`: replacing the
+    people in these roles more fully is the ask; that the agent must not buy
+    anything itself is the boundary this invariant holds for the one class that
     was always going to test it, `purchase`. The FOCUS reader
     (`internal/connectors/tokenfusefocus.go`) now routes `ChargeCategory`,
     when a file's header carries it, before ever calling `parseFocusRow`:
@@ -2181,7 +2182,7 @@ an absent invariant.
     an option used to get a one-day window (`Start = End =` the day `Apply`
     happened to run) and behave, in every number the forecast and the
     detector produce, exactly like a one-time one while the word "recurring"
-    stayed beside it. Found by Yurii reading `internal/finops/apply.go`
+    stayed beside it. Found by the owner reading `internal/finops/apply.go`
     while C3 (costcrew#38) landed `ProjectWithDrivers` ("recurring ones
     repeat by their window").
 
@@ -2421,9 +2422,9 @@ an absent invariant.
     test. `scripts/gates-have-teeth.sh` plants both mutants.)*
 
 46. **A provider's suggested budget never becomes this console's own budget
-    figure.** PARTNER-BUDGET-RECOMMENDATIONS-SPEC.md. `@yurii 2026-09-03`:
-    "це можна отримувати від користувача, або, наприклад, подивитись, які
-    пропозиції дають провайдери хмарні." A finops-partner's own packet
+    figure.** PARTNER-BUDGET-RECOMMENDATIONS-SPEC.md. `@decided 2026-09-03`:
+    a budget figure can come from the user, or from what the cloud providers
+    themselves propose. A finops-partner's own packet
     section (`internal/deliver/partnerbudget.go`) cites what AWS Budgets,
     GCP's Cost Recommender or Azure Advisor would suggest beside the team's
     real, finance-set budget, imported through three new connectors
@@ -2466,7 +2467,7 @@ an absent invariant.
     `TestPartnerBudgetSectionShowsAZeroGapWhenTheyMatchExactly` holds the
     zero-gap boundary, still shown, still labelled;
     `TestEndToEndAnImportedRecommendationReachesAPostedDeliverable` walks the
-    whole path Yurii's second quote below asks for, import to a posted
+    whole path the second decision below asks for, import to a posted
     brief, `@claude`-authored fixture prose rather than a live model call.
     `scripts/gates-have-teeth.sh`'s own "guardrail: read
     budget_recommendations into CurrentBudgets result" case plants the
@@ -2483,10 +2484,10 @@ an absent invariant.
     assuming); and dropping the "not applied anywhere" sentence, caught by
     `TestPartnerBudgetSectionCitesBothFiguresWithTheGap`.)*
 
-    `@yurii 2026-09-03`, confirming the scope: "Так, звісно, роби все, про
-    що ми говоримо, треба протестувати і зробити як варіант використання."
+    `@decided 2026-09-03`, confirming the scope: everything discussed is to
+    be done, tested, and built as a use case.
     `features/partner-budget-recommendations.feature` opens with both
-    quotes verbatim.
+    decisions.
 
 47. **A refused KPI on the leadership page reads as a refusal, never as a
     zero, and the page carries no control.** C8-LEADERSHIP-SPEC.md
@@ -2497,11 +2498,10 @@ an absent invariant.
     `/explainers?audience=leadership` "the leadership page": nothing linked
     to it, the template still said "Explainers" with the team-facing intro
     and the Commission form, and the pack's own four numbers existed only as
-    prose inside the body. `@yurii 2026-09-03`, the ask this step serves:
-    "Можливо, треба ще подивитись по інтерфейсу самого CostCrew. Можливо,
-    там якісь нові речі, які можна було б додати з тих, що ми
-    імплементували." And C8's own `@yurii 2026-09-02`: "більш повною мірою
-    замінити людей на цих посадах."
+    prose inside the body. `@decided 2026-09-03`, the ask this step serves:
+    look again at CostCrew's own interface for anything new that could be
+    added from what has been implemented. And C8's own `@decided
+    2026-09-02`: replace the people in these roles more fully.
 
     A new GET route, `/leadership` (`internal/web/leadership.go`), its own
     template (`templates/leadership.html`), reuses `finops.Executive`,
@@ -2509,8 +2509,9 @@ an absent invariant.
     sidebar entry: `TestTheSidebarFitsAWindow` budgeted 27 links when this
     branch forked (a first attempt to add `/rightsizing` there went red on
     exactly that gate on 2026-09-03, invariant 19's own call to make, not
-    mine); costcrew#48 later moved the budget to 28 with Yurii's own
-    decision to add `/rightsizing` specifically, and that decision does not
+    mine); costcrew#48 later moved the budget to 28 with the owner's own
+    decision (`@decided 2026-09-03`) to add `/rightsizing` specifically, and
+    that decision does not
     extend to this page -- `/leadership` stays off the sidebar under the
     same rule invariant 19 already names, not because of which number the
     budget happens to be. Reached instead from two in-page links, always
@@ -3482,6 +3483,88 @@ an absent invariant.
     `fail` cases and one `pass` case in `gates-have-teeth.sh`, each planting one
     construction in a real file.)*
 
+78. **What a download carries is data: never markup in a Markdown file,
+    never a formula in a CSV, and never a second parameter in its file
+    name.** The downloads are opened where this console cannot help: the
+    executive packet and the results in a Markdown viewer that renders HTML,
+    every `/export/*.csv` in a spreadsheet that evaluates formulas. Several
+    of their values arrive from a file somebody else produced (a FOCUS
+    export's `ServiceName`, `x_unit`, `x_agent_id`), and they were written in
+    raw: a pipe in a service name made a column of its own, a newline ended
+    the row and could open a heading, a `<script>` ran in the viewer, a
+    `[x](javascript:...)` became a link, and a cell starting with `=`, `+`,
+    `-` or `@` ran in the spreadsheet. Every file name was concatenated into
+    `Content-Disposition`, so a quote and a semicolon in a period read from
+    the store, or in the `source` the budget export takes from its URL, added
+    parameters of their own (a `filename*` renames the download).
+
+    `internal/web/download.go` holds the three rules and every download goes
+    through them. `mdText` writes `<`, `>` and `&` as entities,
+    backslash-escapes the Markdown punctuation that makes a link, an image,
+    emphasis, code or a column break, turns CR, LF, tab and the Unicode line
+    and paragraph separators into a space, drops other control and format
+    characters, and keeps everything else, letters in any script included.
+    `writeCSV` takes a kind per column (`textCol`, `numberCol`) and `csvCell`
+    neutralises a cell that starts with `=`, `+`, `-`, `@`, a tab or a CR by
+    a leading apostrophe (OWASP's guidance for CSV injection), keeping the
+    value otherwise whole. The kind decides one thing: in a number column a
+    plain number (`-?digits(.digits)?`, the shape `money.Cents.String` and a
+    fixed-precision `FormatFloat` write) is left alone, so a negative
+    variance stays a number a SUM adds; in a text column there is no such
+    exception, because a spreadsheet evaluates `-2+3` as readily as `=2+3`.
+    `setDisposition` builds the header with `mime.FormatMediaType`, which
+    quotes a file name that needs it. `x_unit` itself is now held at the
+    reader (`plainUnitName`, `internal/connectors/tokenfusefocus.go`) to the
+    rule a unit name is held to elsewhere: at most `xUnitMaxBytes` (128),
+    valid text, no control, format or separator character, not starting with
+    `=`, `+`, `-` or `@`; a row that breaks it is refused with a reason naming
+    `x_unit`, never carried. The same reader now counts refused rows whole
+    (`RefusedRows`) and names only the first `focusRefusalsShown` (20), where a
+    file of a million bad rows used to build a sentence of a million clauses,
+    and it no longer follows a symbolic link or opens anything but a regular
+    file in its folder: `focusFolder` reads each entry's own type from
+    `os.ReadDir`, names what it passed over in the sentence, and
+    `processFocusFile` asks again with `os.Lstat` just before reading.
+    *(gate: `TestTheExecPacketKeepsAnImportedValueAsText`,
+    `TestADownloadsFileNameIsOneParameterWhateverItCarries`,
+    `TestACSVExportNeutralisesAFormulaAndKeepsANegativeNumber` (through the
+    console's own routes, the values planted in the store the way a reader
+    leaves them), `TestCSVCellNeutralisesByColumnKind`,
+    `TestMDTextKeepsAValueReadableAndInert`,
+    `TestEveryDownloadIsNamedThroughOneHelper` (the literal header name may
+    appear in one non-test file of `internal/web`, once) in `internal/web`;
+    `TestXUnitIsRefusedUnlessItIsAPlainBoundedName`,
+    `TestRefusalsAreCountedWholeButNamedOnlyForTheFirstFew`,
+    `TestALinkInTheFolderIsNotFollowedAndIsNamed` in `internal/connectors`.
+    Eight `fail` cases and one `pass` case in `gates-have-teeth.sh`.)*
+    What this does not cover: the HTML results export
+    (`/export/results.html`) is escaped by its own template, not by these
+    rules; `budgetrecommendations.go`, `rightsizing.go` and `saasseats.go`
+    share `focusFiles` and so no longer follow a link either, but they still
+    name every refused row and say nothing about a link they passed over; the
+    `os.Lstat` before reading narrows the window in which a regular file can
+    be swapped for a link, it does not close it; and `mdText` makes a value
+    inert in a Markdown viewer, not in every renderer somebody might paste
+    the text into.
+
+79. **No cache keeps a page or a download of this console.** Every page and
+    download is the estate's money, a person's decisions or a CSRF token,
+    and none said anything about caching, so a browser on a shared machine
+    wrote them to disk, the back button showed them after sign-out, and a
+    proxy in front was free to store them. `noStore`
+    (`internal/web/nostore.go`) sets `Cache-Control: no-store` in
+    `ServeHTTP` before routing, so no handler can leave it out, the redirect
+    a stranger is turned away with and the 404 included. `no-store` and not
+    `private` or `no-cache`, because those still let a copy be written down.
+    `/static/` is the one exception: the stylesheet holds nothing about the
+    estate and every page shares it.
+    *(gate: `TestEveryGuardedResponseIsMarkedNoStore`, which walks every GET
+    route registered in `server.go` as a signed-in person and three as a
+    stranger, and `TestTheStylesheetIsNotMarkedNoStore`, in `internal/web`.
+    Two `fail` cases and one `pass` case in `gates-have-teeth.sh`.)*
+    What this does not do: it does not clear what a browser cached before
+    this change, and it says nothing to a cache that ignores the header.
+
 ## Decisions that have no gate yet
 
 Written here so that "it holds" and "something holds it" stay different
@@ -3516,14 +3599,14 @@ sentences.
   append-only record as though they were new. *(not enforced.)*
 
 - **A viewer reads the account list and is served no controls.**
-  `@yurii 2026-08-23`, asked directly: "лишай список акаунтів". The list is not
+  `@decided 2026-08-23`, when asked directly: the account list stays. The list is not
   a secret in a console where everyone with an account is a colleague. The
   CONTROLS are gated (`TestWhatAViewerCanRead`); the reasoning for showing the
   list is a decision, not an invariant.
 
 ## Standing rule
 
-Anything written here that is not marked `@yurii` or `@measured` is `@claude`:
+Anything written here that is not marked `@decided` or `@measured` is `@claude`:
 my reading, and re-checkable. Before writing that an invariant is held, open
 the check and confirm it asserts what the sentence says. Invariant 5 said
 "every write route" for a long time while one route of thirty-three was

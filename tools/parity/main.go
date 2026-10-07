@@ -80,6 +80,16 @@ var scrubs = []struct {
 		"the newest journal row is the capture's own sign-in, and a chain hash " +
 			"is a function of the event's timestamp, so it moves with the clock",
 	},
+	{
+		// The rule above is the Python original's markup, which captures/golden
+		// still holds. The Go console renders the hash in its own cell (the
+		// last column of templates/audit.html), and nothing scrubbed it, so two
+		// fresh installs of one binary differed on every /audit surface.
+		"journal-hash-go", regexp.MustCompile(`<td class="tight"><code>[0-9a-f]{8,64}</code></td>`),
+		`<td class="tight"><code><HASH></code></td>`,
+		"the same chain hash, in the Go console's audit table; each install has " +
+			"its own journal, so its hashes are its own",
+	},
 }
 
 // Cost of the two rules above, stated rather than buried: the golden master
@@ -238,9 +248,13 @@ func family(p string) string {
 // than useless for a golden master, because which 5000 of them you get depends
 // on traversal timing, so two captures of the SAME code disagreed.
 //
-// Per-family sampling fixes both: the walk terminates, every distinct
-// rendering path is still exercised, and the result is deterministic because
-// each family's members are taken in sorted order.
+// Per-family sampling fixes both: the walk terminates and every distinct
+// rendering path is still exercised. Which members a family keeps is decided
+// in DISCOVERY order, the first perFamily the breadth-first walk reaches, not
+// in sorted order: the cap is applied in push, before anything is sorted. That
+// is deterministic because the queue is first in, first out and a page lists
+// its links in the same order every render (invariant 7). The sort at the end
+// orders the result for the manifest; it does not choose what is in it.
 func crawl(s *session, seeds []string, perFamily int) []string {
 	seen := map[string]bool{}
 	byFamily := map[string][]string{}
@@ -673,11 +687,14 @@ func dropEntry(dir, path string) error {
 
 // -------------------------------------------------------------------- main
 
-func usage() {
-	fmt.Fprintln(os.Stderr, `parity - hold one CostCrew implementation against another
+func usage() { fmt.Fprintln(os.Stderr, usageText) }
 
-  parity capture -base URL -out DIR [-max N]
-  parity compare -a GOLDEN -b ACTUAL
+// usageText is what usage prints; a constant so a test can hold it to the
+// flags each subcommand actually defines.
+const usageText = `parity - hold one CostCrew implementation against another
+
+  parity capture -base URL -out DIR [-per-family N] [-from GOLDEN]
+  parity compare -a GOLDEN -b ACTUAL [-partial]
   parity mutate -dir DIR -path PATH -old OLD -new NEW
   parity drop -dir DIR -path PATH
 
@@ -686,8 +703,7 @@ session. Compare exits non-zero on any difference.
 
 mutate and drop plant a fault straight into an existing capture (sha256,
 bytes, count and digest all kept consistent), for parity/gate-has-teeth.sh
-to run against a COPY of parity/captures/golden with nothing running.`)
-}
+to run against a COPY of parity/captures/golden with nothing running.`
 
 func main() {
 	if len(os.Args) < 2 {

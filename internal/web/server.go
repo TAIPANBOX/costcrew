@@ -119,6 +119,7 @@ func New(st *store.Store, au *auth.Auth, sk Stack) *Server {
 // are addresses somebody else's software builds; the console accommodates
 // them rather than requiring them to be escaped.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	noStore(w, r)
 	switch {
 	case strings.HasPrefix(r.URL.Path, "/a/"):
 		r.SetPathValue("uri", strings.TrimPrefix(r.URL.Path, "/a/"))
@@ -351,7 +352,7 @@ func (s *Server) intakeTemplate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
-	w.Header().Set("Content-Disposition", "attachment; filename="+name)
+	setDisposition(w, "attachment", name)
 	fmt.Fprint(w, body)
 }
 
