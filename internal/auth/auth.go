@@ -84,6 +84,9 @@ func New(st *store.Store, dir string) (*Auth, error) {
 			return nil, err
 		}
 	}
+	if err := ensureExternal(st.DB()); err != nil {
+		return nil, err
+	}
 	return &Auth{st: st, secret: key}, nil
 }
 
@@ -254,13 +257,22 @@ func (a *Auth) SetPassword(username, password, role string, allowWeak bool) (cre
 		if !validRole(role) {
 			role = "admin"
 		}
-		return a.create(username, password, role)
+		created, err := a.create(username, password, role)
+		if err != nil {
+			return created, err
+		}
+		// A password set here is the way back in when the identity provider
+		// is the thing that is down, so it is the one kind -oidc-only keeps.
+		return created, a.markBreakGlass(username)
 	}
 	h, err := HashPassword(password)
 	if err != nil {
 		return false, err
 	}
 	if _, err := a.st.DB().Exec(`UPDATE users SET pw_hash=? WHERE username=?`, h, username); err != nil {
+		return false, err
+	}
+	if err := a.markBreakGlass(username); err != nil {
 		return false, err
 	}
 	// Every session signed in under the old password ends here. A reset that
