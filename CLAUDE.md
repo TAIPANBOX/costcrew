@@ -84,9 +84,9 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 1086 tests, 21 packages
-./scripts/gates-have-teeth.sh        # 259 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 372 scenarios, both directions
+go test ./...                        # 1120 tests, 21 packages
+./scripts/gates-have-teeth.sh        # 281 cases; needs a clean tree
+./scripts/features-are-bound.sh      # 385 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
@@ -143,6 +143,17 @@ routes unchanged, re-measured on this branch with the three commands this
 block already names. The placeholder number 59 is the coordinator's to
 renumber at merge. No gate in `gates-have-teeth.sh` was edited, only
 appended to.
+
+Invariant 67 (a cloud provider's own bill reaches the crew as real money,
+costcrew#68) added 34 tests (`internal/connectors/cloudfocus_test.go`, 23;
+`cloudfocus_pieces_test.go`, 10; `internal/web/cloudfocus_page_test.go`, 1),
+22 `gates-have-teeth.sh` cases (twenty-one `fail`, one `pass`) and 13
+scenarios (`features/cloud-focus.feature`, new), and no route: 968 -> 1002
+tests, 166 -> 188 cases, 295 -> 308 scenarios in 38 files, 58 GET routes
+unchanged, re-measured on this branch with the three commands this block
+already names. The connector catalogue is still 17 entries, now 10 built and
+7 documented (README says so). Numbered 67 as a placeholder the coordinator
+renumbers at merge.
 
 Invariant 49 (a cookie is Secure when a TLS proxy in front is what actually
 terminates it, section "Read before you change anything" of this branch's
@@ -3831,6 +3842,122 @@ an absent invariant.
     discard line not printed, the discard not counted in the summary, and the
     error branch's guard taken out; the `pass` case rewords the tail of the
     discard line.)*
+67. **A cloud provider's own bill reaches the crew as real money, to the
+    cent, and never beside the generated estate.** costcrew#68. Until this,
+    no cloud bill reached the crew: `aws-data-exports` and
+    `gcp-billing-export` were catalogue entries marked documented, and the
+    only FOCUS reader (`tokenfusefocus.go`) requires the gateway's own `x_`
+    columns and refuses a plain cloud file. `cloudFocusReader`
+    (`internal/connectors/cloudfocus.go`) is now registered for both ids, so
+    both are Built by invariant 22's derivation. It reads a FOLDER (no S3
+    client, no BigQuery client in this binary) of FOCUS Cost and Usage CSV or
+    CSV.gz, walked recursively over regular files only. It asks for columns
+    by name: `BilledCost`, `BillingCurrency`, `ChargeCategory`,
+    `ChargePeriodStart`, `ChargePeriodEnd`, `ProviderName`, `ServiceName`,
+    `SubAccountId` (a cell may be empty), and reads `ChargeClass`, `InvoiceId`
+    and `Tags` (or Google's `x_Tags`) when present. Which versions: FOCUS 1.0
+    and 1.2 column sets are accepted; 1.0 was measured on a real AWS file
+    (451 rows, 48 columns, read locally and never committed), 1.2 only from
+    the spec and AWS's dictionary against a hand-written fixture; the header
+    of `cloudfocus.go` pins this and what was not looked at. The GCP entry
+    stays a separate id (ids are stable) running the same engine over a CSV
+    flattened from Google's BigQuery FOCUS view; nothing in it was measured
+    against a real Google export, and `ProviderName` values for both
+    providers are assumptions the `provider_names` setting overrides.
+
+    A row becomes an exact-micros row in `cloud_focus_rows`, keyed
+    `(connector, file sha256, row number)` so the same bytes twice change
+    nothing, and `charges` is rebuilt for each day an import touched: one row
+    per (service, team, category, invoice), summed in micros and rounded to
+    cents once, `provenance` the connector id and never NULL (NULL means
+    generated, and invariant 24 depends on that). BilledCost goes through
+    `money.ParseMicros` after an exact, textual expansion of E notation, which
+    the FOCUS numeric format allows and `ParseMicros` does not; no float64 is
+    involved and one row over a billion is refused before it can wrap an
+    int64. All five ChargeCategory values land under their own name, so every
+    `category='Usage'` sum (budgets, commitment eligibility) excludes a
+    Purchase, Tax, Credit or Adjustment; a negative BilledCost is kept, since
+    FOCUS allows it and a real month nets usage against credits to nothing,
+    which the board must show as two lines; a row longer than a day (AWS
+    writes the month's Tax as one row) lands whole on the day it starts, not
+    spread, because whole cents per day lose up to half a cent each day under
+    an even split. Currency other than USD, a category outside the five, a
+    ChargeClass other than Correction, a provider the connector does not
+    read, a bad timestamp, a ragged row and a cell over its cap are refused as
+    that row, by name. A file that fails part way is refused whole inside its
+    own SAVEPOINT. The team comes from the Tags key named by `team_tag`
+    (default `team`, several tried in order); a row without it is shared cost
+    and the sentence counts both. A file overwritten in place with new content
+    (AWS revises a period this way) replaces its earlier version's rows, but
+    only once the new file was read to its end, so a half-synced revision
+    leaves the earlier one standing. Invariant 24 applies unchanged: while
+    generated charges exist the import is refused unless the operator gives
+    the replace-generated yes, which the connector page now offers for these
+    two ids.
+
+    The folder is not trusted, and these readers carry bounds the gateway
+    reader lacks: `max_file_mb` on disk (default 4096), `max_unpacked_mb` for
+    what a gzip may inflate to (default 20480), 1 MiB per CSV record (an
+    unterminated quote would otherwise be read and held to the end of the
+    file), a symlink is never opened, 50,000 files, 20 refusals kept however
+    many rows fail, a 64-bit overflow of the file's absolute total refuses the
+    file. A setting that is not a number is refused, never read as no limit.
+
+    What this does not do: it does not feed `commitments` (a Purchase row is
+    money on the bill, not coverage or utilisation); two versions of one
+    period in different folders count twice (the connector asks for "overwrite
+    existing data export file" and a sync with deletion); charges are rounded
+    per (day, service, team, category, invoice) group, so a group of many tiny
+    rows can lose sub-cent money that `cloud_focus_rows` still holds exactly;
+    a BilledCost with more than six decimals is rounded to micros per row (a
+    real file's 451 rows summed to -0.0000000014 and import as -0.000005);
+    Parquet and zip are not read and are counted out loud; and no desk page
+    marks real against generated money the way the AI page does.
+    *(gate: `TestAWSDataExportsFocusIsRead`, `TestGCPBillingExportFocusIsRead`,
+    `TestAFocus10FileIsReadAsWell`, `TestTheCloudFocusReadersAreBuiltAndAskForAFolder`,
+    `TestEveryChargeCategoryLandsAndAPurchaseIsNeverUsage`,
+    `TestANegativeBilledCostIsKeptNotRefused`,
+    `TestARowLongerThanADayLandsWholeOnItsFirstDay`,
+    `TestCloudFocusMoneyIsNeverFloatAndRoundsOnce`,
+    `TestTheTeamComesFromAConfigurableTagKey`, `TestCloudFocusReimportConverges`,
+    `TestARevisedFileReplacesItsOwnEarlierVersion`,
+    `TestARefusedRevisionKeepsTheEarlierVersion`,
+    `TestCloudFocusRefusesToMixWithTheGeneratedEstate`,
+    `TestAFailedJournalLineRollsTheWholeCloudImportBack`,
+    `TestCloudFocusTestWritesNothing`, `TestCloudFocusReadsANestedSyncedFolderAndIgnoresLinks`,
+    `TestCloudFocusHostileInput` (eight missing columns, a duplicate header,
+    EUR, an empty currency, a bad timestamp, an end before the start, a
+    five-year period, a year nobody billed, a cost of `abc`, `NaN`, `1,000.00`,
+    over a billion and `1E400`, a category outside the five and in the wrong
+    case, a ChargeClass of Refund, another provider's rows, an empty service,
+    three kinds of bad Tags, a 70 KB tags cell, a 2 KB service name, too many
+    and too few fields, an unterminated quote, a byte order mark, CRLF with a
+    quoted comma and newline, a truncated gzip, a file that is not gzip, an
+    empty and a missing folder, a good file beside a bad one, a good row
+    beside a bad one, a file that fails part way), `TestARefusalListIsBounded`,
+    `TestARefusalListIsBoundedAtItsSource`, `TestRefusalsAcrossManyFilesAreBoundedToo`,
+    `TestAGzipBombIsRefusedByName`
+    (57 KB packed, 15 MB unpacked), `TestAFileOverTheByteCapIsRefusedBeforeItIsOpened`,
+    `TestACapSettingThatIsNotANumberIsRefused`,
+    `TestARecordWithNoEndIsRefusedBeforeItFillsMemory`,
+    `TestACloudFocusFileOverAHundredMegabytesStaysBounded` (120 MB, live heap
+    measured), `TestTheTagCellShapes`, `TestFocusDecimalsInENotation`,
+    `TestAnAmountThatOverflowsTheSumIsRefusedWhole`,
+    `TestAFolderWhoseFilesTogetherOverflowRefusesTheLaterFile`,
+    `TestCloudFocusSettings`, `TestTheSameBytesTwiceAreOneFileAndTwoFilesOnOneDayAdd`,
+    `TestADryRunNamesWhatWouldBeRefused` in `internal/connectors`;
+    `TestAnAWSExportReachesTheConsoleThroughTheConnectorPage` in
+    `internal/web`. Twenty-one `fail` cases and one `pass` case in
+    `scripts/gates-have-teeth.sh`, each planting one fault: a negative cost
+    refused, a Purchase filed as Usage, each row rounded before the sum, the
+    provenance dropped, a revised file's old rows kept, a refused file not
+    rolled back, the gzip cap and the record cap lifted, a symlink followed,
+    the generated estate mixed in, the refusal list unbounded at the file and
+    at the sentence, a long row landing on its last day, the span limit lifted,
+    a long row not counted, another provider's rows read, E notation refused,
+    the tag key matched case-sensitively, a copied file counted twice, Test
+    demanding an optional setting, and the connector page dropping the
+    replace-generated box; the `pass` case rewords a refusal.)*
 
 74. **Sign-in through the organisation's identity provider believes nothing it
     has not checked, and the provider decides access at every sign-in.** Until

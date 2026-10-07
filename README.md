@@ -100,12 +100,13 @@ flowchart TB
 ```
 
 - **Consumes**: billing exports and vendor usage APIs, never another service's
-  store. Seventeen connectors: AWS Data Exports (FOCUS 1.2), Cost Explorer, GCP
-  BigQuery billing export, Azure Cost Management, Kubecost, OpenCost, TokenFuse
+  store. Seventeen connectors: AWS Data Exports (FOCUS 1.0 and 1.2, read from a
+  synced folder), Cost Explorer, GCP billing export (a FOCUS CSV folder
+  exported from BigQuery), Azure Cost Management, Kubecost, OpenCost, TokenFuse
   FOCUS export, Anthropic and OpenRouter usage, Compute Optimizer, AWS Cost
   Explorer and GCP Recommender and Azure Advisor rightsizing recommendations,
   AWS Budgets recommended threshold, GCP Cost Recommender and Azure Advisor
-  budget-shaped recommendations, SaaS seats. Eight built, nine documented, and
+  budget-shaped recommendations, SaaS seats. Ten built, seven documented, and
   every entry declares whether running it is metered per call.
 - **Produces**: twenty-two event types on the shared agent-event bus, registered in
   `agent-passport` SPEC 6.2 under the source `costcrew`, schema v0.2.
@@ -376,8 +377,9 @@ Two defects turned up, both already fixed on `main` and neither in
   box's own export cleanly (277 rows, 4 agents, 0.07 total billed cost).
   Issue #66, fixed by #70 (`cb90412`, invariant 50).
 
-Still open: no AWS or GCP billing reader exists yet, so the board worked
-the generated estate and the box's AI spend alone (#68). This run used
+Still open at the time of the run: no AWS or GCP billing reader existed, so
+the board worked the generated estate and the box's AI spend alone (#68; both
+folder readers have since been added). This run used
 `v0.2.0`, which predates the console's `-gateway` flag, so the flag was
 dropped from the command (#69); closed by `v0.2.1`, the first image that
 carries `-gateway`.
