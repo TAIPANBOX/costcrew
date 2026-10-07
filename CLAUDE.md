@@ -84,15 +84,33 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 998 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 196 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 325 scenarios, both directions
+go test ./...                        # 1018 tests, 23 packages
+./scripts/gates-have-teeth.sh        # 214 cases; needs a clean tree
+./scripts/features-are-bound.sh      # 345 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 govulncheck ./...                    # CI runs it, pinned at v1.8.0; reports only vulnerabilities the code can reach
 staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refused PR #19 on two findings the list above never asked for; a staticcheck built for an older Go cannot read this module, so on such a machine CI is the only place it runs
 ```
+
+Invariants 78 and 79 (what a download carries is data; no cache keeps a
+page or a download), with the unit team page, idryxsource's empty tools list,
+`spiffe.Close` under its lock and the parity tool's usage and audit-hash
+scrub beside them, added 20 tests (`internal/web/exports_are_data_test.go`,
+3; `internal/web/no_store_test.go`, 4; `internal/web/download_internal_test.go`,
+3; `internal/connectors/tokenfusefocus_bounds_test.go`, 3;
+`internal/spiffe/close_test.go`, 3; `tools/idryxsource/entry_test.go`, 2;
+`tools/parity/main_flags_test.go`, 2), 18 `gates-have-teeth.sh` cases (15
+`fail`, 3 `pass`) and 20 scenarios (`features/downloads-are-data.feature`,
+`features/no-store.feature`, `features/links-and-tools-tell-the-truth.feature`,
+all new), and no route: 998 -> 1018 tests, 196 -> 214 cases, 325 -> 345
+scenarios, 20 -> 23 packages with tests, 58 GET routes and the write
+routes unchanged, re-measured on this branch with the three commands
+this block already names. `go test -cover` per package: `internal/web` 80.0%
+-> 85.4%, `internal/connectors` 86.2% -> 86.4%, `internal/spiffe` 0.0% ->
+51.1%, `tools/idryxsource` 0.0% -> 20.0%, `tools/parity` 0.0% -> 0.9%. CI's
+race step gained `./internal/spiffe/...`.
 
 Invariants 61 to 64 (a session token is never stored; every failed sign-in
 says the same thing; the console's own files are private; the console's
