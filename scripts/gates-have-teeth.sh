@@ -2111,6 +2111,174 @@ run_case $'admin answers: a reworded refusal message is not a fault' \
 	$'"you are answering for "+owner+", so a reason is needed: "+rerr.Error()' \
 	$'"a reason is needed because you are answering for "+owner+": "+rerr.Error()'
 
+# Invariant 65 (costcrew#73): every gateway call names the person it spends
+# for, and an analyst with no owner is refused rather than sent with an empty
+# chain. Twelve faults and two harmless rewordings.
+run_case $'owner chain: the header is left out of the one function that sets them' \
+	fail \
+	./internal/deliver \
+	$'TestEveryRequestShapeCarriesTheOnBehalfOfChain' \
+	$'x-fuse-on-behalf-of' \
+	internal/deliver/call.go \
+	$'		req.Header.Set("x-fuse-on-behalf-of", strings.Join(gw.OnBehalfOf, ","))' \
+	$'		_ = strings.Join(gw.OnBehalfOf, ",")'
+run_case $'owner chain: the tool loop builds its own headers again' \
+	fail \
+	./tools/run \
+	$'TestTheToolLoopAndDeliverCallSendTheSameFuseHeaders' \
+	$'the tool loop sends' \
+	tools/run/loop.go \
+	$'		// that had never learned x-fuse-on-behalf-of (costcrew#73).\n		deliver.SetFuseHeaders(req, gw)' \
+	$'		// that had never learned x-fuse-on-behalf-of (costcrew#73).\n		req.Header.Set("x-fuse-run-id", gw.RunID)\n		req.Header.Set("x-fuse-agent-id", gw.AgentID)\n		req.Header.Set("x-fuse-budget-usd", gw.BudgetUSD)\n		if gw.ParentRunID != "" {\n			req.Header.Set("x-fuse-parent-run-id", gw.ParentRunID)\n		}'
+run_case $'owner chain: the owner goes into the chain unescaped' \
+	fail \
+	./internal/deliver \
+	$'TestHostileOwnersCannotForgeOrBreakAChain' \
+	$'TestHostileOwnersCannotForgeOrBreakAChain' \
+	internal/deliver/call.go \
+	$'	chain := []string{"user://" + host + "/" + url.PathEscape(owner), agent}' \
+	$'	chain := []string{"user://" + host + "/" + owner, agent}'
+run_case $'owner chain: an empty owner is accepted' \
+	fail \
+	./internal/deliver \
+	$'TestAnAnalystWithNoOwnerGetsNoChainAndIsNamed' \
+	$'is exactly what must never be sent' \
+	internal/deliver/call.go \
+	$'	owner = strings.TrimSpace(owner)\n	if owner == "" {' \
+	$'	owner = strings.TrimSpace(owner)\n	if false {'
+run_case $'owner chain: the door lets a gateway call through with no chain' \
+	fail \
+	./internal/deliver \
+	$'TestAGatewayCallWithNoOwnerChainIsRefusedBeforeAnyRequest' \
+	$'the gateway was reached by a call that names nobody' \
+	internal/deliver/call.go \
+	$'	if len(gw.OnBehalfOf) == 0 {' \
+	$'	if false {'
+run_case $'owner chain: pricing no longer refuses an ownerless analyst' \
+	fail \
+	./tools/run \
+	$'TestWithAGatewayAnOwnerlessAnalystsTaskIsRefusedWhenItIsPriced' \
+	$'was priced to run' \
+	tools/run/live.go \
+	$'func refuseOwnerless(ests []estimate, gw gatewayConfig) {\n	if !gw.on() {' \
+	$'func refuseOwnerless(ests []estimate, gw gatewayConfig) {\n	if true {'
+run_case $'owner chain: the runner builds its Gateway without the chain' \
+	fail \
+	./tools/run \
+	$'TestEveryRoundOfAnAnthropicTaskCarriesTheAnalystsOwner' \
+	$'no owner chain' \
+	tools/run/live.go \
+	$'		BudgetUSD:  gatewayBudgetUSD(cfg.CeilingUSD, taskGuard),\n		OnBehalfOf: chain,' \
+	$'		BudgetUSD:  gatewayBudgetUSD(cfg.CeilingUSD, taskGuard),'
+run_case $'owner chain: the bench builds its Gateway without the chain' \
+	fail \
+	./tools/bench \
+	$'TestLiveSendsTheAnalystsOwnerOnEveryCase' \
+	$'no owner chain' \
+	tools/bench/gateway.go \
+	$'		BudgetUSD:  budgetUSD,\n		OnBehalfOf: chain,' \
+	$'		BudgetUSD:  budgetUSD,'
+run_case $'owner chain: the console builds its plan-ask Gateway without the chain' \
+	fail \
+	./internal/web \
+	$'TestThePlanAskNamesTheAskingPersonAsTheRoot' \
+	$'want 1' \
+	internal/web/planning.go \
+	$'		BudgetUSD:  deliver.GatewayBudgetUSD(sup.PerTask, sup.PerTask),\n		OnBehalfOf: chain,' \
+	$'		BudgetUSD:  deliver.GatewayBudgetUSD(sup.PerTask, sup.PerTask),'
+run_case $'owner chain: the plan-ask names the supervisor\'s roster owner, not the person who asked' \
+	fail \
+	./internal/web \
+	$'TestThePlanAskNamesTheAskingPersonAsTheRoot' \
+	$'x-fuse-on-behalf-of =' \
+	internal/web/planning.go \
+	$'deliver.OnBehalfOfChain(s.host, u.Username, "supervisor")' \
+	$'deliver.OnBehalfOfChain(s.host, sup.Owner, "supervisor")'
+run_case $'owner chain: the roster placeholder is accepted as an owner' \
+	fail \
+	./internal/deliver \
+	$'TestAnUnclaimedRosterOwnerIsNoOwner' \
+	$'the placeholder owner produced a chain' \
+	internal/deliver/call.go \
+	$'	if strings.TrimSpace(a.Owner) == crew.SeededOwner("") {' \
+	$'	if false {'
+run_case $'owner chain: a chain the gateway would silently ignore is sent' \
+	fail \
+	./internal/deliver \
+	$'TestAChainTheGatewayWouldSilentlyIgnoreIsRefusedHere' \
+	$'that TokenFuse ignores' \
+	internal/deliver/call.go \
+	$'	if n := len(strings.Join(chain, ",")); n > maxOnBehalfOfBytes {' \
+	$'	if n := len(strings.Join(chain, ",")); n < 0 {'
+run_case $'owner chain: a reworded placeholder refusal is not a fault' \
+	pass \
+	./internal/deliver \
+	$'TestAnUnclaimedRosterOwnerIsNoOwner' \
+	$'' \
+	internal/deliver/call.go \
+	$'it is refused rather than "+' \
+	$'we refuse it rather than "+'
+run_case $'owner chain: a reworded refusal prefix in execute is not a fault' \
+	pass \
+	./tools/run \
+	$'TestAnAnalystWithNoOwnerIsRefusedBeforeAnyCall' \
+	$'' \
+	tools/run/live.go \
+	$'refused before the call: %w", herr' \
+	$'not run: %w", herr'
+
+# Invariant 66: a task a person blocks while its call is in flight does not get
+# its deliverable, and the call it already paid for is still recorded. Five
+# faults and one harmless rewording.
+run_case $'blocked meanwhile: the draft insert stops looking at the task\'s state' \
+	fail \
+	./tools/run \
+	$'TestATaskBlockedWhileItsCallWasInFlightGetsNoDeliverable' \
+	$'were written for a task a person blocked' \
+	tools/run/live.go \
+	$'WHERE NOT EXISTS (SELECT 1 FROM tasks WHERE id = ? AND state = \'blocked\')' \
+	$'WHERE NOT EXISTS (SELECT 1 FROM tasks WHERE id = ? AND state = \'a state nobody uses\')'
+run_case $'blocked meanwhile: the discarded answer\'s charge is not booked' \
+	fail \
+	./tools/run \
+	$'TestATaskBlockedWhileItsCallWasInFlightGetsNoDeliverable' \
+	$'tasks.live_micros =' \
+	tools/run/live.go \
+	$'			if charge > 0 {\n				if e2 := recordCharge(db, e.Task.ID, charge); e2 != nil {\n					fmt.Fprintf(os.Stderr, "  could not record the charge of the discarded' \
+	$'			if false {\n				if e2 := recordCharge(db, e.Task.ID, charge); e2 != nil {\n					fmt.Fprintf(os.Stderr, "  could not record the charge of the discarded'
+run_case $'blocked meanwhile: the run overwrites the person\'s block with its own reason' \
+	fail \
+	./tools/run \
+	$'TestARunLeavesAPersonsBlockAloneAndCountsTheDiscardedAnswer' \
+	$'the person\'s block was rewritten' \
+	tools/run/live.go \
+	$'			if errors.As(err, &d) {\n				// Already blocked by a person' \
+	$'			if errors.As(err, &d) && false {\n				// Already blocked by a person'
+run_case $'blocked meanwhile: the discard is not said' \
+	fail \
+	./tools/run \
+	$'TestATaskBlockedWhileItsCallWasInFlightGetsNoDeliverable' \
+	$'no line says the answer was discarded' \
+	tools/run/live.go \
+	$'DISCARDED: the answer came back' \
+	$'dropped: the answer came back'
+run_case $'blocked meanwhile: the summary does not count the discard' \
+	fail \
+	./tools/run \
+	$'TestARunLeavesAPersonsBlockAloneAndCountsTheDiscardedAnswer' \
+	$'the summary does not say' \
+	tools/run/live.go \
+	$'				discarded++\n' \
+	$''
+run_case $'blocked meanwhile: a reworded discard line is not a fault' \
+	pass \
+	./tools/run \
+	$'TestATaskBlockedWhileItsCallWasInFlightGetsNoDeliverable' \
+	$'' \
+	tools/run/live.go \
+	$'so no draft was saved; the call cost' \
+	$'so nothing was saved; the call cost'
+
 echo
 if [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'

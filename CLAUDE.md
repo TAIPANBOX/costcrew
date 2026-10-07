@@ -81,9 +81,9 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 968 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 166 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 295 scenarios, both directions
+go test ./...                        # 992 tests, 20 packages
+./scripts/gates-have-teeth.sh        # 186 cases; needs a clean tree
+./scripts/features-are-bound.sh      # 309 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
@@ -177,6 +177,20 @@ entries, which was the defect's own mirror; it now asserts six. Numbered 57
 because invariant 56 (the decided thresholds) is on the pull request opened
 before this one on the same day; the pull request after it takes 58.
 
+Invariants 65 and 66 (every gateway call names the person it spends for,
+costcrew#73; a task blocked while its call is in flight keeps the block)
+added 24 tests (`internal/deliver/onbehalfof_test.go`, 8;
+`tools/run/onbehalfof_test.go`, 7; `tools/run/blocked_meanwhile_test.go`, 5;
+`tools/bench/gateway_test.go`, 2; `internal/web/planning_ask_owner_test.go`,
+2), 20 `gates-have-teeth.sh` cases (seventeen `fail`, three `pass`) and 14
+scenarios (`features/the-owner-reaches-the-gateway.feature`, 9;
+`features/a-blocked-task-stays-blocked.feature`, 5), and no route: 968 -> 992
+tests, 166 -> 186 cases, 295 -> 309 scenarios, 58 GET routes unchanged,
+re-measured on this branch with the three commands this block already names.
+A number of existing tests gained an owner on the analyst or a run id on the
+bus they build, because a gateway call without either is now refused before
+it is made; none was weakened. Numbered 65 and 66 here as placeholders the
+coordinator renumbers at merge; invariant 57's open limit now points at 66.
 Invariant 53 (the supervisor selects among the analysts' own options)
 added 10 tests (`internal/finops/supervise_analystclass_test.go`, 8;
 `internal/crew/roles_select_internal_test.go`, 2), 8 `gates-have-teeth.sh`
@@ -3233,9 +3247,9 @@ an absent invariant.
     the list (`BINDING WITHOUT CLAUSE`) or whose test is gone (`DANGLING
     NEVER`). The other five clauses are not bound by this: they are the
     prompt's wording and the class ownership of `purchase`, `infra.change`
-    and `vendor.negotiate`. What `workable` does not cover: a task blocked
-    while its call is already in flight still gets its deliverable written;
-    that window is not closed here.
+    and `vendor.negotiate`. What `workable` alone does not cover is a task
+    blocked while its call is already in flight; that window was this
+    invariant's open limit until invariant 66 closed it.
     *(gate: `TestTheDecidesAloneListsAreWrittenFromTheProse`,
     `TestTheHandsUpListsAreWrittenFromTheProse`,
     `TestEveryAnalystFamilyHasBothListsOrAReasonedExemption`,
@@ -3250,6 +3264,148 @@ an absent invariant.
     (`tools/run`). Ten `fail` cases and one `pass` case in
     `gates-have-teeth.sh`, each switching one property of the shell gate off
     or undoing one piece of the data.)*
+
+65. **Every gateway call names the person it spends for, and a task whose
+    analyst has no owner is refused rather than sent with an empty chain.**
+    costcrew#73, measured on the appliance proving run of 2026-09-17: the
+    runner sent `x-fuse-run-id`, `x-fuse-agent-id`, `x-fuse-budget-usd` and
+    (when it had one) `x-fuse-parent-run-id`, never `x-fuse-on-behalf-of`, and
+    the control plane folds an owner from the first `user://` entry of that
+    chain, so a crew run reached its owner view as "unassigned" while the
+    roster named an owner for every agent. Two faults under the one symptom.
+    Nothing built the header at all, and the tool loop's Anthropic round
+    (`anthropicRoundRequest`, `tools/run/loop.go`) carried a private,
+    hand-written copy of `deliver.SetFuseHeaders` that nobody had told about
+    any header added since it was written. Now `deliver.Gateway` carries the
+    chain (`OnBehalfOf`), `SetFuseHeaders` sends it, and the loop's round
+    calls that function instead of its copy, so the Anthropic loop, the
+    OpenAI round, `deliver.Call` and the bench set one header set by
+    construction.
+
+    The chain is the TokenFuse grammar read from its own parser
+    (`chainproof::declared_chain` and `on_behalf_of_header` in the tokenfuse
+    gateway, read, not built): one value, comma-separated, root first, entries
+    trimmed and empty ones dropped, at most 32 entries, and a value over 4096
+    bytes ignored without an error. `deliver.OnBehalfOfChain(host, owner,
+    analyst)` builds it as `user://<host>/<owner>` then
+    `agent://<host>/<analyst>`, `deliver.AnalystOnBehalfOf` for an analyst
+    off the roster. An owner is an account name nobody validated for this, so
+    it goes in escaped as a path segment (`url.PathEscape`): a comma, a space,
+    a control byte or a non-ASCII byte in it cannot add a chain entry or leave
+    a byte the gateway's header reader would drop, and an ordinary name is
+    unchanged. A chain over the byte cap is refused here, where it can be
+    said, instead of sent to be dropped. `@claude`: the escaping is a choice
+    this change made; the alternative was refusing odd names, which would lock
+    an analyst out of the gateway for the way its owner's account is spelled.
+
+    No owner is no chain. `deliver.RequireIdentity`, the boundary every
+    gateway call passes (now including the Anthropic loop's round, which never
+    called it), refuses a gateway call with an agent and no chain, naming the
+    agent, before a request exists. Earlier than that, `refuseOwnerless`
+    (`tools/run`) marks the estimate of a task whose analyst has no owner
+    refused, with a verdict that names the analyst, in the dry run, in a live
+    run and in `-due`, so `spend()` never starts it and the others go on; and
+    `execute` builds the headers before it reserves anything, so a caller that
+    skipped pricing still takes nothing from the ceiling. The placeholder
+    `unclaimed`, which `crew.SeedRoster` stamps on every agent of a roster
+    seeded without `-stack-owner`, is no owner either (the passport and the
+    mandate backfill already read it that way): sending it would file the
+    crew's spend under a person who is not one. Without a gateway nothing is
+    sent to anyone and nothing is refused, so an installation that runs direct
+    is unchanged. `@claude`: refusing at pricing only when a gateway is
+    configured, not always, is also a choice; refusing always would have
+    stopped every direct run on a fresh roster.
+
+    The bench builds every case's gateway before its first call
+    (`tools/bench/gateway.go`), so one ownerless case refuses the whole run
+    with nothing spent. The console's own planning call
+    (`internal/web/planning.go`, `askPlan`) names the person who clicked as
+    the root and the supervisor as the agent, not the roster's owner of the
+    supervisor: that money is spent on this person's request.
+
+    What this does not do: it does not check that the owner is a person
+    TokenFuse knows (it folds whatever `user://` root it is given, and the
+    identity map's unit owner still wins where one is configured); it does not
+    make a direct call, with no gateway, attributable to anyone; it does not
+    prove the chain with a token (the gateway reads a declared chain as a
+    claim unless an issuer is configured, that repository's invariant 31);
+    and the placeholder rule is a string match on `unclaimed`, so an account
+    that really is called that is refused as an analyst's owner (it is still a
+    person when it is the one asking the console for a plan).
+    *(gate: `TestTheChainIsTheOwnersUserRootThenTheAnalystsAgent`,
+    `TestAnAnalystWithNoOwnerGetsNoChainAndIsNamed`,
+    `TestHostileOwnersCannotForgeOrBreakAChain` (eleven owner shapes judged by
+    a Go copy of the gateway's parser: two entries, the first a `user://` root
+    that decodes back to the owner),
+    `TestAChainTheGatewayWouldSilentlyIgnoreIsRefusedHere`,
+    `TestEveryRequestShapeCarriesTheOnBehalfOfChain`,
+    `TestAGatewayCallWithNoOwnerChainIsRefusedBeforeAnyRequest`,
+    `TestNoGatewayNeedsNoOwnerChain`, `TestAnUnclaimedRosterOwnerIsNoOwner`
+    (`internal/deliver`); `TestEveryRoundOfAnAnthropicTaskCarriesTheAnalystsOwner`,
+    `TestEveryRoundOfAnOpenRouterTaskCarriesTheAnalystsOwner`,
+    `TestAHostileOwnerStillGivesTheGatewayExactlyTwoEntries`,
+    `TestAnAnalystWithNoOwnerIsRefusedBeforeAnyCall`,
+    `TestWithAGatewayAnOwnerlessAnalystsTaskIsRefusedWhenItIsPriced`,
+    `TestARunSkipsAnOwnerlessAnalystsTaskAndStillRunsTheOthers`,
+    `TestTheToolLoopAndDeliverCallSendTheSameFuseHeaders` (a recording
+    gateway, the loop's round and `deliver.Call` fed one `Gateway`, the two
+    recorded `x-fuse-*` sets compared, both wires) (`tools/run`);
+    `TestLiveSendsTheAnalystsOwnerOnEveryCase`,
+    `TestLiveRefusesBeforeAnyCallWhenACasesAnalystHasNoOwner` (`tools/bench`);
+    `TestThePlanAskNamesTheAskingPersonAsTheRoot`,
+    `TestAHostileUsernameCannotReshapeThePlanAsksChain` (`internal/web`).
+    Twelve `fail` cases and two `pass` cases in `gates-have-teeth.sh`, each
+    planting one of the faults above: the header left out of
+    `SetFuseHeaders`, the loop's round back on a private copy, the escaping
+    removed, the empty-owner refusal removed, the door's chain requirement
+    removed, the pricing refusal switched off, the chain left off the
+    runner's, the bench's and the console's `Gateway` (three cases), the
+    console's root taken from the roster, the placeholder accepted, the byte
+    cap removed; the two `pass` cases reword a refusal, which the gates must
+    not mind.)*
+
+66. **A task a person blocks while its call is in flight does not get its
+    deliverable, and the call it already paid for is still recorded.**
+    Invariant 57 named this as its open limit: `workable` drops every blocked
+    task before anything is priced or called, and once the model had answered
+    nothing looked again, so a person's order to stop was undone by an answer
+    that arrived after it. `saveDraft` now writes the artifact with one
+    statement that refuses a blocked task (`INSERT ... SELECT ... WHERE NOT
+    EXISTS (SELECT 1 FROM tasks WHERE id = ? AND state = 'blocked')`), so the
+    look and the write cannot be separated by a click, and returns
+    `errTaskBlockedMeanwhile` when it wrote nothing. `execute` turns that into
+    the discard: no draft, no options, the person's block and its reason
+    untouched; the charge of every round the gateway settled for the call
+    booked through the same `recordCharge` a stopped task uses (invariant 55)
+    and counted against the run; the call's `tool_call` event still emitted,
+    since the call happened; and a line, `DISCARDED: the answer came back after
+    a person blocked the task, so no draft was saved; the call cost ...`.
+    `execute` returns `answerDiscarded`, which `spend` counts on its own: not
+    a refusal (the run goes on), not a failure (the task is already blocked,
+    and `spend` marking it blocked again would overwrite the person's reason
+    with "the engine did not answer"), and not done. The summary line gains
+    `, N discarded (blocked by a person while the call was in flight; the call
+    was still paid for)` only when N is above zero, so a run that discarded
+    nothing reads as it always did.
+
+    What this does not cover: a block that lands after the draft statement
+    finds a draft already written, which is a person blocking a task that has
+    a draft and is left alone; a task that fails with an ERROR while a person
+    has blocked it is still marked blocked by `spend` with the engine's
+    reason, replacing the person's (the error path predates this and is not
+    changed here).
+    *(gate: `TestATaskBlockedWhileItsCallWasInFlightGetsNoDeliverable`,
+    `TestATaskBlockedDuringAToolRoundBooksBothRoundsAndSavesNothing`,
+    `TestSaveDraftWritesNothingForABlockedTask`,
+    `TestARunLeavesAPersonsBlockAloneAndCountsTheDiscardedAnswer`,
+    `TestATaskNobodyBlockedStillGetsItsDeliverable` (`tools/run`; the block is
+    made from inside a fake gateway's handler, between the request arriving
+    and the response going back, which is where a person's click lands in a
+    real run). Five `fail` cases and one `pass` case in
+    `gates-have-teeth.sh`: the guard taken out of the insert, the charge not
+    booked on the discard path, the run overwriting the person's reason, the
+    discard line not printed, and the discard not counted in the summary; the
+    `pass` case rewords the tail of the discard line.)*
 
 ## Decisions that have no gate yet
 

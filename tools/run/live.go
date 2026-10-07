@@ -78,14 +78,23 @@ type gatewayHeaders = deliver.Gateway
 // gatewayHeadersFor builds one call's headers from the run's shared config
 // and that call's own task guard and analyst name. cfg.on() must be checked
 // by the caller; this only formats.
-func gatewayHeadersFor(cfg gatewayConfig, runID, analystName string, taskGuard money.Cents) gatewayHeaders {
-	return gatewayHeaders{
-		URL:       cfg.URL,
-		OpenAIURL: cfg.OpenAIURL,
-		RunID:     runID,
-		AgentID:   stack.AgentURI(cfg.Host, analystName),
-		BudgetUSD: gatewayBudgetUSD(cfg.CeilingUSD, taskGuard),
+//
+// It also names whose spend this is (costcrew#73): the analyst's owner as a
+// user:// root, then the analyst's agent, deliver.OnBehalfOfChain. An analyst
+// with no owner is an error naming it, not a call with an empty chain.
+func gatewayHeadersFor(cfg gatewayConfig, runID string, analyst crew.Analyst, taskGuard money.Cents) (gatewayHeaders, error) {
+	chain, err := deliver.AnalystOnBehalfOf(cfg.Host, analyst)
+	if err != nil {
+		return gatewayHeaders{}, err
 	}
+	return gatewayHeaders{
+		URL:        cfg.URL,
+		OpenAIURL:  cfg.OpenAIURL,
+		RunID:      runID,
+		AgentID:    stack.AgentURI(cfg.Host, analyst.Name),
+		BudgetUSD:  gatewayBudgetUSD(cfg.CeilingUSD, taskGuard),
+		OnBehalfOf: chain,
+	}, nil
 }
 
 // gatewayBudgetUSD is the tighter of the run's ceiling and the task's own
@@ -167,6 +176,38 @@ func noRouteRefusal(gw gatewayConfig, todo []estimate) error {
 		strings.Join(parts, ", "), first)
 }
 
+// discardedClause is the summary line's words for answers thrown away because
+// a person blocked the task mid-call: empty when there were none, so a run
+// that discarded nothing reads exactly as it always did.
+func discardedClause(n int) string {
+	if n == 0 {
+		return ""
+	}
+	return fmt.Sprintf(", %d discarded (blocked by a person while the call was in flight; the call was still paid for)", n)
+}
+
+// refuseOwnerless is the pricing-time half of costcrew#73. With a gateway
+// configured every call names the analyst's owner to the control plane, and an
+// analyst with no owner has none to name, so its task is refused here, in the
+// dry run and the live run alike, with a verdict that names the analyst,
+// rather than priced and then sent with an empty chain. Without a gateway
+// nothing is sent to anyone and nothing changes. execute() holds the same
+// line again for a caller that never went through this.
+func refuseOwnerless(ests []estimate, gw gatewayConfig) {
+	if !gw.on() {
+		return
+	}
+	for i := range ests {
+		e := &ests[i]
+		if e.Refused || e.Analyst.Name == "" {
+			continue
+		}
+		if _, err := deliver.AnalystOnBehalfOf(gw.Host, e.Analyst); err != nil {
+			e.Verdict, e.Refused = err.Error(), true
+		}
+	}
+}
+
 // parseGatewayRefusal reads TokenFuse's 402 body into the sentence a person
 // reads. Moved to internal/deliver (loop.go's own anthropicRound, a
 // separate pre-existing implementation, reads a 402 on its own wire and has
@@ -229,6 +270,18 @@ func execute(ctx context.Context, db, roDB *sql.DB, e estimate, maxTok int, run 
 		return fmt.Errorf("refused before the call: %s", e.Verdict)
 	}
 
+	// The headers for THIS call come first, before anything is reserved: an
+	// analyst with no owner is refused here, naming it, with nothing taken
+	// from the ceiling and no request made (costcrew#73).
+	var gh gatewayHeaders
+	if gw.on() {
+		var herr error
+		gh, herr = gatewayHeadersFor(gw, b.run, e.Analyst, e.Task.Budget)
+		if herr != nil {
+			return fmt.Errorf("refused before the call: %w", herr)
+		}
+	}
+
 	// Every round of the tool loop is its own model call (B2-SPEC.md
 	// section 3.4), so the reservation covers the worst case
 	// loopsFor(e.Engine) times over, before the first round rather than
@@ -255,11 +308,7 @@ func execute(ctx context.Context, db, roDB *sql.DB, e estimate, maxTok int, run 
 	// engine outside the loop) reads as "no gateway" and routes to
 	// api.anthropic.com exactly as before this file knew one existed. The
 	// same gh is passed to every round, so every round carries the same
-	// three x-fuse headers.
-	var gh gatewayHeaders
-	if gw.on() {
-		gh = gatewayHeadersFor(gw, b.run, e.Analyst.Name, e.Task.Budget)
-	}
+	// three x-fuse headers. (Built above, before the reservation.)
 	sent := prompt(e.Task, e.Analyst, time.Now().Format("2006-01-02"), e.Packet)
 	res, err := runToolLoop(ctx, db, roDB, e, sent, maxTok, gh, e.Analyst, b)
 	// The charge is the gateway's settlement when there is one, the runner's
@@ -285,6 +334,27 @@ func execute(ctx context.Context, db, roDB *sql.DB, e estimate, maxTok int, run 
 	}
 
 	if err := saveDraft(db, e, res, b); err != nil {
+		if errors.Is(err, errTaskBlockedMeanwhile) {
+			// A person blocked the task while the call was in flight. The call
+			// was made and the gateway billed it, so the charge is booked
+			// exactly as a stopped task's is (invariant 55); the answer is
+			// what is thrown away, because the block was an order and a draft
+			// written after it would be the runner working around it
+			// (invariant 57). saveDraft wrote nothing, so this is the only
+			// place the money lands.
+			if charge > 0 {
+				if e2 := recordCharge(db, e.Task.ID, charge); e2 != nil {
+					fmt.Fprintf(os.Stderr, "  could not record the charge of the discarded answer for task %d: %v\n", e.Task.ID, e2)
+				}
+			}
+			if e2 := b.toolCall(e, res); e2 != nil {
+				fmt.Fprintf(os.Stderr, "  the bus refused this call's event: %v\n", e2)
+			}
+			fmt.Printf("  %-22s %-14s DISCARDED: the answer came back after a person blocked the task, "+
+				"so no draft was saved; the call cost %s %s\n",
+				trim(e.Task.Title, 22), e.Analyst.Name, usd(charge), chargeBasis(res.Settlement))
+			return answerDiscarded{taskID: e.Task.ID}
+		}
 		return err
 	}
 
@@ -320,12 +390,21 @@ func chargeBasis(s deliver.Settlement) string {
 // heading is the fault this console exists to catch in other people's data.
 func saveDraft(db *sql.DB, e estimate, res callResult, b bus) error {
 	title := "Deliverable for " + e.Task.Title
+	// One statement that refuses a task a person has blocked: the insert and
+	// the look at the task's state cannot be separated by a click. A block
+	// that lands before this statement writes nothing; one that lands after
+	// it finds the draft already there, which is a person blocking a task
+	// that has a draft, an ordinary thing to do.
 	ins, err := db.Exec(`INSERT INTO artifacts
 		(task, author, title, body, state, created, source)
-		VALUES (?,?,?,?, 'draft', datetime('now'), 'live')`,
-		e.Task.ID, e.Analyst.Name, trim(title, 120), res.Text)
+		SELECT ?,?,?,?, 'draft', datetime('now'), 'live'
+		WHERE NOT EXISTS (SELECT 1 FROM tasks WHERE id = ? AND state = 'blocked')`,
+		e.Task.ID, e.Analyst.Name, trim(title, 120), res.Text, e.Task.ID)
 	if err != nil {
 		return err
+	}
+	if n, err := ins.RowsAffected(); err == nil && n == 0 {
+		return errTaskBlockedMeanwhile
 	}
 	artifactID, err := ins.LastInsertId()
 	if err != nil {
@@ -499,6 +578,20 @@ func (r *runBudget) total() int64 {
 // under "Where it stopped".
 type refusal struct{ error }
 
+// errTaskBlockedMeanwhile is saveDraft's answer for a task a person blocked
+// while its call was in flight: nothing was written.
+var errTaskBlockedMeanwhile = errors.New("the task was blocked while its call was in flight")
+
+// answerDiscarded is what execute returns for that task. It is neither a
+// refusal (the run goes on) nor a failure (the task is already blocked, by a
+// person, with a reason that spend() must not overwrite with its own), so
+// spend() counts it on its own.
+type answerDiscarded struct{ taskID int }
+
+func (a answerDiscarded) Error() string {
+	return fmt.Sprintf("task %d was blocked while its call was in flight; the answer was discarded", a.taskID)
+}
+
 func spend(db, roDB *sql.DB, ests []estimate, maxTok int, cap money.Cents, only int, b bus, gw gatewayConfig) error {
 	run := &runBudget{ceilingMicros: int64(cap) * 10_000}
 
@@ -562,7 +655,7 @@ func spend(db, roDB *sql.DB, ests []estimate, maxTok int, cap money.Cents, only 
 
 	var wg sync.WaitGroup
 	var mu sync.Mutex
-	var done, blocked int
+	var done, blocked, discarded int
 	var stop bool
 
 	sem := make(chan struct{}, atOnce)
@@ -596,6 +689,12 @@ func spend(db, roDB *sql.DB, ests []estimate, maxTok int, cap money.Cents, only 
 				done++
 				return
 			}
+			var d answerDiscarded
+			if errors.As(err, &d) {
+				// Already blocked by a person: leave their reason alone.
+				discarded++
+				return
+			}
 			var r refusal
 			if errors.As(err, &r) {
 				// A refusal stops the run. Nothing new starts; what is already
@@ -627,9 +726,9 @@ func spend(db, roDB *sql.DB, ests []estimate, maxTok int, cap money.Cents, only 
 
 	settled, charged, gwSpent, gwKnown := run.settlement()
 	if gwKnown {
-		fmt.Printf("\n%d of %d done, %d blocked. Spent %s of a %s ceiling: %d of %d task(s) settled by the "+
+		fmt.Printf("\n%d of %d done, %d blocked%s. Spent %s of a %s ceiling: %d of %d task(s) settled by the "+
 			"gateway, whose own run total is %s.",
-			done, len(todo), blocked, usd(run.total()), cap, settled, charged, usd(gwSpent))
+			done, len(todo), blocked, discardedClause(discarded), usd(run.total()), cap, settled, charged, usd(gwSpent))
 		// The gateway's own ledger is the bill. When it is higher than what
 		// this run booked, a call it settled never reached this runner (a
 		// response lost in transit, a task that failed before a header could
@@ -641,9 +740,9 @@ func spend(db, roDB *sql.DB, ests []estimate, maxTok int, cap money.Cents, only 
 		}
 		fmt.Println()
 	} else {
-		fmt.Printf("\n%d of %d done, %d blocked. Spent %s of a %s ceiling: %d of %d task(s) settled by the "+
+		fmt.Printf("\n%d of %d done, %d blocked%s. Spent %s of a %s ceiling: %d of %d task(s) settled by the "+
 			"gateway, the rest priced by the runner (no settlement header).\n",
-			done, len(todo), blocked, usd(run.total()), cap, settled, charged)
+			done, len(todo), blocked, discardedClause(discarded), usd(run.total()), cap, settled, charged)
 	}
 	fmt.Printf("The board now carries %s against these tasks, which is that "+
 		"total rounded up to whole cents.\n", booked)

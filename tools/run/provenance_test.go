@@ -213,7 +213,7 @@ func runnerTasks(t *testing.T, n int) (*sql.DB, []crew.Task, crew.Analyst) {
 		}
 		tasks = append(tasks, crew.Task{ID: int(id), Title: title})
 	}
-	return db, tasks, crew.Analyst{Name: "y.mercer"}
+	return db, tasks, crew.Analyst{Name: "y.mercer", Owner: "alice"}
 }
 
 func spentOn(t *testing.T, db *sql.DB, task int) int64 {

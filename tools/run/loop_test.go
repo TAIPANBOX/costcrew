@@ -52,14 +52,14 @@ func TestTheLoopStopsAtMaxRounds(t *testing.T) {
 
 	db := packetTestDB(t)
 	task := crew.Task{ID: 1, Title: "t"}
-	a := crew.Analyst{Name: "x", State: "active"} // figures-read is the unconditional floor
+	a := crew.Analyst{Name: "x", Owner: "alice", State: "active"} // figures-read is the unconditional floor
 	e := estimate{Task: task, Analyst: a, Engine: "anthropic", Model: "claude-x",
 		Price: engines.Price{InPerM: 1, OutPerM: 1}, WorstMicros: 1_000, Priced: true}
 	gw := gatewayConfig{URL: srv.URL, Host: "x.test", CeilingUSD: money.Cents(10_000_00)}
 
 	// Too tight for six rounds: refused before the first call is made.
 	tight := &runBudget{ceilingMicros: 1_000*maxToolRounds - 1}
-	if err := execute(context.Background(), db, nil, e, 100, tight, noBus(), gw); err == nil {
+	if err := execute(context.Background(), db, nil, e, 100, tight, bus{run: "crew-test"}, gw); err == nil {
 		t.Fatal("a ceiling one micro short of six rounds' worth was not refused: " +
 			"the reservation does not actually cover six rounds")
 	}
@@ -70,7 +70,7 @@ func TestTheLoopStopsAtMaxRounds(t *testing.T) {
 
 	// Exactly six rounds' worth: succeeds, and uses every one of them.
 	fits := &runBudget{ceilingMicros: 1_000 * maxToolRounds}
-	if err := execute(context.Background(), db, nil, e, 100, fits, noBus(), gw); err != nil {
+	if err := execute(context.Background(), db, nil, e, 100, fits, bus{run: "crew-test"}, gw); err != nil {
 		t.Fatalf("a ceiling that is exactly six rounds' worth was refused: %v", err)
 	}
 	if calls != maxToolRounds {
@@ -109,7 +109,7 @@ func TestAFakeAnthropicServerAsksForAToolThenAnswers(t *testing.T) {
 	defer srv.Close()
 
 	task := crew.Task{ID: 1, Title: "explain it", Anomaly: an.ID, Desk: an.Source}
-	a := crew.Analyst{Name: "investigator-aws", State: "active",
+	a := crew.Analyst{Name: "investigator-aws", Owner: "alice", State: "active",
 		Skills: []string{"driver-classification"}} // figures-read, sql-readonly
 	e := estimate{Task: task, Analyst: a, Engine: "anthropic", Model: "claude-x",
 		Price: engines.Price{InPerM: 1, OutPerM: 1}, WorstMicros: 5_000, Priced: true}

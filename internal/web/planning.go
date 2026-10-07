@@ -387,10 +387,20 @@ func (s *Server) askPlan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Whose spend this is (costcrew#73): the person who clicked, as the root,
+	// then the supervisor. Not the roster's owner of the supervisor: this
+	// money is spent on THIS person's request, and TokenFuse folds an owner
+	// from the first user:// entry of the chain.
+	chain, cerr := deliver.OnBehalfOfChain(s.host, u.Username, "supervisor")
+	if cerr != nil {
+		s.refusePlanAsk(w, view, u, label, month, 0, "the call is refused before it is made: "+cerr.Error())
+		return
+	}
 	runID := fmt.Sprintf("plan-ask-%d", time.Now().UTC().UnixNano())
 	gw := deliver.Gateway{
 		URL: s.gateway, OpenAIURL: s.gatewayOpenAI, RunID: runID, AgentID: stack.AgentURI(s.host, "supervisor"),
-		BudgetUSD: deliver.GatewayBudgetUSD(sup.PerTask, sup.PerTask),
+		BudgetUSD:  deliver.GatewayBudgetUSD(sup.PerTask, sup.PerTask),
+		OnBehalfOf: chain,
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
 	defer cancel()
