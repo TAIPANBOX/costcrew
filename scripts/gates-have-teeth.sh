@@ -2660,11 +2660,11 @@ run_case $'blocked meanwhile: the discarded answer\'s charge is not booked' \
 	tools/run/live.go \
 	$'			if charge > 0 {\n				if e2 := recordCharge(db, e.Task.ID, charge); e2 != nil {\n					fmt.Fprintf(os.Stderr, "  could not record the charge of the discarded' \
 	$'			if false {\n				if e2 := recordCharge(db, e.Task.ID, charge); e2 != nil {\n					fmt.Fprintf(os.Stderr, "  could not record the charge of the discarded'
-run_case $'blocked meanwhile: the run overwrites the person\'s block with its own reason' \
+run_case $'blocked meanwhile: the run counts a discarded answer as a failed task' \
 	fail \
 	./tools/run \
 	$'TestARunLeavesAPersonsBlockAloneAndCountsTheDiscardedAnswer' \
-	$'the person\'s block was rewritten' \
+	$'the summary does not say 0 of 1 done and 1 discarded' \
 	tools/run/live.go \
 	$'			if errors.As(err, &d) {\n				// Already blocked by a person' \
 	$'			if errors.As(err, &d) && false {\n				// Already blocked by a person'
