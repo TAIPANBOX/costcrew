@@ -84,15 +84,29 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 1105 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 272 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 381 scenarios, both directions
+go test ./...                        # 1149 tests, 21 packages
+./scripts/gates-have-teeth.sh        # 297 cases; needs a clean tree
+./scripts/features-are-bound.sh      # 396 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 govulncheck ./...                    # CI runs it, pinned at v1.8.0; reports only vulnerabilities the code can reach
 staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refused PR #19 on two findings the list above never asked for; a staticcheck built for an older Go cannot read this module, so on such a machine CI is the only place it runs
 ```
+
+Invariants 74 and 75 (sign-in through the organisation's identity provider
+with OpenID Connect; registration closed and passwords kept only for the
+command line's break-glass account while one is configured) added 44 tests
+(`internal/sso/sso_test.go`, 19; `internal/sso/client_internal_test.go`, 2;
+`internal/auth/external_test.go`, 11; `internal/web/oidc_test.go`, 12), one
+package (`internal/sso`), 25 `gates-have-teeth.sh` cases (23 `fail`, 2
+`pass`, and one existing egress case's expectation widened to the two doors),
+15 scenarios (`features/sign-in-through-the-identity-provider.feature`, new)
+and two GET routes (`/login/oidc`, `/login/oidc/callback`), no write route:
+998 -> 1042 tests, 20 -> 21 packages, 196 -> 221 cases, 325 -> 340
+scenarios, 58 -> 60 GET routes, re-measured on this branch with the three
+commands this block already names. Two new dependencies,
+`github.com/coreos/go-oidc/v3` and `golang.org/x/oauth2`.
 
 Invariants 61 to 64 (a session token is never stored; every failed sign-in
 says the same thing; the console's own files are private; the console's
@@ -455,12 +469,14 @@ true. An invariant with no check, written as though it had one, is worse than
 an absent invariant.
 
 1. **No route answers a stranger.** Every route turns an unauthenticated
-   caller away, with seven exceptions listed in `publicRoutes`, each carrying
+   caller away, with nine exceptions listed in `publicRoutes`, each carrying
    its reason in the source. They are not one kind of thing: `/login`,
-   `/logout`, `/healthz` and `/static/` genuinely answer anybody; `/signup` is
+   `/logout`, `/healthz` and `/static/` genuinely answer anybody;
+   `/login/oidc` and `/login/oidc/callback` are the way in through an identity
+   provider (invariant 74) and answer 404 when none is configured; `/signup` is
    open only while nobody can administer the installation (invariant 10); and
    `/calendar` and `/stats` are aliases that redirect to a guarded page.
-   *(gate: `TestEveryRouteRequiresASession`, which walks all 58 GET routes
+   *(gate: `TestEveryRouteRequiresASession`, which walks all 60 GET routes
    registered in `server.go`. Its regexp is anchored to the registration and
    not to the string `HandleFunc`, because it once fired on a route named in a
    COMMENT, and a gate that fires on prose gets deleted the first week.)*
@@ -3650,7 +3666,8 @@ an absent invariant.
 64. **The console makes no outbound call of its own; `deliver.Call` is the one
     route, and only behind `-gateway`.** README.md and the Dockerfile said the
     console makes no outbound call while serving a page, and this file listed
-    that as a decision with no gate. The exception is real and is the only one:
+    that as a decision with no gate. The exception is real, and since
+    invariant 74 there is a second, named the same way below:
     `POST /sprint/plan/ask` calls a model through `deliver.Call`
     (`internal/web/planning.go`), refusing when neither `-gateway` nor
     `-gateway-openai` is set (invariant 33). A `go/ast` walk over every non-test
@@ -3663,8 +3680,13 @@ an absent invariant.
     import of `net/http`, `net` or `os/exec` is refused by name because the walk
     cannot read it. `deliver.Call` must appear in exactly one place, the
     plan-ask handler. A second walk follows the module's own imports from both
-    roots and requires that, among the packages reached, only `internal/deliver`
-    builds outbound requests and `internal/enforce` is not reached at all.
+    roots and requires that, among the packages reached, only the named doors
+    build outbound requests and `internal/enforce` is not reached at all. The
+    doors are a map in `internal/web/egress_test.go`, each with its reason and,
+    where given, the one file the construction must stay in: `internal/deliver`
+    (the plan-ask) and, since invariant 74, `internal/sso` (discovery, the JWKS
+    and the token endpoint of the configured issuer, `client.go` only, built
+    only when `-oidc-issuer` is set).
 
     This is a reading of today's source, the same limit invariants 49 and 50
     state for their own walks. It catches the shapes a reasonable accident
@@ -4090,6 +4112,153 @@ an absent invariant.
     `TestADropInSpendIsNotMoneyFound` still holds the Results side.
     `scripts/gates-have-teeth.sh`'s `money found: the crew-cost KPI sums the
     absolute excess again` case puts the absolute query back into `KPIs`.)*
+
+74. **Sign-in through the organisation's identity provider believes nothing it
+    has not checked, and the provider decides access at every sign-in.** Until
+    now every account was local (scrypt, invariants 61 and 62), so
+    multi-factor authentication and offboarding were the console's problem and
+    it had neither: a person who left the organisation kept a working password
+    here until somebody remembered to remove it. `-oidc-issuer` (with
+    `-oidc-client-id`, `-oidc-redirect-url`, `-oidc-roles` and the client
+    secret from `COSTCREW_OIDC_CLIENT_SECRET` or `-oidc-client-secret-file`,
+    every flag with a `COSTCREW_OIDC_*` twin) turns on the authorization code
+    flow with PKCE (S256), a state and a nonce, in `internal/sso`, on
+    `github.com/coreos/go-oidc/v3` and `golang.org/x/oauth2`. Off by default,
+    and a configuration that is partly there refuses to start (`sso.Load`).
+
+    What is checked, and where. go-oidc checks the ID token's signature
+    against the issuer's JWKS, `iss`, `aud` and `exp`, and refuses a discovery
+    document that names another issuer. It leaves the rest to the caller, and
+    `sso.Provider.Finish` does it: the nonce (present and equal to the one
+    sent, constant-time), `iat` (present, at most `MaxClockSkew`, two minutes,
+    in the future, and not from before this sign-in began), `azp` (required
+    to be this client when the token has more than one audience, and when it
+    is present at all), and a subject. The state is stored only as its
+    SHA-256, is spent by the first redirect that names it (`DELETE ...
+    RETURNING`), lapses after `PendingLifetime` (ten minutes), and must equal
+    the state cookie of the browser presenting it, so a redirect captured from
+    one browser cannot be finished in another (a login CSRF), and a state
+    presented by the wrong browser is burned rather than left for the right
+    one. The person is shown one of two fixed sentences, never what the
+    provider said; the reason goes to the journal (`external_sign_in_failed`)
+    with no token, code, nonce, verifier or secret in it, cut to 512 bytes and
+    stripped of control characters, because go-oidc puts the body of a failed
+    discovery response into its error. The discovered authorization endpoint,
+    where the browser is sent, must be https or loopback like the issuer. The client secret is
+    an `sso.Secret`, which prints as `[redacted]` under every verb, and has no
+    flag, because a flag is visible in the process list.
+
+    What the provider decides (`auth.SignInExternal`). An identity is
+    (issuer, subject), never a name or an email: the claim named by
+    `-oidc-username-claim` (default `email`) only names the account the first
+    time. A value of the claim named by `-oidc-roles-claim` (default `groups`)
+    maps to viewer, operator or admin through `-oidc-roles`
+    (`value=role;value=role`, split at the last `=` so an LDAP distinguished
+    name works); several matches take the highest; **no match is no access,
+    never a default role**, and no account is created. The first sign-in
+    creates the account at the mapped role, with no usable password. Every
+    later one sets the role to what the mapping says now, up or down, and the
+    role lives on the account, so a session already open carries the new one.
+    A sign-in whose claim no longer maps ends every session the account
+    holds. An identity whose name is already held by another account (a local
+    one, or another subject's) is refused: linking by name would let whoever
+    controls a name at the provider become the local admin of the same name.
+
+    Two neighbours this touches. The console's Content-Security-Policy says
+    `form-action 'self'` (costcrew#97), and a browser applies form-action to
+    the redirect after a form submission, so the way to the provider is a link
+    to `GET /login/oidc`, which answers the redirect itself; every form on the
+    page still posts here. And invariant 64's egress gate now names two doors
+    rather than one: `internal/sso` may build outbound requests, in
+    `client.go` only, where the one client refuses to follow a redirect,
+    refuses any URL that is not https unless its host is loopback, and caps
+    every body at one mebibyte (go-oidc reads discovery, the JWKS and the
+    token response with `io.ReadAll`). It is built only when an issuer is
+    configured and contacts the provider only once somebody starts a sign-in,
+    so a provider that is down costs that sign-in and not the console.
+    *(gate: `TestAGoodSignInEstablishesWhoAndWhichRole`,
+    `TestTheIDTokenIsCheckedClaimByClaim` (wrong audience, expired, bad
+    signature, wrong issuer, missing or wrong nonce, missing iat, iat beyond
+    the skew either way, missing subject, two audiences without `azp`, `azp`
+    naming another client, and both boundaries that must complete),
+    `TestAStateIsSpentByItsFirstUse`, `TestAStateFromAnotherBrowserIsRefusedAndBurned`,
+    `TestAStateOlderThanItsLifetimeIsRefused`, `TestThePendingRowHoldsNoState`,
+    `TestAnErrorOrNoCodeFromTheProviderIsRefused`,
+    `TestTheClaimsThatNameAndMapAreReadStrictly` (a missing, numeric, empty,
+    129-byte, control or bidi-override name; a groups claim that is missing,
+    a number, an object, unmapped or empty, a single string, a mixed array),
+    `TestTheProviderIsNotContactedUntilASignInStarts`,
+    `TestAProviderThatIsDownIsUnreachableNotACrash`,
+    `TestADiscoveryDocumentNamingAnotherIssuerIsRefused`,
+    `TestADiscoveredAuthorizationEndpointOverPlainHTTPIsRefused`,
+    `TestWhatTheProviderSaysReachesTheJournalBoundedAndPlain`,
+    `TestAResponseOverTheCapIsRefusedNotRead`, `TestNoRedirectFromTheProviderIsFollowed`,
+    `TestLoadIsOffWhenNothingIsConfigured`, `TestLoadRefusesWhatIsHalfConfiguredOrUnsafe`,
+    `TestTheRoleMappingIsStrictAndHasNoDefault`,
+    `TestTheClientSecretComesFromOnePlaceAndNeverPrints` in `internal/sso`;
+    `TestTheSignInClientReachesOnlyHTTPSOrLoopback`, `TestTheSignInClientIsTheGuardedOne`
+    in its internal test; `TestTheFirstExternalSignInCreatesTheAccountAtTheMappedRole`,
+    `TestARoleChangeAtTheProviderAppliesAtTheNextSignIn`,
+    `TestNoMappedRoleRefusesAndEndsEverySession`, `TestNoMappedRoleNeverCreatesAnAccount`,
+    `TestALocalAccountIsNeverAdoptedByName`, `TestTheSubjectNotTheNameIsTheLink`,
+    `TestAnExternalAccountHasNoUsablePassword`,
+    `TestAnAccountAnAdminRemovedComesBackAtTheMappedRole`,
+    `TestExternalSignInRefusesWhatIsNotAnIdentity`, `TestExternalSignInIsJournaled`
+    in `internal/auth`; `TestSignInThroughTheProviderCreatesTheAccountAndASession`,
+    `TestEveryRefusedSignInLeavesNoSessionAndNoAccount`, `TestAReplayedCallbackIsRefused`,
+    `TestACallbackInABrowserThatDidNotStartItIsRefused`,
+    `TestARoleDowngradeAtTheProviderAppliesAtTheNextSignIn`,
+    `TestRemovalFromTheGroupEndsEverySessionAtTheNextSignIn`,
+    `TestTheSignInPageReachesTheProviderByALinkNotAForm`,
+    `TestWithNoProviderTheOIDCRoutesAreNotThere`,
+    `TestTheClientSecretAppearsInNoPageAndNoJournalLine` and, for the second
+    door, `TestOnlyTheDeliveryPackageAmongThoseTheConsoleImportsReachesTheNetwork`
+    in `internal/web`, every one against `internal/sso/ssotest`, an identity
+    provider in the test process with its own RSA key and a second key its
+    JWKS never names. Twenty-one `fail` cases and two `pass` cases in
+    `gates-have-teeth.sh`, each switching one check off where it is made, plus
+    the existing egress case's expectation widened to the two doors. One of
+    them was TOOTHLESS on its first run, measured 2026-10-07: with the state
+    read rather than spent, `TestAReplayedCallbackIsRefused` still passed,
+    because the fake provider refuses a code exchanged twice, so the replay
+    failed for the provider's reason; the case is held by
+    `TestAStateIsSpentByItsFirstUse`, which also requires the replay never to
+    reach the token endpoint.)*
+    What this does not do: a person removed from the group who never signs in
+    again keeps a session already open until it expires (twelve hours), because
+    nothing here is told of the removal (no back-channel logout, no SCIM); an
+    admin's role change on `/accounts` for a provider's account lasts until
+    that person's next sign-in, which sets it back to the mapping; an account
+    that existed before the provider was configured cannot be linked to an
+    identity at all (the name is refused), so moving existing people onto the
+    provider means removing their local account first; the provider's
+    `userinfo` endpoint is not read, so a groups claim the provider puts only
+    there is not seen; and no real provider (Entra ID, Okta, Keycloak, Google)
+    has been run against this, only the one in the test process.
+
+75. **With a provider configured, nobody registers through the form, and
+    `-oidc-only` leaves a password only to the command line's break-glass
+    account.** Invariant 10 opens `/signup` to the first comer while no admin
+    exists. With a provider, that is exactly the moment the provider demotes
+    the last admin, so the form is closed outright while an issuer is
+    configured (`Server.signupOpen`), and an installation with no account yet
+    shows the sign-in page, not the registration form. `-oidc-only`
+    (`COSTCREW_OIDC_ONLY`) switches password sign-in off for every account
+    except one whose password was set with `-set-password`, recorded in
+    `break_glass` by `auth.SetPassword`, the one way back in when the provider
+    itself is down. Any other account's right password answers exactly what a
+    wrong one does, after the same hashing work (`auth.AuthenticateBreakGlass`,
+    invariant 62 kept), so the form cannot be asked which accounts are the
+    break-glass ones. Without `-oidc-only`, local password sign-in is unchanged.
+    *(gate: `TestRegistrationIsClosedWhileAProviderIsConfigured`,
+    `TestOIDCOnlyRefusesPasswordsExceptTheCommandLinesBreakGlass` and
+    `TestAProviderThatIsDownLeavesPasswordSignInWorking` in `internal/web`;
+    `TestUnderOIDCOnlyAPasswordSignsInOnlyToABreakGlassAccount` in
+    `internal/auth`. Two `fail` cases in `gates-have-teeth.sh`.)*
+    What this does not do: an installation switched to `-oidc-only` whose
+    admin signed up through the form has no break-glass account until
+    somebody runs `-set-password` for one; and a break-glass password is as
+    strong as whoever chose it, with no second factor.
 
 ## Decisions that have no gate yet
 

@@ -112,10 +112,13 @@ flowchart TB
   `agent-passport` SPEC 6.2 under the source `costcrew`, schema v0.2.
 - **Enforces**: nothing. `enforced: false` is stamped on every event, and
   `internal/enforce` is a separate binary the console never imports. The
-  console makes no outbound call while serving a page, with one exception: the
-  supervisor's plan-ask (`POST /sprint/plan/ask`) calls a model through
-  `deliver.Call`, and only when `-gateway` or `-gateway-openai` is set. A test
-  refuses any other way for the console to build an outbound request.
+  console makes no outbound call while serving a page, with two exceptions:
+  the supervisor's plan-ask (`POST /sprint/plan/ask`) calls a model through
+  `deliver.Call`, and only when `-gateway` or `-gateway-openai` is set; and
+  sign-in through the organisation's identity provider reaches that
+  provider's discovery document, keys and token endpoint, and only when
+  `-oidc-issuer` is set. A test refuses any other way for the console to
+  build an outbound request.
 
 ## The three rules that make the numbers usable
 
@@ -175,6 +178,53 @@ Inside the stack, `./up.sh --with-finops` from
 shared bus. Two flags carry the whole integration: `-stack-events` names the
 NDJSON file, and the name IS the integration because genaryx keys a read offset
 off the stem; `-stack-host` sets the `agent://` authority.
+
+### Sign in through your identity provider
+
+The console can hand sign-in to the organisation's identity provider with
+OpenID Connect, so multi-factor authentication and offboarding happen where
+the organisation already does them. It is off unless `-oidc-issuer` is set.
+Register the console at the provider as a confidential web client whose
+redirect URL is the console's own address followed by `/login/oidc/callback`.
+
+| Flag (environment twin) | Meaning |
+|---|---|
+| `-oidc-issuer` (`COSTCREW_OIDC_ISSUER`) | the issuer URL; https, or http only to a loopback host |
+| `-oidc-client-id` (`COSTCREW_OIDC_CLIENT_ID`) | the client id registered at the provider |
+| `COSTCREW_OIDC_CLIENT_SECRET`, or `-oidc-client-secret-file` (`COSTCREW_OIDC_CLIENT_SECRET_FILE`) | the client secret; one of the two, never both, and there is no flag for the value, because a flag shows in the process list |
+| `-oidc-redirect-url` (`COSTCREW_OIDC_REDIRECT_URL`) | the callback as the browser reaches it, for example `https://costcrew.example/login/oidc/callback` |
+| `-oidc-roles` (`COSTCREW_OIDC_ROLES`) | claim values to roles, `finops-viewers=viewer;finops-ops=operator;finops-admins=admin`; entries split on `;` and each at its last `=`, so an LDAP distinguished name works |
+| `-oidc-roles-claim` (`COSTCREW_OIDC_ROLES_CLAIM`) | the ID token claim the mapping reads; default `groups` |
+| `-oidc-username-claim` (`COSTCREW_OIDC_USERNAME_CLAIM`) | the claim a new account is named after; default `email` |
+| `-oidc-scopes` (`COSTCREW_OIDC_SCOPES`) | the scopes requested; default `openid email profile`; add `groups` where the provider needs it asked for |
+| `-oidc-only` (`COSTCREW_OIDC_ONLY`) | switch password sign-in off, except for accounts whose password was set with `-set-password` |
+
+What it does, in short. The flow is the authorization code flow with PKCE,
+a state bound to the browser and a nonce. The ID token's signature is checked
+against the provider's published keys, and its issuer, audience, expiry,
+issue time (two minutes of clock skew), nonce and authorized party are all
+checked before anything in it is used. The first sign-in creates the account
+at the role its group maps to. Every later sign-in applies the role the
+mapping gives now, so a change at the provider takes effect at the next
+sign-in. A person whose groups map to no role is refused and gets no account:
+there is no default role. If such a person still has an account here, every
+session it holds ends at that sign-in. While a provider is configured,
+`/signup` is closed. With `-oidc-only`, a password signs in only to an
+account set from the command line, which is the way back in when the
+provider itself is down:
+
+```sh
+costcrew -data ./local -set-password 'breakglass:a-long-password-kept-offline'
+```
+
+Limits worth knowing before relying on it. A person removed from the group
+who never signs in again keeps an open session until it expires (twelve
+hours): nothing tells the console about the removal. An account that existed
+before the provider was configured is never taken over by an identity with
+the same name; remove it first. The groups claim is read from the ID token,
+not from the provider's userinfo endpoint. It has been tested against an
+identity provider running inside the test suite, not yet against a named
+commercial one.
 
 ### The other two binaries in the image
 
