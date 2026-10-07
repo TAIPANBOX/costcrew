@@ -241,7 +241,12 @@ func TestOnlyTheOwnerOrAnAdminCanStampAUnitRule(t *testing.T) {
 
 	for _, who := range []string{"rando", "eyes"} {
 		c := h.as(t, who, who+"-password-2026")
-		code, _ := c.post(t, stampPath(art, ord), url.Values{"csrf": {c.csrf(t, "/board")}})
+		// With a reason for answering for somebody else (invariant 58), so
+		// the only thing standing between this stamp and a rule is who it
+		// is: without one the refusal would be the missing reason, and
+		// weakening mayAnswerFor itself would go unseen.
+		code, _ := c.post(t, stampPath(art, ord), url.Values{
+			"csrf": {c.csrf(t, "/board")}, "behalf_reason": {"covering for owner1 while they are out"}})
 		if code != 303 {
 			t.Fatalf("%s: answered %d, want a redirect", who, code)
 		}

@@ -54,7 +54,9 @@ type Option struct {
 	Evidence    []string
 	// Target is a class-specific structured target, carried verbatim as the
 	// raw JSON object the deliverable's options block named -- empty for
-	// every class but allocation.rule (C2-SPEC.md section 2) and
+	// every class but allocation.rule (C2-SPEC.md section 2; either
+	// {rule_id, method, share} or, for a customer unit, {unit,
+	// business_unit}, see unitrule.go) and
 	// driver.recurring and driver.one-time (DRIVER-WINDOW-SPEC.md section 2;
 	// shape and name reused from allocation.rule's own target so the
 	// classes' own validators sit beside each other rather than duplicate
