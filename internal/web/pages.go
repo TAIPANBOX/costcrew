@@ -80,7 +80,7 @@ func (s *Server) guard(w http.ResponseWriter, r *http.Request) *auth.User {
 
 // entryPoint is /signup while the installation is unclaimed, /login after.
 func (s *Server) entryPoint() string {
-	if n, err := s.au.Count(); err == nil && n == 0 {
+	if n, err := s.au.Count(); err == nil && n == 0 && s.oidc == nil {
 		return "/signup"
 	}
 	return "/login"
