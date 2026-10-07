@@ -47,7 +47,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/TAIPANBOX/costcrew/internal/crew"
 	"github.com/TAIPANBOX/costcrew/internal/money"
+	"github.com/TAIPANBOX/costcrew/internal/stack"
 )
 
 // Gateway is what ONE call tells TokenFuse: who is asking, on whose run,
@@ -80,6 +82,14 @@ type Gateway struct {
 	// never be invented for either. It exists so a caller that DOES have
 	// one someday can set it without another signature change.
 	ParentRunID string
+
+	// OnBehalfOf is the delegation chain sent as x-fuse-on-behalf-of: the
+	// person the call is for as a user:// root, then the acting agent
+	// (OnBehalfOfChain builds it). TokenFuse folds the first user:// entry
+	// into its owner attribution, so a call with no chain is spend nobody
+	// answers for (costcrew#73). RequireIdentity refuses a gateway call
+	// without one, so an empty or partial chain is never sent.
+	OnBehalfOf []string
 
 	// x-fuse-outcome is deliberately not a field here and is never sent by
 	// this file. It is TokenFuse's opaque tag for how a call ended, and
@@ -216,7 +226,8 @@ func Call(ctx context.Context, engine, model, prompt string, maxTok int, gw Gate
 // is never conditional on RunID being non-empty: openBus mints one for every
 // invocation, and RequireIdentity refuses first when a caller somehow still
 // reaches here with one empty. x-fuse-outcome is intentionally not set. See
-// Gateway's own comment.
+// Gateway's own comment. x-fuse-on-behalf-of is sent whenever the Gateway
+// carries a chain, and RequireIdentity is what makes it always carry one.
 func SetFuseHeaders(req *http.Request, gw Gateway) {
 	req.Header.Set("x-fuse-run-id", gw.RunID)
 	req.Header.Set("x-fuse-agent-id", gw.AgentID)
@@ -224,6 +235,67 @@ func SetFuseHeaders(req *http.Request, gw Gateway) {
 	if gw.ParentRunID != "" {
 		req.Header.Set("x-fuse-parent-run-id", gw.ParentRunID)
 	}
+	if len(gw.OnBehalfOf) > 0 {
+		req.Header.Set("x-fuse-on-behalf-of", strings.Join(gw.OnBehalfOf, ","))
+	}
+}
+
+// AnalystOnBehalfOf is OnBehalfOfChain for an analyst on the roster: its
+// owner is the account that hired it. "unclaimed" is what a roster seeded
+// without -stack-owner stamps on every agent (crew.SeededOwner); the console
+// treats it as no owner everywhere, and sending it would file the crew's
+// spend under a person who is not one, so it is refused like an empty owner.
+func AnalystOnBehalfOf(host string, a crew.Analyst) ([]string, error) {
+	if strings.TrimSpace(a.Owner) == crew.SeededOwner("") {
+		return nil, fmt.Errorf("%s has no owner (its owner is the placeholder %q), so its "+
+			"spend would reach the gateway attributed to nobody: it is refused rather than "+
+			"sent with an empty x-fuse-on-behalf-of chain; place it with a transfer on its "+
+			"agent card, or start the console with -stack-owner", a.Name, a.Owner)
+	}
+	return OnBehalfOfChain(host, a.Owner, a.Name)
+}
+
+// maxOnBehalfOfBytes is TokenFuse's own sanity cap on the raw header
+// (crates/gateway/src/proxy.rs ON_BEHALF_OF_MAX_BYTES): a longer value is
+// ignored without an error, so a chain that long is refused here instead.
+const maxOnBehalfOfBytes = 4096
+
+// OnBehalfOfChain is the x-fuse-on-behalf-of chain for one call: the owner as
+// a user://<host>/<owner> root, then the analyst's agent://<host>/<name>.
+//
+// The grammar is TokenFuse's (chainproof::declared_chain): comma-separated,
+// root first, entries trimmed, empty ones dropped. Its owner fold takes the
+// first user:// entry. An owner is an account name nobody validated for this,
+// so it is escaped as a path segment (url.PathEscape): a comma, a space, a
+// control byte or a non-ASCII byte in it can neither add a chain entry nor
+// leave a byte the receiving side's header reader would drop. An ordinary
+// account name is unchanged.
+//
+// An owner that is empty after trimming is an error naming the analyst: the
+// alternative was an empty or partial chain, which TokenFuse folds into
+// "unassigned".
+func OnBehalfOfChain(host, owner, analyst string) ([]string, error) {
+	owner = strings.TrimSpace(owner)
+	if owner == "" {
+		return nil, fmt.Errorf("%s has no owner, so its spend would reach the gateway "+
+			"attributed to nobody: it is refused rather than sent with an empty "+
+			"x-fuse-on-behalf-of chain", analyst)
+	}
+	if host == "" {
+		host = "costcrew.local"
+	}
+	agent := stack.AgentURI(host, analyst)
+	if strings.ContainsAny(agent, ", \t\r\n") {
+		return nil, fmt.Errorf("the agent id %q cannot ride in x-fuse-on-behalf-of "+
+			"(it holds a comma or whitespace)", agent)
+	}
+	chain := []string{"user://" + host + "/" + url.PathEscape(owner), agent}
+	if n := len(strings.Join(chain, ",")); n > maxOnBehalfOfBytes {
+		return nil, fmt.Errorf("the chain for %s is %d bytes and TokenFuse ignores "+
+			"x-fuse-on-behalf-of over %d, so the owner would be dropped silently",
+			analyst, n, maxOnBehalfOfBytes)
+	}
+	return chain, nil
 }
 
 // RequireIdentity is the boundary (B6B-SPEC.md section 4): a gateway
@@ -235,7 +307,9 @@ func SetFuseHeaders(req *http.Request, gw Gateway) {
 // unconditionally (bus.go's newRunID) and its agent id always comes from an
 // analyst price() has already required to be named, so this never fires there
 // in practice; tools/bench mints its own run id and reads a case's analyst
-// fresh, so this is where the check actually earns its place.
+// fresh, so this is where the check actually earns its place. Since
+// costcrew#73 it also refuses a call with no owner chain (OnBehalfOf), the
+// third thing TokenFuse needs to attribute spend to a person.
 func RequireIdentity(gw Gateway, routedThroughGateway bool) error {
 	if !routedThroughGateway {
 		return nil
@@ -247,6 +321,11 @@ func RequireIdentity(gw Gateway, routedThroughGateway bool) error {
 	if gw.AgentID == "" {
 		return fmt.Errorf("the gateway is set but this call's agent id is " +
 			"empty: TokenFuse cannot attribute spend with no agent id")
+	}
+	if len(gw.OnBehalfOf) == 0 {
+		return fmt.Errorf("the gateway is set but %s has no owner chain: TokenFuse "+
+			"would attribute its spend to nobody, so the call is refused before it "+
+			"is made (costcrew#73)", gw.AgentID)
 	}
 	return nil
 }

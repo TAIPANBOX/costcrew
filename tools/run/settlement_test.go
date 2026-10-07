@@ -148,7 +148,7 @@ func TestTheSummaryLineReadsTheSettledTotalAndTheGatewaysOwnRunTotal(t *testing.
 
 	var err error
 	out := captureStdout(t, func() {
-		err = spend(db, nil, []estimate{e}, 200, money.Cents(15), 0, bus{}, gw)
+		err = spend(db, nil, []estimate{e}, 200, money.Cents(15), 0, bus{run: "crew-test"}, gw)
 	})
 	if err != nil {
 		t.Fatalf("spend: %v", err)
@@ -200,7 +200,7 @@ func TestFourTasksUnderOneRunIdAreNotOverCountedByTheCumulativeHeader(t *testing
 
 	var err error
 	out := captureStdout(t, func() {
-		err = spend(db, nil, ests, 100, money.Cents(100), 0, bus{}, gw)
+		err = spend(db, nil, ests, 100, money.Cents(100), 0, bus{run: "crew-test"}, gw)
 	})
 	if err != nil {
 		t.Fatalf("spend: %v", err)
@@ -274,7 +274,7 @@ func TestAHostileSettlementFallsBackToTheRunnersOwnPriceAndSaysSo(t *testing.T) 
 
 			var err error
 			out := captureStdout(t, func() {
-				err = execute(context.Background(), db, nil, e, 100, run, bus{}, gw)
+				err = execute(context.Background(), db, nil, e, 100, run, bus{run: "crew-test"}, gw)
 			})
 			if err != nil {
 				t.Fatalf("execute: %v", err)
@@ -353,14 +353,14 @@ func TestASettlementAboveTheReservationStillCountsAgainstTheCeiling(t *testing.T
 	e2 := estimate{Task: tasks[1], Analyst: analyst, Engine: "anthropic",
 		Model: "claude-x", Price: price, WorstMicros: 1_000, Priced: true}
 
-	if err := execute(context.Background(), db, nil, e1, 100, run, bus{}, gw); err != nil {
+	if err := execute(context.Background(), db, nil, e1, 100, run, bus{run: "crew-test"}, gw); err != nil {
 		t.Fatalf("the first task was refused: %v", err)
 	}
 	if got := run.total(); got != 15_000 {
 		t.Errorf("run.total() = %d, want 15000 (the gateway's own settlement of the first call)", got)
 	}
 
-	err := execute(context.Background(), db, nil, e2, 100, run, bus{}, gw)
+	err := execute(context.Background(), db, nil, e2, 100, run, bus{run: "crew-test"}, gw)
 	if !isRefusal(err) {
 		t.Errorf("the second task was let through (%d calls, err %v): the ceiling was "+
 			"checked against the runner's own price of the first call, not the gateway's "+
