@@ -84,15 +84,49 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 1050 tests, 20 packages
-./scripts/gates-have-teeth.sh        # 220 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 341 scenarios, both directions
+go test ./...                        # 1274 tests, 27 packages
+./scripts/gates-have-teeth.sh        # 353 cases; needs a clean tree
+./scripts/features-are-bound.sh      # 412 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 govulncheck ./...                    # CI runs it, pinned at v1.8.0; reports only vulnerabilities the code can reach
 staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refused PR #19 on two findings the list above never asked for; a staticcheck built for an older Go cannot read this module, so on such a machine CI is the only place it runs
 ```
+
+Invariants 74 and 75 (sign-in through the organisation's identity provider
+with OpenID Connect; registration closed and passwords kept only for the
+command line's break-glass account while one is configured) added 44 tests
+(`internal/sso/sso_test.go`, 19; `internal/sso/client_internal_test.go`, 2;
+`internal/auth/external_test.go`, 11; `internal/web/oidc_test.go`, 12), one
+package (`internal/sso`), 25 `gates-have-teeth.sh` cases (23 `fail`, 2
+`pass`, and one existing egress case's expectation widened to the two doors),
+15 scenarios (`features/sign-in-through-the-identity-provider.feature`, new)
+and two GET routes (`/login/oidc`, `/login/oidc/callback`), no write route:
+998 -> 1042 tests, 20 -> 21 packages, 196 -> 221 cases, 325 -> 340
+scenarios, 58 -> 60 GET routes, re-measured on this branch with the three
+commands this block already names. Two new dependencies,
+`github.com/coreos/go-oidc/v3` and `golang.org/x/oauth2`.
+
+Test coverage of the five tools that had none and of `internal/spiffe` (no
+invariant, no behaviour change, no route and no scenario: a scenario would have
+been back-derived from the code, which this file's invariant 14 refuses) added
+73 tests (`tools/parity`, 23; `tools/stack`, 17; `tools/enforce`, 13;
+`tools/idryxsource`, 8; `internal/spiffe`, 7; `tools/recon`, 5) and 32
+`gates-have-teeth.sh` cases (26 `fail`, 6 `pass`, five or six per package): 993
+-> 1066 tests, 20 -> 26 packages with tests, 192 -> 224 cases, re-measured on
+this branch with the commands this block names. Coverage, `go test ./...
+-coverpkg=./... -coverprofile`, whole module 77.9% -> 82.6% of 16,318
+statements; `tools/parity` 0% -> 94.6%, `tools/stack` 0% -> 96.4%,
+`tools/enforce` 0% -> 98.7%, `tools/idryxsource` 0% -> 95.7%, `tools/recon` 0%
+-> 97.9%, `internal/spiffe` 0% -> 94.4% (per package, own tests only). Each
+`main()` became a one-line wrapper over `run(args, stdout, stderr) int` so a
+test reads what a person would read; `enforce` and `idryxsource` declare their
+flags through the package-level `flag.String` calls on a fresh `CommandLine`,
+the shape `internal/manifest` reads `components.json` against and
+`tools/bench/main.go` already documents. What `internal/spiffe` leaves
+uncovered: the branch where the Workload API answers and then issues no SVID,
+which the library's own source makes unreachable through a real agent.
 
 Invariants 61 to 64 (a session token is never stored; every failed sign-in
 says the same thing; the console's own files are private; the console's
@@ -118,6 +152,42 @@ route: 993 -> 998 tests, 192 -> 196 cases, 320 -> 325 scenarios (measured
 after invariants 61 to 64 merged), one more feature file, 58 GET routes unchanged, re-measured on this branch with the
 three commands this block already names. `components.json` gained
 `checked.image` on four components.
+
+Invariant 59 (the HTTP edge: security headers on every response, request
+bodies capped, server timeouts) added 18 tests
+(`internal/web/hardening_test.go`, 16; `internal/web/httpserver_internal_test.go`,
+1; `cmd/costcrew/server_test.go`, 1), 17 `gates-have-teeth.sh` cases (sixteen
+`fail`, one `pass`) and 16 scenarios (`features/http-edge.feature`, new), and
+no route: 968 -> 986 tests, 166 -> 183 cases, 295 -> 311 scenarios, 58 GET
+routes unchanged, re-measured on this branch with the three commands this
+block already names. The placeholder number 59 is the coordinator's to
+renumber at merge. No gate in `gates-have-teeth.sh` was edited, only
+appended to.
+
+Invariant 67 (a cloud provider's own bill reaches the crew as real money,
+costcrew#68) added 34 tests (`internal/connectors/cloudfocus_test.go`, 23;
+`cloudfocus_pieces_test.go`, 10; `internal/web/cloudfocus_page_test.go`, 1),
+22 `gates-have-teeth.sh` cases (twenty-one `fail`, one `pass`) and 13
+scenarios (`features/cloud-focus.feature`, new), and no route: 968 -> 1002
+tests, 166 -> 188 cases, 295 -> 308 scenarios in 38 files, 58 GET routes
+unchanged, re-measured on this branch with the three commands this block
+already names. The connector catalogue is still 17 entries, now 10 built and
+7 documented (README says so). Numbered 67 as a placeholder the coordinator
+renumbers at merge.
+
+Invariants 68 and 69 (a customer unit's spend is in the showback, one row per
+unit a person has ruled on, costcrew#74; the crew-cost KPI states the same
+signed money found as Results) added 29 tests
+(`internal/finops/unitrules_test.go`, 15; `internal/finops/kpi_found_test.go`,
+2; `internal/crew/options_unitrule_test.go`, 4;
+`internal/deliver/packet_unitrules_test.go`, 3;
+`internal/web/unit_showback_test.go`, 5), 16 `gates-have-teeth.sh` cases
+(fourteen `fail`, two `pass`) and 11 scenarios
+(`features/unit-showback.feature`, new, 10; `features/money-found.feature`,
+new, 1), and no route: 968 -> 997 tests, 166 -> 182 cases, 295 -> 306
+scenarios, 58 GET routes and 36 write routes unchanged, re-measured on this
+branch with the three commands this block already names. Numbered 68 and 69
+as placeholders; the coordinator renumbers at merge.
 
 Invariants 72 and 73 (the local engine: where a call goes, and what bounds a
 run priced at 0) added 52 tests (`internal/engines/local_test.go`, 8;
@@ -218,6 +288,20 @@ entries, which was the defect's own mirror; it now asserts six. Numbered 57
 because invariant 56 (the decided thresholds) is on the pull request opened
 before this one on the same day; the pull request after it takes 58.
 
+Invariants 65 and 66 (every gateway call names the person it spends for,
+costcrew#73; a task blocked while its call is in flight keeps the block)
+added 24 tests (`internal/deliver/onbehalfof_test.go`, 8;
+`tools/run/onbehalfof_test.go`, 7; `tools/run/blocked_meanwhile_test.go`, 5;
+`tools/bench/gateway_test.go`, 2; `internal/web/planning_ask_owner_test.go`,
+2), 20 `gates-have-teeth.sh` cases (seventeen `fail`, three `pass`) and 14
+scenarios (`features/the-owner-reaches-the-gateway.feature`, 9;
+`features/a-blocked-task-stays-blocked.feature`, 5), and no route: 968 -> 992
+tests, 166 -> 186 cases, 295 -> 309 scenarios, 58 GET routes unchanged,
+re-measured on this branch with the three commands this block already names.
+A number of existing tests gained an owner on the analyst or a run id on the
+bus they build, because a gateway call without either is now refused before
+it is made; none was weakened. Numbered 65 and 66 here as placeholders the
+coordinator renumbers at merge; invariant 57's open limit now points at 66.
 Invariant 53 (the supervisor selects among the analysts' own options)
 added 10 tests (`internal/finops/supervise_analystclass_test.go`, 8;
 `internal/crew/roles_select_internal_test.go`, 2), 8 `gates-have-teeth.sh`
@@ -417,12 +501,14 @@ true. An invariant with no check, written as though it had one, is worse than
 an absent invariant.
 
 1. **No route answers a stranger.** Every route turns an unauthenticated
-   caller away, with seven exceptions listed in `publicRoutes`, each carrying
+   caller away, with nine exceptions listed in `publicRoutes`, each carrying
    its reason in the source. They are not one kind of thing: `/login`,
-   `/logout`, `/healthz` and `/static/` genuinely answer anybody; `/signup` is
+   `/logout`, `/healthz` and `/static/` genuinely answer anybody;
+   `/login/oidc` and `/login/oidc/callback` are the way in through an identity
+   provider (invariant 74) and answer 404 when none is configured; `/signup` is
    open only while nobody can administer the installation (invariant 10); and
    `/calendar` and `/stats` are aliases that redirect to a guarded page.
-   *(gate: `TestEveryRouteRequiresASession`, which walks all 58 GET routes
+   *(gate: `TestEveryRouteRequiresASession`, which walks all 60 GET routes
    registered in `server.go`. Its regexp is anchored to the registration and
    not to the string `HandleFunc`, because it once fired on a route named in a
    COMMENT, and a gate that fires on prose gets deleted the first week.)*
@@ -3274,9 +3360,9 @@ an absent invariant.
     the list (`BINDING WITHOUT CLAUSE`) or whose test is gone (`DANGLING
     NEVER`). The other five clauses are not bound by this: they are the
     prompt's wording and the class ownership of `purchase`, `infra.change`
-    and `vendor.negotiate`. What `workable` does not cover: a task blocked
-    while its call is already in flight still gets its deliverable written;
-    that window is not closed here.
+    and `vendor.negotiate`. What `workable` alone does not cover is a task
+    blocked while its call is already in flight; that window was this
+    invariant's open limit until invariant 66 closed it.
     *(gate: `TestTheDecidesAloneListsAreWrittenFromTheProse`,
     `TestTheHandsUpListsAreWrittenFromTheProse`,
     `TestEveryAnalystFamilyHasBothListsOrAReasonedExemption`,
@@ -3292,6 +3378,160 @@ an absent invariant.
     `gates-have-teeth.sh`, each switching one property of the shell gate off
     or undoing one piece of the data.)*
 
+59. **The HTTP edge: what every response carries, how much of a request is
+    read, and how long the server waits on a peer.** `@claude` 2026-10-07,
+    three defects found by reading the HTTP surface, none by a test, each with
+    one fix and one family of gates (`internal/web/edge.go`, new, holds the
+    second and third; the first is in `practice.go`).
+
+    *The downloadable results page escaped nothing.* `exportResultsHTML`
+    (`GET /export/results.html`) wrote the anomaly rows' source, service, day,
+    cause and cause kind, and the oldest open day, into a file with
+    `fmt.Fprintf` and a raw `%s`. Service and cause come from an imported FOCUS
+    file (`connectors/tokenfusefocus.go`: `ServiceName`, `x_agent_id`), so a row
+    whose `ServiceName` is a script tag became a script in a file a person saves
+    and opens in a browser with no console, and so no header, around it. It is
+    now one `html/template`, executed once into a buffer, so every value is
+    escaped by the context it lands in; the filename in `Content-Disposition`
+    goes through `mime.FormatMediaType` for the same reason (the period is read
+    from the store). The structural gate is narrow on purpose:
+    `TestResultsExportHasNoHandWrittenHTMLWriter` walks `go/ast` over that one
+    function and refuses any `Fprint*`, `Sprintf`, `Write` or `WriteString` in
+    it, and requires exactly one template `Execute`. A repo-wide rule (no `%s`
+    of a non-constant into HTML) was tried on paper and rejected: `authPage`
+    interpolates two fragments that are escaped before they reach it and
+    `pages.go` builds SVG path data with `%.1f`, so it would fire on correct
+    code and be deleted, the failure invariant 1 already names for a gate that
+    fires on prose. `TestNoPageIsBuiltWithTextTemplate` holds the other half:
+    no non-test file in the package imports `text/template`. The other writers
+    were read for the same shape and are NOT changed here: the login and
+    signup page (`authPage`) is clean (the message is `htmlEscape`d, the CSRF
+    token is hex, the joining-code field is a constant); `exportResultsMD` and
+    `exportExecPacket` write Markdown with the same raw values (a `|` or a
+    newline in a service name breaks their tables, and a Markdown viewer that
+    renders raw HTML renders a script tag); the CSV exports (`export.go`) carry
+    no formula guard, so a cell starting with `=` opens as a formula in a
+    spreadsheet. Those three are reported, not fixed.
+
+    *No response carried a browser-side defence.* `Server.ServeHTTP` now sets,
+    before any handler and so on every response including `/login`,
+    `/healthz`, `/static/`, every export, the 404 and the 413:
+    `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
+    `Referrer-Policy: same-origin`, and a Content-Security-Policy of
+    `default-src 'none'; style-src 'self' 'unsafe-inline'; form-action 'self';
+    base-uri 'none'; frame-ancestors 'none'`. That is the strictest policy the
+    pages as they stand satisfy: no template holds a `<script>`, an event
+    handler, a `javascript:` URL or any resource but `/static/app.css`, so
+    scripts fall to `default-src 'none'` and are allowed nowhere. The one
+    exception to that was Sign out, a link whose `onclick` submitted a hidden
+    form; it is a form with a submit button now (`nav .signout button`, the
+    same box as a nav link, 28.5px against 28.5px at 1440x1020 and 31px against
+    31px at 375px, so the sidebar's measured height does not move). The one
+    inline allowance is `style-src 'unsafe-inline'`, for the `style=`
+    attributes the templates carry and the inline styling of the login page and
+    the report; it cannot run code, it is the only directive that allows
+    anything inline (`TestTheContentSecurityPolicyAllowsNoScript` refuses it
+    anywhere else, and refuses `unsafe-eval`, wildcards and `http(s):`), and
+    tightening it means moving 63 `style=` attributes into the stylesheet
+    (@measured `grep -o 'style="' internal/web/templates/*.html
+    internal/web/server.go | wc -l` 2026-10-07).
+    `Strict-Transport-Security: max-age=15552000` (180 days, no
+    `includeSubDomains`, no `preload`) is sent only where the cookie posture
+    says TLS is in front (`s.behindTLS || r.TLS != nil`, the expression
+    `setCookie` uses), because it is a promise about the host that an operator
+    cannot withdraw from a browser that has heard it. What it does not do: it
+    sets no `Cache-Control`, no `Permissions-Policy` and no report endpoint;
+    and the CSP is not in force for a saved copy of a download, which is why
+    the escaping above is the defence for that file.
+
+    *No body was capped and one timeout was set.* `limitBody`, called from
+    `ServeHTTP` before any handler, refuses a body over its cap with 413 and a
+    plain message and `Connection: close`, and no handler runs for it, so it
+    changes nothing by construction (a per-handler `MaxBytesReader` was not
+    chosen: forty POST handlers read forms their own way, several ignore the
+    parse error, and "reload the page and try again" is the least useful
+    answer for a body that was too big). The cap is 1 MiB; `/intake/check` is
+    `maxIntake + 64 KiB` of multipart envelope; `/intake/apply` is
+    `6*maxIntake + 64 KiB`, because it carries the checked file back in a form
+    field and a browser URL-encodes a newline as `%0D%0A`, so a file of
+    exactly the cap honestly arrives at six times it. A declared
+    `Content-Length` over the cap is refused without reading a byte (so
+    `Expect: 100-continue` is answered before the body is sent); a declared one
+    at or under it is streamed through `http.MaxBytesReader`; a body with no
+    declared length is read to the cap plus one byte and refused if longer,
+    the only way to give a chunked body a 413 rather than a truncated form.
+    The old position was not "nothing": `ParseForm` stops a urlencoded body at
+    10 MiB, but `PostFormValue` and `ParseMultipartForm` keep `maxMemory` in
+    RAM and spool the rest of a multipart file to a temporary file with no
+    bound, which is what `/intake/check` did with `maxIntake` as the memory
+    figure and a `LimitReader` on only the one file part. The same change
+    closes a smaller fault there: the upload was read through
+    `io.LimitReader(f, maxIntake)`, so a file one byte over was previewed as its
+    first 2 MB, cut mid-row; it is read to one byte past and refused with the
+    reason (`errTooBig`, also applied to the pasted box and to `/intake/apply`'s
+    `file` field). `web.NewHTTPServer` is the one place the `http.Server` is
+    built (`cmd/costcrew/main.go` called it a literal before): `ReadHeaderTimeout`
+    10s as before, `ReadTimeout` 60s, `WriteTimeout` `2 * planAskTimeout` (180s)
+    and `IdleTimeout` 120s. `WriteTimeout` is derived from the one handler that
+    waits on something outside the process, the supervisor's plan-ask, which
+    waits on a model up to `planAskTimeout` (90s, the figure `planning.go` used
+    as a literal and `deliver/call.go` still does for its own client); a shorter
+    one would cut off a response whose call was already paid for. Every other
+    page answered in under a second: `@measured` 2026-10-07, `curl` with a
+    cookie jar against `go run ./cmd/costcrew -data <scratch> -addr
+    127.0.0.1:8399` on a fresh seeded install, 24 routes (pages, the
+    stylesheet, three exports), slowest `/cadence` at 0.68s, then `/kpis` 0.27s
+    and `/leadership` 0.27s, every status 200. What this does not do: it limits
+    no rate and no count of connections, so a peer that opens many connections
+    and sends each slowly is bounded per connection and not in total; the 60s
+    `ReadTimeout` means the worst-case 12 MiB `/intake/apply` body needs a
+    link of about 1.7 Mbit/s, which only a pathological file (a 2 MB file of
+    nothing but newlines) comes near; and an oversized body still costs the
+    bytes the server discards before it closes the connection (net/http reads
+    up to 256 KiB).
+    *(gate: `TestResultsExportEscapesWhatAnImportedRowCarries` (a
+    script tag in source, service, day, cause and cause kind, planted straight
+    into `anomalies`, each required present escaped and absent raw),
+    `TestResultsExportStillSaysWhatItSaid` (the control: the report keeps its
+    sections), `TestResultsExportHasNoHandWrittenHTMLWriter`,
+    `TestNoPageIsBuiltWithTextTemplate`; `TestEveryRouteCarriesTheSecurityHeaders`
+    (every GET and POST route `server.go` registers, the paths `ServeHTTP`
+    answers before the mux and a path that does not exist, as a stranger and as
+    a signed-in person, failures reported one line per missing header),
+    `TestTheContentSecurityPolicyAllowsNoScript`,
+    `TestNoPageReliesOnWhatThePolicyForbids` (every served page that answers 200
+    and every file in `templates/`, for `<script`, an `on*=` attribute,
+    `javascript:`, `<iframe`, `<object`, `<embed`, `@import`, `<img`, an external
+    form action and any `<link>` but the stylesheet),
+    `TestSignOutWorksWithoutAScript`,
+    `TestStrictTransportSecurityFollowsTheCookiePosture`;
+    `TestAnOversizedPostIsRefusedAndChangesNothing` (declared, far over and
+    chunked; the cadence switch must stay off and the answer carry the headers),
+    `TestANormalPostStillWorks` (exactly 1 MiB, the control),
+    `TestAStrangerCannotMakeTheLoginFormReadMegabytes`,
+    `TestIntakeStillAcceptsAFileUpToItsOwnCap`,
+    `TestIntakeRefusesAFileOverItsCapInsteadOfCuttingIt`,
+    `TestAnOversizedIntakeUploadIsRefusedAndChangesNothing`,
+    `TestIntakeApplyAcceptsTheEncodedFileItCheckedAndRefusesMore`,
+    `TestTheServerSetsEveryTimeoutAndOutlastsTheLongestHandler`
+    (`internal/web/httpserver_internal_test.go`, in package `web` to read
+    `planAskTimeout`) and `TestTheConsoleServesThroughTheServerThatOwnsItsTimeouts`
+    (`cmd/costcrew`, reads `main.go`; it is not named in a scenario because
+    `features-are-bound.sh` searches `internal/` and `tools/` only). One
+    existing test changed: `TestAnOnBehalfReasonIsCappedPlainAndEscaped`'s
+    "a megabyte" case now accepts a 413 as well as the 303, since a megabyte of
+    reason plus its form fields is over the cap and is refused before the
+    reason's validator is asked; it still requires that nothing was applied.
+    Sixteen `fail` cases and one `pass` case in `gates-have-teeth.sh`: a
+    `Fprintf` back in the report's writer, `text/template` back in its import,
+    the CSP not sent, `X-Frame-Options` not sent, the policy allowing script, a
+    template needing script again, HSTS sent over plain HTTP, HSTS ignoring a
+    handshake this process made, the body cap not applied, a chunked body
+    uncapped, the intake check and the intake round trip held to the general
+    cap, the intake reading a too-big file in part again, the write timeout not
+    longer than a model call, the write timeout unset, and a literal
+    `http.Server` back in `main.go`; the `pass` case reorders the policy's
+    directives and rewords the 413.)*
 60. **The image holds every binary a deployment runs, and its base images are
     named by digest.** costcrew#75, measured on the appliance proving run of
     2026-09-17: the image shipped `costcrew` and `costcrew-run`, while the
@@ -3458,7 +3698,8 @@ an absent invariant.
 64. **The console makes no outbound call of its own; `deliver.Call` is the one
     route, and only behind `-gateway`.** README.md and the Dockerfile said the
     console makes no outbound call while serving a page, and this file listed
-    that as a decision with no gate. The exception is real and is the only one:
+    that as a decision with no gate. The exception is real, and since
+    invariant 74 there is a second, named the same way below:
     `POST /sprint/plan/ask` calls a model through `deliver.Call`
     (`internal/web/planning.go`), refusing when neither `-gateway` nor
     `-gateway-openai` is set (invariant 33). A `go/ast` walk over every non-test
@@ -3471,8 +3712,13 @@ an absent invariant.
     import of `net/http`, `net` or `os/exec` is refused by name because the walk
     cannot read it. `deliver.Call` must appear in exactly one place, the
     plan-ask handler. A second walk follows the module's own imports from both
-    roots and requires that, among the packages reached, only `internal/deliver`
-    builds outbound requests and `internal/enforce` is not reached at all.
+    roots and requires that, among the packages reached, only the named doors
+    build outbound requests and `internal/enforce` is not reached at all. The
+    doors are a map in `internal/web/egress_test.go`, each with its reason and,
+    where given, the one file the construction must stay in: `internal/deliver`
+    (the plan-ask) and, since invariant 74, `internal/sso` (discovery, the JWKS
+    and the token endpoint of the configured issuer, `client.go` only, built
+    only when `-oidc-issuer` is set).
 
     This is a reading of today's source, the same limit invariants 49 and 50
     state for their own walks. It catches the shapes a reasonable accident
@@ -3493,6 +3739,411 @@ an absent invariant.
     a local variable called `http`), all in `internal/web/egress_test.go`. Five
     `fail` cases and one `pass` case in `gates-have-teeth.sh`, each planting one
     construction in a real file.)*
+65. **Every gateway call names the person it spends for, and a task whose
+    analyst has no owner is refused rather than sent with an empty chain.**
+    costcrew#73, measured on the appliance proving run of 2026-09-17: the
+    runner sent `x-fuse-run-id`, `x-fuse-agent-id`, `x-fuse-budget-usd` and
+    (when it had one) `x-fuse-parent-run-id`, never `x-fuse-on-behalf-of`, and
+    the control plane folds an owner from the first `user://` entry of that
+    chain, so a crew run reached its owner view as "unassigned" while the
+    roster named an owner for every agent. Two faults under the one symptom.
+    Nothing built the header at all, and the tool loop's Anthropic round
+    (`anthropicRoundRequest`, `tools/run/loop.go`) carried a private,
+    hand-written copy of `deliver.SetFuseHeaders` that nobody had told about
+    any header added since it was written. Now `deliver.Gateway` carries the
+    chain (`OnBehalfOf`), `SetFuseHeaders` sends it, and the loop's round
+    calls that function instead of its copy, so the Anthropic loop, the
+    OpenAI round, `deliver.Call` and the bench set one header set by
+    construction.
+
+    The chain is the TokenFuse grammar read from its own parser
+    (`chainproof::declared_chain` and `on_behalf_of_header` in the tokenfuse
+    gateway, read, not built): one value, comma-separated, root first, entries
+    trimmed and empty ones dropped, at most 32 entries, and a value over 4096
+    bytes ignored without an error. `deliver.OnBehalfOfChain(host, owner,
+    analyst)` builds it as `user://<host>/<owner>` then
+    `agent://<host>/<analyst>`, `deliver.AnalystOnBehalfOf` for an analyst
+    off the roster. An owner is an account name nobody validated for this, so
+    it goes in escaped as a path segment (`url.PathEscape`): a comma, a space,
+    a control byte or a non-ASCII byte in it cannot add a chain entry or leave
+    a byte the gateway's header reader would drop, and an ordinary name is
+    unchanged. A chain over the byte cap is refused here, where it can be
+    said, instead of sent to be dropped. `@claude`: the escaping is a choice
+    this change made; the alternative was refusing odd names, which would lock
+    an analyst out of the gateway for the way its owner's account is spelled.
+
+    No owner is no chain. `deliver.RequireIdentity`, the boundary every
+    gateway call passes (now including the Anthropic loop's round, which never
+    called it), refuses a gateway call with an agent and no chain, naming the
+    agent, before a request exists. Earlier than that, `refuseOwnerless`
+    (`tools/run`) marks the estimate of a task whose analyst has no owner
+    refused, with a verdict that names the analyst, in the dry run, in a live
+    run and in `-due`, so `spend()` never starts it and the others go on; and
+    `execute` builds the headers before it reserves anything, so a caller that
+    skipped pricing still takes nothing from the ceiling. The placeholder
+    `unclaimed`, which `crew.SeedRoster` stamps on every agent of a roster
+    seeded without `-stack-owner`, is no owner either (the passport and the
+    mandate backfill already read it that way): sending it would file the
+    crew's spend under a person who is not one. Without a gateway nothing is
+    sent to anyone and nothing is refused, so an installation that runs direct
+    is unchanged. `@claude`: refusing at pricing only when a gateway is
+    configured, not always, is also a choice; refusing always would have
+    stopped every direct run on a fresh roster.
+
+    The bench builds every case's gateway before its first call
+    (`tools/bench/gateway.go`), so one ownerless case refuses the whole run
+    with nothing spent. The console's own planning call
+    (`internal/web/planning.go`, `askPlan`) names the person who clicked as
+    the root and the supervisor as the agent, not the roster's owner of the
+    supervisor: that money is spent on this person's request.
+
+    What this does not do: it does not check that the owner is a person
+    TokenFuse knows (it folds whatever `user://` root it is given, and the
+    identity map's unit owner still wins where one is configured); it does not
+    make a direct call, with no gateway, attributable to anyone; it does not
+    prove the chain with a token (the gateway reads a declared chain as a
+    claim unless an issuer is configured, that repository's invariant 31);
+    and the placeholder rule is a string match on `unclaimed`, so an account
+    that really is called that is refused as an analyst's owner (it is still a
+    person when it is the one asking the console for a plan).
+    *(gate: `TestTheChainIsTheOwnersUserRootThenTheAnalystsAgent`,
+    `TestAnAnalystWithNoOwnerGetsNoChainAndIsNamed`,
+    `TestHostileOwnersCannotForgeOrBreakAChain` (eleven owner shapes judged by
+    a Go copy of the gateway's parser: two entries, the first a `user://` root
+    that decodes back to the owner),
+    `TestAChainTheGatewayWouldSilentlyIgnoreIsRefusedHere`,
+    `TestEveryRequestShapeCarriesTheOnBehalfOfChain`,
+    `TestAGatewayCallWithNoOwnerChainIsRefusedBeforeAnyRequest`,
+    `TestNoGatewayNeedsNoOwnerChain`, `TestAnUnclaimedRosterOwnerIsNoOwner`
+    (`internal/deliver`); `TestEveryRoundOfAnAnthropicTaskCarriesTheAnalystsOwner`,
+    `TestEveryRoundOfAnOpenRouterTaskCarriesTheAnalystsOwner`,
+    `TestAHostileOwnerStillGivesTheGatewayExactlyTwoEntries`,
+    `TestAnAnalystWithNoOwnerIsRefusedBeforeAnyCall`,
+    `TestWithAGatewayAnOwnerlessAnalystsTaskIsRefusedWhenItIsPriced`,
+    `TestARunSkipsAnOwnerlessAnalystsTaskAndStillRunsTheOthers`,
+    `TestTheToolLoopAndDeliverCallSendTheSameFuseHeaders` (a recording
+    gateway, the loop's round and `deliver.Call` fed one `Gateway`, the two
+    recorded `x-fuse-*` sets compared, both wires) (`tools/run`);
+    `TestLiveSendsTheAnalystsOwnerOnEveryCase`,
+    `TestLiveRefusesBeforeAnyCallWhenACasesAnalystHasNoOwner` (`tools/bench`);
+    `TestThePlanAskNamesTheAskingPersonAsTheRoot`,
+    `TestAHostileUsernameCannotReshapeThePlanAsksChain` (`internal/web`).
+    Twelve `fail` cases and two `pass` cases in `gates-have-teeth.sh`, each
+    planting one of the faults above: the header left out of
+    `SetFuseHeaders`, the loop's round back on a private copy, the escaping
+    removed, the empty-owner refusal removed, the door's chain requirement
+    removed, the pricing refusal switched off, the chain left off the
+    runner's, the bench's and the console's `Gateway` (three cases), the
+    console's root taken from the roster, the placeholder accepted, the byte
+    cap removed; the two `pass` cases reword a refusal, which the gates must
+    not mind.)*
+
+66. **A task a person blocks while its call is in flight does not get its
+    deliverable, and the call it already paid for is still recorded.**
+    Invariant 57 named this as its open limit: `workable` drops every blocked
+    task before anything is priced or called, and once the model had answered
+    nothing looked again, so a person's order to stop was undone by an answer
+    that arrived after it. `saveDraft` now writes the artifact with one
+    statement that refuses a blocked task (`INSERT ... SELECT ... WHERE NOT
+    EXISTS (SELECT 1 FROM tasks WHERE id = ? AND state = 'blocked')`), so the
+    look and the write cannot be separated by a click, and returns
+    `errTaskBlockedMeanwhile` when it wrote nothing. `execute` turns that into
+    the discard: no draft, no options, the person's block and its reason
+    untouched; the charge of every round the gateway settled for the call
+    booked through the same `recordCharge` a stopped task uses (invariant 55)
+    and counted against the run; the call's `tool_call` event still emitted,
+    since the call happened; and a line, `DISCARDED: the answer came back after
+    a person blocked the task, so no draft was saved; the call cost ...`.
+    `execute` returns `answerDiscarded`, which `spend` counts on its own: not
+    a refusal (the run goes on), not a failure (the task is already blocked,
+    and `spend` marking it blocked again would overwrite the person's reason
+    with "the engine did not answer"), and not done. The summary line gains
+    `, N discarded (blocked by a person while the call was in flight; the call
+    was still paid for)` only when N is above zero, so a run that discarded
+    nothing reads as it always did.
+
+    What this does not cover: a block that lands after the draft statement
+    finds a draft already written, which is a person blocking a task that has
+    a draft and is left alone. A call that FAILS while a person has blocked
+    its task no longer replaces the person's reason either: `spend`'s error
+    branch writes "the engine did not answer" only `WHERE ... AND state <>
+    'blocked'`, so a task nobody blocked is still blocked with the runner's
+    reason and a person's block keeps theirs
+    (`TestAFailedCallLeavesAPersonsBlockReasonAlone`, red on the unguarded
+    update with the person's reason replaced by "the engine did not answer:
+    anthropic answered 502"; control
+    `TestAFailedCallOnAnOpenTaskIsStillBlockedWithTheRunnersReason`).
+    *(gate: `TestATaskBlockedWhileItsCallWasInFlightGetsNoDeliverable`,
+    `TestATaskBlockedDuringAToolRoundBooksBothRoundsAndSavesNothing`,
+    `TestSaveDraftWritesNothingForABlockedTask`,
+    `TestARunLeavesAPersonsBlockAloneAndCountsTheDiscardedAnswer`,
+    `TestATaskNobodyBlockedStillGetsItsDeliverable`,
+    `TestAFailedCallLeavesAPersonsBlockReasonAlone`,
+    `TestAFailedCallOnAnOpenTaskIsStillBlockedWithTheRunnersReason` (`tools/run`; the block is
+    made from inside a fake gateway's handler, between the request arriving
+    and the response going back, which is where a person's click lands in a
+    real run). Five `fail` cases and one `pass` case in
+    `gates-have-teeth.sh`: the guard taken out of the insert, the charge not
+    booked on the discard path, the run overwriting the person's reason, the
+    discard line not printed, the discard not counted in the summary, and the
+    error branch's guard taken out; the `pass` case rewords the tail of the
+    discard line.)*
+67. **A cloud provider's own bill reaches the crew as real money, to the
+    cent, and never beside the generated estate.** costcrew#68. Until this,
+    no cloud bill reached the crew: `aws-data-exports` and
+    `gcp-billing-export` were catalogue entries marked documented, and the
+    only FOCUS reader (`tokenfusefocus.go`) requires the gateway's own `x_`
+    columns and refuses a plain cloud file. `cloudFocusReader`
+    (`internal/connectors/cloudfocus.go`) is now registered for both ids, so
+    both are Built by invariant 22's derivation. It reads a FOLDER (no S3
+    client, no BigQuery client in this binary) of FOCUS Cost and Usage CSV or
+    CSV.gz, walked recursively over regular files only. It asks for columns
+    by name: `BilledCost`, `BillingCurrency`, `ChargeCategory`,
+    `ChargePeriodStart`, `ChargePeriodEnd`, `ProviderName`, `ServiceName`,
+    `SubAccountId` (a cell may be empty), and reads `ChargeClass`, `InvoiceId`
+    and `Tags` (or Google's `x_Tags`) when present. Which versions: FOCUS 1.0
+    and 1.2 column sets are accepted; 1.0 was measured on a real AWS file
+    (451 rows, 48 columns, read locally and never committed), 1.2 only from
+    the spec and AWS's dictionary against a hand-written fixture; the header
+    of `cloudfocus.go` pins this and what was not looked at. The GCP entry
+    stays a separate id (ids are stable) running the same engine over a CSV
+    flattened from Google's BigQuery FOCUS view; nothing in it was measured
+    against a real Google export, and `ProviderName` values for both
+    providers are assumptions the `provider_names` setting overrides.
+
+    A row becomes an exact-micros row in `cloud_focus_rows`, keyed
+    `(connector, file sha256, row number)` so the same bytes twice change
+    nothing, and `charges` is rebuilt for each day an import touched: one row
+    per (service, team, category, invoice), summed in micros and rounded to
+    cents once, `provenance` the connector id and never NULL (NULL means
+    generated, and invariant 24 depends on that). BilledCost goes through
+    `money.ParseMicros` after an exact, textual expansion of E notation, which
+    the FOCUS numeric format allows and `ParseMicros` does not; no float64 is
+    involved and one row over a billion is refused before it can wrap an
+    int64. All five ChargeCategory values land under their own name, so every
+    `category='Usage'` sum (budgets, commitment eligibility) excludes a
+    Purchase, Tax, Credit or Adjustment; a negative BilledCost is kept, since
+    FOCUS allows it and a real month nets usage against credits to nothing,
+    which the board must show as two lines; a row longer than a day (AWS
+    writes the month's Tax as one row) lands whole on the day it starts, not
+    spread, because whole cents per day lose up to half a cent each day under
+    an even split. Currency other than USD, a category outside the five, a
+    ChargeClass other than Correction, a provider the connector does not
+    read, a bad timestamp, a ragged row and a cell over its cap are refused as
+    that row, by name. A file that fails part way is refused whole inside its
+    own SAVEPOINT. The team comes from the Tags key named by `team_tag`
+    (default `team`, several tried in order); a row without it is shared cost
+    and the sentence counts both. A file overwritten in place with new content
+    (AWS revises a period this way) replaces its earlier version's rows, but
+    only once the new file was read to its end, so a half-synced revision
+    leaves the earlier one standing. Invariant 24 applies unchanged: while
+    generated charges exist the import is refused unless the operator gives
+    the replace-generated yes, which the connector page now offers for these
+    two ids.
+
+    The folder is not trusted, and these readers carry bounds the gateway
+    reader lacks: `max_file_mb` on disk (default 4096), `max_unpacked_mb` for
+    what a gzip may inflate to (default 20480), 1 MiB per CSV record (an
+    unterminated quote would otherwise be read and held to the end of the
+    file), a symlink is never opened, 50,000 files, 20 refusals kept however
+    many rows fail, a 64-bit overflow of the file's absolute total refuses the
+    file. A setting that is not a number is refused, never read as no limit.
+
+    What this does not do: it does not feed `commitments` (a Purchase row is
+    money on the bill, not coverage or utilisation); two versions of one
+    period in different folders count twice (the connector asks for "overwrite
+    existing data export file" and a sync with deletion); charges are rounded
+    per (day, service, team, category, invoice) group, so a group of many tiny
+    rows can lose sub-cent money that `cloud_focus_rows` still holds exactly;
+    a BilledCost with more than six decimals is rounded to micros per row (a
+    real file's 451 rows summed to -0.0000000014 and import as -0.000005);
+    Parquet and zip are not read and are counted out loud; and no desk page
+    marks real against generated money the way the AI page does.
+    *(gate: `TestAWSDataExportsFocusIsRead`, `TestGCPBillingExportFocusIsRead`,
+    `TestAFocus10FileIsReadAsWell`, `TestTheCloudFocusReadersAreBuiltAndAskForAFolder`,
+    `TestEveryChargeCategoryLandsAndAPurchaseIsNeverUsage`,
+    `TestANegativeBilledCostIsKeptNotRefused`,
+    `TestARowLongerThanADayLandsWholeOnItsFirstDay`,
+    `TestCloudFocusMoneyIsNeverFloatAndRoundsOnce`,
+    `TestTheTeamComesFromAConfigurableTagKey`, `TestCloudFocusReimportConverges`,
+    `TestARevisedFileReplacesItsOwnEarlierVersion`,
+    `TestARefusedRevisionKeepsTheEarlierVersion`,
+    `TestCloudFocusRefusesToMixWithTheGeneratedEstate`,
+    `TestAFailedJournalLineRollsTheWholeCloudImportBack`,
+    `TestCloudFocusTestWritesNothing`, `TestCloudFocusReadsANestedSyncedFolderAndIgnoresLinks`,
+    `TestCloudFocusHostileInput` (eight missing columns, a duplicate header,
+    EUR, an empty currency, a bad timestamp, an end before the start, a
+    five-year period, a year nobody billed, a cost of `abc`, `NaN`, `1,000.00`,
+    over a billion and `1E400`, a category outside the five and in the wrong
+    case, a ChargeClass of Refund, another provider's rows, an empty service,
+    three kinds of bad Tags, a 70 KB tags cell, a 2 KB service name, too many
+    and too few fields, an unterminated quote, a byte order mark, CRLF with a
+    quoted comma and newline, a truncated gzip, a file that is not gzip, an
+    empty and a missing folder, a good file beside a bad one, a good row
+    beside a bad one, a file that fails part way), `TestARefusalListIsBounded`,
+    `TestARefusalListIsBoundedAtItsSource`, `TestRefusalsAcrossManyFilesAreBoundedToo`,
+    `TestAGzipBombIsRefusedByName`
+    (57 KB packed, 15 MB unpacked), `TestAFileOverTheByteCapIsRefusedBeforeItIsOpened`,
+    `TestACapSettingThatIsNotANumberIsRefused`,
+    `TestARecordWithNoEndIsRefusedBeforeItFillsMemory`,
+    `TestACloudFocusFileOverAHundredMegabytesStaysBounded` (120 MB, live heap
+    measured), `TestTheTagCellShapes`, `TestFocusDecimalsInENotation`,
+    `TestAnAmountThatOverflowsTheSumIsRefusedWhole`,
+    `TestAFolderWhoseFilesTogetherOverflowRefusesTheLaterFile`,
+    `TestCloudFocusSettings`, `TestTheSameBytesTwiceAreOneFileAndTwoFilesOnOneDayAdd`,
+    `TestADryRunNamesWhatWouldBeRefused` in `internal/connectors`;
+    `TestAnAWSExportReachesTheConsoleThroughTheConnectorPage` in
+    `internal/web`. Twenty-one `fail` cases and one `pass` case in
+    `scripts/gates-have-teeth.sh`, each planting one fault: a negative cost
+    refused, a Purchase filed as Usage, each row rounded before the sum, the
+    provenance dropped, a revised file's old rows kept, a refused file not
+    rolled back, the gzip cap and the record cap lifted, a symlink followed,
+    the generated estate mixed in, the refusal list unbounded at the file and
+    at the sentence, a long row landing on its last day, the span limit lifted,
+    a long row not counted, another provider's rows read, E notation refused,
+    the tag key matched case-sensitively, a copied file counted twice, Test
+    demanding an optional setting, and the connector page dropping the
+    replace-generated box; the `pass` case rewords a refusal.)*
+68. **A customer unit's spend is in the showback, one row per unit a person
+    has ruled on, and a unit rule is a stamp.** costcrew#74, measured on the
+    appliance proving run of 2026-09-17: the FOCUS reader writes a row's
+    `x_unit` as the charge's `Team`, so a box's AI spend arrives labelled
+    `aws`, `gcp`, `finops`, and nothing allocated by it. `/export/showback.csv`
+    walked `world.Teams`, the generated estate's ten teams, and nothing else,
+    so a console that held only real rows (the state `-replace-generated`
+    leaves it in) exported a file with a header and no rows for a bill of
+    several dollars; `/chargeback` already listed the units, so the two pages
+    disagreed about the same period. @measured `go test ./internal/web -run
+    TestTheShowbackCarriesOneRowPerUnitOnlyAfterTheOwnersStamp` 2026-10-07,
+    against the code before this change: `before any stamp the showback is [],
+    want one (unruled units) row of 3.08`, an import worked by hand to 3.08.
+
+    `allocation.rule` gained a second target shape, `{"unit", "business_unit"}`
+    beside invariant 35's `{"rule_id", "method", "share"}`: the unit as the
+    reader wrote it, and the business unit its spend is charged back under.
+    `crew.ParseUnitTarget` and `crew.UnitRuleRefusal` are the one place that
+    says what a well-formed one is, asked twice: by
+    `crew.ValidateAndSaveOptions` when the chargeback analyst writes the
+    proposal (so a proposal that could never be stamped is returned to the
+    analyst, not carried to an owner), and by `finops.applyUnitRule` when it
+    is stamped. A target is refused for: a field of the rule-id shape beside
+    `unit`, or any field nothing reads; a unit or business unit that is empty,
+    padded, over its bound (128 and 80 bytes), not valid text, carries a
+    control, format (zero-width, text-direction) or line-separating character,
+    or begins with `=`, `+`, `-` or `@` (a spreadsheet opens it as a formula);
+    a unit for which no charge row written by the TokenFuse reader
+    (`provenance='tokenfuse-focus'`) exists, a generated row not counting; and
+    a unit whose name is a roster team's, which the showback already gives to
+    the roster team's own row. A unit name is text out of somebody else's file
+    and travels on into a CSV and a statement, which is why the names are held
+    this tightly.
+
+    `finops.applyUnitRule` is the only writer of `unit_rules` and is reached
+    only from `applySideEffect`, so only from `ApplyAs`: a stamp. Saving a
+    proposal writes no rule, and the supervisor carries an `allocation.rule` to
+    its owner at any figure (`crew.SupervisorMaySelect` answers false for an
+    owner-owned class, invariant 53); the owner's, or an admin's with a reason
+    (invariant 58), is the only stamp. A second stamp on one unit replaces the
+    rule's business unit and its stamper rather than adding a second rule.
+
+    `finops.Showback` is what the export writes: the roster's teams in roster
+    order, exactly what the file always carried, then one row per unit a rule
+    covers, by name, under the business unit the rule names, then, only when
+    some unit has no rule, ONE `(unruled units)` row holding the spend of all
+    of them. A unit without a rule is therefore never dropped and never printed
+    under a name nobody has decided to tell a team; the rows plus
+    `Allocation.Unallocated` are the whole bill, which is the property a
+    showback is judged by. `/chargeback` gained a "Customer units" panel
+    (today's figure and the business unit, or "no rule yet", per unit; absent
+    on an estate with none), and the chargeback analyst's close pack a
+    "Customer units" section naming each unit, what it was charged, and the
+    shape a proposal is written in, so the analyst can learn the unit names
+    from its own packet.
+
+    What this does not do: it does not change how a unit's spend is allocated
+    (a unit's own rows are direct cost on desk `ai`; a TokenFuse row with no
+    `x_unit` is still a shared "Usage" pot that no seeded rule names, so it
+    stays unallocated); the showback is read from the live allocation, as it
+    always was, not from the frozen period, so it agrees with a closed period
+    only until something moves; `/team/{name}` still answers 404 for a unit,
+    so the unit names the chargeback page links to have no page behind them;
+    and a name the TokenFuse reader accepted that this gate refuses (a unit
+    with a control character in it) can be charged and never ruled on, and
+    stays inside `(unruled units)`.
+    *(gate: `TestAfterTheStampsTheShowbackHasOneRowPerUnitAndBalancesToTheCent`,
+    `TestBeforeAnyRuleTheUnitsAreOneVisibleUnruledRowAndTheFileBalances`,
+    `TestOnlyTheRuledUnitGetsItsOwnRowAndTheRestStaysVisibleInOne`,
+    `TestUnitsListsEveryUnitWithItsRuleOrTheLackOfOne`,
+    `TestUnitRowsSitBesideTheFixturesTeamsWithoutMovingThem`,
+    `TestTheImportIsWhatTheFixtureSaysItIs` (the hand-worked 1.24, 1.84 and
+    3.08 the others balance against) for the showback;
+    `TestAUnitRuleIsAppliedByAStampAndRecordsWhoStampedIt`,
+    `TestAStampOnADifferentBusinessUnitReplacesTheRuleRatherThanAddingASecond`,
+    `TestAUnitRuleForAUnitWithNoRowsIsRefusedAndTheOptionStaysOpen`,
+    `TestAUnitRuleOnRowsTheTokenFuseReaderDidNotWriteIsRefused`,
+    `TestAUnitRuleForARosterTeamIsRefused`,
+    `TestATargetNamingBothAUnitAndARuleIsRefusedAtApplyToo` for the stamp;
+    `TestTheSupervisorNeverAppliesAUnitRule`, `TestSavingAUnitRuleProposalWritesNoRule`,
+    `TestAProposalForAUnitWithNoRowsIsRefusedWhenItIsWritten` (`internal/finops`)
+    and `TestOnlyTheOwnerOrAnAdminCanStampAUnitRule` (`internal/web`: an
+    operator who is not the owner, a viewer and a request without a valid
+    token each write no rule, and the owner's own stamp, last, writes one) for
+    "no rule without a stamp"; `TestUnitRuleTargetHostileInputs` (31 shapes),
+    `TestUnitRuleTargetBoundariesAreAccepted`,
+    `TestAUnitRuleTargetIsCarriedOnTheOptionVerbatim`,
+    `TestTheRuleIdShapeIsNotMistakenForAUnitTarget` (`internal/crew`) for the
+    target; `TestTheShowbackCarriesOneRowPerUnitOnlyAfterTheOwnersStamp` (the
+    whole path through the routes: import, an empty-of-units file before the
+    stamp, the owner's POST, the close, the file and the page),
+    `TestAnUnstampedUnitIsNamedAsUnruledOnTheChargebackPage`,
+    `TestAHostileUnitNameNeverReachesTheShowbackFileOrTheMarkup`,
+    `TestTheGeneratedEstatesShowbackIsUntouchedByUnits` (`internal/web`) and
+    `TestClosePackSectionNamesAUnitWithNoRuleAndTheShapeOfAProposal`,
+    `TestClosePackSectionNamesTheBusinessUnitOfARuledUnit`,
+    `TestClosePackSectionSaysNothingOfUnitsOnTheGeneratedEstate`
+    (`internal/deliver`) for the pages and the packet. The generated estate's
+    surface was held by fetching eleven pages and exports from a build of
+    `origin/main` and from this change, each on a fresh install: ten byte for
+    byte identical but for the per-install token (both chargeback views, the
+    allocation and teams pages, results, three showback periods, the
+    allocation and ledger exports), the eleventh, `/kpis`, differing in the one
+    line invariant 69 changes on purpose. The full `tools/parity` crawl was
+    started and not finished, so this is a targeted comparison and not that
+    gate. `TestTheSupervisorNeverAppliesAUnitRule` passes on the code before
+    this change as well, because nothing could apply a unit rule then
+    (`TestSavingAUnitRuleProposalWritesNoRule` was red there only because the
+    proposal was refused); what makes them gates is the
+    `gates-have-teeth.sh` case that lets the supervisor select an owner-owned
+    class and requires the first to go red.
+    `scripts/gates-have-teeth.sh` plants fourteen faults and two harmless
+    edits: the showback dropping the ruled units, the unruled spend vanishing,
+    an unruled unit's name printed in its row, the export emptied at the
+    route, the chargeback page and the close pack no longer naming the units,
+    a rule applied for a unit with no rows, for rows a reader did not write,
+    for a roster team's name, a proposal for a unit with no rows reaching the
+    owner, a formula-looking name accepted, the supervisor applying an
+    `allocation.rule`, any operator stamping another owner's rule, and a
+    reworded refusal and a reworded sentence on the units panel as the `pass`
+    cases.)*
+
+69. **The crew-cost KPI and the Results page state one figure of money found,
+    and it is signed.** `TestADropInSpendIsNotMoneyFound` fixed the Results
+    page's sum from `ABS(excess_cents)` to a signed one, because a finding
+    whose spend fell is a real finding and not money anybody recovered; the
+    crew-cost KPI (`internal/finops/kpi.go`), two screens away, kept its own
+    copy of the absolute sum, in the one KPI whose target is "less than it
+    finds". On the fixture's crew cost, an up finding a little under it and a
+    drop of 100.00 gave a verdict of "meets" when the signed figure said it
+    did not. `finops.FoundMonthly` is the one definition, called by `Compute`
+    (Results) and by `KPIs`, so a third reader of the figure has somewhere to
+    call and no reason to write the query a third time.
+    *(gate: `TestTheCrewCostKPIDoesNotCountADropAsMoneyFound` (the fixture is
+    built so the two definitions give different VERDICTS, not only different
+    numbers: it checks the figure in the note, the return, and `Meets`),
+    `TestResultsAndTheCrewCostKPIAgreeOnMoneyFound`; the existing
+    `TestADropInSpendIsNotMoneyFound` still holds the Results side.
+    `scripts/gates-have-teeth.sh`'s `money found: the crew-cost KPI sums the
+    absolute excess again` case puts the absolute query back into `KPIs`.)*
 
 72. **A call on the local engine reaches an address the operator typed, or the
     OpenAI-shaped gateway in front of it, or nothing.** The local engine runs
@@ -3633,6 +4284,153 @@ an absent invariant.
     them was first toothless and is why a test fixture now carries a nonzero
     money reservation: at 0 a refusal that forgot to give the money back
     leaked nothing visible.)*
+
+74. **Sign-in through the organisation's identity provider believes nothing it
+    has not checked, and the provider decides access at every sign-in.** Until
+    now every account was local (scrypt, invariants 61 and 62), so
+    multi-factor authentication and offboarding were the console's problem and
+    it had neither: a person who left the organisation kept a working password
+    here until somebody remembered to remove it. `-oidc-issuer` (with
+    `-oidc-client-id`, `-oidc-redirect-url`, `-oidc-roles` and the client
+    secret from `COSTCREW_OIDC_CLIENT_SECRET` or `-oidc-client-secret-file`,
+    every flag with a `COSTCREW_OIDC_*` twin) turns on the authorization code
+    flow with PKCE (S256), a state and a nonce, in `internal/sso`, on
+    `github.com/coreos/go-oidc/v3` and `golang.org/x/oauth2`. Off by default,
+    and a configuration that is partly there refuses to start (`sso.Load`).
+
+    What is checked, and where. go-oidc checks the ID token's signature
+    against the issuer's JWKS, `iss`, `aud` and `exp`, and refuses a discovery
+    document that names another issuer. It leaves the rest to the caller, and
+    `sso.Provider.Finish` does it: the nonce (present and equal to the one
+    sent, constant-time), `iat` (present, at most `MaxClockSkew`, two minutes,
+    in the future, and not from before this sign-in began), `azp` (required
+    to be this client when the token has more than one audience, and when it
+    is present at all), and a subject. The state is stored only as its
+    SHA-256, is spent by the first redirect that names it (`DELETE ...
+    RETURNING`), lapses after `PendingLifetime` (ten minutes), and must equal
+    the state cookie of the browser presenting it, so a redirect captured from
+    one browser cannot be finished in another (a login CSRF), and a state
+    presented by the wrong browser is burned rather than left for the right
+    one. The person is shown one of two fixed sentences, never what the
+    provider said; the reason goes to the journal (`external_sign_in_failed`)
+    with no token, code, nonce, verifier or secret in it, cut to 512 bytes and
+    stripped of control characters, because go-oidc puts the body of a failed
+    discovery response into its error. The discovered authorization endpoint,
+    where the browser is sent, must be https or loopback like the issuer. The client secret is
+    an `sso.Secret`, which prints as `[redacted]` under every verb, and has no
+    flag, because a flag is visible in the process list.
+
+    What the provider decides (`auth.SignInExternal`). An identity is
+    (issuer, subject), never a name or an email: the claim named by
+    `-oidc-username-claim` (default `email`) only names the account the first
+    time. A value of the claim named by `-oidc-roles-claim` (default `groups`)
+    maps to viewer, operator or admin through `-oidc-roles`
+    (`value=role;value=role`, split at the last `=` so an LDAP distinguished
+    name works); several matches take the highest; **no match is no access,
+    never a default role**, and no account is created. The first sign-in
+    creates the account at the mapped role, with no usable password. Every
+    later one sets the role to what the mapping says now, up or down, and the
+    role lives on the account, so a session already open carries the new one.
+    A sign-in whose claim no longer maps ends every session the account
+    holds. An identity whose name is already held by another account (a local
+    one, or another subject's) is refused: linking by name would let whoever
+    controls a name at the provider become the local admin of the same name.
+
+    Two neighbours this touches. The console's Content-Security-Policy says
+    `form-action 'self'` (costcrew#97), and a browser applies form-action to
+    the redirect after a form submission, so the way to the provider is a link
+    to `GET /login/oidc`, which answers the redirect itself; every form on the
+    page still posts here. And invariant 64's egress gate now names two doors
+    rather than one: `internal/sso` may build outbound requests, in
+    `client.go` only, where the one client refuses to follow a redirect,
+    refuses any URL that is not https unless its host is loopback, and caps
+    every body at one mebibyte (go-oidc reads discovery, the JWKS and the
+    token response with `io.ReadAll`). It is built only when an issuer is
+    configured and contacts the provider only once somebody starts a sign-in,
+    so a provider that is down costs that sign-in and not the console.
+    *(gate: `TestAGoodSignInEstablishesWhoAndWhichRole`,
+    `TestTheIDTokenIsCheckedClaimByClaim` (wrong audience, expired, bad
+    signature, wrong issuer, missing or wrong nonce, missing iat, iat beyond
+    the skew either way, missing subject, two audiences without `azp`, `azp`
+    naming another client, and both boundaries that must complete),
+    `TestAStateIsSpentByItsFirstUse`, `TestAStateFromAnotherBrowserIsRefusedAndBurned`,
+    `TestAStateOlderThanItsLifetimeIsRefused`, `TestThePendingRowHoldsNoState`,
+    `TestAnErrorOrNoCodeFromTheProviderIsRefused`,
+    `TestTheClaimsThatNameAndMapAreReadStrictly` (a missing, numeric, empty,
+    129-byte, control or bidi-override name; a groups claim that is missing,
+    a number, an object, unmapped or empty, a single string, a mixed array),
+    `TestTheProviderIsNotContactedUntilASignInStarts`,
+    `TestAProviderThatIsDownIsUnreachableNotACrash`,
+    `TestADiscoveryDocumentNamingAnotherIssuerIsRefused`,
+    `TestADiscoveredAuthorizationEndpointOverPlainHTTPIsRefused`,
+    `TestWhatTheProviderSaysReachesTheJournalBoundedAndPlain`,
+    `TestAResponseOverTheCapIsRefusedNotRead`, `TestNoRedirectFromTheProviderIsFollowed`,
+    `TestLoadIsOffWhenNothingIsConfigured`, `TestLoadRefusesWhatIsHalfConfiguredOrUnsafe`,
+    `TestTheRoleMappingIsStrictAndHasNoDefault`,
+    `TestTheClientSecretComesFromOnePlaceAndNeverPrints` in `internal/sso`;
+    `TestTheSignInClientReachesOnlyHTTPSOrLoopback`, `TestTheSignInClientIsTheGuardedOne`
+    in its internal test; `TestTheFirstExternalSignInCreatesTheAccountAtTheMappedRole`,
+    `TestARoleChangeAtTheProviderAppliesAtTheNextSignIn`,
+    `TestNoMappedRoleRefusesAndEndsEverySession`, `TestNoMappedRoleNeverCreatesAnAccount`,
+    `TestALocalAccountIsNeverAdoptedByName`, `TestTheSubjectNotTheNameIsTheLink`,
+    `TestAnExternalAccountHasNoUsablePassword`,
+    `TestAnAccountAnAdminRemovedComesBackAtTheMappedRole`,
+    `TestExternalSignInRefusesWhatIsNotAnIdentity`, `TestExternalSignInIsJournaled`
+    in `internal/auth`; `TestSignInThroughTheProviderCreatesTheAccountAndASession`,
+    `TestEveryRefusedSignInLeavesNoSessionAndNoAccount`, `TestAReplayedCallbackIsRefused`,
+    `TestACallbackInABrowserThatDidNotStartItIsRefused`,
+    `TestARoleDowngradeAtTheProviderAppliesAtTheNextSignIn`,
+    `TestRemovalFromTheGroupEndsEverySessionAtTheNextSignIn`,
+    `TestTheSignInPageReachesTheProviderByALinkNotAForm`,
+    `TestWithNoProviderTheOIDCRoutesAreNotThere`,
+    `TestTheClientSecretAppearsInNoPageAndNoJournalLine` and, for the second
+    door, `TestOnlyTheDeliveryPackageAmongThoseTheConsoleImportsReachesTheNetwork`
+    in `internal/web`, every one against `internal/sso/ssotest`, an identity
+    provider in the test process with its own RSA key and a second key its
+    JWKS never names. Twenty-one `fail` cases and two `pass` cases in
+    `gates-have-teeth.sh`, each switching one check off where it is made, plus
+    the existing egress case's expectation widened to the two doors. One of
+    them was TOOTHLESS on its first run, measured 2026-10-07: with the state
+    read rather than spent, `TestAReplayedCallbackIsRefused` still passed,
+    because the fake provider refuses a code exchanged twice, so the replay
+    failed for the provider's reason; the case is held by
+    `TestAStateIsSpentByItsFirstUse`, which also requires the replay never to
+    reach the token endpoint.)*
+    What this does not do: a person removed from the group who never signs in
+    again keeps a session already open until it expires (twelve hours), because
+    nothing here is told of the removal (no back-channel logout, no SCIM); an
+    admin's role change on `/accounts` for a provider's account lasts until
+    that person's next sign-in, which sets it back to the mapping; an account
+    that existed before the provider was configured cannot be linked to an
+    identity at all (the name is refused), so moving existing people onto the
+    provider means removing their local account first; the provider's
+    `userinfo` endpoint is not read, so a groups claim the provider puts only
+    there is not seen; and no real provider (Entra ID, Okta, Keycloak, Google)
+    has been run against this, only the one in the test process.
+
+75. **With a provider configured, nobody registers through the form, and
+    `-oidc-only` leaves a password only to the command line's break-glass
+    account.** Invariant 10 opens `/signup` to the first comer while no admin
+    exists. With a provider, that is exactly the moment the provider demotes
+    the last admin, so the form is closed outright while an issuer is
+    configured (`Server.signupOpen`), and an installation with no account yet
+    shows the sign-in page, not the registration form. `-oidc-only`
+    (`COSTCREW_OIDC_ONLY`) switches password sign-in off for every account
+    except one whose password was set with `-set-password`, recorded in
+    `break_glass` by `auth.SetPassword`, the one way back in when the provider
+    itself is down. Any other account's right password answers exactly what a
+    wrong one does, after the same hashing work (`auth.AuthenticateBreakGlass`,
+    invariant 62 kept), so the form cannot be asked which accounts are the
+    break-glass ones. Without `-oidc-only`, local password sign-in is unchanged.
+    *(gate: `TestRegistrationIsClosedWhileAProviderIsConfigured`,
+    `TestOIDCOnlyRefusesPasswordsExceptTheCommandLinesBreakGlass` and
+    `TestAProviderThatIsDownLeavesPasswordSignInWorking` in `internal/web`;
+    `TestUnderOIDCOnlyAPasswordSignsInOnlyToABreakGlassAccount` in
+    `internal/auth`. Two `fail` cases in `gates-have-teeth.sh`.)*
+    What this does not do: an installation switched to `-oidc-only` whose
+    admin signed up through the form has no break-glass account until
+    somebody runs `-set-password` for one; and a break-glass password is as
+    strong as whoever chose it, with no second factor.
 
 ## Decisions that have no gate yet
 

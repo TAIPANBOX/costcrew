@@ -390,7 +390,7 @@ func TestACallToTheLocalEngineThroughTheOpenAIGatewayIsMetered(t *testing.T) {
 
 	res, err := Call(context.Background(), "local", "m", "hi", 8, Gateway{
 		OpenAIURL: meter.URL, ModelURL: own.URL + "/v1",
-		RunID: "crew-9", AgentID: "agent://x/y.mercer", BudgetUSD: "1.00"})
+		RunID: "crew-9", AgentID: "agent://x/y.mercer", OnBehalfOf: testChain, BudgetUSD: "1.00"})
 	if err != nil {
 		t.Fatalf("Call: %v", err)
 	}
@@ -425,7 +425,7 @@ func TestTheLocalEngineIsNeverSentDirectBehindAGatewaysBack(t *testing.T) {
 
 	_, err := Call(context.Background(), "local", "m", "hi", 8, Gateway{
 		URL: anthropicGW.URL, ModelURL: own.URL + "/v1",
-		RunID: "crew-9", AgentID: "agent://x/y.mercer", BudgetUSD: "1.00"})
+		RunID: "crew-9", AgentID: "agent://x/y.mercer", OnBehalfOf: testChain, BudgetUSD: "1.00"})
 	if !errors.Is(err, ErrNoGatewayRoute) {
 		t.Fatalf("err = %v, want one wrapping ErrNoGatewayRoute", err)
 	}
@@ -455,7 +455,7 @@ func TestA402FromTheLocalGatewayIsARefusalAndFromTheServerIsNot(t *testing.T) {
 		`"reason":"per-run budget exceeded","run_id":"crew-1"}}`
 	gw := newFakeModelServer(t, http.StatusPaymentRequired, body)
 	_, err := Call(context.Background(), "local", "m", "hi", 8, Gateway{
-		OpenAIURL: gw.URL, RunID: "crew-1", AgentID: "agent://x/y", BudgetUSD: "1.00"})
+		OpenAIURL: gw.URL, RunID: "crew-1", AgentID: "agent://x/y", OnBehalfOf: testChain, BudgetUSD: "1.00"})
 	var gr GatewayRefusal
 	if !errors.As(err, &gr) {
 		t.Fatalf("a 402 from the gateway: err = %v, want a GatewayRefusal", err)

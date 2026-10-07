@@ -163,6 +163,23 @@ budget in USD, the tighter of the run's ceiling and the task's own guard.
 yet. `x-fuse-parent-run-id` is sent only when the runner already has a
 notion of a parent, which today it never does, so it is never invented.
 
+`x-fuse-on-behalf-of` is sent on every call, from the runner, the bench and
+the console's planning call alike: the analyst's owner from the roster as a
+`user://<host>/<owner>` root, then the analyst's own `agent://<host>/<name>`.
+TokenFuse folds the owner from the first `user://` entry, so this is what puts
+the crew's spend under a person in its owner view. An analyst with no owner
+(or only the `unclaimed` placeholder a roster seeded without `-stack-owner`
+carries) is refused when its task is priced, with the analyst named, rather
+than sent with an empty chain; with no gateway nothing is sent and nothing is
+refused. The console's planning call names the person who clicked instead,
+with the supervisor as the agent. Invariant 65 in `CLAUDE.md` has the grammar
+and its limits.
+
+A task a person blocks while its call is in flight keeps the block: the
+answer that arrives afterwards is discarded with a line saying so, no draft
+is saved, and the charge of the call, which was made and billed, is still
+booked (invariant 66).
+
 OpenRouter speaks the OpenAI chat-completions wire, which TokenFuse has
 served since 2026-09-07 through a second gateway process (one process
 forwards one wire shape). `-gateway-openai` (or `COSTCREW_GATEWAY_OPENAI`)
