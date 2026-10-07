@@ -2314,7 +2314,7 @@ run_case $'egress: a package the console imports starts building requests' \
 	fail \
 	./internal/web \
 	$'TestOnlyTheDeliveryPackageAmongThoseTheConsoleImportsReachesTheNetwork' \
-	$'want exactly [internal/deliver]' \
+	$'want exactly [internal/deliver internal/sso]' \
 	internal/money/money.go \
 	$'import (\n' \
 	$'import (\n	"net/http"\n' \
@@ -2512,8 +2512,8 @@ run_case $'http edge: the console builds a literal http.Server again' \
 	$'\tsrv := web.NewHTTPServer(addr, web.New(st, au, web.Stack{' \
 	$'\tsrv := &http.Server{Addr: addr, Handler: web.New(st, au, web.Stack{' \
 	cmd/costcrew/main.go \
-	$'\t\tBehindTLS: behindTLS,\n\t}))\n' \
-	$'\t\tBehindTLS: behindTLS,\n\t})}\n'
+	$'\t\tBehindTLS: behindTLS, OIDC: oidcProv,\n\t}))\n' \
+	$'\t\tBehindTLS: behindTLS, OIDC: oidcProv,\n\t})}\n'
 run_case $'http edge: reordered policy directives and a reworded refusal are not a fault' \
 	pass \
 	./internal/web \
@@ -2525,6 +2525,222 @@ run_case $'http edge: reordered policy directives and a reworded refusal are not
 	internal/web/edge.go \
 	$'request too large: this page accepts at most %d bytes' \
 	$'request too large: at most %d bytes are read here'
+
+# 74 and 75. Sign-in through the organisation's identity provider. Every case
+# switches off one check the flow makes, in the place it is made, and requires
+# the test written for that check to go red for that reason. go-oidc's own
+# checks (signature, audience, expiry) are switched off through its Config,
+# which is how a mistake in this repository would switch them off.
+run_case $'oidc: the signature is not checked' \
+	fail \
+	./internal/sso \
+	$'TestTheIDTokenIsCheckedClaimByClaim' \
+	$'bad_signature' \
+	internal/sso/flow.go \
+	$'&oidc.Config{ClientID: p.cfg.ClientID}' \
+	$'&oidc.Config{ClientID: p.cfg.ClientID, InsecureSkipSignatureCheck: true}'
+run_case $'oidc: the audience is not checked' \
+	fail \
+	./internal/web \
+	$'TestEveryRefusedSignInLeavesNoSessionAndNoAccount' \
+	$'wrong_audience' \
+	internal/sso/flow.go \
+	$'&oidc.Config{ClientID: p.cfg.ClientID}' \
+	$'&oidc.Config{SkipClientIDCheck: true}'
+run_case $'oidc: the expiry is not checked' \
+	fail \
+	./internal/web \
+	$'TestEveryRefusedSignInLeavesNoSessionAndNoAccount' \
+	$'expired_token' \
+	internal/sso/flow.go \
+	$'&oidc.Config{ClientID: p.cfg.ClientID}' \
+	$'&oidc.Config{ClientID: p.cfg.ClientID, SkipExpiryCheck: true}'
+run_case $'oidc: the nonce is not checked' \
+	fail \
+	./internal/web \
+	$'TestEveryRefusedSignInLeavesNoSessionAndNoAccount' \
+	$'missing_nonce' \
+	internal/sso/flow.go \
+	$'	if idt.Nonce == "" {' \
+	$'	if false {' \
+	internal/sso/flow.go \
+	$'	if subtle.ConstantTimeCompare([]byte(idt.Nonce), []byte(pend.nonce)) != 1 {' \
+	$'	if false {'
+run_case $'oidc: an iat from the future is accepted' \
+	fail \
+	./internal/sso \
+	$'TestTheIDTokenIsCheckedClaimByClaim' \
+	$'want it refused for "in the future"' \
+	internal/sso/flow.go \
+	$'	case idt.IssuedAt.After(now.Add(MaxClockSkew)):' \
+	$'	case false:'
+run_case $'oidc: an iat from before the sign-in began is accepted' \
+	fail \
+	./internal/sso \
+	$'TestTheIDTokenIsCheckedClaimByClaim' \
+	$'want it refused for "before this sign-in began"' \
+	internal/sso/flow.go \
+	$'	case idt.IssuedAt.Before(pend.created.Add(-MaxClockSkew)):' \
+	$'	case false:'
+run_case $'oidc: the authorized party is not checked' \
+	fail \
+	./internal/sso \
+	$'TestTheIDTokenIsCheckedClaimByClaim' \
+	$'want it refused for "issued to"' \
+	internal/sso/flow.go \
+	$'	if (len(idt.Audience) > 1 && azp != p.cfg.ClientID) || (azp != "" && azp != p.cfg.ClientID) {' \
+	$'	if false {'
+# The end-to-end replay test alone was TOOTHLESS against this one, measured
+# 2026-10-07: the fake provider's own one-use code refuses the second exchange,
+# so the replay failed for the provider's reason, not this console's. The sso
+# test also requires the replay to never reach the token endpoint.
+run_case $'oidc: a state is read instead of spent' \
+	fail \
+	./internal/sso \
+	$'TestAStateIsSpentByItsFirstUse' \
+	$'unknown or was already used' \
+	internal/sso/flow.go \
+	$'`DELETE FROM oidc_pending WHERE state_hash=? RETURNING nonce, verifier, created, expires`' \
+	$'`SELECT nonce, verifier, created, expires FROM oidc_pending WHERE state_hash=?`'
+run_case $'oidc: the state is not bound to the browser that started it' \
+	fail \
+	./internal/web \
+	$'TestACallbackInABrowserThatDidNotStartItIsRefused' \
+	$'callback without the state cookie' \
+	internal/sso/flow.go \
+	$'	if browserState == "" || subtle.ConstantTimeCompare([]byte(state), []byte(browserState)) != 1 {' \
+	$'	if false {'
+run_case $'oidc: an unmapped group gets a default role' \
+	fail \
+	./internal/web \
+	$'TestEveryRefusedSignInLeavesNoSessionAndNoAccount' \
+	$'unmapped_group' \
+	internal/sso/sso.go \
+	$'	best := ""' \
+	$'	best := "viewer"'
+run_case $'oidc: removal from the group leaves the sessions alive' \
+	fail \
+	./internal/web \
+	$'TestRemovalFromTheGroupEndsEverySessionAtTheNextSignIn' \
+	$'the session from before the removal still signs in' \
+	internal/auth/external.go \
+	$'`DELETE FROM sessions WHERE username=?`, linked)' \
+	$'`DELETE FROM sessions WHERE username=? AND 0`, linked)'
+run_case $'oidc: a role change at the provider is not applied' \
+	fail \
+	./internal/web \
+	$'TestARoleDowngradeAtTheProviderAppliesAtTheNextSignIn' \
+	$'after the provider moved her to viewers' \
+	internal/auth/external.go \
+	$'		if u.Role != role {' \
+	$'		if false {'
+run_case $'oidc: an identity adopts a local account by its name' \
+	fail \
+	./internal/auth \
+	$'TestALocalAccountIsNeverAdoptedByName' \
+	$'an identity named like a local admin signed in' \
+	internal/auth/external.go \
+	$'		} else if u != nil || taken {' \
+	$'		} else if (u != nil || taken) && false {'
+run_case $'oidc: -oidc-only still takes any password' \
+	fail \
+	./internal/web \
+	$'TestOIDCOnlyRefusesPasswordsExceptTheCommandLinesBreakGlass' \
+	$'a local password under -oidc-only' \
+	internal/web/server.go \
+	$'		authenticate = s.au.AuthenticateBreakGlass' \
+	$'		_ = s.au.AuthenticateBreakGlass'
+run_case $'oidc: registration stays open while a provider is configured' \
+	fail \
+	./internal/web \
+	$'TestRegistrationIsClosedWhileAProviderIsConfigured' \
+	$'GET /signup' \
+	internal/web/server.go \
+	$'	if s.oidc != nil {\n		return false, nil\n	}\n	return s.au.SignupOpen()' \
+	$'	return s.au.SignupOpen()'
+run_case $'oidc: the sign-in page posts a form to the provider' \
+	fail \
+	./internal/web \
+	$'TestTheSignInPageReachesTheProviderByALinkNotAForm' \
+	$'has no link to' \
+	internal/web/oidc.go \
+	$'	out := `<p class="row"><a class="button" href="` + sso.StartPath +\n		`">Sign in with your organisation</a></p>`' \
+	$'	out := `<form method="get" action="` + s.oidc.Config().Issuer + `/authorize"><button>Sign in with your organisation</button></form>`'
+run_case $'oidc: the client follows a redirect from the provider' \
+	fail \
+	./internal/sso \
+	$'TestNoRedirectFromTheProviderIsFollowed' \
+	$'followed the provider\'s redirect' \
+	internal/sso/client.go \
+	$'		CheckRedirect: func(req *http.Request, _ []*http.Request) error {\n' \
+	$'		CheckRedirect: func(req *http.Request, _ []*http.Request) error {\n			return nil\n'
+run_case $'oidc: a response body is read whole' \
+	fail \
+	./internal/sso \
+	$'TestAResponseOverTheCapIsRefusedNotRead' \
+	$'larger than 1 MiB' \
+	internal/sso/client.go \
+	$'	resp.Body = &capped{r: resp.Body, left: maxResponseBytes}' \
+	$'	_ = &capped{r: resp.Body, left: maxResponseBytes}'
+run_case $'oidc: the client reaches plain http off this machine' \
+	fail \
+	./internal/sso \
+	$'TestTheSignInClientReachesOnlyHTTPSOrLoopback' \
+	$'want refused before any connection' \
+	internal/sso/client.go \
+	$'	if req.URL.Scheme != "https" && !(req.URL.Scheme == "http" && Loopback(req.URL.Hostname())) {' \
+	$'	if false {'
+run_case $'oidc: the client secret prints' \
+	fail \
+	./internal/sso \
+	$'TestTheClientSecretComesFromOnePlaceAndNeverPrints' \
+	$'the client secret is printed' \
+	internal/sso/sso.go \
+	$'func (Secret) Format(f fmt.State, _ rune) { fmt.Fprint(f, "[redacted]") }' \
+	$'func (s Secret) Format(f fmt.State, _ rune) { fmt.Fprint(f, string(s)) }'
+run_case $'oidc: the sign-in package grows a second outbound construction' \
+	fail \
+	./internal/web \
+	$'TestOnlyTheDeliveryPackageAmongThoseTheConsoleImportsReachesTheNetwork' \
+	$'may reach the network only from client.go' \
+	internal/sso/flow.go \
+	$'import (\n' \
+	$'import (\n	"net/http"\n' \
+	internal/sso/flow.go \
+	$'\nfunc randomToken() (string, error) {' \
+	$'\nvar _ = http.Get\n\nfunc randomToken() (string, error) {'
+run_case $'oidc: what the provider says reaches the journal unbounded' \
+	fail \
+	./internal/sso \
+	$'TestWhatTheProviderSaysReachesTheJournalBoundedAndPlain' \
+	$'want at most 512' \
+	internal/sso/flow.go \
+	$'Detail: bound(fmt.Sprintf(format, args...), maxDetailBytes)}' \
+	$'Detail: fmt.Sprintf(format, args...)}'
+run_case $'oidc: a discovered authorization endpoint is not checked' \
+	fail \
+	./internal/sso \
+	$'TestADiscoveredAuthorizationEndpointOverPlainHTTPIsRefused' \
+	$'want a refusal naming the authorization endpoint' \
+	internal/sso/flow.go \
+	$'	if _, err := endpoint("the discovered authorization endpoint", prov.Endpoint().AuthURL); err != nil {' \
+	$'	if _, err := endpoint("the discovered authorization endpoint", prov.Endpoint().AuthURL); err != nil \x26\x26 false {'
+run_case $'oidc: rewording what a refused person is shown is not a fault' \
+	pass \
+	./internal/web \
+	$'TestEveryRefusedSignInLeavesNoSessionAndNoAccount' \
+	$'' \
+	internal/sso/flow.go \
+	$'MsgStartAgain  = "the sign-in could not be completed; start it again"' \
+	$'MsgStartAgain  = "signing in did not finish; please start again"'
+run_case $'oidc: a comment naming http.Client in the flow is not a second door' \
+	pass \
+	./internal/web \
+	$'TestOnlyTheDeliveryPackageAmongThoseTheConsoleImportsReachesTheNetwork' \
+	$'' \
+	internal/sso/flow.go \
+	$'\nfunc randomToken() (string, error) {' \
+	$'\n// Not an http.Client, nor http.Get: a comment the walk must not read.\nfunc randomToken() (string, error) {'
 
 echo
 if [ -n "$(git status --porcelain)" ]; then

@@ -13,7 +13,11 @@ import (
 // staying outside it is a DECISION somebody wrote down, not an omission in a
 // handler nobody looked at twice.
 var publicRoutes = map[string]string{
-	"/login":    "the way in",
+	"/login": "the way in",
+	"/login/oidc": "the way in through the organisation's identity provider; 404 " +
+		"when none is configured (invariant 74)",
+	"/login/oidc/callback": "where the provider sends the browser back; everything it " +
+		"carries is checked before anybody is signed in (invariant 74)",
 	"/logout":   "must work from a session already broken",
 	"/healthz":  "a load balancer has no password",
 	"/static/":  "stylesheet and icons, no estate data",
