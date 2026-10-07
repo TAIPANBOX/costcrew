@@ -9,8 +9,10 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"time"
 
@@ -22,24 +24,39 @@ import (
 )
 
 func main() {
-	dir := flag.String("data", ".", "the console's data directory")
-	base := flag.String("cloud", "", "TokenFuse control plane, e.g. http://127.0.0.1:8791")
-	period := flag.String("period", "", "which month's budgets to push; default is the last closed one")
-	expect := flag.String("apply", "", "the plan's fingerprint, from a run without this flag. "+
-		"Sends exactly the plan that was printed with that fingerprint, and refuses if it has changed")
-	flag.Parse()
+	os.Exit(run(os.Args[0], os.Args[1:], os.Getenv, os.Stdout, os.Stderr))
+}
 
-	key := os.Getenv("TOKENFUSE_KEY")
+// run is main minus os: the program name (for the apply hint), the arguments,
+// a way to read the environment, the two streams, and an exit status. The key
+// is read through getenv so a test can hand it one without touching the real
+// environment, and so no test can pick up a real TokenFuse key by accident.
+func run(prog string, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("enforce", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	dir := fs.String("data", ".", "the console's data directory")
+	base := fs.String("cloud", "", "TokenFuse control plane, e.g. http://127.0.0.1:8791")
+	period := fs.String("period", "", "which month's budgets to push; default is the last closed one")
+	expect := fs.String("apply", "", "the plan's fingerprint, from a run without this flag. "+
+		"Sends exactly the plan that was printed with that fingerprint, and refuses if it has changed")
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		return 2
+	}
+
+	key := getenv("TOKENFUSE_KEY")
 	cfg := enforce.Config{BaseURL: *base, Key: key}
 	if !cfg.On() {
-		fmt.Fprintln(os.Stderr, "enforcement is off: pass -cloud URL and set TOKENFUSE_KEY.")
-		fmt.Fprintln(os.Stderr, "The key is read from the environment and never written anywhere.")
-		os.Exit(2)
+		fmt.Fprintln(stderr, "enforcement is off: pass -cloud URL and set TOKENFUSE_KEY.")
+		fmt.Fprintln(stderr, "The key is read from the environment and never written anywhere.")
+		return 2
 	}
 
 	st, err := store.Open(*dir)
 	if err != nil {
-		fail(err)
+		return fail(stderr, err)
 	}
 	defer st.Close()
 
@@ -49,22 +66,22 @@ func main() {
 	}
 	want, err := teamBudgets(st.DB(), p)
 	if err != nil {
-		fail(err)
+		return fail(stderr, err)
 	}
-	fmt.Printf("%d team budgets from %s\n\n", len(want), p)
+	fmt.Fprintf(stdout, "%d team budgets from %s\n\n", len(want), p)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	plan, err := enforce.MakePlan(ctx, cfg, want)
 	if err != nil {
-		fail(err)
+		return fail(stderr, err)
 	}
 
 	if plan.Empty() {
-		fmt.Printf("Nothing to change: %d already match.\n", plan.Unchanged)
-		return
+		fmt.Fprintf(stdout, "Nothing to change: %d already match.\n", plan.Unchanged)
+		return 0
 	}
-	fmt.Printf("%-22s %14s %14s\n", "UNIT", "SET NOW", "WOULD BE")
+	fmt.Fprintf(stdout, "%-22s %14s %14s\n", "UNIT", "SET NOW", "WOULD BE")
 	for _, c := range plan.Changes {
 		now := "(none)"
 		if c.HasNow {
@@ -77,24 +94,25 @@ func main() {
 		case c.New:
 			note = "   new"
 		}
-		fmt.Printf("%-22s %14s %14s%s\n", c.Unit, now, c.Want.String(), note)
+		fmt.Fprintf(stdout, "%-22s %14s %14s%s\n", c.Unit, now, c.Want.String(), note)
 	}
-	fmt.Printf("\n%d to change, %d of them lower, %d new, %d already right.\n",
+	fmt.Fprintf(stdout, "\n%d to change, %d of them lower, %d new, %d already right.\n",
 		len(plan.Changes), plan.Lowered, plan.Added, plan.Unchanged)
 
 	fp := plan.Fingerprint()
 	if *expect == "" {
-		fmt.Printf("\nNothing was sent. To send exactly this and nothing else:\n")
-		fmt.Printf("  %s -apply %s\n", os.Args[0], fp)
-		fmt.Printf("\nIf anything moves in between, that command refuses rather than sending\n" +
+		fmt.Fprintf(stdout, "\nNothing was sent. To send exactly this and nothing else:\n")
+		fmt.Fprintf(stdout, "  %s -apply %s\n", prog, fp)
+		fmt.Fprintf(stdout, "\nIf anything moves in between, that command refuses rather than sending\n"+
 			"a different set of numbers than the ones above.\n")
-		return
+		return 0
 	}
 	n, err := enforce.Apply(ctx, cfg, plan, *expect)
 	if err != nil {
-		fail(err)
+		return fail(stderr, err)
 	}
-	fmt.Printf("\nSet %d unit budget(s). Gateways poll this every three seconds.\n", n)
+	fmt.Fprintf(stdout, "\nSet %d unit budget(s). Gateways poll this every three seconds.\n", n)
+	return 0
 }
 
 // teamBudgets is what this console says each team may spend in a month.
@@ -115,7 +133,7 @@ func teamBudgets(db *sql.DB, period string) (map[string]money.Cents, error) {
 	return out, nil
 }
 
-func fail(err error) {
-	fmt.Fprintln(os.Stderr, "enforce:", err)
-	os.Exit(1)
+func fail(stderr io.Writer, err error) int {
+	fmt.Fprintln(stderr, "enforce:", err)
+	return 1
 }
