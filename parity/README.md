@@ -60,19 +60,41 @@ go build -o bin/parity ./tools/parity
 `compare` exits non-zero on any difference and names the first differing line
 of each surface, so a failure is actionable without reaching for `diff`.
 
-### Seven surfaces differ between any two installs, and should
+### What two installs of the same binary differ on
 
-Two fresh installs of the same binary differ on exactly seven surfaces, all of
-them `/audit`, all of them the journal's chain hashes. Each installation has
-its own chain, so its hashes are its own. That is correct, and it is the
-baseline: a comparison of two installs that reports seven differing `/audit`
-surfaces has found nothing.
+Each installation has its own journal, so its chain hashes are its own. Until
+2026-10-07 the scrub for them matched only the Python original's markup, so
+every `/audit` surface of two Go installs differed on its hashes:
 
 ```
 0 gone, 0 extra, 7 differing
 ```
 
 @measured 2026-08-23, two fresh installs of the same binary compared.
+
+A second scrub now covers the hash cell the Go console renders, and the same
+comparison reports one surface:
+
+```
+golden local/parity-work/cap-a  18997 surfaces
+actual local/parity-work/cap-b  18997 surfaces
+
+CONTENT  /audit?sort=when&dir=asc
+      line 82
+      golden: <td><strong>login</strong></td>
+      actual: <td><strong>anomaly_dismissed</strong></td>
+
+NO PARITY: 0 gone, 0 extra, 1 differing
+```
+
+@measured 2026-10-07, two fresh installs of one build of costcrew#104, each
+captured with `parity capture` and compared. The remaining surface is the
+journal sorted oldest first, where the two installs list a different event at
+the same row. The capture's own sign-in is one of those events and is
+written at the moment of capture, so the order is plausibly clock-driven, but
+that is not established: the cause was not investigated, and until it is,
+this one `/audit` surface is the baseline a comparison of two installs
+should expect.
 
 Comparing two captures of the same install after a change avoids this entirely.
 
@@ -133,7 +155,7 @@ Stated because a gate whose limits are unwritten gets trusted past them.
   because the act of capturing moves them.
 - **Chain-hash agreement between implementations.** Two implementations could
   compute different hashes over the same event and this gate would not notice,
-  which is what the seven `/audit` surfaces above are hiding behind. That is a
+  which is what the scrubbed `/audit` hashes above are hiding behind. That is a
   cross-language byte contract and belongs in a pinned-vector test. Until that
   test exists, it is an uncovered path.
 - **Anything a crawl cannot reach**, including pages behind a state the seeded
@@ -158,7 +180,7 @@ estate regenerates identically. Both were false for budgets. Fixed with
 grouped rows in a map and returned them in map order, which Go randomises by
 design. The AI desk therefore listed in a different order on every call, and a
 sort with ties broke differently per request. Caught as one differing surface
-among the seven expected `/audit` ones, at `/ai?sort=model&dir=desc` line 98.
+among the seven `/audit` ones expected at the time, at `/ai?sort=model&dir=desc` line 98.
 Fixed by sorting the keys, which are `month|team|model` and therefore a total
 order. @measured 2026-08-23.
 
