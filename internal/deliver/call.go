@@ -602,10 +602,7 @@ func callOpenRouter(ctx context.Context, model, prompt string, maxTok int, gw Ga
 		Choices []struct {
 			Message struct{ Content string } `json:"message"`
 		} `json:"choices"`
-		Usage struct {
-			PromptTokens     int `json:"prompt_tokens"`
-			CompletionTokens int `json:"completion_tokens"`
-		} `json:"usage"`
+		Usage OpenAIUsage `json:"usage"`
 	}
 	if len(bytes.TrimSpace(raw)) == 0 {
 		return Result{}, fmt.Errorf("the router answered 200 with an empty body")
@@ -626,7 +623,7 @@ func callOpenRouter(ctx context.Context, model, prompt string, maxTok int, gw Ga
 	return Result{
 		Text:       out.Choices[0].Message.Content,
 		InTokens:   out.Usage.PromptTokens,
-		OutTokens:  out.Usage.CompletionTokens,
+		OutTokens:  out.Usage.OutputTokens(),
 		Settlement: st,
 	}, nil
 }
