@@ -2111,6 +2111,151 @@ run_case $'admin answers: a reworded refusal message is not a fault' \
 	$'"you are answering for "+owner+", so a reason is needed: "+rerr.Error()' \
 	$'"a reason is needed because you are answering for "+owner+": "+rerr.Error()'
 
+# Invariant 59: the HTTP edge. Each fault below is one the three defects were
+# made of, planted back; the last of each group is a harmless edit the gate must
+# not mind, so a gate that merely pinned today's literal would read OVEREAGER.
+run_case $'http edge: a hand-written HTML writer is back in the results export' \
+	fail \
+	./internal/web \
+	$'TestResultsExportHasNoHandWrittenHTMLWriter' \
+	$'exportResultsHTML calls Fprintf' \
+	internal/web/practice.go \
+	$'\t_, _ = buf.WriteTo(w)\n}\n' \
+	$'\t_, _ = buf.WriteTo(w)\n\tfmt.Fprintf(w, "<!-- %s -->", a.Unallocated)\n}\n'
+run_case $'http edge: the results export is built with text/template, which does not escape' \
+	fail \
+	./internal/web \
+	$'TestResultsExportEscapesWhatAnImportedRowCarries' \
+	$'is written into /export/results.html raw' \
+	internal/web/practice.go \
+	$'\t"html/template"\n' \
+	$'\t"text/template"\n'
+run_case $'http edge: the Content-Security-Policy is not sent' \
+	fail \
+	./internal/web \
+	$'TestEveryRouteCarriesTheSecurityHeaders' \
+	$'no Content-Security-Policy' \
+	internal/web/edge.go \
+	$'\th.Set("Content-Security-Policy", contentSecurityPolicy)\n' \
+	$'\t_ = contentSecurityPolicy\n'
+run_case $'http edge: X-Frame-Options is not sent' \
+	fail \
+	./internal/web \
+	$'TestEveryRouteCarriesTheSecurityHeaders' \
+	$'X-Frame-Options' \
+	internal/web/edge.go \
+	$'\th.Set("X-Frame-Options", "DENY")\n' \
+	$'\t_ = "DENY"\n'
+run_case $'http edge: the policy allows inline script' \
+	fail \
+	./internal/web \
+	$'TestTheContentSecurityPolicyAllowsNoScript' \
+	$'script-src' \
+	internal/web/edge.go \
+	$'const contentSecurityPolicy = "default-src \'none\'; style-src' \
+	$'const contentSecurityPolicy = "default-src \'none\'; script-src \'self\' \'unsafe-inline\'; style-src'
+run_case $'http edge: Sign out needs a script again' \
+	fail \
+	./internal/web \
+	$'TestNoPageReliesOnWhatThePolicyForbids' \
+	$'relies on' \
+	internal/web/templates/layout.html \
+	$'<form class="signout" method="post" action="/logout">' \
+	$'<form class="signout" method="post" action="/logout" onsubmit="return true">'
+run_case $'http edge: Strict-Transport-Security is sent over plain HTTP too' \
+	fail \
+	./internal/web \
+	$'TestStrictTransportSecurityFollowsTheCookiePosture' \
+	$'Strict-Transport-Security' \
+	internal/web/edge.go \
+	$'\tif s.behindTLS || r.TLS != nil {\n\t\th.Set("Strict-Transport-Security"' \
+	$'\tif true {\n\t\th.Set("Strict-Transport-Security"'
+run_case $'http edge: Strict-Transport-Security ignores a TLS handshake this process made' \
+	fail \
+	./internal/web \
+	$'TestStrictTransportSecurityFollowsTheCookiePosture' \
+	$'TLS terminated here' \
+	internal/web/edge.go \
+	$'\tif s.behindTLS || r.TLS != nil {\n\t\th.Set("Strict-Transport-Security"' \
+	$'\tif s.behindTLS {\n\t\th.Set("Strict-Transport-Security"'
+run_case $'http edge: the body cap is not applied' \
+	fail \
+	./internal/web \
+	$'TestAnOversizedPostIsRefusedAndChangesNothing' \
+	$'want 413' \
+	internal/web/server.go \
+	$'\tif !limitBody(w, r) {' \
+	$'\tif false {'
+run_case $'http edge: a chunked body is handed to the handler uncapped' \
+	fail \
+	./internal/web \
+	$'TestAnOversizedPostIsRefusedAndChangesNothing' \
+	$'chunked:' \
+	internal/web/edge.go \
+	$'\tif r.ContentLength >= 0 {\n\t\tr.Body = http.MaxBytesReader' \
+	$'\tif true {\n\t\tr.Body = http.MaxBytesReader'
+run_case $'http edge: the intake upload is held to the general cap' \
+	fail \
+	./internal/web \
+	$'TestIntakeStillAcceptsAFileUpToItsOwnCap' \
+	$'answered 413' \
+	internal/web/edge.go \
+	$'\t\treturn maxIntake + multipartOverhead\n' \
+	$'\t\treturn maxBody\n'
+run_case $'http edge: the intake round trip is held to the general cap' \
+	fail \
+	./internal/web \
+	$'TestIntakeApplyAcceptsTheEncodedFileItCheckedAndRefusesMore' \
+	$'refused as too large' \
+	internal/web/edge.go \
+	$'\t\treturn 6*maxIntake + multipartOverhead\n' \
+	$'\t\treturn maxBody\n'
+run_case $'http edge: the intake reads a file over its cap in part again' \
+	fail \
+	./internal/web \
+	$'TestIntakeRefusesAFileOverItsCapInsteadOfCuttingIt' \
+	$'want a redirect with the reason' \
+	internal/web/intake.go \
+	$'io.LimitReader(f, maxIntake+1)' \
+	$'io.LimitReader(f, maxIntake)'
+run_case $'http edge: the write timeout is not longer than a model call' \
+	fail \
+	./internal/web \
+	$'TestTheServerSetsEveryTimeoutAndOutlastsTheLongestHandler' \
+	$'is under twice' \
+	internal/web/edge.go \
+	$'\tWriteTimeout = 2 * planAskTimeout\n' \
+	$'\tWriteTimeout = planAskTimeout\n'
+run_case $'http edge: the write timeout is not set' \
+	fail \
+	./internal/web \
+	$'TestTheServerSetsEveryTimeoutAndOutlastsTheLongestHandler' \
+	$'WriteTimeout is 0s' \
+	internal/web/edge.go \
+	$'\t\tWriteTimeout:      WriteTimeout,\n' \
+	$''
+run_case $'http edge: the console builds a literal http.Server again' \
+	fail \
+	./cmd/costcrew \
+	$'TestTheConsoleServesThroughTheServerThatOwnsItsTimeouts' \
+	$'builds a literal http.Server' \
+	cmd/costcrew/main.go \
+	$'\tsrv := web.NewHTTPServer(addr, web.New(st, au, web.Stack{' \
+	$'\tsrv := &http.Server{Addr: addr, Handler: web.New(st, au, web.Stack{' \
+	$'\t\tBehindTLS: behindTLS,\n\t}))\n' \
+	$'\t\tBehindTLS: behindTLS,\n\t})}\n'
+run_case $'http edge: reordered policy directives and a reworded refusal are not a fault' \
+	pass \
+	./internal/web \
+	$'TestTheContentSecurityPolicyAllowsNoScript|TestAnOversizedPostIsRefusedAndChangesNothing' \
+	$'' \
+	internal/web/edge.go \
+	$'"form-action \'self\'; base-uri \'none\'; frame-ancestors \'none\'"' \
+	$'"frame-ancestors \'none\'; base-uri \'none\'; form-action \'self\'"' \
+	internal/web/edge.go \
+	$'request too large: this page accepts at most %d bytes' \
+	$'request too large: at most %d bytes are read here'
+
 echo
 if [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'

@@ -480,16 +480,15 @@ func run(addr, dir string, scfg stack.Config, gatewayURL, gatewayOpenAIURL strin
 			"process itself terminates TLS, which -addr's own recommended deployment " +
 			"(a proxy in front) never does -- set -behind-tls there")
 	}
-	srv := &http.Server{
-		Addr: addr,
-		Handler: web.New(st, au, web.Stack{
-			Recorder: rec, Host: scfg.Host, EventsPath: scfg.EventsPath,
-			Passports: em.WritePassports, PassportFor: em.PassportFor,
-			Delegation: em.Delegation, Gateway: gatewayURL, GatewayOpenAI: gatewayOpenAIURL,
-			BehindTLS: behindTLS,
-		}),
-		ReadHeaderTimeout: 10 * time.Second,
-	}
+	// web.NewHTTPServer, not a literal http.Server: the read, write and idle
+	// timeouts live with the handler they were measured against (invariant 59),
+	// and a literal here is how they went unset.
+	srv := web.NewHTTPServer(addr, web.New(st, au, web.Stack{
+		Recorder: rec, Host: scfg.Host, EventsPath: scfg.EventsPath,
+		Passports: em.WritePassports, PassportFor: em.PassportFor,
+		Delegation: em.Delegation, Gateway: gatewayURL, GatewayOpenAI: gatewayOpenAIURL,
+		BehindTLS: behindTLS,
+	}))
 
 	// Shut down on a signal rather than being killed mid-write: the journal is
 	// a hash chain, and a half-written line is a break a verifier has to
