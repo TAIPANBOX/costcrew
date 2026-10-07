@@ -255,8 +255,9 @@ func (s *Server) exportAllocation(w http.ResponseWriter, r *http.Request) {
 		rows = append(rows, []string{p, "*", "(unallocated)",
 			"0.00", a.Unallocated.String(), a.Unallocated.String()})
 	}
-	writeCSV(w, "allocation-"+p+".csv", []string{
-		"period", "source", "team", "direct_usd", "allocated_usd", "fully_loaded_usd"}, rows)
+	writeCSV(w, "allocation-"+p+".csv", []csvCol{
+		textCol("period"), textCol("source"), textCol("team"), numberCol("direct_usd"),
+		numberCol("allocated_usd"), numberCol("fully_loaded_usd")}, rows)
 }
 
 func (s *Server) exportGL(w http.ResponseWriter, r *http.Request) {
@@ -274,7 +275,7 @@ func (s *Server) exportGL(w http.ResponseWriter, r *http.Request) {
 	// they posted it.
 	if !frozen.Closed {
 		writeCSV(w, "gl-"+p+".csv",
-			[]string{"period", "status"},
+			[]csvCol{textCol("period"), textCol("status")},
 			[][]string{{p, "not closed: nothing to post to a ledger"}})
 		return
 	}
@@ -283,8 +284,9 @@ func (s *Server) exportGL(w http.ResponseWriter, r *http.Request) {
 		rows = append(rows, []string{p, t.Source, t.Team, t.Loaded().String(),
 			frozen.FrozenAt, frozen.ClosedBy})
 	}
-	writeCSV(w, "gl-"+p+".csv", []string{
-		"period", "source", "cost_centre", "amount_usd", "frozen_at", "closed_by"}, rows)
+	writeCSV(w, "gl-"+p+".csv", []csvCol{
+		textCol("period"), textCol("source"), textCol("cost_centre"), numberCol("amount_usd"),
+		textCol("frozen_at"), textCol("closed_by")}, rows)
 }
 
 func (s *Server) exportShowback(w http.ResponseWriter, r *http.Request) {
@@ -306,8 +308,9 @@ func (s *Server) exportShowback(w http.ResponseWriter, r *http.Request) {
 		rows = append(rows, []string{p, r.Team, r.BusinessUnit,
 			r.Direct.String(), r.Allocated.String(), r.Loaded().String()})
 	}
-	writeCSV(w, "showback-"+p+".csv", []string{
-		"period", "team", "business_unit", "direct_usd", "allocated_usd", "fully_loaded_usd"}, rows)
+	writeCSV(w, "showback-"+p+".csv", []csvCol{
+		textCol("period"), textCol("team"), textCol("business_unit"), numberCol("direct_usd"),
+		numberCol("allocated_usd"), numberCol("fully_loaded_usd")}, rows)
 }
 
 func (s *Server) exportResultsCSV(w http.ResponseWriter, r *http.Request) {
@@ -327,9 +330,10 @@ func (s *Server) exportResultsCSV(w http.ResponseWriter, r *http.Request) {
 			string(a.State), a.Reason,
 		})
 	}
-	writeCSV(w, "findings.csv", []string{
-		"id", "source", "team", "service", "day", "direction", "excess_usd",
-		"caused_by", "caused_by_grain", "handled_by", "state", "reason"}, rows)
+	writeCSV(w, "findings.csv", []csvCol{
+		textCol("id"), textCol("source"), textCol("team"), textCol("service"), textCol("day"),
+		textCol("direction"), numberCol("excess_usd"), textCol("caused_by"),
+		textCol("caused_by_grain"), textCol("handled_by"), textCol("state"), textCol("reason")}, rows)
 }
 
 func (s *Server) exportCrewCSV(w http.ResponseWriter, r *http.Request) {
@@ -357,9 +361,11 @@ func (s *Server) exportCrewCSV(w http.ResponseWriter, r *http.Request) {
 			strconv.Itoa(sc.Anomalies),
 		})
 	}
-	writeCSV(w, "crew.csv", []string{
-		"analyst", "role", "desk", "state", "state_reason", "tasks", "open",
-		"posted", "returned", "first_pass_pct", "spent_usd", "anomalies_handled"}, rows)
+	writeCSV(w, "crew.csv", []csvCol{
+		textCol("analyst"), textCol("role"), textCol("desk"), textCol("state"),
+		textCol("state_reason"), numberCol("tasks"), numberCol("open"), numberCol("posted"),
+		numberCol("returned"), numberCol("first_pass_pct"), numberCol("spent_usd"),
+		numberCol("anomalies_handled")}, rows)
 }
 
 func (s *Server) exportResultsMD(w http.ResponseWriter, r *http.Request) {
@@ -373,7 +379,7 @@ func (s *Server) exportResultsMD(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "# CostCrew results, %s\n\n", p)
+	fmt.Fprintf(&b, "# CostCrew results, %s\n\n", mdText(p))
 	fmt.Fprintf(&b, "Money is **found**, never saved. Nothing is saved until somebody acts.\n\n")
 	fmt.Fprintf(&b, "- Found this period: **%s** a month, %s annualised\n", res.FoundMonthly, res.FoundAnnual)
 	fmt.Fprintf(&b, "- The crew cost **%s** across %d tasks\n", res.CrewSpend, res.Tasks)
@@ -384,7 +390,7 @@ func (s *Server) exportResultsMD(w http.ResponseWriter, r *http.Request) {
 	b.WriteString("## Still open\n\n")
 	fmt.Fprintf(&b, "%d anomalies worth %s have not been looked at", res.OpenAnomalies, res.OpenMoney)
 	if res.OldestOpen != "" {
-		fmt.Fprintf(&b, ", the oldest from %s", res.OldestOpen)
+		fmt.Fprintf(&b, ", the oldest from %s", mdText(res.OldestOpen))
 	}
 	b.WriteString(".\n\nAn anomaly nobody has looked at says more about a practice than one that closed.\n\n")
 	b.WriteString("## Decisions needed\n\n")
@@ -392,7 +398,7 @@ func (s *Server) exportResultsMD(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(&b, "- %d anomalies have an answer and need accepting or rejecting\n", res.AwaitingDecision)
 
 	w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
-	w.Header().Set("Content-Disposition", "attachment; filename=results-"+p+".md")
+	setDisposition(w, "attachment", "results-"+p+".md")
 	fmt.Fprint(w, b.String())
 }
 
@@ -406,7 +412,7 @@ func (s *Server) exportExecPacket(w http.ResponseWriter, r *http.Request) {
 	open, _ := anomaly.List(s.db, anomaly.Filter{State: anomaly.Open})
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "# Executive packet, %s\n\n", p)
+	fmt.Fprintf(&b, "# Executive packet, %s\n\n", mdText(p))
 	fmt.Fprintf(&b, "The estate cost **%s** this period. %s of it arrived without a team; "+
 		"%s of that has been given one by a rule, and **%s** still has no owner.\n\n",
 		res.Estate, a.Shared, a.Placed, a.Unallocated)
@@ -425,8 +431,11 @@ func (s *Server) exportExecPacket(w http.ResponseWriter, r *http.Request) {
 				fmt.Fprintf(&b, "\nand %d more.\n", len(open)-8)
 				break
 			}
+			// Every one of these but the amount can come from an imported
+			// file, and each lands in a table cell (download.go, mdText).
 			fmt.Fprintf(&b, "| %s | %s, %s | %s | %s (%s) |\n",
-				x.Excess, x.Source, x.Service, x.Day, x.CausedBy, x.CausedByKind)
+				x.Excess, mdText(x.Source), mdText(x.Service), mdText(x.Day),
+				mdText(x.CausedBy), mdText(x.CausedByKind))
 		}
 		b.WriteString("\n")
 	}
@@ -442,6 +451,6 @@ func (s *Server) exportExecPacket(w http.ResponseWriter, r *http.Request) {
 		"console holds, and each is reproducible from the exports beside it.\n")
 
 	w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
-	w.Header().Set("Content-Disposition", "attachment; filename=exec-packet-"+p+".md")
+	setDisposition(w, "attachment", "exec-packet-"+p+".md")
 	fmt.Fprint(w, b.String())
 }

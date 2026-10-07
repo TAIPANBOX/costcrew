@@ -26,6 +26,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/TAIPANBOX/costcrew/internal/estate"
 	"github.com/TAIPANBOX/costcrew/internal/money"
@@ -185,9 +187,14 @@ func tokenFuseFocusReader(db *sql.DB, cfg map[string]string, opt ImportOptions) 
 	if path == "" {
 		return "", fmt.Errorf("no folder is configured; set the path and save before importing")
 	}
-	files, err := focusFiles(path)
+	files, skipped, err := focusFolder(path)
 	if err != nil {
 		return "", err
+	}
+	if len(files) == 0 && len(skipped) > 0 {
+		return "", fmt.Errorf("no regular *.csv or *.csv.gz files in %s; passed over, "+
+			"each a symbolic link or not a regular file, not followed: %s", path,
+			strings.Join(skipped, ", "))
 	}
 	if len(files) == 0 {
 		return "", fmt.Errorf("no *.csv or *.csv.gz files found in %s", path)
@@ -260,6 +267,10 @@ func tokenFuseFocusReader(db *sql.DB, cfg map[string]string, opt ImportOptions) 
 	}
 
 	sum := newFocusSummary()
+	for _, name := range skipped {
+		sum.FileRefusals = append(sum.FileRefusals,
+			name+": a symbolic link or not a regular file, not followed")
+	}
 	daysTouched := map[string]bool{}
 	for i, f := range files {
 		// A SAVEPOINT per file, not just a Go-level skip: without it, a file
@@ -357,28 +368,91 @@ func replaceGeneratedEstate(tx *sql.Tx) error {
 	return nil
 }
 
+// xUnitMaxBytes bounds x_unit, the same 128 bytes a unit name is held to
+// wherever a rule names one: a gateway's unit is a short slug, and the bound
+// exists so a hostile file cannot write a name that fills a statement.
+const xUnitMaxBytes = 128
+
+// focusRefusalsShown is how many refused rows the sentence names; the count
+// of refused rows is always whole.
+const focusRefusalsShown = 20
+
+// plainUnitName is the rule x_unit is held to, and it is the rule a unit name
+// is held to wherever this console prints one: x_unit becomes charges.team,
+// which /chargeback and /allocation list and link, a CSV a spreadsheet opens
+// carries, and a statement a team reads names. So it is at most xUnitMaxBytes,
+// valid text, free of control, format (zero-width, text direction) and
+// line-separating characters, and does not begin with a character a
+// spreadsheet reads as a formula. Empty is allowed: a row with no unit is a
+// row nobody attributed, which charges records as NULL. The value arrives
+// already trimmed, so padding is not a question here.
+//
+// It answers with the reason, and the row is refused with it, by name, the
+// way every other field of this reader is.
+func plainUnitName(s string) string {
+	if s == "" {
+		return ""
+	}
+	if len(s) > xUnitMaxBytes {
+		return fmt.Sprintf("x_unit is %d bytes, over the %d byte limit", len(s), xUnitMaxBytes)
+	}
+	if !utf8.ValidString(s) {
+		return "x_unit is not valid text"
+	}
+	for _, r := range s {
+		if unicode.IsControl(r) || unicode.Is(unicode.Cf, r) ||
+			unicode.Is(unicode.Zl, r) || unicode.Is(unicode.Zp, r) {
+			return fmt.Sprintf("x_unit %q carries a control, format or separator character", s)
+		}
+	}
+	if strings.ContainsRune("=+-@", rune(s[0])) {
+		return fmt.Sprintf("x_unit %q begins with %q, which a spreadsheet opens as a formula", s, s[:1])
+	}
+	return ""
+}
+
 // -------------------------------------------------------------- the folder
 
 func focusFiles(dir string) ([]string, error) {
+	files, _, err := focusFolder(dir)
+	return files, err
+}
+
+// focusFolder lists the *.csv and *.csv.gz files in dir that are regular
+// files, and names the ones it passed over for being something else.
+//
+// A symbolic link is never followed and a file that is not a regular one (a
+// FIFO, a device) is never opened. The folder is configured by an operator,
+// but what is in it is whatever the export job, or anybody who can write
+// there, put in it: a link to another user's file reads that file into the
+// estate, one to /dev/zero is read forever, a FIFO blocks the import. os.ReadDir
+// reports the entry's own type without following it, which is what is
+// checked; the cloud readers apply the same rule to the folders they walk.
+func focusFolder(dir string) (files, skipped []string, err error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		return nil, fmt.Errorf("reading %s: %w", dir, err)
+		return nil, nil, fmt.Errorf("reading %s: %w", dir, err)
 	}
-	var out []string
 	for _, e := range entries {
 		if e.IsDir() {
 			continue
 		}
 		lower := strings.ToLower(e.Name())
-		if strings.HasSuffix(lower, ".csv") || strings.HasSuffix(lower, ".csv.gz") {
-			out = append(out, filepath.Join(dir, e.Name()))
+		if !strings.HasSuffix(lower, ".csv") && !strings.HasSuffix(lower, ".csv.gz") {
+			continue
 		}
+		if !e.Type().IsRegular() {
+			skipped = append(skipped, e.Name())
+			continue
+		}
+		files = append(files, filepath.Join(dir, e.Name()))
 	}
 	// Sorted, not directory order: invariant 7 holds for this console's own
 	// data and a folder read in whatever order the filesystem happens to
 	// return is the same failure wearing a different hat.
-	sort.Strings(out)
-	return out, nil
+	sort.Strings(files)
+	sort.Strings(skipped)
+	return files, skipped, nil
 }
 
 // processFocusFile reads one file start to finish with csv.Reader, one
@@ -396,6 +470,16 @@ func focusFiles(dir string) ([]string, error) {
 // nothing it inserted survives either.
 func processFocusFile(path string, ins, cins *sql.Stmt) (*focusSummary, error) {
 	sum := newFocusSummary()
+
+	// focusFolder already passed over anything that is not a regular file;
+	// this asks again at the moment of reading, because the folder can change
+	// between the listing and the open. It narrows that window, it does not
+	// close it: a swap between this Lstat and the Open below still lands.
+	if fi, err := os.Lstat(path); err != nil {
+		return nil, err
+	} else if !fi.Mode().IsRegular() {
+		return nil, errors.New("a symbolic link or not a regular file, not followed")
+	}
 
 	var sha string
 	if ins != nil {
@@ -648,9 +732,14 @@ func parseFocusRow(rec []string, col map[string]int) (focusRow, error) {
 		toolCalls = &n
 	}
 
+	unit := strings.TrimSpace(field("x_unit"))
+	if reason := plainUnitName(unit); reason != "" {
+		return focusRow{}, errors.New(reason)
+	}
+
 	return focusRow{
 		TS: tsStr, Day: day,
-		Team:        strings.TrimSpace(field("x_unit")),
+		Team:        unit,
 		Agent:       agent,
 		RunID:       strings.TrimSpace(field("x_run_id")),
 		ParentRunID: strings.TrimSpace(field("x_parent_run_id")),
@@ -799,7 +888,8 @@ func parseFocusTokens(s string, blocked bool) (int64, error) {
 type focusSummary struct {
 	FilesRead       int
 	RowsAccepted    int
-	Refusals        []string
+	RefusedRows     int      // every refused row, counted whole
+	Refusals        []string // the first focusRefusalsShown of them, named
 	FileRefusals    []string
 	Agents          map[string]bool
 	Days            map[string]bool // this file's (or this whole import's) days touched
@@ -832,7 +922,15 @@ func (s *focusSummary) accept(row focusRow) {
 	}
 }
 
-func (s *focusSummary) refuse(reason string) { s.Refusals = append(s.Refusals, reason) }
+// refuse counts a refused row and names it while there is room. Every row
+// used to be named, so a file of a million bad rows built a sentence of a
+// million clauses in memory and rendered it onto the connector page.
+func (s *focusSummary) refuse(reason string) {
+	s.RefusedRows++
+	if len(s.Refusals) < focusRefusalsShown {
+		s.Refusals = append(s.Refusals, reason)
+	}
+}
 
 func (s *focusSummary) acceptCommitment(flagged bool) {
 	s.CommitmentRows++
@@ -859,7 +957,12 @@ func (s *focusSummary) merge(o *focusSummary) {
 	if o.LastTS != "" && (s.LastTS == "" || o.LastTS > s.LastTS) {
 		s.LastTS = o.LastTS
 	}
-	s.Refusals = append(s.Refusals, o.Refusals...)
+	s.RefusedRows += o.RefusedRows
+	for _, r := range o.Refusals {
+		if len(s.Refusals) < focusRefusalsShown {
+			s.Refusals = append(s.Refusals, r)
+		}
+	}
 	s.CommitmentRows += o.CommitmentRows
 	s.CommitmentFlagged += o.CommitmentFlagged
 }
@@ -892,12 +995,16 @@ func (s *focusSummary) Sentence(dryRun bool) string {
 			fmt.Fprintf(&b, " %d of them with a status outside the FOCUS enumeration (kept).", f)
 		}
 	}
-	if n := len(s.Refusals); n > 0 {
+	if n := s.RefusedRows; n > 0 {
 		verb2 := "refused"
 		if dryRun {
 			verb2 = "would be refused"
 		}
-		fmt.Fprintf(&b, " %d row%s %s: %s.", n, plural(n), verb2, strings.Join(s.Refusals, "; "))
+		fmt.Fprintf(&b, " %d row%s %s: %s", n, plural(n), verb2, strings.Join(s.Refusals, "; "))
+		if more := n - len(s.Refusals); more > 0 {
+			fmt.Fprintf(&b, "; and %d more", more)
+		}
+		b.WriteString(".")
 	}
 	if n := len(s.FileRefusals); n > 0 {
 		fmt.Fprintf(&b, " %d file%s not read: %s.", n, plural(n), strings.Join(s.FileRefusals, "; "))
