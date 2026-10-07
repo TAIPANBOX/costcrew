@@ -52,8 +52,10 @@ while IFS= read -r file; do
 			bindings=$((bindings + 1))
 			# tools/ as well as internal/. The binary that makes the calls
 			# lives in tools/run, and four scenarios about what it spends read
-			# as dangling while their tests were sitting right there.
-			if ! grep -rq "func ${t}(" internal/ tools/ 2>/dev/null; then
+			# as dangling while their tests were sitting right there. cmd/ as
+			# well, for the same reason: what the console does at start-up is
+			# only testable by starting it, and those tests live beside main.
+			if ! grep -rq "func ${t}(" internal/ tools/ cmd/ 2>/dev/null; then
 				printf 'DANGLING  %s:%s\n          @test:%s names no test\n' \
 					"$file" "$lineno" "$t"
 				fail=$((fail + 1))

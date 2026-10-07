@@ -448,6 +448,61 @@ Each local call is recorded on the shared bus with `price_basis` set to
 `local`, so the record says no vendor price was involved. The console's own
 supervisor planning call does not run on the local engine yet.
 
+## What a model is shown
+
+The crew's analysts and the supervisor are language models, and what they read
+is your bill: team names, service names, money, agent ids, invoice ids,
+vendors, commitments, resource ids, the names of the people who answered, past
+deliverables, the goal an operator typed. One setting per installation decides
+how much of that leaves the process. It is `-prompt-data` on `costcrew` and on
+`costcrew-run`, or `COSTCREW_PROMPT_DATA` in the environment, and it takes
+three values, spelled exactly. Anything else, a capital letter included,
+refuses to start.
+
+`full` is the default and is what this console has always sent. Nothing changes
+unless you set something else.
+
+`masked` replaces every name with a stable token before a prompt or a tool
+result leaves the process: teams, desks, services, agents, people, invoices,
+vendors, products, commitments, resources, models and run ids. A token looks
+like `team-7f3a`, and the same name is the same token in every packet, every
+tool result and every round of a task, so the model can still tell that two
+rows are one team. Money, dates, counts and ratios are real. Text that a person
+or a model typed can carry a name the store never held, so it is not scrubbed,
+it is left out, with a one-line stand-in saying so: past deliverables, option
+summaries and refusal reasons, driver labels, the goal an operator typed, a
+mission someone wrote by hand. The two tools whose argument is SQL the model
+writes are not offered, because a statement can select any name in a column or
+cut one in two, and no scrub of the result can be trusted to recognise half a
+name. When the model answers in tokens, the draft is put back into real names
+before it is saved, so a person reads real names. A token the model made up
+stays as it wrote it.
+
+`aggregates` sends no row at all: per-desk and per-team totals, variances, KPIs
+and series sums, with team and desk names masked as above. An anomaly gives its
+amount, baseline, z score and day but no service. Drivers, past deliverables,
+recommendations, renewals, commitments, per-agent AI spend and invoices are
+not sent, and neither is any tool that returns rows.
+
+Whatever the mode, the prompt says which one it was built under, in one line,
+and the `tool_call` events and the `crew_ran` summary on the bus carry it as
+`prompt_data`, so a run's record says what could have left.
+
+The tokens come from a key kept in your data directory (`prompt-data.key`, mode
+0600, made on the first start in a restricting mode). The same key gives the
+same tokens on every start; a different key gives different ones, so nobody
+without it can test a guessed name against a token. A key file that others can
+read, or that is not 64 hex digits, is refused rather than replaced.
+
+What this does not do. It masks the names this installation's store holds, and
+nothing else. The working analyst keeps its own name, its role and its job
+description, which say which desk it is on. Amounts are real, and an amount can
+identify. The gateway still receives the analyst's real agent id in its metering
+headers, because that is what it meters. `costcrew-bench` has no such flag and
+sends what it always sent. The plan prompt of the console's supervisor follows
+the console's setting; the answer is put back into real names before the plan
+is checked.
+
 ## Measured on a box behind a home router (2026-09-17)
 
 stack-single v1.1.3 ran `ghcr.io/taipanbox/costcrew:v0.2.0` on a Debian 13

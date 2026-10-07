@@ -35,6 +35,7 @@ import (
 	"time"
 
 	"github.com/TAIPANBOX/costcrew/internal/anomaly"
+	"github.com/TAIPANBOX/costcrew/internal/deliver"
 	"github.com/TAIPANBOX/costcrew/internal/estate"
 )
 
@@ -129,11 +130,25 @@ var Offered = []string{"anomaly", "recent_changes", "desk", "service", "day", "d
 
 // State builds every offered field for one anomaly. Only the ones the
 // template names ever leave (Ask filters).
+//
+// typryx may hand these to a hosted model, so the installation's
+// -prompt-data setting governs them exactly as it governs a packet
+// (invariant 70): under masked every name the store holds is replaced by its
+// token and a driver's label is withheld; under aggregates the service is not
+// offered at all (a template naming it gets no hint), the anomaly line
+// carries no service, and no registered change is sent.
 func State(db *sql.DB, a anomaly.Anomaly) map[string]string {
-	return map[string]string{
-		"anomaly": fmt.Sprintf("desk %s, service %s, day %s: daily spend moved %s, %s against a baseline of %s "+
+	pol := deliver.ActivePolicy()
+	line := fmt.Sprintf("desk %s, service %s, day %s: daily spend moved %s, %s against a baseline of %s "+
+		"(excess %s, %.1f robust deviations)",
+		a.Source, a.Service, a.Day, a.Direction, a.Amount, a.Baseline, a.Excess, a.Z)
+	if pol.Aggregates() {
+		line = fmt.Sprintf("desk %s, day %s: daily spend moved %s, %s against a baseline of %s "+
 			"(excess %s, %.1f robust deviations)",
-			a.Source, a.Service, a.Day, a.Direction, a.Amount, a.Baseline, a.Excess, a.Z),
+			a.Source, a.Day, a.Direction, a.Amount, a.Baseline, a.Excess, a.Z)
+	}
+	st := map[string]string{
+		"anomaly":        line,
 		"recent_changes": recentChanges(db, a),
 		"desk":           a.Source,
 		"service":        a.Service,
@@ -141,6 +156,17 @@ func State(db *sql.DB, a anomaly.Anomaly) map[string]string {
 		"direction":      a.Direction,
 		"excess":         a.Excess.String(),
 	}
+	if pol.Full() {
+		return st
+	}
+	if pol.Aggregates() {
+		delete(st, "service")
+		st["recent_changes"] = "registered changes are not sent under this installation's -prompt-data setting"
+	}
+	for k, v := range st {
+		st[k] = pol.MaskText(v)
+	}
+	return st
 }
 
 // recentChanges lists the registered drivers on the anomaly's desk that apply
@@ -163,7 +189,12 @@ func recentChanges(db *sql.DB, a anomaly.Anomaly) string {
 		if d.End < from || d.Start > a.Day {
 			continue
 		}
-		lines = append(lines, fmt.Sprintf("%s to %s, %s: %s", d.Start, d.End, d.Kind, d.Label))
+		label := d.Label
+		if !deliver.ActivePolicy().Full() {
+			// Text somebody typed is withheld, never scrubbed (invariant 70).
+			label = deliver.WithheldLabel
+		}
+		lines = append(lines, fmt.Sprintf("%s to %s, %s: %s", d.Start, d.End, d.Kind, label))
 	}
 	if len(lines) == 0 {
 		return "no change registered on this desk and service in the 30 days up to the anomaly"

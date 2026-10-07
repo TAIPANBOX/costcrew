@@ -150,3 +150,12 @@ Feature: A typed hint from typryx before an analyst works an anomaly
     Given an anomaly typryx has already answered
     When a later pass runs, or a later ask fails
     Then the anomaly is not asked again and the answer is kept
+
+  @test:TestWhatTypryxIsSentFollowsThePromptDataSetting
+  @test:TestNoRealIdentifierLeavesInMaskedOrAggregatesPackets
+  @test:TestMaskedPacketsKeepEverySectionHeaderTheirModeSends
+  Scenario: The installation's -prompt-data setting governs the hint both ways
+    Given an installation whose -prompt-data is masked or aggregates
+    When the console builds what typryx is sent, and the packet that carries the hint
+    Then under masked every name the store holds is a token, a driver's label is withheld, and the packet names no model
+    And under aggregates typryx is offered no service and no registered change, and the packet carries no hint section

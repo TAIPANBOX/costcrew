@@ -71,6 +71,9 @@
           "COSTCREW_OIDC_ONLY": {
             "required": false
           },
+          "COSTCREW_PROMPT_DATA": {
+            "required": false
+          },
           "COSTCREW_TYPRYX_URL": {
             "required": false
           },
@@ -119,6 +122,9 @@
             "required": false
           },
           "oidc-only": {
+            "required": false
+          },
+          "prompt-data": {
             "required": false
           },
           "stack-events": {
@@ -196,7 +202,7 @@
         },
         "typryx_sends_only_the_template_fields": {
           "value": "-typryx-url",
-          "why": "off when the flag and COSTCREW_TYPRYX_URL are empty, the default. Set, the console asks typryx's triage.anomaly_class template for a typed hint about each open anomaly after detection, sending only the fields that template names from a closed vocabulary that holds no team, owner, agent or person, and records which backend answered. Where those fields then go (nowhere, an operator's own model, or Jev hosted by TypeSafe AI) is typryx's TYPRYX_BACKEND, which nothing in this repository can see. The third of the outbound doors invariant 64 names (invariant 77)."
+          "why": "off when the flag and COSTCREW_TYPRYX_URL are empty, the default. Set, the console asks typryx's triage.anomaly_class template for a typed hint about each open anomaly after detection, sending only the fields that template names from a closed vocabulary that holds no team, owner, agent or person, built under the installation's -prompt-data setting, and records which backend answered. Where those fields then go (nowhere, an operator's own model, or Jev hosted by TypeSafe AI) is typryx's TYPRYX_BACKEND, which nothing in this repository can see. The third of the outbound doors invariant 64 names (invariant 77)."
         }
       }
     },
@@ -356,6 +362,9 @@
           "COSTCREW_MODEL_KEY": {
             "required": false
           },
+          "COSTCREW_PROMPT_DATA": {
+            "required": false
+          },
           "COSTCREW_TYPRYX_URL": {
             "required": false
           },
@@ -407,6 +416,9 @@
             "required": false
           },
           "prices": {
+            "required": false
+          },
+          "prompt-data": {
             "required": false
           },
           "sprint": {

@@ -135,6 +135,14 @@ func main() {
 		"with -typryx-url, ask about at most this many anomalies per start, largest by money first; "+
 			"an anomaly already answered is never asked again")
 
+	// How much of the installation's billing data a model may be sent
+	// (invariant 70). The console builds one prompt of its own, the
+	// supervisor's plan-ask, and this governs it the same way it governs the
+	// runner's. full is today's behaviour and the default.
+	promptData := flag.String("prompt-data", deliver.PromptDataEnvDefault(),
+		"how much billing data a model may be sent: full (as it always was), masked (every "+
+			"name replaced by a stable token, free text withheld) or aggregates (totals only). "+
+			"Anything else refuses to start. Falls back to COSTCREW_PROMPT_DATA.")
 	setPw := flag.String("set-password", "", "create or reset an account as NAME:PASSWORD, then exit")
 	setRole := flag.String("set-role", "admin", "the role a new -set-password account gets")
 	weak := flag.Bool("allow-weak-password", false, "let -set-password set a password below the minimum, for a local demo account")
@@ -146,6 +154,13 @@ func main() {
 			log.Fatalf("costcrew: %v", err)
 		}
 		return
+	}
+
+	// Before the store is opened or anything is rebuilt: a misspelt setting
+	// that fell back to sending everything is the mistake this flag exists to
+	// prevent. A restricting mode also creates its pseudonym key in -data here.
+	if _, err := deliver.ConfigurePromptData(*promptData, *dir); err != nil {
+		log.Fatalf("costcrew: %v", err)
 	}
 
 	cfg := stack.Config{
@@ -314,6 +329,14 @@ func run(addr, dir string, scfg stack.Config, gatewayURL, gatewayOpenAIURL strin
 		}
 	}
 	log.Print("CostCrew: " + oidcCfg.Describe())
+
+	// The prompt-data policy masks the names in THIS store, so it is bound to
+	// it now. Said out loud when it is not the default, because it changes what
+	// the supervisor's plan-ask sends.
+	deliver.BindActivePolicy(st.DB())
+	if pol := deliver.ActivePolicy(); !pol.Full() {
+		log.Printf("CostCrew: -prompt-data %s: %s", pol.Mode(), pol.ModeLine())
+	}
 
 	// Seeded once, never rebuilt: an existing estate is somebody's work, and a
 	// start-up that quietly regenerates it destroys whatever was recorded

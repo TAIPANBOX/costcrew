@@ -11,6 +11,7 @@ package main
 // check reachable from a real request.
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -19,6 +20,7 @@ import (
 	"time"
 
 	"github.com/TAIPANBOX/costcrew/internal/crew"
+	"github.com/TAIPANBOX/costcrew/internal/deliver"
 )
 
 // toolResultMaxBytes bounds what a tool hands back to the model, the same
@@ -38,6 +40,10 @@ const (
 	outcomeRefused     dispatchOutcome = "tool_refused"
 	outcomeInvalidArgs dispatchOutcome = "invalid_args"
 	outcomeError       dispatchOutcome = "error"
+	// outcomeWithheld is a tool this installation's -prompt-data setting does
+	// not offer: the model asked for it anyway (a model can name a tool it was
+	// not offered), and it was told so rather than answered.
+	outcomeWithheld dispatchOutcome = "tool_withheld"
 )
 
 type dispatchResult struct {
@@ -51,58 +57,123 @@ type dispatchResult struct {
 // as the tool_result content -- never a bare Go error -- because a model
 // mid-conversation has no other channel to be told anything on.
 func dispatch(ctx context.Context, db, roDB *sql.DB, a crew.Analyst, name string, args json.RawMessage, b bus) dispatchResult {
+	pol := deliver.ActivePolicy()
+	// finish is every return below. The text the model reads is masked first
+	// (a tool's own error can repeat a name the model passed in) and bounded
+	// after, so the bound is a bound on what is sent and a token longer than
+	// the name it replaced cannot push a result past it (invariant 70).
+	finish := func(r dispatchResult, tool string) dispatchResult {
+		if !pol.Full() {
+			r.Text = pol.MaskText(r.Text, a.Name)
+		}
+		r.Text = boundBytes(r.Text, toolResultMaxBytes)
+		b.toolDispatch(a.Name, tool, r.Right, string(r.Outcome), len(r.Text))
+		return r
+	}
+
 	def, ok := toolByName(name)
 	if !ok {
-		r := dispatchResult{
+		return finish(dispatchResult{
 			Text:    fmt.Sprintf("there is no tool named %q", name),
 			Outcome: outcomeUnknownTool,
-		}
-		b.toolDispatch(a.Name, name, "", string(r.Outcome), len(r.Text))
-		return r
+		}, name)
+	}
+
+	// A tool the policy does not offer is not run, whatever rights the analyst
+	// holds. It is checked here as well as when the catalogue is rendered: the
+	// model chooses what to call, and nothing says it only calls what it was
+	// shown.
+	if !pol.ToolOffered(def.Name) {
+		return finish(dispatchResult{
+			Text: fmt.Sprintf("%s is not available: this installation does not send that kind of data "+
+				"to a model (-prompt-data %s)", def.Name, pol.Mode()),
+			Outcome: outcomeWithheld,
+			Right:   def.Right,
+		}, def.Name)
 	}
 
 	rights := crew.RightsFor(a.Skills, a.State)
 	if !hasString(rights, def.Right) {
-		r := dispatchResult{
+		fmt.Printf("  tool refused: %s called %s, needs %s\n", a.Name, def.Name, def.Right)
+		return finish(dispatchResult{
 			Text:    fmt.Sprintf("you do not hold %s; ask the supervisor", def.Right),
 			Outcome: outcomeRefused,
 			Right:   def.Right,
-		}
-		fmt.Printf("  tool refused: %s called %s, needs %s\n", a.Name, def.Name, def.Right)
-		b.toolDispatch(a.Name, def.Name, def.Right, string(r.Outcome), len(r.Text))
-		return r
+		}, def.Name)
 	}
 
+	// The model reads tokens, so it writes tokens: the arguments it passes
+	// name a team as team-7f3a, and the tool needs the team. Put the names
+	// back before anything validates or runs them. A token it invented stays
+	// as written and finds nothing.
+	args = reidentifyArgs(pol, args)
+
 	if err := validateArgs(def.Schema, args); err != nil {
-		r := dispatchResult{
+		return finish(dispatchResult{
 			Text:    fmt.Sprintf("bad arguments for %s: %v", def.Name, err),
 			Outcome: outcomeInvalidArgs,
 			Right:   def.Right,
-		}
-		b.toolDispatch(a.Name, def.Name, def.Right, string(r.Outcome), len(r.Text))
-		return r
+		}, def.Name)
 	}
 
 	rctx, cancel := context.WithTimeout(ctx, toolTimeout)
 	defer cancel()
 	out, err := def.Run(rctx, db, roDB, args)
 	if err != nil {
-		r := dispatchResult{
+		return finish(dispatchResult{
 			Text:    fmt.Sprintf("%s failed: %v", def.Name, err),
 			Outcome: outcomeError,
 			Right:   def.Right,
-		}
-		b.toolDispatch(a.Name, def.Name, def.Right, string(r.Outcome), len(r.Text))
-		return r
+		}, def.Name)
 	}
 
-	r := dispatchResult{
-		Text:    boundBytes(out, toolResultMaxBytes),
+	return finish(dispatchResult{
+		Text:    out,
 		Outcome: outcomeOK,
 		Right:   def.Right,
+	}, def.Name)
+}
+
+// reidentifyArgs puts real names back into the string values of a tool call's
+// arguments. It decodes the JSON, rewrites the strings and encodes it again,
+// and does NOT replace inside the raw text: a real name is data, and one that
+// carries a quote, a brace or a comma ("x\",\"period\":\"y") spliced into
+// the text of the arguments would close the string it was in and write
+// arguments of its own. Arguments that are not JSON are returned as they are,
+// for validateArgs to refuse.
+func reidentifyArgs(pol *deliver.Policy, args json.RawMessage) json.RawMessage {
+	if pol.Full() || len(args) == 0 {
+		return args
 	}
-	b.toolDispatch(a.Name, def.Name, def.Right, string(r.Outcome), len(r.Text))
-	return r
+	dec := json.NewDecoder(bytes.NewReader(args))
+	dec.UseNumber()
+	var v any
+	if err := dec.Decode(&v); err != nil {
+		return args
+	}
+	out, err := json.Marshal(mapStrings(v, pol.Reidentify))
+	if err != nil {
+		return args
+	}
+	return out
+}
+
+func mapStrings(v any, f func(string) string) any {
+	switch x := v.(type) {
+	case string:
+		return f(x)
+	case []any:
+		for i := range x {
+			x[i] = mapStrings(x[i], f)
+		}
+		return x
+	case map[string]any:
+		for k, e := range x {
+			x[k] = mapStrings(e, f)
+		}
+		return x
+	}
+	return v
 }
 
 // validateArgs is a small, hand-written JSON Schema subset: object, string
@@ -161,5 +232,8 @@ func (b bus) toolDispatch(analyst, tool, right, outcome string, bytesReturned in
 		"right":   right,
 		"outcome": outcome,
 		"bytes":   bytesReturned,
+		// Which policy this call's text was built under (invariant 70): a
+		// reader of a run's evidence can tell what could have left.
+		"prompt_data": b.mode(),
 	}, nil)
 }
