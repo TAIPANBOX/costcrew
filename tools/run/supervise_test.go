@@ -16,7 +16,7 @@ import (
 
 func TestSuperviseNeedsASprint(t *testing.T) {
 	dir := t.TempDir()
-	err := run(dir, "", 2000, 0, false, true, false, 0, "", "", "", "", "", localOptions{})
+	err := run(dir, "", 2000, 0, false, true, false, 0, "", "", "", "", "", localOptions{}, "")
 	if err == nil {
 		t.Fatal("-supervise with -sprint 0 was accepted")
 	}

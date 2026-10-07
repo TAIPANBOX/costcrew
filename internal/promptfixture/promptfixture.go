@@ -123,6 +123,23 @@ func fill(st *store.Store) error {
 	if err != nil {
 		return err
 	}
+	// A typed hint on the two largest anomalies (invariant 76): one answered
+	// by a named model, one that failed with a reason, so the gate sees the
+	// hint section, the model column and the reason column.
+	if err := anomaly.EnsureHintColumns(db); err != nil {
+		return err
+	}
+	if len(list) >= 2 {
+		if err := anomaly.SaveHint(db, list[0].ID, anomaly.Hint{Class: "runaway_agent", Probability: 0.81,
+			Backend: anomaly.BackendOwnModel, Model: HintModel, AnswerID: "ans-planted-0001",
+			At: "2026-09-01T00:00:00Z"}); err != nil {
+			return err
+		}
+		if err := anomaly.SaveHint(db, list[1].ID, anomaly.Hint{
+			Reason: "typryx refused the ask: HTTP 429, over_hourly_cap", At: "2026-09-01T00:00:00Z"}); err != nil {
+			return err
+		}
+	}
 	var seeds []crew.AnomalySeed
 	for _, a := range list {
 		seeds = append(seeds, crew.AnomalySeed{ID: a.ID, Source: a.Source, Service: a.Service,
@@ -204,6 +221,10 @@ func fill(st *store.Store) error {
 	}
 	return nil
 }
+
+// HintModel is the model a planted typed hint names; a model is a name, and
+// the gate requires it absent from every masked or aggregates packet.
+const HintModel = "hint-model-planted-7b"
 
 // SecretHash and SecretToken are values the gate requires to be absent from
 // every output in every mode, including full: nothing a prompt is for needs
@@ -460,6 +481,11 @@ var Classes = map[string]Class{
 	"anomalies.rule_version": Plain, "anomalies.driver": Free, "anomalies.caused_by": ID,
 	"anomalies.caused_by_kind": Plain, "anomalies.handled_by": ID, "anomalies.state": Plain,
 	"anomalies.reason": Free, "anomalies.detected_at": Plain, "anomalies.closed_at": Plain,
+	// Invariant 76: typryx's hint. The class and the backend are closed
+	// vocabularies, the model is a name like ai_calls.model, the answer id
+	// is typryx's own, and the reason is a sentence this console composes.
+	"anomalies.hint_class": Plain, "anomalies.hint_backend": Plain, "anomalies.hint_model": ID,
+	"anomalies.hint_answer_id": ID, "anomalies.hint_reason": Generated, "anomalies.hint_at": Plain,
 
 	"artifact_options.class": Plain, "artifact_options.summary": Free, "artifact_options.risk": Plain,
 	"artifact_options.needs": Free, "artifact_options.evidence": Free, "artifact_options.target": Plain,

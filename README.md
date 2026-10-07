@@ -108,8 +108,9 @@ flowchart TB
   AWS Budgets recommended threshold, GCP Cost Recommender and Azure Advisor
   budget-shaped recommendations, SaaS seats. Ten built, seven documented, and
   every entry declares whether running it is metered per call.
-- **Produces**: twenty-two event types on the shared agent-event bus, registered in
-  `agent-passport` SPEC 6.2 under the source `costcrew`, schema v0.2.
+- **Produces**: twenty-three event types on the shared agent-event bus, twenty-two
+  of them registered in `agent-passport` SPEC 6.2 under the source `costcrew`,
+  schema v0.2; the newest, `anomaly_hinted`, is not registered yet.
 - **Enforces**: nothing. `enforced: false` is stamped on every event, and
   `internal/enforce` is a separate binary the console never imports. The
   console makes no outbound call while serving a page, with two exceptions:
@@ -117,8 +118,9 @@ flowchart TB
   `deliver.Call`, and only when `-gateway` or `-gateway-openai` is set; and
   sign-in through the organisation's identity provider reaches that
   provider's discovery document, keys and token endpoint, and only when
-  `-oidc-issuer` is set. A test refuses any other way for the console to
-  build an outbound request.
+  `-oidc-issuer` is set. At start, and only with `-typryx-url`, it also asks
+  typryx for a typed hint about each open anomaly (see below). A test refuses
+  any other way for the console to build an outbound request.
 
 ## The three rules that make the numbers usable
 
@@ -149,6 +151,51 @@ delivering and a workload switched off unnoticed both look exactly like a drop.
 A Sunday is judged against Sundays. And findings are ranked by **money**, because
 a four sigma deviation worth three dollars is real, true, and not worth anybody's
 morning.
+
+## A typed hint from typryx, optional
+
+Before an analyst works an anomaly, the console can ask
+[typryx](https://github.com/TAIPANBOX/typryx) for a typed hint: which of
+`expected_growth`, `runaway_agent`, `misconfiguration`, `price_change` or
+`unknown` its `triage.anomaly_class` template picks, and with what
+probability. The hint is a suggestion and nothing else. It is shown on the
+anomaly page labelled with where it came from, and it goes into the analyst's
+packet as something the analyst may disagree with. No option is applied and no
+state moves because of it.
+
+| Flag or variable | Meaning |
+|---|---|
+| `-typryx-url URL` (or `COSTCREW_TYPRYX_URL`) | the typryx to ask, for example `http://127.0.0.1:4320`; empty, the default, asks nothing and changes nothing |
+| `COSTCREW_TYPRYX_KEY` (environment only) | sent as `X-Typryx-Key`; never a flag, never logged |
+| `-typryx-max-asks N` (console) | ask about at most N open anomalies per start, largest by money first (default 50); an answered one is never asked again |
+
+The console asks after detection, beside the listener, so a slow or absent
+typryx never holds the start. `costcrew-run` takes the same `-typryx-url` and
+asks only on `-live`, before a task's packet is built; a dry run asks nothing.
+
+**What leaves.** The template decides: the console reads the template's
+`fields` from typryx and sends exactly those, chosen from a fixed list (the
+anomaly line, the registered changes, desk, service, day, direction, excess)
+that holds no team, owner, agent or person. Where they go next is typryx's own
+`TYPRYX_BACKEND`, and the hint records which one answered:
+
+| Recorded as | typryx backend | Where the fields went |
+|---|---|---|
+| `jev` | `jev` | to Jev, hosted by TypeSafe AI, a processor under its own terms |
+| `own-model` | `openai-logprobs` | to a model the operator runs, for example Ollama on the same machine |
+| `off` | `stub` | nowhere; deterministic and free, not a model's judgement |
+
+A timeout, a refusal or an answer that does not check out is recorded as "no
+hint" with the reason, and the page and the packet say so. The bus gets one
+`anomaly_hinted` line per ask, naming the backend, the model, the class and its
+probability and the names of the fields sent, never their values. With
+`-typryx-url` unset the console adds no column and serves exactly the pages and
+packets it served before.
+
+How good a hint is depends on the backend, and typryx-evalset measured that on
+its frozen 434-question test split (2026-09-30): Jev 87.1% overall and 87.0% on
+the triage family, a keyword-rules baseline 82.3%, and `qwen2.5:7b` on a CPU
+70.0%. A hint is worth reading, not obeying.
 
 ## Run it
 

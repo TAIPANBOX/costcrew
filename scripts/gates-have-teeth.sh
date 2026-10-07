@@ -2442,7 +2442,7 @@ run_case $'egress: a package the console imports starts building requests' \
 	fail \
 	./internal/web \
 	$'TestOnlyTheDeliveryPackageAmongThoseTheConsoleImportsReachesTheNetwork' \
-	$'want exactly [internal/deliver internal/sso]' \
+	$'want exactly [internal/deliver internal/sso internal/typryx]' \
 	internal/money/money.go \
 	$'import (\n' \
 	$'import (\n	"net/http"\n' \
@@ -3000,6 +3000,152 @@ run_case 'engines page: only the first three families listed' \
 	internal/web/ops.go \
 	$'	for _, f := range families {' \
 	$'	for _, f := range families[:3] {'
+# Invariant 76: a typed hint from typryx decides nothing, and only the
+# template's fields leave.
+run_case 'typryx hint: the whole state leaves instead of the template'"'"'s fields' \
+	fail \
+	./internal/typryx \
+	$'TestOnlyTheTemplatesFieldsLeave' \
+	$'want exactly the template\'s fields' \
+	internal/typryx/typryx.go \
+	$'	sort.Strings(names)\n	return out, names, ""' \
+	$'	sort.Strings(names)\n	return state, names, ""'
+run_case 'typryx hint: team joins the vocabulary the console offers' \
+	fail \
+	./internal/typryx \
+	$'TestATemplateNamingAFieldThisConsoleDoesNotSendGetsNoHint' \
+	$'a hint came back for a template asking for' \
+	internal/typryx/typryx.go \
+	$'var Offered = []string{"anomaly",' \
+	$'var Offered = []string{"team", "anomaly",' \
+	internal/typryx/typryx.go \
+	$'		"desk":           a.Source,' \
+	$'		"team": a.Team, "desk": a.Source,'
+run_case 'typryx hint: saving a hint also moves the anomaly'"'"'s state' \
+	fail \
+	./internal/typryx \
+	$'TestAHintDecidesNothing' \
+	$'a hint changed something beyond its own columns' \
+	internal/anomaly/hint.go \
+	$'hint_latency_ms=?, hint_at=?' \
+	$'hint_latency_ms=?, hint_at=?, state=\'triaged\''
+run_case 'typryx hint: the bus carries a field'"'"'s value' \
+	fail \
+	./internal/typryx \
+	$'TestTheBusRecordsTheBackendNeverTheFields' \
+	$'the bus carries the value of field' \
+	internal/typryx/pass.go \
+	$'		"fields_sent":      strings.Join(eg.Fields, ","),' \
+	$'		"fields_sent":      strings.Join(eg.Fields, ","), "about": a.Service,'
+run_case 'typryx hint: the answer'"'"'s label is trusted over its distribution' \
+	fail \
+	./internal/typryx \
+	$'TestHostileAnswersAreNoHintNeverAGuess' \
+	$'a hint was recorded' \
+	internal/typryx/typryx.go \
+	$'if r.Probabilities[class] < top {' \
+	$'if false {'
+run_case 'typryx hint: a refusal echoes typryx'"'"'s body into the reason' \
+	fail \
+	./internal/typryx \
+	$'TestHostileAnswersAreNoHintNeverAGuess' \
+	$'the reason echoes the response' \
+	internal/typryx/typryx.go \
+	$'return fmt.Sprintf("typryx refused the ask: HTTP %d", status)' \
+	$'return fmt.Sprintf("typryx refused the ask: HTTP %d %s", status, body)'
+run_case 'typryx hint: a typryx that never answers is asked about every anomaly' \
+	fail \
+	./internal/typryx \
+	$'TestAPassStopsAfterThreeAsksTypryxNeverAnswered' \
+	$'want 3 asked and stopped' \
+	internal/typryx/pass.go \
+	$'if misses >= unreachableRun {' \
+	$'if false {'
+run_case 'typryx hint: the bench'"'"'s hiding packet carries the hint' \
+	fail \
+	./internal/deliver \
+	$'TestTheBenchHidingPacketCarriesNoHint' \
+	$'a hiding packet carries the hint' \
+	internal/deliver/packet.go \
+	$'			if !hideDriver {\n				if s := hintSection(db, an)' \
+	$'			if true {\n				if s := hintSection(db, an)'
+run_case 'typryx hint: the runner asks typryx on a dry run' \
+	fail \
+	./tools/run \
+	$'TestADryRunAsksTypryxNothing' \
+	$'a dry run asked typryx' \
+	tools/run/main.go \
+	$'if live && hasCap && typryxBase != "" {' \
+	$'if typryxBase != "" {'
+run_case 'typryx hint: rewording the packet'"'"'s advice is not a fault' \
+	pass \
+	./internal/deliver \
+	$'TestTheTriagePacketCarriesTheHintAsASuggestion|TestWithTypryxUnsetTheTriagePacketIsByteIdentical' \
+	$'' \
+	internal/deliver/packet.go \
+	$'never the series, ' \
+	$'never the daily series, '
+
+# Invariants 70 and 76 together: the hint obeys -prompt-data.
+run_case 'typryx hint: the model is named in a masked packet' \
+	fail \
+	./internal/deliver \
+	$'TestNoRealIdentifierLeavesInMaskedOrAggregatesPackets' \
+	$'hint-model-planted-7b' \
+	internal/deliver/packet.go \
+	$'	if !pol.Full() {\n		h.Model = ""\n	}' \
+	$'	_ = pol.Full'
+run_case 'typryx hint: the hint section is sent under aggregates' \
+	fail \
+	./internal/deliver \
+	$'TestMaskedPacketsKeepEverySectionHeaderTheirModeSends' \
+	$'aggregates sent the row-level section "A typed hint' \
+	internal/deliver/packet.go \
+	$'	if pol.Aggregates() {\n		return ""\n	}\n	h, ok, err := anomaly.HintOf' \
+	$'	_ = pol.Aggregates\n	h, ok, err := anomaly.HintOf'
+run_case 'typryx hint: typryx is sent real names under masked' \
+	fail \
+	./internal/typryx \
+	$'TestWhatTypryxIsSentFollowsThePromptDataSetting' \
+	$'masked: what typryx would be sent carries' \
+	internal/typryx/typryx.go \
+	$'	if pol.Full() {\n		return st\n	}' \
+	$'	if true {\n		return st\n	}'
+
+# Invariant 77: with typryx unset nothing changes, and typryx is asked from
+# the console's start, never from a page.
+run_case 'typryx unset: the packet prints a hint section with no hint' \
+	fail \
+	./internal/deliver \
+	$'TestWithTypryxUnsetTheTriagePacketIsByteIdentical' \
+	$'the packet differs from the golden' \
+	internal/deliver/packet.go \
+	$'	h, ok, err := anomaly.HintOf(db, an.ID)\n	if err != nil || !ok {' \
+	$'	h, ok, err := anomaly.HintOf(db, an.ID)\n	_ = ok\n	if err != nil {'
+run_case 'typryx unset: the anomaly page shows the panel with no hint' \
+	fail \
+	./internal/web \
+	$'TestWithoutAHintTheAnomalyPageIsByteIdentical' \
+	$'a page with no typryx configured mentions typryx' \
+	internal/web/templates/anomaly.html \
+	$'{{if .HasHint}}<div class="panel">' \
+	$'{{if true}}<div class="panel">'
+run_case 'typryx door: a page handler imports internal/typryx' \
+	fail \
+	./internal/web \
+	$'TestTypryxIsAskedFromTheConsolesStartNeverFromAPage' \
+	$'internal/web reaches internal/typryx' \
+	internal/web/pages.go \
+	$'	"github.com/TAIPANBOX/costcrew/internal/anomaly"\n' \
+	$'	"github.com/TAIPANBOX/costcrew/internal/anomaly"\n	_ "github.com/TAIPANBOX/costcrew/internal/typryx"\n'
+run_case 'typryx door: rewording the start'"'"'s log line is not a fault' \
+	pass \
+	./internal/web \
+	$'TestTypryxIsAskedFromTheConsolesStartNeverFromAPage|TestOnlyTheDeliveryPackageAmongThoseTheConsoleImportsReachesTheNetwork' \
+	$'' \
+	cmd/costcrew/main.go \
+	$'asking typryx for a typed hint on %d anomalies' \
+	$'asking typryx about %d anomalies'
 # 74 and 75. Sign-in through the organisation's identity provider. Every case
 # switches off one check the flow makes, in the place it is made, and requires
 # the test written for that check to go red for that reason. go-oidc's own

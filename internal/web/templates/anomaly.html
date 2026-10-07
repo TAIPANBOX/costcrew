@@ -30,7 +30,20 @@
   </div>
 </div>
 
-<div class="panel">
+{{if .HasHint}}<div class="panel">
+  <h2>A suggestion from typryx</h2>
+  <div class="body">
+    <dl class="facts">
+      {{if .Hint.Answered}}<dt>Suggested cause</dt><dd><strong>{{.Hint.Class}}</strong>, probability {{.HintProb}}</dd>
+      {{else}}<dt>No hint</dt><dd>{{.Hint.Reason}}</dd>
+      {{end}}<dt>Source</dt><dd>{{.Hint.Source}}{{if .Hint.Backend}} <span class="chip grain">backend: {{.Hint.Backend}}</span>{{end}}{{if .Hint.Model}} <span class="chip grain">model: {{.Hint.Model}}</span>{{end}}</dd>
+      <dt>Asked</dt><dd>{{.Hint.At}}, {{.Hint.LatencyMS}} ms</dd>
+    </dl>
+    <p class="note">A suggestion, never a decision: nothing on this page changed because of it, and an analyst may disagree with it. typryx saw only the fields its triage.anomaly_class template names, never a team, an owner or an agent.</p>
+  </div>
+</div>
+
+{{end}}<div class="panel">
   <h2>Who</h2>
   <div class="body">
     <dl class="facts">

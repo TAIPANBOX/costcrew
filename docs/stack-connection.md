@@ -374,3 +374,23 @@ unit through its identity map, and which credential may speak as which agent is
 a decision made there, inside the perimeter the operator runs. Writing that map
 from here would be this console asserting an identity binding it has no way to
 verify.
+
+## typryx, a hint and nothing else
+
+From 2026-10-07 the console can ask [typryx](https://github.com/TAIPANBOX/typryx)
+for a typed hint about each open anomaly, when `-typryx-url` is set (invariants
+76 and 77 in CLAUDE.md). It is the one new thing this console sends anywhere,
+so what it puts on the shared bus was kept small on purpose.
+
+- **Type**: `anomaly_hinted`, severity `info`, this console's own word. It is
+  not translated, because no shared word covers "a classifier suggested a
+  cause", and it is not yet in agent-passport SPEC 6.2's registry.
+- **Payload**: the anomaly id; which backend answered, as `jev`, `own-model` or
+  `off`; the model; the class and its probability; typryx's answer id; the
+  NAMES of the fields sent and how many typryx held back; or, with no hint, the
+  reason. Never the value of a field that was sent: the anomaly line and the
+  change registry went to typryx because an operator chose that, and the bus's
+  other readers did not.
+- **What it is not**: a decision. Nothing on the bus, or in this console,
+  moves because of a hint. A consumer that turned `anomaly_hinted` into an
+  action would be doing something this console deliberately does not.

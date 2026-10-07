@@ -87,6 +87,14 @@ func Packet(db *sql.DB, t crew.Task, a crew.Analyst, hideDriver bool) string {
 			if s := lastExplanationSection(db, an); s != "" {
 				sections = append(sections, s)
 			}
+			// Invariant 76. Never in a bench's hiding packet: the hint was
+			// asked with the change registry in its state, so it can carry
+			// the very driver the bench hides.
+			if !hideDriver {
+				if s := hintSection(db, an); s != "" {
+					sections = append(sections, s)
+				}
+			}
 		}
 	}
 	// "decision-framing" only, not "exec-reporting": exec-reporter carries
@@ -292,6 +300,49 @@ func AnomalySection(an anomaly.Anomaly, hideDriver bool) string {
 	}
 	if an.CausedBy != "" && !pol.Aggregates() {
 		fmt.Fprintf(&b, "caused by: %s (%s)\n", an.CausedBy, an.CausedByKind)
+	}
+	return b.String()
+}
+
+// hintSection is typryx's typed hint for the anomaly, when one was ever
+// recorded (invariant 76), written as what it is: a suggestion from a
+// classifier the analyst may disagree with, which decided nothing. Empty on a
+// store with no hint, and on one that never had the hint columns, so a
+// console without -typryx-url sends exactly the packet it sent before
+// (invariant 77).
+//
+// Under -prompt-data (invariant 70): aggregates sends no cause for an
+// anomaly, and a hint is a cause, so the section is not sent; masked sends
+// it without the model's name, which is a name the store's list of names to
+// mask does not hold, and the rest is masked with the packet.
+func hintSection(db *sql.DB, an anomaly.Anomaly) string {
+	pol := ActivePolicy()
+	if pol.Aggregates() {
+		return ""
+	}
+	h, ok, err := anomaly.HintOf(db, an.ID)
+	if err != nil || !ok {
+		return ""
+	}
+	if !pol.Full() {
+		h.Model = ""
+	}
+	var b strings.Builder
+	b.WriteString("A typed hint (a suggestion, not a finding)\n")
+	if h.Answered() {
+		fmt.Fprintf(&b, "typryx suggests: %s, probability %.2f\n", h.Class, h.Probability)
+	} else {
+		fmt.Fprintf(&b, "typryx gave no hint: %s\n", h.Reason)
+	}
+	fmt.Fprintf(&b, "source: %s", h.Source())
+	if h.Model != "" {
+		fmt.Fprintf(&b, ", model %s", h.Model)
+	}
+	b.WriteString("\n")
+	if h.Answered() {
+		b.WriteString("It saw only the fields its template names, never the series, " +
+			"the team or the owner. You may disagree with it, and if you do, say why. " +
+			"Nothing was decided because of it.\n")
 	}
 	return b.String()
 }
