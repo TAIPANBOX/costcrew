@@ -3376,6 +3376,277 @@ run_case $'cloud focus: a reworded currency refusal is not a fault' \
 	internal/connectors/cloudfocus.go \
 	$'return row, fmt.Errorf("currency %q, this reader is USD only", currency)' \
 	$'return row, fmt.Errorf("BillingCurrency %q, and this reader is USD only", currency)'
+# ---- tools/{enforce,parity,stack,idryxsource,recon} and internal/spiffe ----
+#
+# These binaries had no tests at all; their main() is now a one-line wrapper
+# over run(). Each case breaks one thing a person relies on and requires the
+# test that was written for it to name itself in the failure.
+
+run_case $'enforce: the default run falls back to the wrong month' \
+	fail \
+	./tools/enforce \
+	$'TestTheDefaultPeriodIsTheLastClosedMonth' \
+	$'--- FAIL: TestTheDefaultPeriodIsTheLastClosedMonth' \
+	tools/enforce/main.go \
+	$'world.DayBefore(world.LastDay, 40)[:7]' \
+	$'world.DayBefore(world.LastDay, 10)[:7]'
+run_case $'enforce: a team budget is the last desk\'s, not the sum across desks' \
+	fail \
+	./tools/enforce \
+	$'TestATeamsBudgetIsTheSumAcrossDesksForTheMonthAsked' \
+	$'--- FAIL: TestATeamsBudgetIsTheSumAcrossDesksForTheMonthAsked' \
+	tools/enforce/main.go \
+	$'out[b.Team] += b.Budget' \
+	$'out[b.Team] = b.Budget'
+run_case $'enforce: the tool is not off without an address and a key' \
+	fail \
+	./tools/enforce \
+	$'TestItIsOffWithoutAnAddressAndAKey' \
+	$'--- FAIL: TestItIsOffWithoutAnAddressAndAKey' \
+	tools/enforce/main.go \
+	$'if !cfg.On() {' \
+	$'if false {'
+run_case $'enforce: -apply is handed the plan\'s own fingerprint, so any value is approved' \
+	fail \
+	./tools/enforce \
+	$'TestAWrongFingerprintSendsNothing' \
+	$'--- FAIL: TestAWrongFingerprintSendsNothing' \
+	tools/enforce/main.go \
+	$'enforce.Apply(ctx, cfg, plan, *expect)' \
+	$'enforce.Apply(ctx, cfg, plan, fp)'
+run_case $'enforce: a lowering is no longer marked as the direction that stops work' \
+	fail \
+	./tools/enforce \
+	$'TestTheDefaultRunPrintsTheDiffAndSendsNothing' \
+	$'--- FAIL: TestTheDefaultRunPrintsTheDiffAndSendsNothing' \
+	tools/enforce/main.go \
+	$'case c.Lowered:' \
+	$'case c.Lowered && false:'
+run_case $'enforce: a wider UNIT column is not a fault' \
+	pass \
+	./tools/enforce \
+	$'.' \
+	$'' \
+	tools/enforce/main.go \
+	$'"%-22s %14s %14s\\n", "UNIT"' \
+	$'"%-24s %14s %14s\\n", "UNIT"'
+
+run_case $'parity: a redirect to a different page is no longer a difference' \
+	fail \
+	./tools/parity \
+	$'TestCompareNamesEachKindOfDifference' \
+	$'--- FAIL: TestCompareNamesEachKindOfDifference' \
+	tools/parity/main.go \
+	$'ea.SHA256 != eb.SHA256 || ea.Location != eb.Location {' \
+	$'ea.SHA256 != eb.SHA256 {'
+run_case $'parity: a comparison over an empty capture passes' \
+	fail \
+	./tools/parity \
+	$'TestACaptureOfNothingIsRefusedNotPassed' \
+	$'--- FAIL: TestACaptureOfNothingIsRefusedNotPassed' \
+	tools/parity/main.go \
+	$'if ma.Count == 0 || mb.Count == 0 {' \
+	$'if false {'
+run_case $'parity: a planted fault may change the body more than once' \
+	fail \
+	./tools/parity \
+	$'TestMutateRefusesZeroOrManyOccurrencesAndUnknownPaths' \
+	$'--- FAIL: TestMutateRefusesZeroOrManyOccurrencesAndUnknownPaths' \
+	tools/parity/main.go \
+	$'n != 1 {' \
+	$'n < 1 {'
+run_case $'parity: the CSRF token is not scrubbed, so two captures of one console differ' \
+	fail \
+	./tools/parity \
+	$'TestCapturingTheSameConsoleTwiceGivesTheSameBytes' \
+	$'--- FAIL: TestCapturingTheSameConsoleTwiceGivesTheSameBytes' \
+	tools/parity/main.go \
+	$'name="csrf" value="[^"]*"`),' \
+	$'name="csrfX" value="[^"]*"`),'
+run_case $'parity: the crawl walks /logout and ends its own session' \
+	fail \
+	./tools/parity \
+	$'TestTheCrawlIsBoundedPerFamilyAndAvoidsForbiddenRoutes' \
+	$'--- FAIL: TestTheCrawlIsBoundedPerFamilyAndAvoidsForbiddenRoutes' \
+	tools/parity/main.go \
+	$'"/logout": true,' \
+	$'"/logout": false,'
+run_case $'parity: a reworded justification for a scrub is not a fault' \
+	pass \
+	./tools/parity \
+	$'.' \
+	$'' \
+	tools/parity/main.go \
+	$'"minted per session; carries no product meaning",' \
+	$'"minted per session",'
+
+run_case $'stack: three of four requested agents are connected without a word' \
+	fail \
+	./tools/stack \
+	$'TestSelectionErrorsAreRefusedAndWriteNothing' \
+	$'--- FAIL: TestSelectionErrorsAreRefusedAndWriteNothing' \
+	tools/stack/main.go \
+	$'if len(want) > 0 {' \
+	$'if false {'
+run_case $'stack: an emit that wrote no event reports success' \
+	fail \
+	./tools/stack \
+	$'TestEmitThatMeasuredNothingFails' \
+	$'--- FAIL: TestEmitThatMeasuredNothingFails' \
+	tools/stack/main.go \
+	$'if written == 0 {' \
+	$'if false {'
+run_case $'stack: a blocked event is no longer raised above info' \
+	fail \
+	./tools/stack \
+	$'TestSeverityOfRaisesOnlyGovernanceEvents' \
+	$'--- FAIL: TestSeverityOfRaisesOnlyGovernanceEvents' \
+	tools/stack/main.go \
+	$'case strings.Contains(kind, "blocked"), strings.Contains(kind, "suspend"):' \
+	$'case strings.Contains(kind, "suspend"):'
+run_case $'stack: the passport the tool built is not round-tripped through the contract' \
+	fail \
+	./tools/stack \
+	$'TestADocumentTheContractWouldRefuseIsNeverWritten' \
+	$'--- FAIL: TestADocumentTheContractWouldRefuseIsNeverWritten' \
+	tools/stack/main.go \
+	$'if _, err := passport.Parse(buf); err != nil {' \
+	$'if _, err := passport.Parse(buf); false && err != nil {'
+run_case $'stack: the supervisor is made its own parent' \
+	fail \
+	./tools/stack \
+	$'TestConnectAllWritesOneValidPassportPerAnalyst' \
+	$'--- FAIL: TestConnectAllWritesOneValidPassportPerAnalyst' \
+	tools/stack/main.go \
+	$'if j.Name != supervisor {' \
+	$'if true {'
+run_case $'stack: a reworded attestation note is not a fault' \
+	pass \
+	./tools/stack \
+	$'.' \
+	$'' \
+	tools/stack/main.go \
+	$'Idryx will read it as declared.' \
+	$'Idryx will read it as declared by the installation.'
+
+run_case $'idryxsource: agents are written in reverse name order' \
+	fail \
+	./tools/idryxsource \
+	$'TestAgentsAreSortedByName' \
+	$'--- FAIL: TestAgentsAreSortedByName' \
+	tools/idryxsource/main.go \
+	$'return roster[i].Name < roster[j].Name' \
+	$'return roster[i].Name > roster[j].Name'
+run_case $'idryxsource: an agent acts on behalf of itself, not its parent' \
+	fail \
+	./tools/idryxsource \
+	$'TestTheRosterIsWrittenAsAnIdryxAgentsSource' \
+	$'--- FAIL: TestTheRosterIsWrittenAsAnIdryxAgentsSource' \
+	tools/idryxsource/main.go \
+	$'e.OnBehalfOf = "agent://" + *host + "/" + a.Parent' \
+	$'e.OnBehalfOf = "agent://" + *host + "/" + a.Name'
+run_case $'idryxsource: the skills are written where the rights belong' \
+	fail \
+	./tools/idryxsource \
+	$'TestTheRosterIsWrittenAsAnIdryxAgentsSource' \
+	$'--- FAIL: TestTheRosterIsWrittenAsAnIdryxAgentsSource' \
+	tools/idryxsource/main.go \
+	$'append([]string(nil), a.Rights...)' \
+	$'append([]string(nil), a.Skills...)'
+run_case $'idryxsource: the hire date is passed on as a bare date, not RFC 3339' \
+	fail \
+	./tools/idryxsource \
+	$'TestTheRosterIsWrittenAsAnIdryxAgentsSource' \
+	$'--- FAIL: TestTheRosterIsWrittenAsAnIdryxAgentsSource' \
+	tools/idryxsource/main.go \
+	$'e.Created = t.UTC().Format(time.RFC3339)' \
+	$'e.Created = t.UTC().Format("2006-01-02")'
+run_case $'idryxsource: a reworded -host help text is not a fault' \
+	pass \
+	./tools/idryxsource \
+	$'.' \
+	$'' \
+	tools/idryxsource/main.go \
+	$'"the agent:// authority, matching -stack-host"' \
+	$'"the agent:// authority (match -stack-host)"'
+
+run_case $'recon: a resource line that does not add up is not reported' \
+	fail \
+	./tools/recon \
+	$'TestAResourceOffByACentIsNamedAsAMismatch' \
+	$'--- FAIL: TestAResourceOffByACentIsNamedAsAMismatch' \
+	tools/recon/main.go \
+	$'if v != byKey[k] {' \
+	$'if v == byKey[k] {'
+run_case $'recon: the gap to a SaaS invoice loses its sign' \
+	fail \
+	./tools/recon \
+	$'TestEveryLicenceShowsItsGapToTheInvoice' \
+	$'--- FAIL: TestEveryLicenceShowsItsGapToTheInvoice' \
+	tools/recon/main.go \
+	$'l.PerSeat, paid, bill, paid-bill)' \
+	$'l.PerSeat, paid, bill, bill-paid)'
+run_case $'recon: a commitment\'s monthly figure uses 720 hours' \
+	fail \
+	./tools/recon \
+	$'TestEveryCommitmentShowsItsShareOfCommittableSpend' \
+	$'--- FAIL: TestEveryCommitmentShowsItsShareOfCommittableSpend' \
+	tools/recon/main.go \
+	$'monthly := c.Hourly * 730' \
+	$'monthly := c.Hourly * 720'
+run_case $'recon: a wider vendor column is not a fault' \
+	pass \
+	./tools/recon \
+	$'.' \
+	$'' \
+	tools/recon/main.go \
+	$'"  %-12s %-16s %3d seats' \
+	$'"  %-14s %-16s %3d seats'
+
+run_case $'spiffe: a bare socket path is not treated as a unix socket' \
+	fail \
+	./internal/spiffe \
+	$'TestABarePathIsAUnixSocket' \
+	$'--- FAIL: TestABarePathIsAUnixSocket' \
+	internal/spiffe/spiffe.go \
+	$'socket = "unix://" + socket' \
+	$'socket = "" + socket'
+run_case $'spiffe: a rotated identity is remembered from startup, not re-read' \
+	fail \
+	./internal/spiffe \
+	$'TestARotatedIdentityIsPickedUp' \
+	$'--- FAIL: TestARotatedIdentityIsPickedUp' \
+	internal/spiffe/spiffe.go \
+	$'if svid, err := s.src.GetX509SVID(); err == nil && len(svid.Certificates) > 0 {' \
+	$'if svid, err := s.src.GetX509SVID(); false && err == nil && len(svid.Certificates) > 0 {'
+run_case $'spiffe: the certificate serial is written in decimal, not hex' \
+	fail \
+	./internal/spiffe \
+	$'TestOpenReadsTheIssuedIdentity' \
+	$'--- FAIL: TestOpenReadsTheIssuedIdentity' \
+	internal/spiffe/spiffe.go \
+	$'svid.Certificates[0].SerialNumber.Text(16))' \
+	$'svid.Certificates[0].SerialNumber.Text(10))' \
+	internal/spiffe/spiffe.go \
+	$'svid.Certificates[0].SerialNumber.Text(16))' \
+	$'svid.Certificates[0].SerialNumber.Text(10))'
+run_case $'spiffe: a failed Open stops telling the operator where to look' \
+	fail \
+	./internal/spiffe \
+	$'TestOpenFailsLoudlyWhenNothingIsListening' \
+	$'--- FAIL: TestOpenFailsLoudlyWhenNothingIsListening' \
+	internal/spiffe/spiffe.go \
+	$'Either nothing is listening there' \
+	$'Something went wrong there'
+run_case $'spiffe: a longer first-SVID wait is not a fault' \
+	pass \
+	./internal/spiffe \
+	$'.' \
+	$'' \
+	internal/spiffe/spiffe.go \
+	$'context.WithTimeout(ctx, 20*time.Second)' \
+	$'context.WithTimeout(ctx, 30*time.Second)'
+
 echo
 if [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'

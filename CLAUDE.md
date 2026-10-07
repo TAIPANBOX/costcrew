@@ -84,8 +84,8 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 1169 tests, 24 packages
-./scripts/gates-have-teeth.sh        # 315 cases; needs a clean tree
+go test ./...                        # 1242 tests, 27 packages
+./scripts/gates-have-teeth.sh        # 347 cases; needs a clean tree
 ./scripts/features-are-bound.sh      # 416 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
@@ -108,6 +108,26 @@ scenarios, 58 -> 60 GET routes, re-measured on this branch with the three
 commands this block already names. Two new dependencies,
 `github.com/coreos/go-oidc/v3` and `golang.org/x/oauth2`.
 
+Test coverage of the five tools that had none and of `internal/spiffe` (no
+invariant, no behaviour change, no route and no scenario: a scenario would have
+been back-derived from the code, which this file's invariant 14 refuses) added
+73 tests (`tools/parity`, 23; `tools/stack`, 17; `tools/enforce`, 13;
+`tools/idryxsource`, 8; `internal/spiffe`, 7; `tools/recon`, 5) and 32
+`gates-have-teeth.sh` cases (26 `fail`, 6 `pass`, five or six per package): 993
+-> 1066 tests, 20 -> 26 packages with tests, 192 -> 224 cases, re-measured on
+this branch with the commands this block names. Coverage, `go test ./...
+-coverpkg=./... -coverprofile`, whole module 77.9% -> 82.6% of 16,318
+statements; `tools/parity` 0% -> 94.6%, `tools/stack` 0% -> 96.4%,
+`tools/enforce` 0% -> 98.7%, `tools/idryxsource` 0% -> 95.7%, `tools/recon` 0%
+-> 97.9%, `internal/spiffe` 0% -> 94.4% (per package, own tests only). Each
+`main()` became a one-line wrapper over `run(args, stdout, stderr) int` so a
+test reads what a person would read; `enforce` and `idryxsource` declare their
+flags through the package-level `flag.String` calls on a fresh `CommandLine`,
+the shape `internal/manifest` reads `components.json` against and
+`tools/bench/main.go` already documents. What `internal/spiffe` leaves
+uncovered: the branch where the Workload API answers and then issues no SVID,
+which the library's own source makes unreachable through a real agent.
+
 Invariants 78 and 79 (what a download carries is data; no cache keeps a
 page or a download), with the unit team page, idryxsource's empty tools list,
 `spiffe.Close` under its lock and the parity tool's usage and audit-hash
@@ -118,13 +138,14 @@ scrub beside them, added 20 tests (`internal/web/exports_are_data_test.go`,
 `tools/parity/main_flags_test.go`, 2), 18 `gates-have-teeth.sh` cases (15
 `fail`, 3 `pass`) and 20 scenarios (`features/downloads-are-data.feature`,
 `features/no-store.feature`, `features/links-and-tools-tell-the-truth.feature`,
-all new), and no route: 1149 -> 1169 tests, 297 -> 315 cases, 396 -> 416
-scenarios, 21 -> 24 packages with tests, 60 GET routes and the write
-routes unchanged, re-measured on this branch after merging main at
-877b0a5 with the three commands this block already names. `go test -cover` per package: `internal/web` 80.0%
--> 85.4%, `internal/connectors` 86.2% -> 86.4%, `internal/spiffe` 0.0% ->
-51.1%, `tools/idryxsource` 0.0% -> 20.0%, `tools/parity` 0.0% -> 0.9%. CI's
-race step gained `./internal/spiffe/...`.
+all new), and no route: 1222 -> 1242 tests, 329 -> 347 cases, 396 -> 416
+scenarios, 27 packages with tests, 60 GET routes and the write routes
+unchanged, re-measured on this branch after merging main at 2498e58 with the
+three commands this block already names. `go test -cover` per package
+against that main: `internal/web` 86.5% -> 86.6%, `internal/connectors` 87.9%
+-> 88.0%, `internal/spiffe` 94.4% -> 95.7%, `tools/idryxsource` 95.7% ->
+95.7%, `tools/parity` 94.6% -> 94.6%. CI's race step gained
+`./internal/spiffe/...`.
 
 Invariants 61 to 64 (a session token is never stored; every failed sign-in
 says the same thing; the console's own files are private; the console's

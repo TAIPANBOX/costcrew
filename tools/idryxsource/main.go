@@ -17,8 +17,10 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"sort"
 	"time"
@@ -38,21 +40,37 @@ type agent struct {
 	Tools      []string `json:"tools"`
 }
 
-func main() {
+func main() { os.Exit(run(os.Args[1:], os.Stdout, os.Stderr)) }
+
+// run is main minus os: the arguments, the two streams and an exit status, so
+// a test can read what a person at a terminal would read and see what was
+// written to disk.
+func run(args []string, stdout, stderr io.Writer) int {
+	// Declared through the package-level flag.String calls on a fresh
+	// CommandLine, the shape internal/manifest reads components.json against
+	// (tools/bench/main.go says why at length); ContinueOnError so a test gets a
+	// bad flag back as a status and not as os.Exit.
+	flag.CommandLine = flag.NewFlagSet("idryxsource", flag.ContinueOnError)
+	flag.CommandLine.SetOutput(stderr)
 	dir := flag.String("data", ".", "the console's data directory")
 	host := flag.String("host", "costcrew.local", "the agent:// authority, matching -stack-host")
 	out := flag.String("out", "-", "where to write it; - is stdout")
-	flag.Parse()
+	if err := flag.CommandLine.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		return 2
+	}
 
 	st, err := store.Open(*dir)
 	if err != nil {
-		fail(err)
+		return fail(stderr, err)
 	}
 	defer st.Close()
 
 	roster, err := crew.Roster(st.DB())
 	if err != nil {
-		fail(err)
+		return fail(stderr, err)
 	}
 	sort.Slice(roster, func(i, j int) bool { return roster[i].Name < roster[j].Name })
 
@@ -63,16 +81,18 @@ func main() {
 
 	buf, err := json.MarshalIndent(map[string]any{"agents": agents}, "", "  ")
 	if err != nil {
-		fail(err)
+		return fail(stderr, err)
 	}
 	buf = append(buf, '\n')
 	if *out == "-" {
-		_, _ = os.Stdout.Write(buf)
-	} else if err := os.WriteFile(*out, buf, 0o644); err != nil {
-		fail(err)
-	} else {
-		fmt.Fprintf(os.Stderr, "%d agents written to %s\n", len(agents), *out)
+		_, _ = stdout.Write(buf)
+		return 0
 	}
+	if err := os.WriteFile(*out, buf, 0o644); err != nil {
+		return fail(stderr, err)
+	}
+	fmt.Fprintf(stderr, "%d agents written to %s\n", len(agents), *out)
+	return 0
 }
 
 // entryFor is one roster entry as idryx's agents source writes it.
@@ -101,7 +121,7 @@ func entryFor(a crew.Analyst, host string) agent {
 	return e
 }
 
-func fail(err error) {
-	fmt.Fprintln(os.Stderr, "idryxsource:", err)
-	os.Exit(1)
+func fail(stderr io.Writer, err error) int {
+	fmt.Fprintln(stderr, "idryxsource:", err)
+	return 1
 }
