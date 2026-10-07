@@ -756,8 +756,8 @@ run_case 'a deliverable that does not say a model wrote it' fail ./tools/run \
 	'TestARunnerDeliverableIsMarkedLive' \
 	'indistinguishable' \
 	tools/run/live.go \
-	"datetime('now'), 'live')" \
-	"datetime('now'), 'fixture')"
+	"'draft', datetime('now'), 'live'" \
+	"'draft', datetime('now'), 'fixture'"
 
 run_case 'a marker no page displays' fail ./internal/web \
 	'TestTheTaskPageShowsWhichDeliverableWasWrittenLive' \
@@ -2110,6 +2110,596 @@ run_case $'admin answers: a reworded refusal message is not a fault' \
 	internal/web/decisions.go \
 	$'"you are answering for "+owner+", so a reason is needed: "+rerr.Error()' \
 	$'"a reason is needed because you are answering for "+owner+": "+rerr.Error()'
+
+# Invariants 61 to 64: sessions stored as hashes, one answer for every failed
+# sign-in, private data files, and the console's egress. Every case plants one
+# fault in the product, in the way a silent failure would look: the session
+# still works, the login still refuses, the file is still there, the page still
+# renders, and only the property under the gate is gone.
+#
+# 61. The first mutant keeps the whole login working and stores the cookie
+# itself, which is the only shape this fault has: nothing visible changes.
+run_case $'sessions: the cookie is stored as it is, not as its hash' \
+	fail \
+	./internal/auth \
+	$'TestTheDatabaseHoldsNoSessionTokenInTheClear' \
+	$'stores the cookie value itself' \
+	internal/auth/auth.go \
+	$'	return hex.EncodeToString(sum[:])\n}\n\nfunc (a *Auth) StartSession' \
+	$'	_ = sum\n	return token\n}\n\nfunc (a *Auth) StartSession'
+run_case $'sessions: a hash read from the database is accepted as a cookie' \
+	fail \
+	./internal/auth \
+	$'TestAHashReadFromTheDatabaseIsNotACookie' \
+	$'as a cookie signed in as alice' \
+	internal/auth/auth.go \
+	$'WHERE s.token_hash=? AND s.expires > ?`, sessionKey(token), now))' \
+	$'WHERE (s.token_hash=? OR s.token_hash=?) AND s.expires > ?`, sessionKey(token), token, now))'
+run_case $'sessions: the migration renames the old table instead of erasing it' \
+	fail \
+	./internal/auth \
+	$'TestOldClearTextSessionsAreEndedAndErasedByTheMigration' \
+	$'still readable in app.db' \
+	internal/store/store.go \
+	$'conn.ExecContext(ctx, `DROP TABLE sessions`)' \
+	$'conn.ExecContext(ctx, `ALTER TABLE sessions RENAME TO sessions_old`)'
+# Two edits, not one: the second check inside the write lock exists for two
+# processes starting together on an old database, and with only the first
+# removed it makes the sequential fault equivalent (measured: TOOTHLESS).
+run_case $'sessions: the migration runs on every start and signs everybody out' \
+	fail \
+	./internal/auth \
+	$'TestTheMigrationRunsOnceAndKeepsTheSessionsItDidNotWrite' \
+	$'no longer resolves' \
+	internal/store/store.go \
+	$'	if current {\n		return nil\n	}' \
+	$'	if false && current {\n		return nil\n	}' \
+	internal/store/store.go \
+	$'	if current || !exists {' \
+	$'	if !exists {'
+run_case $'sessions: the CSRF token is keyed on the storage hash, not the cookie' \
+	fail \
+	./internal/auth \
+	$'TestCSRFStaysBoundToTheCookieValue' \
+	$'CSRFToken =' \
+	internal/auth/auth.go \
+	$'	m.Write([]byte(session))' \
+	$'	m.Write([]byte(sessionKey(session)))'
+run_case $'sessions: a reworded journal reason for the reset is not a fault' \
+	pass \
+	./internal/auth \
+	$'TestOldClearTextSessionsAreEndedAndErasedByTheMigration' \
+	$'' \
+	internal/store/store.go \
+	$'"session tokens are now stored as hashes; everybody signs in again once"' \
+	$'"sessions ended because tokens are now kept as hashes"'
+
+# 62. A locked account that tells its state is the fault; so is the fast one,
+# the one that skips the hash, and the one that has its own words.
+run_case $'sign-in: a locked account says it is locked' \
+	fail \
+	./internal/auth \
+	$'TestEveryFailedSignInSaysTheSame' \
+	$'a locked account says' \
+	internal/auth/auth.go \
+	$'	if u.LockedUntil > now {\n		burn(password)\n		return nil, LoginRefused, nil\n	}' \
+	$'	if u.LockedUntil > now {\n		burn(password)\n		return nil, fmt.Sprintf("locked for another %ds after repeated failures", int(u.LockedUntil-now)), nil\n	}'
+run_case $'sign-in: a locked account says it is locked, seen through the form' \
+	fail \
+	./internal/web \
+	$'TestEveryFailedSignInLooksTheSameFromOutside' \
+	$'a locked account answers' \
+	internal/auth/auth.go \
+	$'	if u.LockedUntil > now {\n		burn(password)\n		return nil, LoginRefused, nil\n	}' \
+	$'	if u.LockedUntil > now {\n		burn(password)\n		return nil, fmt.Sprintf("locked for another %ds after repeated failures", int(u.LockedUntil-now)), nil\n	}'
+run_case $'sign-in: a locked account skips the password hash' \
+	fail \
+	./internal/auth \
+	$'TestALockedAccountCostsAsMuchAsAnUnknownOne' \
+	$'skips the password hash' \
+	internal/auth/auth.go \
+	$'	if u.LockedUntil > now {\n		burn(password)\n' \
+	$'	if u.LockedUntil > now {\n'
+run_case $'sign-in: an unknown account gets words of its own' \
+	fail \
+	./internal/auth \
+	$'TestEveryFailedSignInSaysTheSame' \
+	$'wrong password says' \
+	internal/auth/auth.go \
+	$'	if u == nil {\n		burn(password)\n		return nil, LoginRefused, nil\n	}' \
+	$'	if u == nil {\n		burn(password)\n		return nil, "no such account", nil\n	}'
+run_case $'sign-in: the lockout itself is never reached' \
+	fail \
+	./internal/auth \
+	$'TestEveryFailedSignInSaysTheSame' \
+	$'the lockout itself is gone' \
+	internal/auth/auth.go \
+	$'if failed >= 3 {' \
+	$'if failed >= 3000 {'
+run_case $'sign-in: a reworded refusal is not a fault' \
+	pass \
+	./internal/auth \
+	$'TestEveryFailedSignInSaysTheSame' \
+	$'' \
+	internal/auth/auth.go \
+	$'"could not sign in: the account name or the password is not right, "' \
+	$'"sign-in refused: check the account name and the password, "'
+
+# 63. Modes, measured on the files the store really creates.
+run_case $'files: the data directory is created 0755' \
+	fail \
+	./internal/store \
+	$'TestTheDataDirectoryIsPrivateWhenTheStoreCreatesIt' \
+	$'want 0700' \
+	internal/store/store.go \
+	$'os.MkdirAll(dir, dirMode); err != nil {' \
+	$'os.MkdirAll(dir, 0o755); err != nil {'
+run_case $'files: the journal is created 0644' \
+	fail \
+	./internal/store \
+	$'TestTheJournalIsCreatedPrivateByTheFirstAppend' \
+	$'want 0600' \
+	internal/store/store.go \
+	$'os.O_APPEND|os.O_CREATE|os.O_WRONLY, fileMode)' \
+	$'os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)'
+run_case $'files: Open stops tightening files that already exist' \
+	fail \
+	./internal/store \
+	$'TestFilesFromBeforeTheChangeAreTightenedOnOpen' \
+	$'still has mode' \
+	internal/store/store.go \
+	$'	s.tighten(os.Chmod)\n	return s, nil' \
+	$'	return s, nil'
+run_case $'files: Open chmods a data directory that was already there' \
+	fail \
+	./internal/store \
+	$'TestAnExistingDataDirectoryKeepsItsMode' \
+	$'was changed to' \
+	internal/store/store.go \
+	$'os.MkdirAll(dir, dirMode); err != nil {' \
+	$'os.MkdirAll(dir, dirMode); err != nil || os.Chmod(dir, dirMode) != nil {'
+run_case $'files: a chmod the filesystem refuses is swallowed' \
+	fail \
+	./internal/store \
+	$'TestAChmodTheFilesystemRefusesIsAWarningNotSilenceNotAnOutage' \
+	$'warnings =' \
+	internal/store/store.go \
+	$'err != nil && !os.IsNotExist(err) {' \
+	$'err != nil && false {'
+run_case $'files: the session secret leaves the ignore list' \
+	fail \
+	./internal/store \
+	$'TestTheSessionSecretAndTheDatabaseFilesCannotBeCommitted' \
+	$'.gitignore has no' \
+	.gitignore \
+	$'\n.session-secret\n' \
+	$'\n'
+run_case $'files: the passports are written 0600, unreadable to the services they are for' \
+	fail \
+	./internal/stack \
+	$'TestSharedFilesStayReadableByOtherServices' \
+	$'other services can no longer read it' \
+	internal/stack/stack.go \
+	$'0o644); err != nil {' \
+	$'0o600); err != nil {'
+run_case $'files: a reworded warning about a refused chmod is not a fault' \
+	pass \
+	./internal/store \
+	$'TestAChmodTheFilesystemRefusesIsAWarningNotSilenceNotAnOutage' \
+	$'' \
+	internal/store/store.go \
+	$'"could not make %s private (0600): %v"' \
+	$'"%s is not private (0600), because: %v"'
+
+# 64. One construction planted in a real file per case. The first two are the
+# console and its command; the third is a package the console imports, which
+# only the second walk can see.
+run_case $'egress: a handler builds an http.Client' \
+	fail \
+	./internal/web \
+	$'TestTheConsoleConstructsNoOutboundHTTPClientOrRequest' \
+	$'http.Client' \
+	internal/web/server.go \
+	$'func (s *Server) logout(w http.ResponseWriter, r *http.Request) {\n' \
+	$'func (s *Server) logout(w http.ResponseWriter, r *http.Request) {\n	_ = &http.Client{}\n'
+run_case $'egress: the command line takes a reference to http.Get' \
+	fail \
+	./internal/web \
+	$'TestTheConsoleConstructsNoOutboundHTTPClientOrRequest' \
+	$'http.Get' \
+	cmd/costcrew/main.go \
+	$'func reportStoreWarnings(st *store.Store) {\n' \
+	$'func reportStoreWarnings(st *store.Store) {\n	_ = http.Get\n'
+run_case $'egress: a package the console imports starts building requests' \
+	fail \
+	./internal/web \
+	$'TestOnlyTheDeliveryPackageAmongThoseTheConsoleImportsReachesTheNetwork' \
+	$'want exactly [internal/deliver]' \
+	internal/money/money.go \
+	$'import (\n' \
+	$'import (\n	"net/http"\n' \
+	internal/money/money.go \
+	$'\nfunc (c Cents) Float() float64 { return float64(c) / 100 }' \
+	$'\nvar _ = http.Get\n\nfunc (c Cents) Float() float64 { return float64(c) / 100 }'
+run_case $'egress: the console imports the package that pushes budgets elsewhere' \
+	fail \
+	./internal/web \
+	$'TestOnlyTheDeliveryPackageAmongThoseTheConsoleImportsReachesTheNetwork' \
+	$'the console imports internal/enforce' \
+	internal/web/server.go \
+	$'import (\n' \
+	$'import (\n	_ "github.com/TAIPANBOX/costcrew/internal/enforce"\n'
+run_case $'egress: a second place reaches deliver.Call' \
+	fail \
+	./internal/web \
+	$'TestDeliverCallIsReachedFromExactlyOnePlace' \
+	$'is reached from' \
+	internal/web/planning.go \
+	$'	res, callErr := deliver.Call(' \
+	$'	_ = deliver.Call\n	res, callErr := deliver.Call('
+run_case $'egress: ordinary server code in a handler is not a fault' \
+	pass \
+	./internal/web \
+	$'TestTheConsoleConstructsNoOutboundHTTPClientOrRequest' \
+	$'' \
+	internal/web/server.go \
+	$'func (s *Server) logout(w http.ResponseWriter, r *http.Request) {\n' \
+	$'func (s *Server) logout(w http.ResponseWriter, r *http.Request) {\n	_ = http.StatusTeapot\n'
+# The image holds what the manifest says it holds (costcrew#75), and its base
+# images are pinned by digest. The first fault is the one that happened: a
+# binary the documentation names is not copied into the runtime stage.
+run_case 'image: a declared binary is not copied into the runtime stage' \
+	fail \
+	./internal/manifest \
+	$'TestTheDockerfileShipsExactlyTheBinariesTheManifestSaysItDoes' \
+	$'costcrew-enforce is declared in the image' \
+	Dockerfile \
+	$'COPY --from=build /out/costcrew-enforce /usr/local/bin/costcrew-enforce\n' \
+	$''
+run_case 'image: a base image goes back to a tag with no digest' \
+	fail \
+	./internal/manifest \
+	$'TestEveryBaseImageIsPinnedByDigest' \
+	$'names no @sha256: digest' \
+	Dockerfile \
+	$'static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab' \
+	$'static-debian12:nonroot'
+run_case 'image: the comparison stops reporting a declared binary the Dockerfile lacks' \
+	fail \
+	./internal/manifest \
+	$'TestTheDockerfileComparisonSeesEachWayTheyCanDisagree' \
+	$'expected a disagreement containing' \
+	internal/manifest/image_test.go \
+	$'		if !d.copied[name] {\n			out = append(out, name+" is declared in the image' \
+	$'		if false {\n			out = append(out, name+" is declared in the image'
+run_case 'image: a reworded comment above a digest is not a fault' \
+	pass \
+	./internal/manifest \
+	$'TestEveryBaseImageIsPinnedByDigest' \
+	$'' \
+	Dockerfile \
+	$'\n# golang:1.27-alpine\nFROM' \
+	$'\n# the golang 1.27 alpine build image\nFROM'
+# Invariant 59: the HTTP edge. Each fault below is one the three defects were
+# made of, planted back; the last of each group is a harmless edit the gate must
+# not mind, so a gate that merely pinned today's literal would read OVEREAGER.
+run_case $'http edge: a hand-written HTML writer is back in the results export' \
+	fail \
+	./internal/web \
+	$'TestResultsExportHasNoHandWrittenHTMLWriter' \
+	$'exportResultsHTML calls Fprintf' \
+	internal/web/practice.go \
+	$'\t_, _ = buf.WriteTo(w)\n}\n' \
+	$'\t_, _ = buf.WriteTo(w)\n\tfmt.Fprintf(w, "<!-- %s -->", a.Unallocated)\n}\n'
+run_case $'http edge: the results export is built with text/template, which does not escape' \
+	fail \
+	./internal/web \
+	$'TestResultsExportEscapesWhatAnImportedRowCarries' \
+	$'is written into /export/results.html raw' \
+	internal/web/practice.go \
+	$'\t"html/template"\n' \
+	$'\t"text/template"\n'
+run_case $'http edge: the Content-Security-Policy is not sent' \
+	fail \
+	./internal/web \
+	$'TestEveryRouteCarriesTheSecurityHeaders' \
+	$'no Content-Security-Policy' \
+	internal/web/edge.go \
+	$'\th.Set("Content-Security-Policy", contentSecurityPolicy)\n' \
+	$'\t_ = contentSecurityPolicy\n'
+run_case $'http edge: X-Frame-Options is not sent' \
+	fail \
+	./internal/web \
+	$'TestEveryRouteCarriesTheSecurityHeaders' \
+	$'X-Frame-Options' \
+	internal/web/edge.go \
+	$'\th.Set("X-Frame-Options", "DENY")\n' \
+	$'\t_ = "DENY"\n'
+run_case $'http edge: the policy allows inline script' \
+	fail \
+	./internal/web \
+	$'TestTheContentSecurityPolicyAllowsNoScript' \
+	$'script-src' \
+	internal/web/edge.go \
+	$'const contentSecurityPolicy = "default-src \'none\'; style-src' \
+	$'const contentSecurityPolicy = "default-src \'none\'; script-src \'self\' \'unsafe-inline\'; style-src'
+run_case $'http edge: Sign out needs a script again' \
+	fail \
+	./internal/web \
+	$'TestNoPageReliesOnWhatThePolicyForbids' \
+	$'relies on' \
+	internal/web/templates/layout.html \
+	$'<form class="signout" method="post" action="/logout">' \
+	$'<form class="signout" method="post" action="/logout" onsubmit="return true">'
+run_case $'http edge: Strict-Transport-Security is sent over plain HTTP too' \
+	fail \
+	./internal/web \
+	$'TestStrictTransportSecurityFollowsTheCookiePosture' \
+	$'Strict-Transport-Security' \
+	internal/web/edge.go \
+	$'\tif s.behindTLS || r.TLS != nil {\n\t\th.Set("Strict-Transport-Security"' \
+	$'\tif true {\n\t\th.Set("Strict-Transport-Security"'
+run_case $'http edge: Strict-Transport-Security ignores a TLS handshake this process made' \
+	fail \
+	./internal/web \
+	$'TestStrictTransportSecurityFollowsTheCookiePosture' \
+	$'TLS terminated here' \
+	internal/web/edge.go \
+	$'\tif s.behindTLS || r.TLS != nil {\n\t\th.Set("Strict-Transport-Security"' \
+	$'\tif s.behindTLS {\n\t\th.Set("Strict-Transport-Security"'
+run_case $'http edge: the body cap is not applied' \
+	fail \
+	./internal/web \
+	$'TestAnOversizedPostIsRefusedAndChangesNothing' \
+	$'want 413' \
+	internal/web/server.go \
+	$'\tif !limitBody(w, r) {' \
+	$'\tif false {'
+run_case $'http edge: a chunked body is handed to the handler uncapped' \
+	fail \
+	./internal/web \
+	$'TestAnOversizedPostIsRefusedAndChangesNothing' \
+	$'chunked:' \
+	internal/web/edge.go \
+	$'\tif r.ContentLength >= 0 {\n\t\tr.Body = http.MaxBytesReader' \
+	$'\tif true {\n\t\tr.Body = http.MaxBytesReader'
+run_case $'http edge: the intake upload is held to the general cap' \
+	fail \
+	./internal/web \
+	$'TestIntakeStillAcceptsAFileUpToItsOwnCap' \
+	$'answered 413' \
+	internal/web/edge.go \
+	$'\t\treturn maxIntake + multipartOverhead\n' \
+	$'\t\treturn maxBody\n'
+run_case $'http edge: the intake round trip is held to the general cap' \
+	fail \
+	./internal/web \
+	$'TestIntakeApplyAcceptsTheEncodedFileItCheckedAndRefusesMore' \
+	$'refused as too large' \
+	internal/web/edge.go \
+	$'\t\treturn 6*maxIntake + multipartOverhead\n' \
+	$'\t\treturn maxBody\n'
+run_case $'http edge: the intake reads a file over its cap in part again' \
+	fail \
+	./internal/web \
+	$'TestIntakeRefusesAFileOverItsCapInsteadOfCuttingIt' \
+	$'want a redirect with the reason' \
+	internal/web/intake.go \
+	$'io.LimitReader(f, maxIntake+1)' \
+	$'io.LimitReader(f, maxIntake)'
+run_case $'http edge: the write timeout is not longer than a model call' \
+	fail \
+	./internal/web \
+	$'TestTheServerSetsEveryTimeoutAndOutlastsTheLongestHandler' \
+	$'is under twice' \
+	internal/web/edge.go \
+	$'\tWriteTimeout = 2 * planAskTimeout\n' \
+	$'\tWriteTimeout = planAskTimeout\n'
+run_case $'http edge: the write timeout is not set' \
+	fail \
+	./internal/web \
+	$'TestTheServerSetsEveryTimeoutAndOutlastsTheLongestHandler' \
+	$'WriteTimeout is 0s' \
+	internal/web/edge.go \
+	$'\t\tWriteTimeout:      WriteTimeout,\n' \
+	$''
+run_case $'http edge: the console builds a literal http.Server again' \
+	fail \
+	./cmd/costcrew \
+	$'TestTheConsoleServesThroughTheServerThatOwnsItsTimeouts' \
+	$'builds a literal http.Server' \
+	cmd/costcrew/main.go \
+	$'\tsrv := web.NewHTTPServer(addr, web.New(st, au, web.Stack{' \
+	$'\tsrv := &http.Server{Addr: addr, Handler: web.New(st, au, web.Stack{' \
+	cmd/costcrew/main.go \
+	$'\t\tBehindTLS: behindTLS,\n\t}))\n' \
+	$'\t\tBehindTLS: behindTLS,\n\t})}\n'
+run_case $'http edge: reordered policy directives and a reworded refusal are not a fault' \
+	pass \
+	./internal/web \
+	$'TestTheContentSecurityPolicyAllowsNoScript|TestAnOversizedPostIsRefusedAndChangesNothing' \
+	$'' \
+	internal/web/edge.go \
+	$'"form-action \'self\'; base-uri \'none\'; frame-ancestors \'none\'"' \
+	$'"frame-ancestors \'none\'; base-uri \'none\'; form-action \'self\'"' \
+	internal/web/edge.go \
+	$'request too large: this page accepts at most %d bytes' \
+	$'request too large: at most %d bytes are read here'
+# Invariant 65 (costcrew#73): every gateway call names the person it spends
+# for, and an analyst with no owner is refused rather than sent with an empty
+# chain. Twelve faults and two harmless rewordings.
+run_case $'owner chain: the header is left out of the one function that sets them' \
+	fail \
+	./internal/deliver \
+	$'TestEveryRequestShapeCarriesTheOnBehalfOfChain' \
+	$'x-fuse-on-behalf-of' \
+	internal/deliver/call.go \
+	$'		req.Header.Set("x-fuse-on-behalf-of", strings.Join(gw.OnBehalfOf, ","))' \
+	$'		_ = strings.Join(gw.OnBehalfOf, ",")'
+run_case $'owner chain: the tool loop builds its own headers again' \
+	fail \
+	./tools/run \
+	$'TestTheToolLoopAndDeliverCallSendTheSameFuseHeaders' \
+	$'the tool loop sends' \
+	tools/run/loop.go \
+	$'		// never learned x-fuse-on-behalf-of (costcrew#73).\n		deliver.SetFuseHeaders(req, gw)' \
+	$'		// never learned x-fuse-on-behalf-of (costcrew#73).\n		req.Header.Set("x-fuse-run-id", gw.RunID)\n		req.Header.Set("x-fuse-agent-id", gw.AgentID)\n		req.Header.Set("x-fuse-budget-usd", gw.BudgetUSD)\n		if gw.ParentRunID != "" {\n			req.Header.Set("x-fuse-parent-run-id", gw.ParentRunID)\n		}'
+run_case $'owner chain: the owner goes into the chain unescaped' \
+	fail \
+	./internal/deliver \
+	$'TestHostileOwnersCannotForgeOrBreakAChain' \
+	$'TestHostileOwnersCannotForgeOrBreakAChain' \
+	internal/deliver/call.go \
+	$'	chain := []string{"user://" + host + "/" + url.PathEscape(owner), agent}' \
+	$'	chain := []string{"user://" + host + "/" + owner, agent}'
+run_case $'owner chain: an empty owner is accepted' \
+	fail \
+	./internal/deliver \
+	$'TestAnAnalystWithNoOwnerGetsNoChainAndIsNamed' \
+	$'is exactly what must never be sent' \
+	internal/deliver/call.go \
+	$'	owner = strings.TrimSpace(owner)\n	if owner == "" {' \
+	$'	owner = strings.TrimSpace(owner)\n	if false {'
+run_case $'owner chain: the door lets a gateway call through with no chain' \
+	fail \
+	./internal/deliver \
+	$'TestAGatewayCallWithNoOwnerChainIsRefusedBeforeAnyRequest' \
+	$'the gateway was reached by a call that names nobody' \
+	internal/deliver/call.go \
+	$'	if len(gw.OnBehalfOf) == 0 {' \
+	$'	if false {'
+run_case $'owner chain: pricing no longer refuses an ownerless analyst' \
+	fail \
+	./tools/run \
+	$'TestWithAGatewayAnOwnerlessAnalystsTaskIsRefusedWhenItIsPriced' \
+	$'was priced to run' \
+	tools/run/live.go \
+	$'func refuseOwnerless(ests []estimate, gw gatewayConfig) {\n	if !gw.on() {' \
+	$'func refuseOwnerless(ests []estimate, gw gatewayConfig) {\n	if true {'
+run_case $'owner chain: the runner builds its Gateway without the chain' \
+	fail \
+	./tools/run \
+	$'TestEveryRoundOfAnAnthropicTaskCarriesTheAnalystsOwner' \
+	$'no owner chain' \
+	tools/run/live.go \
+	$'		BudgetUSD:  gatewayBudgetUSD(cfg.CeilingUSD, taskGuard),\n		OnBehalfOf: chain,' \
+	$'		BudgetUSD:  gatewayBudgetUSD(cfg.CeilingUSD, taskGuard),\n		OnBehalfOf: chain[:0],'
+run_case $'owner chain: the bench builds its Gateway without the chain' \
+	fail \
+	./tools/bench \
+	$'TestLiveSendsTheAnalystsOwnerOnEveryCase' \
+	$'no owner chain' \
+	tools/bench/gateway.go \
+	$'		BudgetUSD:  budgetUSD,\n		OnBehalfOf: chain,' \
+	$'		BudgetUSD:  budgetUSD,\n		OnBehalfOf: chain[:0],'
+run_case $'owner chain: the console builds its plan-ask Gateway without the chain' \
+	fail \
+	./internal/web \
+	$'TestThePlanAskNamesTheAskingPersonAsTheRoot' \
+	$'want 1' \
+	internal/web/planning.go \
+	$'		BudgetUSD:  deliver.GatewayBudgetUSD(sup.PerTask, sup.PerTask),\n		OnBehalfOf: chain,' \
+	$'		BudgetUSD:  deliver.GatewayBudgetUSD(sup.PerTask, sup.PerTask),\n		OnBehalfOf: chain[:0],'
+run_case $'owner chain: the plan-ask names the supervisor\'s roster owner, not the person who asked' \
+	fail \
+	./internal/web \
+	$'TestThePlanAskNamesTheAskingPersonAsTheRoot' \
+	$'x-fuse-on-behalf-of =' \
+	internal/web/planning.go \
+	$'deliver.OnBehalfOfChain(s.host, u.Username, "supervisor")' \
+	$'deliver.OnBehalfOfChain(s.host, sup.Owner, "supervisor")'
+run_case $'owner chain: the roster placeholder is accepted as an owner' \
+	fail \
+	./internal/deliver \
+	$'TestAnUnclaimedRosterOwnerIsNoOwner' \
+	$'the placeholder owner produced a chain' \
+	internal/deliver/call.go \
+	$'	if strings.TrimSpace(a.Owner) == crew.SeededOwner("") {' \
+	$'	if false {'
+run_case $'owner chain: a chain the gateway would silently ignore is sent' \
+	fail \
+	./internal/deliver \
+	$'TestAChainTheGatewayWouldSilentlyIgnoreIsRefusedHere' \
+	$'that TokenFuse ignores' \
+	internal/deliver/call.go \
+	$'	if n := len(strings.Join(chain, ",")); n > maxOnBehalfOfBytes {' \
+	$'	if n := len(strings.Join(chain, ",")); n < 0 {'
+run_case $'owner chain: a reworded placeholder refusal is not a fault' \
+	pass \
+	./internal/deliver \
+	$'TestAnUnclaimedRosterOwnerIsNoOwner' \
+	$'' \
+	internal/deliver/call.go \
+	$'it is refused rather than "+' \
+	$'we refuse it rather than "+'
+run_case $'owner chain: a reworded refusal prefix in execute is not a fault' \
+	pass \
+	./tools/run \
+	$'TestAnAnalystWithNoOwnerIsRefusedBeforeAnyCall' \
+	$'' \
+	tools/run/live.go \
+	$'refused before the call: %w", herr' \
+	$'not run: %w", herr'
+
+# Invariant 66: a task a person blocks while its call is in flight does not get
+# its deliverable, and the call it already paid for is still recorded. Five
+# faults and one harmless rewording.
+run_case $'blocked meanwhile: the draft insert stops looking at the task\'s state' \
+	fail \
+	./tools/run \
+	$'TestATaskBlockedWhileItsCallWasInFlightGetsNoDeliverable' \
+	$'were written for a task a person blocked' \
+	tools/run/live.go \
+	$'WHERE NOT EXISTS (SELECT 1 FROM tasks WHERE id = ? AND state = \'blocked\')' \
+	$'WHERE NOT EXISTS (SELECT 1 FROM tasks WHERE id = ? AND state = \'a state nobody uses\')'
+run_case $'blocked meanwhile: the discarded answer\'s charge is not booked' \
+	fail \
+	./tools/run \
+	$'TestATaskBlockedWhileItsCallWasInFlightGetsNoDeliverable' \
+	$'tasks.live_micros =' \
+	tools/run/live.go \
+	$'			if charge > 0 {\n				if e2 := recordCharge(db, e.Task.ID, charge); e2 != nil {\n					fmt.Fprintf(os.Stderr, "  could not record the charge of the discarded' \
+	$'			if false {\n				if e2 := recordCharge(db, e.Task.ID, charge); e2 != nil {\n					fmt.Fprintf(os.Stderr, "  could not record the charge of the discarded'
+run_case $'blocked meanwhile: the run overwrites the person\'s block with its own reason' \
+	fail \
+	./tools/run \
+	$'TestARunLeavesAPersonsBlockAloneAndCountsTheDiscardedAnswer' \
+	$'the person\'s block was rewritten' \
+	tools/run/live.go \
+	$'			if errors.As(err, &d) {\n				// Already blocked by a person' \
+	$'			if errors.As(err, &d) && false {\n				// Already blocked by a person'
+run_case $'blocked meanwhile: the discard is not said' \
+	fail \
+	./tools/run \
+	$'TestATaskBlockedWhileItsCallWasInFlightGetsNoDeliverable' \
+	$'no line says the answer was discarded' \
+	tools/run/live.go \
+	$'DISCARDED: the answer came back' \
+	$'dropped: the answer came back'
+run_case $'blocked meanwhile: the summary does not count the discard' \
+	fail \
+	./tools/run \
+	$'TestARunLeavesAPersonsBlockAloneAndCountsTheDiscardedAnswer' \
+	$'the summary does not say' \
+	tools/run/live.go \
+	$'				discarded++\n' \
+	$''
+run_case $'blocked meanwhile: a failed call overwrites the person\'s reason' \
+	fail \
+	./tools/run \
+	$'TestAFailedCallLeavesAPersonsBlockReasonAlone' \
+	$'a failed call rewrote the person\'s block' \
+	tools/run/live.go \
+	$'WHERE id=? AND state <> \'blocked\'`,' \
+	$'WHERE id=?`,'
+run_case $'blocked meanwhile: a reworded discard line is not a fault' \
+	pass \
+	./tools/run \
+	$'TestATaskBlockedWhileItsCallWasInFlightGetsNoDeliverable' \
+	$'' \
+	tools/run/live.go \
+	$'so no draft was saved; the call cost' \
+	$'so nothing was saved; the call cost'
 
 run_case $'cloud focus: a negative BilledCost is refused as the gateway reader refuses it' \
 	fail \

@@ -93,6 +93,10 @@ func (s *Server) intakeApply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	raw := r.PostFormValue("file")
+	if len(raw) > maxIntake {
+		redirectMsg(w, r, "/intake", errTooBig.Error())
+		return
+	}
 	expect := r.PostFormValue("fingerprint")
 	plan, err := s.planBudgets([]byte(raw))
 	if err != nil {
@@ -141,9 +145,15 @@ func readUpload(r *http.Request) ([]byte, error) {
 	if err := r.ParseMultipartForm(maxIntake); err == nil {
 		if f, _, err := r.FormFile("upload"); err == nil {
 			defer f.Close()
-			body, err := io.ReadAll(io.LimitReader(f, maxIntake))
+			// One byte past the cap is read so that a file over it is
+			// refused. Reading exactly maxIntake cut a bigger file off
+			// mid-row and previewed the first 2 MB as if it were the whole.
+			body, err := io.ReadAll(io.LimitReader(f, maxIntake+1))
 			if err != nil {
 				return nil, err
+			}
+			if len(body) > maxIntake {
+				return nil, errTooBig
 			}
 			if len(bytes.TrimSpace(body)) > 0 {
 				return body, nil
@@ -151,12 +161,18 @@ func readUpload(r *http.Request) ([]byte, error) {
 		}
 	}
 	if pasted := strings.TrimSpace(r.PostFormValue("pasted")); pasted != "" {
+		if len(pasted) > maxIntake {
+			return nil, errTooBig
+		}
 		return []byte(pasted), nil
 	}
 	return nil, errNoFile
 }
 
 var errNoFile = &intakeError{"choose a file, or paste the rows into the box"}
+
+var errTooBig = &intakeError{"the file is over 2 MB, which is tens of thousands of " +
+	"team-months; split it and check the parts one at a time"}
 
 type intakeError struct{ s string }
 

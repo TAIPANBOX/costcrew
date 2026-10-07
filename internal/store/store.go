@@ -9,6 +9,7 @@
 package store
 
 import (
+	"context"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
@@ -31,43 +32,208 @@ type Store struct {
 	dir     string
 	journal string
 
+	// warnings are things Open could not do and chose not to die of, for the
+	// caller to print. See Warnings.
+	warnings []string
+
 	// The journal is a hash chain, and a chain has exactly one writer. Two
 	// goroutines appending would interleave and fork it.
 	jmu sync.Mutex
 }
 
+// Modes of the files this console owns (invariant 63). A directory the store
+// creates is 0700; the database, its -wal and -shm, and the journal are 0600.
+// Passport files and the -stack-events file are not the store's and are
+// deliberately left readable by the services they are written for.
+const (
+	dirMode  = 0o700
+	fileMode = 0o600
+)
+
 func Open(dir string) (*Store, error) {
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	// MkdirAll gives every directory IT creates dirMode and touches none that
+	// already exists. That is deliberate: the default -data is ".", the
+	// operator's working directory, and chmod-ing somebody's cwd is not this
+	// program's call. The files inside are what hold the data and are tightened
+	// below whether or not the directory was new.
+	if err := os.MkdirAll(dir, dirMode); err != nil {
 		return nil, err
 	}
-	dsn := filepath.Join(dir, "app.db") + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)"
+	dbPath := filepath.Join(dir, "app.db")
+	// Create app.db 0600 BEFORE SQLite sees it. SQLite gives -wal and -shm the
+	// mode of the main file, so they are born 0600 too, instead of 0644 for the
+	// moment between their creation and the chmod below. An empty file is a
+	// valid new database.
+	if f, err := os.OpenFile(dbPath, os.O_CREATE|os.O_RDWR, fileMode); err != nil {
+		return nil, err
+	} else if err := f.Close(); err != nil {
+		return nil, err
+	}
+	dsn := dbPath + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)"
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, err
 	}
 	if err := db.Ping(); err != nil {
+		db.Close()
 		return nil, err
 	}
 	s := &Store{db: db, dir: dir, journal: filepath.Join(dir, "events.ndjson")}
 	if err := s.migrate(); err != nil {
+		db.Close()
 		return nil, err
 	}
+	s.tighten(os.Chmod)
 	return s, nil
 }
 
 func (s *Store) DB() *sql.DB  { return s.db }
 func (s *Store) Close() error { return s.db.Close() }
 
+// Warnings are the things Open did not stop for. Today that is a file it could
+// not make private (a chmod refused on a mount that does not allow it, or on a
+// file owned by someone else), and a VACUUM it could not run. A caller prints
+// them: a hardening step that fails silently is the same as no hardening.
+func (s *Store) Warnings() []string { return append([]string(nil), s.warnings...) }
+
+// tighten makes every file the store owns 0600. A file that is not there yet is
+// not a problem (the journal does not exist until the first append, and -wal
+// and -shm only while a connection is open); any other failure is a warning.
+func (s *Store) tighten(chmod func(string, os.FileMode) error) {
+	db := filepath.Join(s.dir, "app.db")
+	for _, p := range []string{db, db + "-wal", db + "-shm", s.journal} {
+		if err := chmod(p, fileMode); err != nil && !os.IsNotExist(err) {
+			s.warnings = append(s.warnings, fmt.Sprintf(
+				"could not make %s private (0600): %v", p, err))
+		}
+	}
+}
+
 func (s *Store) migrate() error {
-	_, err := s.db.Exec(`
+	if _, err := s.db.Exec(`
 	CREATE TABLE IF NOT EXISTS users(
 	  username TEXT PRIMARY KEY, pw_hash TEXT, role TEXT DEFAULT 'viewer',
 	  created REAL, last_login REAL, failed INTEGER DEFAULT 0,
 	  locked_until REAL DEFAULT 0);
-	CREATE TABLE IF NOT EXISTS sessions(
-	  token TEXT PRIMARY KEY, username TEXT, created REAL, expires REAL);
-	`)
+	`); err != nil {
+		return err
+	}
+	return s.migrateSessions()
+}
+
+// sessionsSchema holds the SHA-256 of a session cookie and never the cookie
+// (invariant 61). The column used to be called token and held the cookie
+// itself, so anybody able to read app.db held every live login.
+const sessionsSchema = `CREATE TABLE IF NOT EXISTS sessions(
+	  token_hash TEXT PRIMARY KEY, username TEXT, created REAL, expires REAL)`
+
+// migrateSessions creates the sessions table, or, when it finds the clear-text
+// one, ends every session in it and erases them.
+//
+// Existing rows are not carried over, because they cannot be: the cookie is the
+// only thing that would let a row be hashed, and it is exactly what must not be
+// kept. Everybody signs in again once. The old table is dropped under
+// secure_delete so its pages are overwritten rather than merely unlinked, the
+// file is VACUUMed so a copy left in a freed page from an earlier edit goes
+// too, and the write-ahead log is checkpointed and truncated so the old pages
+// do not survive there either. The sign-out of everybody is journaled.
+//
+// It runs once: a database that already has token_hash is left alone, so a
+// restart signs nobody out.
+func (s *Store) migrateSessions() error {
+	ctx := context.Background()
+	conn, err := s.db.Conn(ctx)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	exists, current, err := sessionsShape(ctx, conn)
+	if err != nil {
+		return err
+	}
+	if current {
+		return nil
+	}
+	if !exists {
+		_, err := conn.ExecContext(ctx, sessionsSchema)
+		return err
+	}
+
+	// The table is the clear-text one. Overwrite what is dropped (secure_delete
+	// is a connection setting and must be on before the pages are freed), take
+	// the write lock, and LOOK AGAIN inside it: two processes started together
+	// on an old database (the console and -set-password, say) both saw the old
+	// table above, and the second must not drop the new table the first just
+	// made, with sessions already in it.
+	if _, err := conn.ExecContext(ctx, `PRAGMA secure_delete=ON`); err != nil {
+		return err
+	}
+	if _, err := conn.ExecContext(ctx, `BEGIN IMMEDIATE`); err != nil {
+		return err
+	}
+	rollback := func(err error) error {
+		conn.ExecContext(ctx, `ROLLBACK`)
+		return err
+	}
+	if exists, current, err = sessionsShape(ctx, conn); err != nil {
+		return rollback(err)
+	}
+	if current || !exists {
+		conn.ExecContext(ctx, `ROLLBACK`)
+		return nil
+	}
+	var ended int
+	if err := conn.QueryRowContext(ctx, `SELECT COUNT(*) FROM sessions`).Scan(&ended); err != nil {
+		return rollback(err)
+	}
+	if _, err := conn.ExecContext(ctx, `DROP TABLE sessions`); err != nil {
+		return rollback(err)
+	}
+	if _, err := conn.ExecContext(ctx, sessionsSchema); err != nil {
+		return rollback(err)
+	}
+	if _, err := conn.ExecContext(ctx, `COMMIT`); err != nil {
+		return err
+	}
+	if _, err := conn.ExecContext(ctx, `VACUUM`); err != nil {
+		s.warnings = append(s.warnings, fmt.Sprintf(
+			"old session tokens were dropped but the database could not be vacuumed, "+
+				"so a copy may remain in free space: %v", err))
+	}
+	if _, err := conn.ExecContext(ctx, `PRAGMA wal_checkpoint(TRUNCATE)`); err != nil {
+		s.warnings = append(s.warnings, fmt.Sprintf(
+			"old session tokens were dropped but the write-ahead log could not be truncated: %v", err))
+	}
+	if _, err := conn.ExecContext(ctx, `PRAGMA secure_delete=OFF`); err != nil {
+		return err
+	}
+	_, err = s.Journal("sessions_reset", 0, map[string]any{
+		"ended":  ended,
+		"reason": "session tokens are now stored as hashes; everybody signs in again once",
+	})
 	return err
+}
+
+// sessionsShape says whether a sessions table exists and whether it is the
+// current one (has token_hash) rather than the clear-text one (has token).
+func sessionsShape(ctx context.Context, conn *sql.Conn) (exists, current bool, err error) {
+	rows, err := conn.QueryContext(ctx, `SELECT name FROM pragma_table_info('sessions')`)
+	if err != nil {
+		return false, false, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return false, false, err
+		}
+		exists = true
+		if name == "token_hash" {
+			current = true
+		}
+	}
+	return exists, current, rows.Err()
 }
 
 // JournalPath is where the hash chain lives, exported so a caller can refuse
@@ -141,7 +307,7 @@ func (s *Store) Journal(event string, ts float64, data map[string]any) (string, 
 	if err != nil {
 		return "", err
 	}
-	f, err := os.OpenFile(s.journal, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	f, err := os.OpenFile(s.journal, os.O_APPEND|os.O_CREATE|os.O_WRONLY, fileMode)
 	if err != nil {
 		return "", err
 	}
