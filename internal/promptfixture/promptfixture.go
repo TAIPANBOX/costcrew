@@ -90,7 +90,7 @@ func fill(st *store.Store) error {
 			return err
 		}
 	}
-	if _, err := db.Exec(`INSERT INTO sessions(token, username, created, expires) VALUES (?,?,1,2)`,
+	if _, err := db.Exec(`INSERT INTO sessions(token_hash, username, created, expires) VALUES (?,?,1,2)`,
 		SecretToken, "alice"); err != nil {
 		return err
 	}
@@ -498,7 +498,7 @@ var Classes = map[string]Class{
 	"recommendations.recommended": Plain, "recommendations.source_file": ID,
 	"recommendations.imported_at": Plain,
 
-	"sessions.token": Secret, "sessions.username": ID,
+	"sessions.token_hash": Secret, "sessions.username": ID,
 
 	"sprints.label": Generated, "sprints.start": Plain, "sprints.finish": Plain, "sprints.state": Plain,
 	"sprints.goal": Generated,
