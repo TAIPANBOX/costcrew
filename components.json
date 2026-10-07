@@ -41,6 +41,36 @@
           "COSTCREW_BEHIND_TLS": {
             "required": false
           },
+          "COSTCREW_OIDC_ISSUER": {
+            "required": false
+          },
+          "COSTCREW_OIDC_CLIENT_ID": {
+            "required": false
+          },
+          "COSTCREW_OIDC_CLIENT_SECRET": {
+            "required": false
+          },
+          "COSTCREW_OIDC_CLIENT_SECRET_FILE": {
+            "required": false
+          },
+          "COSTCREW_OIDC_REDIRECT_URL": {
+            "required": false
+          },
+          "COSTCREW_OIDC_ROLES": {
+            "required": false
+          },
+          "COSTCREW_OIDC_ROLES_CLAIM": {
+            "required": false
+          },
+          "COSTCREW_OIDC_USERNAME_CLAIM": {
+            "required": false
+          },
+          "COSTCREW_OIDC_SCOPES": {
+            "required": false
+          },
+          "COSTCREW_OIDC_ONLY": {
+            "required": false
+          },
           "COSTCREW_PROMPT_DATA": {
             "required": false
           }
@@ -59,6 +89,33 @@
             "required": false
           },
           "behind-tls": {
+            "required": false
+          },
+          "oidc-issuer": {
+            "required": false
+          },
+          "oidc-client-id": {
+            "required": false
+          },
+          "oidc-client-secret-file": {
+            "required": false
+          },
+          "oidc-redirect-url": {
+            "required": false
+          },
+          "oidc-roles": {
+            "required": false
+          },
+          "oidc-roles-claim": {
+            "required": false
+          },
+          "oidc-username-claim": {
+            "required": false
+          },
+          "oidc-scopes": {
+            "required": false
+          },
+          "oidc-only": {
             "required": false
           },
           "prompt-data": {
@@ -120,6 +177,16 @@
             "-stack-owner"
           ],
           "why": "the console refuses to start with the first and not the second: a passport with no owner is not a valid document, and idryx enriches an identity with the owner who answers for it, so one that names nobody enriches nothing. A dependency BETWEEN two flags is not something a reader of flag.String call sites can see, which is why it is declared. Found by TAIPANBOX/stack-up on 2026-08-28, by starting it."
+        },
+        "oidc_is_all_or_nothing": {
+          "value": [
+            "-oidc-issuer",
+            "-oidc-client-id",
+            "-oidc-redirect-url",
+            "-oidc-roles",
+            "COSTCREW_OIDC_CLIENT_SECRET or -oidc-client-secret-file"
+          ],
+          "why": "sign-in through an identity provider is off unless -oidc-issuer is set, and once it is set the console refuses to start without the other four: a provider with no role mapping could let nobody in, and there is no default role. The client secret has no flag on purpose, because a flag's value is visible in the process list. While it is set, /signup is closed and the console reaches that provider, the second of the two outbound doors invariant 64 names. A dependency between settings is not visible from flag.String call sites, so it is declared (invariants 74 and 75)."
         }
       }
     },
@@ -252,7 +319,7 @@
       },
       "declared": {
         "role": {
-          "value": "reconciles the generated estate's own planes (utilisation rows, SaaS seats, commitments) against the generated ledger, world.Generate(), for the last full month, and prints where they do not add up; it opens no store, reads no cloud account and makes no network call (its only imports are fmt, internal/money and internal/world). No AWS or GCP billing reader exists in this repository yet; the two folder readers that would make a real customer estate reach the crew are tracked in costcrew#68",
+          "value": "reconciles the generated estate's own planes (utilisation rows, SaaS seats, commitments) against the generated ledger, world.Generate(), for the last full month, and prints where they do not add up; it opens no store, reads no cloud account and makes no network call (its only imports are fmt, internal/money and internal/world). The AWS Data Exports and GCP billing export folder readers that make a real customer estate reach the crew are connectors in internal/connectors, which this tool does not use (costcrew#68)",
           "why": "as above"
         }
       }
@@ -268,6 +335,15 @@
             "required": false
           },
           "COSTCREW_GATEWAY_OPENAI": {
+            "required": false
+          },
+          "COSTCREW_MODEL_URL": {
+            "required": false
+          },
+          "COSTCREW_MODEL_NAME": {
+            "required": false
+          },
+          "COSTCREW_MODEL_KEY": {
             "required": false
           },
           "COSTCREW_PROMPT_DATA": {
@@ -296,7 +372,22 @@
           "live": {
             "required": false
           },
+          "local-price-in": {
+            "required": false
+          },
+          "local-price-out": {
+            "required": false
+          },
+          "max-run-tokens": {
+            "required": false
+          },
           "max-tokens": {
+            "required": false
+          },
+          "model-name": {
+            "required": false
+          },
+          "model-url": {
             "required": false
           },
           "only": {
@@ -334,6 +425,10 @@
         "the_gateway_has_one_door_per_wire": {
           "value": "-gateway fronts the Anthropic wire and -gateway-openai fronts the OpenAI wire (openrouter); with either set, a call goes through the gateway that fronts its engine or is refused, never sent direct",
           "why": "TokenFuse forwards ONE upstream wire shape per process (its TOKENFUSE_WIRE), so the two wires are two gateway processes and two URLs. Bedrock speaks neither, so with any gateway set a bedrock call is refused. Not checkable from outside this repository: the routing is deliver.Gateway.RouteFor in internal/deliver/call.go, and which TokenFuse process is behind each URL is the operator's setup, not something a manifest can see."
+        },
+        "the_local_engine_sends_nothing_to_a_vendor": {
+          "value": "the local engine calls only an address the operator typed (-model-url, or the gateway at -gateway-openai whose upstream is their server), and is bounded by a price the operator sets or by -max-run-tokens when that price is 0",
+          "why": "which server is behind -model-url, and whether it forwards anywhere, is the operator's setup and not something a manifest can see. What this binary guarantees is that no vendor host appears in the local route, and that with any gateway set and none that fronts the OpenAI wire a local call is refused rather than sent direct (deliver.Gateway.RouteFor). COSTCREW_MODEL_KEY, when set, is sent as a bearer token and never logged."
         }
       }
     },

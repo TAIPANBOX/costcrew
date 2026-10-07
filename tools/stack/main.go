@@ -17,8 +17,10 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -224,7 +226,7 @@ func toPassport(j jd, host, owner, supervisor string, attest string) passport.Pa
 	return p
 }
 
-func connect(crewDir, out, host, owner, supervisor, attest string, sel selection, dry bool) error {
+func connect(w io.Writer, crewDir, out, host, owner, supervisor, attest string, sel selection, dry bool) error {
 	crew, err := loadCrew(crewDir)
 	if err != nil {
 		return err
@@ -252,23 +254,23 @@ func connect(crewDir, out, host, owner, supervisor, attest string, sel selection
 		}
 		dest := filepath.Join(out, j.Name+".json")
 		if dry {
-			fmt.Printf("would write %s\n  %s  parent=%s  attestation=%s\n",
+			fmt.Fprintf(w, "would write %s\n  %s  parent=%s  attestation=%s\n",
 				dest, p.ID, orNone(p.Parent), attest)
 			continue
 		}
 		if err := os.WriteFile(dest, append(buf, '\n'), 0o644); err != nil {
 			return err
 		}
-		fmt.Printf("%-22s -> %s\n", j.Name, dest)
+		fmt.Fprintf(w, "%-22s -> %s\n", j.Name, dest)
 	}
 	verb := "connected"
 	if dry {
 		verb = "would connect"
 	}
-	fmt.Printf("\n%s %d of %d analysts, attestation %q\n", verb, len(chosen), len(crew), attest)
+	fmt.Fprintf(w, "\n%s %d of %d analysts, attestation %q\n", verb, len(chosen), len(crew), attest)
 	if attest == "none" {
-		fmt.Println("note: attestation \"none\" means the id is a name this installation chose,")
-		fmt.Println("      not something bound to a workload. Idryx will read it as declared.")
+		fmt.Fprintln(w, "note: attestation \"none\" means the id is a name this installation chose,")
+		fmt.Fprintln(w, "      not something bound to a workload. Idryx will read it as declared.")
 	}
 	return nil
 }
@@ -307,7 +309,7 @@ func severityOf(kind string) string {
 	}
 }
 
-func emit(crewDir, outFile, host, supervisor string, sel selection) error {
+func emit(w io.Writer, crewDir, outFile, host, supervisor string, sel selection) error {
 	crew, err := loadCrew(crewDir)
 	if err != nil {
 		return err
@@ -331,11 +333,11 @@ func emit(crewDir, outFile, host, supervisor string, sel selection) error {
 	}
 	// One file is one chain, and the writer is the single serialization point.
 	// That is why this is one process writing one file, never one per agent.
-	w, err := event.NewChainedWriter(outFile)
+	cw, err := event.NewChainedWriter(outFile)
 	if err != nil {
 		return err
 	}
-	defer w.Close()
+	defer cw.Close()
 
 	var written, skipped, malformed int
 	for _, line := range strings.Split(string(raw), "\n") {
@@ -367,7 +369,7 @@ func emit(crewDir, outFile, host, supervisor string, sel selection) error {
 		if who != supervisor {
 			ev.OnBehalfOf = []string{agentURI(host, supervisor)}
 		}
-		if err := w.Write(ev); err != nil {
+		if err := cw.Write(ev); err != nil {
 			return fmt.Errorf("appending %s: %w", r.Event, err)
 		}
 		written++
@@ -377,33 +379,33 @@ func emit(crewDir, outFile, host, supervisor string, sel selection) error {
 		return fmt.Errorf("measured nothing: %d journal lines carried no event for the %d selected analysts",
 			skipped, len(chosen))
 	}
-	fmt.Printf("wrote %d events for %d analysts -> %s\n", written, len(chosen), outFile)
-	fmt.Printf("skipped %d lines with no analyst on them", skipped)
+	fmt.Fprintf(w, "wrote %d events for %d analysts -> %s\n", written, len(chosen), outFile)
+	fmt.Fprintf(w, "skipped %d lines with no analyst on them", skipped)
 	if malformed > 0 {
-		fmt.Printf(", %d malformed", malformed)
+		fmt.Fprintf(w, ", %d malformed", malformed)
 	}
-	fmt.Println()
-	fmt.Println("verify with: agent-conform -chain " + outFile)
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "verify with: agent-conform -chain "+outFile)
 	return nil
 }
 
 // ---------------------------------------------------------------------- list
 
-func list(crewDir string) error {
+func list(w io.Writer, crewDir string) error {
 	crew, err := loadCrew(crewDir)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("%-22s %-10s %-28s %10s %10s\n", "ANALYST", "DESK", "ENGINE", "PER TASK", "MONTHLY")
+	fmt.Fprintf(w, "%-22s %-10s %-28s %10s %10s\n", "ANALYST", "DESK", "ENGINE", "PER TASK", "MONTHLY")
 	for _, j := range crew {
 		eng := j.Model.Provider
 		if j.Model.Model != "" {
 			eng += " " + j.Model.Model
 		}
-		fmt.Printf("%-22s %-10s %-28s %10.2f %10.2f\n",
+		fmt.Fprintf(w, "%-22s %-10s %-28s %10.2f %10.2f\n",
 			j.Name, j.Desk, trunc(eng, 28), j.Budget.PerTaskUSD, j.Budget.MonthlyUSD)
 	}
-	fmt.Printf("\n%d analysts on %d desks: %s\n", len(crew), len(desks(crew)), strings.Join(desks(crew), ", "))
+	fmt.Fprintf(w, "\n%d analysts on %d desks: %s\n", len(crew), len(desks(crew)), strings.Join(desks(crew), ", "))
 	return nil
 }
 
@@ -416,8 +418,8 @@ func trunc(s string, n int) string {
 
 // ---------------------------------------------------------------------- main
 
-func usage() {
-	fmt.Fprintln(os.Stderr, `stack - connect a CostCrew crew to the agent-governance stack
+func usage(w io.Writer) {
+	fmt.Fprintln(w, `stack - connect a CostCrew crew to the agent-governance stack
 
   stack list    -crew <dir>
   stack connect -crew <dir> -out <dir> -owner <who> [-all | -desk <d> | -agent <a,b>]
@@ -432,19 +434,49 @@ func addSelection(fs *flag.FlagSet, s *selection) {
 	fs.StringVar(&s.agents, "agent", "", "named analysts, comma separated")
 }
 
-func main() {
-	if len(os.Args) < 2 {
-		usage()
-		os.Exit(2)
+func main() { os.Exit(run(os.Args[1:], os.Stdout, os.Stderr)) }
+
+// run is main minus os: the arguments, the two streams and an exit status, so
+// a test can read what a person at a terminal would read and look at the
+// files that were written.
+func run(args []string, stdout, stderr io.Writer) int {
+	if len(args) < 1 {
+		usage(stderr)
+		return 2
 	}
-	switch os.Args[1] {
+	newFlags := func(name string) *flag.FlagSet {
+		fs := flag.NewFlagSet(name, flag.ContinueOnError)
+		fs.SetOutput(stderr)
+		return fs
+	}
+	// parse returns -1 when the arguments parsed, and otherwise the status to
+	// exit with: 0 for -h, 2 for anything the flag package refused.
+	parse := func(fs *flag.FlagSet, rest []string) int {
+		if err := fs.Parse(rest); err != nil {
+			if errors.Is(err, flag.ErrHelp) {
+				return 0
+			}
+			return 2
+		}
+		return -1
+	}
+	fail := func(err error) int {
+		if err != nil {
+			fmt.Fprintln(stderr, "stack:", err)
+			return 1
+		}
+		return 0
+	}
+	switch args[0] {
 	case "list":
-		fs := flag.NewFlagSet("list", flag.ExitOnError)
+		fs := newFlags("list")
 		crew := fs.String("crew", "", "a CostCrew checkout")
-		fs.Parse(os.Args[2:])
-		fail(list(*crew))
+		if c := parse(fs, args[1:]); c >= 0 {
+			return c
+		}
+		return fail(list(stdout, *crew))
 	case "connect":
-		fs := flag.NewFlagSet("connect", flag.ExitOnError)
+		fs := newFlags("connect")
 		crew := fs.String("crew", "", "a CostCrew checkout")
 		out := fs.String("out", "passports", "where to write Passport documents")
 		host := fs.String("host", "costcrew.local", "installation host, the agent:// authority")
@@ -454,31 +486,28 @@ func main() {
 		dry := fs.Bool("dry-run", false, "print what would be written")
 		var sel selection
 		addSelection(fs, &sel)
-		fs.Parse(os.Args[2:])
-		if *owner == "" {
-			fmt.Fprintln(os.Stderr, "-owner is required: a Passport with no owner is not a valid document")
-			os.Exit(2)
+		if c := parse(fs, args[1:]); c >= 0 {
+			return c
 		}
-		fail(connect(*crew, *out, *host, *owner, *sup, *attest, sel, *dry))
+		if *owner == "" {
+			fmt.Fprintln(stderr, "-owner is required: a Passport with no owner is not a valid document")
+			return 2
+		}
+		return fail(connect(stdout, *crew, *out, *host, *owner, *sup, *attest, sel, *dry))
 	case "emit":
-		fs := flag.NewFlagSet("emit", flag.ExitOnError)
+		fs := newFlags("emit")
 		crew := fs.String("crew", "", "a CostCrew checkout")
 		out := fs.String("out", "events/costcrew.ndjson", "the agent-event NDJSON file to append to")
 		host := fs.String("host", "costcrew.local", "installation host, the agent:// authority")
 		sup := fs.String("supervisor", "supervisor", "the analyst that others act on behalf of")
 		var sel selection
 		addSelection(fs, &sel)
-		fs.Parse(os.Args[2:])
-		fail(emit(*crew, *out, *host, *sup, sel))
+		if c := parse(fs, args[1:]); c >= 0 {
+			return c
+		}
+		return fail(emit(stdout, *crew, *out, *host, *sup, sel))
 	default:
-		usage()
-		os.Exit(2)
-	}
-}
-
-func fail(err error) {
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "stack:", err)
-		os.Exit(1)
+		usage(stderr)
+		return 2
 	}
 }

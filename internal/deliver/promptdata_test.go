@@ -582,7 +582,7 @@ func TestCallHandsBackTheAnswerWithItsRealNames(t *testing.T) {
 	defer srv.Close()
 
 	res, err := Call(context.Background(), "anthropic", "claude-x", "hello", 100,
-		Gateway{URL: srv.URL, RunID: "r1", AgentID: "agent://x/y", BudgetUSD: "1.00"})
+		Gateway{URL: srv.URL, RunID: "r1", AgentID: "agent://x/y", OnBehalfOf: testChain, BudgetUSD: "1.00"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -600,7 +600,7 @@ func TestCallInFullModeReturnsTheAnswerUntouched(t *testing.T) {
 	}))
 	defer srv.Close()
 	res, err := Call(context.Background(), "anthropic", "claude-x", "hello", 100,
-		Gateway{URL: srv.URL, RunID: "r1", AgentID: "agent://x/y", BudgetUSD: "1.00"})
+		Gateway{URL: srv.URL, RunID: "r1", AgentID: "agent://x/y", OnBehalfOf: testChain, BudgetUSD: "1.00"})
 	if err != nil || res.Text != "team-7f3a is a name" {
 		t.Errorf("got %q, %v", res.Text, err)
 	}

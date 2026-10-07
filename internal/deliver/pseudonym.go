@@ -222,6 +222,9 @@ var sources = []source{
 	{kindTeam, "ai_calls", "team", ""}, {kindTeam, "chargeback", "team", ""},
 	{kindTeam, "budget_recommendations", "team", ""}, {kindTeam, "explainers", "team", ""},
 	{kindTeam, "teams", "name", ""},
+	// A customer unit is the x_unit an AI call carried, already an ai_calls.team
+	// value; the business unit a person gave it is a name of the same kind.
+	{kindTeam, "unit_rules", "unit", ""}, {kindTeam, "unit_rules", "business_unit", ""},
 
 	{kindService, "charges", "service", ""}, {kindService, "anomalies", "service", ""},
 	{kindService, "attribution", "service", ""}, {kindService, "drivers", "scope", ""},
@@ -240,7 +243,7 @@ var sources = []source{
 	{kindUser, "artifact_options", "decided_by", ""}, {kindUser, "artifact_options", "on_behalf_of", ""},
 	{kindUser, "explainers", "author", ""}, {kindUser, "explainers", "publisher", ""},
 	{kindUser, "forecasts", "frozen_by", ""}, {kindUser, "chargeback", "closed_by", ""},
-	{kindUser, "anomalies", "handled_by", ""},
+	{kindUser, "anomalies", "handled_by", ""}, {kindUser, "unit_rules", "decided_by", ""},
 
 	{kindInvoice, "charges", "invoice_id", ""}, {kindInvoice, "ai_calls", "invoice_id", ""},
 	{kindCommitment, "commitments", "id", ""},

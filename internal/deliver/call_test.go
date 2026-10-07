@@ -74,7 +74,7 @@ func TestAnEmptyRunIDRefusesBeforeTheCall(t *testing.T) {
 	defer srv.Close()
 
 	_, err := callAnthropic(context.Background(), "claude-x", "hello", 100,
-		Gateway{URL: srv.URL, RunID: "", AgentID: "agent://x/y.mercer"})
+		Gateway{URL: srv.URL, RunID: "", AgentID: "agent://x/y.mercer", OnBehalfOf: testChain})
 	if err == nil {
 		t.Fatal("an empty run id with the gateway on was accepted")
 	}
@@ -130,7 +130,7 @@ func TestA400MeteringRequiredIsAPlainErrorNotAGatewayRefusal(t *testing.T) {
 	defer srv.Close()
 
 	_, err := callAnthropic(context.Background(), "claude-x", "hello", 100,
-		Gateway{URL: srv.URL, RunID: "crew-1", AgentID: "agent://x/y.mercer", BudgetUSD: "1.00"})
+		Gateway{URL: srv.URL, RunID: "crew-1", AgentID: "agent://x/y.mercer", OnBehalfOf: testChain, BudgetUSD: "1.00"})
 	if err == nil {
 		t.Fatal("a 400 from the gateway was not reported as an error at all")
 	}
@@ -165,7 +165,7 @@ func TestTheGatewayAnswersA5MBBodyWithoutHangingOrPanicking(t *testing.T) {
 	done := make(chan outcome, 1)
 	go func() {
 		_, err := callAnthropic(context.Background(), "claude-x", "hello", 100,
-			Gateway{URL: srv.URL, RunID: "crew-1", AgentID: "agent://x/y.mercer", BudgetUSD: "1.00"})
+			Gateway{URL: srv.URL, RunID: "crew-1", AgentID: "agent://x/y.mercer", OnBehalfOf: testChain, BudgetUSD: "1.00"})
 		done <- outcome{err}
 	}()
 	select {
@@ -201,7 +201,7 @@ func TestTheGatewayClosesTheConnectionWithNoResponse(t *testing.T) {
 	defer srv.Close()
 
 	_, err := callAnthropic(context.Background(), "claude-x", "hello", 100,
-		Gateway{URL: srv.URL, RunID: "crew-1", AgentID: "agent://x/y.mercer", BudgetUSD: "1.00"})
+		Gateway{URL: srv.URL, RunID: "crew-1", AgentID: "agent://x/y.mercer", OnBehalfOf: testChain, BudgetUSD: "1.00"})
 	if err == nil {
 		t.Fatal("a dropped connection was not reported as an error")
 	}

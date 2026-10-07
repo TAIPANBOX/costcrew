@@ -82,7 +82,7 @@ func (b bus) toolCall(e estimate, res callResult) error {
 		"worst_micros":  e.WorstMicros,
 		"priced_micros": res.ActualMicros, // the runner's own price, kept beside the charge for reconciliation
 		"settled":       res.Settled,
-		"price_basis":   res.PriceBasis,
+		"price_basis":   priceBasis(e.Engine, res.Settlement),
 		"prompt_data":   b.mode(),
 	}, nil)
 }

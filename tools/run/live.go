@@ -60,6 +60,15 @@ type gatewayConfig struct {
 	OpenAIURL  string      // the same, for the gateway that fronts the OpenAI wire
 	Host       string      // this installation's trust domain, for the agent id
 	CeilingUSD money.Cents // the run's ceiling, i.e. -ceiling parsed
+
+	// The local engine's setup, carried here because this is the one value
+	// every layer from run() to execute() already receives. Neither field makes
+	// on() true: ModelURL is the operator's own server a local call reaches
+	// directly (-model-url), and MaxRunTokens is a ceiling on the tokens the
+	// whole run may use (-max-run-tokens, 0 = none), the bound that stands in
+	// for money when the local engine is priced at 0.
+	ModelURL     string
+	MaxRunTokens int
 }
 
 func (g gatewayConfig) on() bool { return g.URL != "" || g.OpenAIURL != "" }
@@ -78,14 +87,23 @@ type gatewayHeaders = deliver.Gateway
 // gatewayHeadersFor builds one call's headers from the run's shared config
 // and that call's own task guard and analyst name. cfg.on() must be checked
 // by the caller; this only formats.
-func gatewayHeadersFor(cfg gatewayConfig, runID, analystName string, taskGuard money.Cents) gatewayHeaders {
-	return gatewayHeaders{
-		URL:       cfg.URL,
-		OpenAIURL: cfg.OpenAIURL,
-		RunID:     runID,
-		AgentID:   stack.AgentURI(cfg.Host, analystName),
-		BudgetUSD: gatewayBudgetUSD(cfg.CeilingUSD, taskGuard),
+//
+// It also names whose spend this is (costcrew#73): the analyst's owner as a
+// user:// root, then the analyst's agent, deliver.OnBehalfOfChain. An analyst
+// with no owner is an error naming it, not a call with an empty chain.
+func gatewayHeadersFor(cfg gatewayConfig, runID string, analyst crew.Analyst, taskGuard money.Cents) (gatewayHeaders, error) {
+	chain, err := deliver.AnalystOnBehalfOf(cfg.Host, analyst)
+	if err != nil {
+		return gatewayHeaders{}, err
 	}
+	return gatewayHeaders{
+		URL:        cfg.URL,
+		OpenAIURL:  cfg.OpenAIURL,
+		RunID:      runID,
+		AgentID:    stack.AgentURI(cfg.Host, analyst.Name),
+		BudgetUSD:  gatewayBudgetUSD(cfg.CeilingUSD, taskGuard),
+		OnBehalfOf: chain,
+	}, nil
 }
 
 // gatewayBudgetUSD is the tighter of the run's ceiling and the task's own
@@ -167,6 +185,38 @@ func noRouteRefusal(gw gatewayConfig, todo []estimate) error {
 		strings.Join(parts, ", "), first)
 }
 
+// discardedClause is the summary line's words for answers thrown away because
+// a person blocked the task mid-call: empty when there were none, so a run
+// that discarded nothing reads exactly as it always did.
+func discardedClause(n int) string {
+	if n == 0 {
+		return ""
+	}
+	return fmt.Sprintf(", %d discarded (blocked by a person while the call was in flight; the call was still paid for)", n)
+}
+
+// refuseOwnerless is the pricing-time half of costcrew#73. With a gateway
+// configured every call names the analyst's owner to the control plane, and an
+// analyst with no owner has none to name, so its task is refused here, in the
+// dry run and the live run alike, with a verdict that names the analyst,
+// rather than priced and then sent with an empty chain. Without a gateway
+// nothing is sent to anyone and nothing changes. execute() holds the same
+// line again for a caller that never went through this.
+func refuseOwnerless(ests []estimate, gw gatewayConfig) {
+	if !gw.on() {
+		return
+	}
+	for i := range ests {
+		e := &ests[i]
+		if e.Refused || e.Analyst.Name == "" {
+			continue
+		}
+		if _, err := deliver.AnalystOnBehalfOf(gw.Host, e.Analyst); err != nil {
+			e.Verdict, e.Refused = err.Error(), true
+		}
+	}
+}
+
 // parseGatewayRefusal reads TokenFuse's 402 body into the sentence a person
 // reads. Moved to internal/deliver (loop.go's own anthropicRound, a
 // separate pre-existing implementation, reads a 402 on its own wire and has
@@ -229,6 +279,22 @@ func execute(ctx context.Context, db, roDB *sql.DB, e estimate, maxTok int, run 
 		return fmt.Errorf("refused before the call: %s", e.Verdict)
 	}
 
+	// The headers for THIS call come first, before anything is reserved: an
+	// analyst with no owner is refused here, naming it, with nothing taken
+	// from the ceiling and no request made (costcrew#73).
+	var gh gatewayHeaders
+	if gw.on() {
+		var herr error
+		gh, herr = gatewayHeadersFor(gw, b.run, e.Analyst, e.Task.Budget)
+		if herr != nil {
+			return fmt.Errorf("refused before the call: %w", herr)
+		}
+	}
+	// The operator's own server, for the local engine's direct route. Set
+	// whether or not a gateway is on: with a gateway the call never reads it
+	// (Gateway.RouteFor answers first), without one it is the whole address.
+	gh.ModelURL = gw.ModelURL
+
 	// Every round of the tool loop is its own model call (B2-SPEC.md
 	// section 3.4), so the reservation covers the worst case
 	// loopsFor(e.Engine) times over, before the first round rather than
@@ -246,6 +312,14 @@ func execute(ctx context.Context, db, roDB *sql.DB, e estimate, maxTok int, run 
 	if err := run.reserve(reserveMicros); err != nil {
 		return refusal{err}
 	}
+	// And the same worst case in tokens, against -max-run-tokens when one is
+	// set. Money first, then tokens, and the money comes back if the tokens
+	// refuse: a refused call reserves nothing.
+	reserveTokens := reservedWorstTokens(e, maxTok)
+	if err := run.reserveTokens(reserveTokens); err != nil {
+		run.settle(reserveMicros, 0)
+		return refusal{err}
+	}
 
 	// The headers for THIS call, built fresh every time even though the URL,
 	// the run id and the trust domain never change within a run: the budget
@@ -255,11 +329,7 @@ func execute(ctx context.Context, db, roDB *sql.DB, e estimate, maxTok int, run 
 	// engine outside the loop) reads as "no gateway" and routes to
 	// api.anthropic.com exactly as before this file knew one existed. The
 	// same gh is passed to every round, so every round carries the same
-	// three x-fuse headers.
-	var gh gatewayHeaders
-	if gw.on() {
-		gh = gatewayHeadersFor(gw, b.run, e.Analyst.Name, e.Task.Budget)
-	}
+	// three x-fuse headers. (Built above, before the reservation.)
 	sent := prompt(e.Task, e.Analyst, time.Now().Format("2006-01-02"), e.Packet)
 	res, err := runToolLoop(ctx, db, roDB, e, sent, maxTok, gh, e.Analyst, b)
 	// The charge is the gateway's settlement when there is one, the runner's
@@ -269,6 +339,9 @@ func execute(ctx context.Context, db, roDB *sql.DB, e estimate, maxTok int, run 
 	// next reserve() is checked against what was actually spent.
 	charge := res.ChargeMicros()
 	run.settle(reserveMicros, charge)
+	// Tokens settle at what the rounds counted, above the reservation if it
+	// came to that, so the next task is checked against what was really used.
+	run.settleTokens(reserveTokens, int64(res.InTokens)+int64(res.OutTokens))
 	run.noteSettlement(res.Settlement)
 	if err != nil {
 		// A task that stopped is not a task that cost nothing (costcrew#82):
@@ -285,12 +358,33 @@ func execute(ctx context.Context, db, roDB *sql.DB, e estimate, maxTok int, run 
 	}
 
 	if err := saveDraft(db, e, res, b); err != nil {
+		if errors.Is(err, errTaskBlockedMeanwhile) {
+			// A person blocked the task while the call was in flight. The call
+			// was made and the gateway billed it, so the charge is booked
+			// exactly as a stopped task's is (invariant 55); the answer is
+			// what is thrown away, because the block was an order and a draft
+			// written after it would be the runner working around it
+			// (invariant 57). saveDraft wrote nothing, so this is the only
+			// place the money lands.
+			if charge > 0 {
+				if e2 := recordCharge(db, e.Task.ID, charge); e2 != nil {
+					fmt.Fprintf(os.Stderr, "  could not record the charge of the discarded answer for task %d: %v\n", e.Task.ID, e2)
+				}
+			}
+			if e2 := b.toolCall(e, res); e2 != nil {
+				fmt.Fprintf(os.Stderr, "  the bus refused this call's event: %v\n", e2)
+			}
+			fmt.Printf("  %-22s %-14s DISCARDED: the answer came back after a person blocked the task, "+
+				"so no draft was saved; the call cost %s %s\n",
+				trim(e.Task.Title, 22), e.Analyst.Name, usd(charge), chargeBasis(res.Settlement))
+			return answerDiscarded{taskID: e.Task.ID}
+		}
 		return err
 	}
 
 	fmt.Printf("  %-22s %-14s %-10s in %5d out %5d  cost %s %s  (worst %s)\n",
 		trim(e.Task.Title, 22), e.Analyst.Name, trim(e.Engine, 10),
-		res.InTokens, res.OutTokens, usd(charge), chargeBasis(res.Settlement), usd(e.WorstMicros))
+		res.InTokens, res.OutTokens, usd(charge), chargeBasisFor(e.Engine, res.Settlement), usd(e.WorstMicros))
 	return nil
 }
 
@@ -320,12 +414,21 @@ func chargeBasis(s deliver.Settlement) string {
 // heading is the fault this console exists to catch in other people's data.
 func saveDraft(db *sql.DB, e estimate, res callResult, b bus) error {
 	title := "Deliverable for " + e.Task.Title
+	// One statement that refuses a task a person has blocked: the insert and
+	// the look at the task's state cannot be separated by a click. A block
+	// that lands before this statement writes nothing; one that lands after
+	// it finds the draft already there, which is a person blocking a task
+	// that has a draft, an ordinary thing to do.
 	ins, err := db.Exec(`INSERT INTO artifacts
 		(task, author, title, body, state, created, source)
-		VALUES (?,?,?,?, 'draft', datetime('now'), 'live')`,
-		e.Task.ID, e.Analyst.Name, trim(title, 120), res.Text)
+		SELECT ?,?,?,?, 'draft', datetime('now'), 'live'
+		WHERE NOT EXISTS (SELECT 1 FROM tasks WHERE id = ? AND state = 'blocked')`,
+		e.Task.ID, e.Analyst.Name, trim(title, 120), res.Text, e.Task.ID)
 	if err != nil {
 		return err
+	}
+	if n, err := ins.RowsAffected(); err == nil && n == 0 {
+		return errTaskBlockedMeanwhile
 	}
 	artifactID, err := ins.LastInsertId()
 	if err != nil {
@@ -416,6 +519,12 @@ type runBudget struct {
 	reserved      int64 // in flight, at worst case
 	spent         int64 // settled, at what it actually cost
 
+	// The same ceiling in TOKENS (-max-run-tokens), for the case money cannot
+	// bound: the local engine at a price of 0 reserves nothing in dollars.
+	// 0 means no token ceiling and every method below is a no-op, so a budget
+	// built without one behaves exactly as it did before this field existed.
+	tokenCeiling, tokensReserved, tokensSpent int64
+
 	// What the gateway said, over the whole run (invariant 51): how many
 	// tasks reached settle, how many of those the gateway settled, and the
 	// largest x-fuse-spent-usd seen, which is the gateway's own view of the
@@ -472,6 +581,40 @@ func (r *runBudget) settle(worst, actual int64) {
 	r.spent += actual
 }
 
+// reserveTokens is reserve in tokens: it takes the worst case out of the token
+// ceiling before the call is made, or refuses. A no-op with no ceiling.
+func (r *runBudget) reserveTokens(worst int64) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.tokenCeiling <= 0 {
+		return nil
+	}
+	if r.tokensSpent+r.tokensReserved+worst > r.tokenCeiling {
+		return fmt.Errorf("the run's token ceiling is %d, %d are used and %d are in flight, and "+
+			"this call could use %d: refused before making it",
+			r.tokenCeiling, r.tokensSpent, r.tokensReserved, worst)
+	}
+	r.tokensReserved += worst
+	return nil
+}
+
+// settleTokens puts back what the call did not use and books what it did.
+func (r *runBudget) settleTokens(worst, actual int64) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.tokenCeiling <= 0 {
+		return
+	}
+	r.tokensReserved -= worst
+	r.tokensSpent += actual
+}
+
+func (r *runBudget) tokensUsed() int64 {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.tokensSpent
+}
+
 func (r *runBudget) total() int64 {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -499,8 +642,22 @@ func (r *runBudget) total() int64 {
 // under "Where it stopped".
 type refusal struct{ error }
 
+// errTaskBlockedMeanwhile is saveDraft's answer for a task a person blocked
+// while its call was in flight: nothing was written.
+var errTaskBlockedMeanwhile = errors.New("the task was blocked while its call was in flight")
+
+// answerDiscarded is what execute returns for that task. It is neither a
+// refusal (the run goes on) nor a failure (the task is already blocked, by a
+// person, with a reason that spend() must not overwrite with its own), so
+// spend() counts it on its own.
+type answerDiscarded struct{ taskID int }
+
+func (a answerDiscarded) Error() string {
+	return fmt.Sprintf("task %d was blocked while its call was in flight; the answer was discarded", a.taskID)
+}
+
 func spend(db, roDB *sql.DB, ests []estimate, maxTok int, cap money.Cents, only int, b bus, gw gatewayConfig) error {
-	run := &runBudget{ceilingMicros: int64(cap) * 10_000}
+	run := &runBudget{ceilingMicros: int64(cap) * 10_000, tokenCeiling: int64(gw.MaxRunTokens)}
 
 	todo := make([]estimate, 0, len(ests))
 	for _, e := range ests {
@@ -536,10 +693,18 @@ func spend(db, roDB *sql.DB, ests []estimate, maxTok int, cap money.Cents, only 
 	if err := noRouteRefusal(gw, todo); err != nil {
 		return err
 	}
+	if err := localPreflight(gw, todo, maxTok); err != nil {
+		return err
+	}
 	fmt.Printf("LIVE. %d task(s), worst case %s, ceiling %s.\n", len(todo), usd(worst), cap)
 	if worst > run.ceilingMicros {
 		return fmt.Errorf("the worst case is %s and the ceiling is %s: refused "+
 			"before the first call", usd(worst), cap)
+	}
+	// Last of the refusals, because it is the only one that touches the
+	// network: a run the numbers already refuse must not knock on a server.
+	if err := localReachRefusal(gw, todo); err != nil {
+		return err
 	}
 	fmt.Println()
 
@@ -562,7 +727,7 @@ func spend(db, roDB *sql.DB, ests []estimate, maxTok int, cap money.Cents, only 
 
 	var wg sync.WaitGroup
 	var mu sync.Mutex
-	var done, blocked int
+	var done, blocked, discarded int
 	var stop bool
 
 	sem := make(chan struct{}, atOnce)
@@ -596,6 +761,12 @@ func spend(db, roDB *sql.DB, ests []estimate, maxTok int, cap money.Cents, only 
 				done++
 				return
 			}
+			var d answerDiscarded
+			if errors.As(err, &d) {
+				// Already blocked by a person: leave their reason alone.
+				discarded++
+				return
+			}
 			var r refusal
 			if errors.As(err, &r) {
 				// A refusal stops the run. Nothing new starts; what is already
@@ -605,8 +776,11 @@ func spend(db, roDB *sql.DB, ests []estimate, maxTok int, cap money.Cents, only 
 				stop = true
 				return
 			}
+			// A person may have blocked the task while this call was in
+			// flight: their reason stands, and the runner's own is written
+			// only on a task nobody blocked (invariant 66).
 			if _, e2 := db.Exec(
-				`UPDATE tasks SET state='blocked', reason=?, updated=datetime('now') WHERE id=?`,
+				`UPDATE tasks SET state='blocked', reason=?, updated=datetime('now') WHERE id=? AND state <> 'blocked'`,
 				"the engine did not answer: "+trim(err.Error(), 160), e.Task.ID); e2 != nil {
 				fmt.Printf("  could not record the block: %v\n", e2)
 			}
@@ -627,9 +801,9 @@ func spend(db, roDB *sql.DB, ests []estimate, maxTok int, cap money.Cents, only 
 
 	settled, charged, gwSpent, gwKnown := run.settlement()
 	if gwKnown {
-		fmt.Printf("\n%d of %d done, %d blocked. Spent %s of a %s ceiling: %d of %d task(s) settled by the "+
+		fmt.Printf("\n%d of %d done, %d blocked%s. Spent %s of a %s ceiling: %d of %d task(s) settled by the "+
 			"gateway, whose own run total is %s.",
-			done, len(todo), blocked, usd(run.total()), cap, settled, charged, usd(gwSpent))
+			done, len(todo), blocked, discardedClause(discarded), usd(run.total()), cap, settled, charged, usd(gwSpent))
 		// The gateway's own ledger is the bill. When it is higher than what
 		// this run booked, a call it settled never reached this runner (a
 		// response lost in transit, a task that failed before a header could
@@ -641,9 +815,12 @@ func spend(db, roDB *sql.DB, ests []estimate, maxTok int, cap money.Cents, only 
 		}
 		fmt.Println()
 	} else {
-		fmt.Printf("\n%d of %d done, %d blocked. Spent %s of a %s ceiling: %d of %d task(s) settled by the "+
+		fmt.Printf("\n%d of %d done, %d blocked%s. Spent %s of a %s ceiling: %d of %d task(s) settled by the "+
 			"gateway, the rest priced by the runner (no settlement header).\n",
-			done, len(todo), blocked, usd(run.total()), cap, settled, charged)
+			done, len(todo), blocked, discardedClause(discarded), usd(run.total()), cap, settled, charged)
+	}
+	if gw.MaxRunTokens > 0 {
+		fmt.Printf("Tokens used: %d of a %d ceiling.\n", run.tokensUsed(), gw.MaxRunTokens)
 	}
 	fmt.Printf("The board now carries %s against these tasks, which is that "+
 		"total rounded up to whole cents.\n", booked)

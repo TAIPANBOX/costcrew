@@ -71,7 +71,7 @@ const MaxToolRounds = 6
 // for every other engine.
 func LoopsFor(engine string) int {
 	switch engine {
-	case "anthropic", "openrouter":
+	case "anthropic", "openrouter", "local":
 		return MaxToolRounds
 	}
 	return 1
@@ -104,7 +104,9 @@ func ToolCatalogueTokens(engine string) int {
 	switch engine {
 	case "anthropic":
 		return anthropicToolCatalogueBytes
-	case "openrouter":
+	case "openrouter", "local":
+		// The local engine speaks the same OpenAI wire through the same tool
+		// loop, so it sends the same openAITools() catalogue.
 		return openAIToolCatalogueBytes
 	}
 	return 0

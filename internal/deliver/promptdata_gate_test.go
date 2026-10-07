@@ -186,7 +186,7 @@ var sectionHeaders = []string{
 	"The SaaS renewal calendar", "Commitments (", "Data quality (",
 	"The desk's month", "Forecasting (", "The AI desk's month",
 	"Unit economics, cost per outcome", "The provider's own budget recommendation",
-	"The close pack", "What you posted on this desk before",
+	"The close pack", "Customer units", "What you posted on this desk before",
 }
 
 func headersIn(ps []builtPacket) map[string]bool {

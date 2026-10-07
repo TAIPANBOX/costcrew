@@ -175,6 +175,12 @@ func fill(st *store.Store) error {
 		return err
 	}
 
+	// Customer units (costcrew#74) in the closed period: one a person gave a
+	// business unit, one with no rule yet, so the close pack lists both and
+	// the gate looks at a unit name and a business unit name.
+	if err := plantUnits(db); err != nil {
+		return err
+	}
 	// A closed period, so the close pack has a true-up and chargeback has a
 	// closed_by; a frozen forecast with a frozen_by.
 	if err := finops.Close(db, "2026-07", "alice"); err != nil {
@@ -243,6 +249,23 @@ func plantAI(db *sql.DB) error {
 		}
 	}
 	return nil
+}
+
+func plantUnits(db *sql.DB) error {
+	for _, u := range []struct {
+		unit  string
+		cents int
+	}{{"acme-retail-unit", 41_200}, {"globex-labs-unit", 9_900}} {
+		if _, err := db.Exec(`INSERT INTO charges
+			(source, day, service, team, category, billed_cents, quantity, unit, meter, model, provenance)
+			VALUES ('ai','2026-07-12','LLM inference',?,'Usage',?,1,'tokens','m','mdl','tokenfuse-focus')`,
+			u.unit, u.cents); err != nil {
+			return err
+		}
+	}
+	_, err := db.Exec(`INSERT INTO unit_rules(unit, business_unit, decided_by, artifact, ordinal, applied_at)
+		VALUES ('acme-retail-unit','Northwind Retail Division','bob',1,1,'2026-07-20 09:00:00')`)
+	return err
 }
 
 func plantCommitments(db *sql.DB) error {
@@ -515,6 +538,9 @@ var Classes = map[string]Class{
 
 	"connections.id": Plain, "connections.config": Free, "connections.last_result": Free,
 	"connections.last_test": Plain,
+
+	"unit_rules.unit": ID, "unit_rules.business_unit": ID, "unit_rules.decided_by": ID,
+	"unit_rules.applied_at": Plain,
 }
 
 // NotIdentifiers are values that are real strings in an ID column but name

@@ -71,7 +71,7 @@ func recordTheNetwork(t *testing.T, headers http.Header) *recordingTransport {
 
 func anAnthropicGatewayOnly() Gateway {
 	return Gateway{URL: "http://anthropic-gateway.invalid", RunID: "crew-1",
-		AgentID: "agent://x/y.mercer", BudgetUSD: "1.00"}
+		AgentID: "agent://x/y.mercer", OnBehalfOf: testChain, BudgetUSD: "1.00"}
 }
 
 // The defect, as it ran: engine openrouter, a gateway configured, and the
@@ -104,7 +104,7 @@ func TestACallWithNoGatewayRouteForItsEngineIsRefusedBeforeAnyRequest(t *testing
 	rt := recordTheNetwork(t, nil)
 
 	openAIOnly := Gateway{OpenAIURL: "http://openai-gateway.invalid", RunID: "crew-1",
-		AgentID: "agent://x/y.mercer", BudgetUSD: "1.00"}
+		AgentID: "agent://x/y.mercer", OnBehalfOf: testChain, BudgetUSD: "1.00"}
 
 	for _, c := range []struct {
 		name, engine string
@@ -210,7 +210,7 @@ func TestRouteForNamesTheGatewayThatFrontsEachEnginesWire(t *testing.T) {
 func TestAnOpenRouterRequestThroughTheGatewayCarriesTheSameFuseHeaders(t *testing.T) {
 	gw := Gateway{
 		URL: "http://anthropic-gateway.invalid", OpenAIURL: "http://127.0.0.1:1",
-		RunID: "crew-9", AgentID: "agent://x/y.mercer", BudgetUSD: "1.00",
+		RunID: "crew-9", AgentID: "agent://x/y.mercer", OnBehalfOf: testChain, BudgetUSD: "1.00",
 	}
 	req, err := openRouterRequest(context.Background(), "sk-or-k", "some/model", "hello", 123, gw)
 	if err != nil {
@@ -290,7 +290,7 @@ func TestCallOpenRouterCarriesTheGatewaysSettlementOnItsResult(t *testing.T) {
 		"x-fuse-cost-usd": "0.058110", "x-fuse-spent-usd": "0.116220", "x-fuse-price": "fallback",
 	}, &seen)
 
-	gw := Gateway{OpenAIURL: srv.URL, RunID: "crew-1", AgentID: "agent://x/y.mercer", BudgetUSD: "1.00"}
+	gw := Gateway{OpenAIURL: srv.URL, RunID: "crew-1", AgentID: "agent://x/y.mercer", OnBehalfOf: testChain, BudgetUSD: "1.00"}
 	res, err := Call(context.Background(), "openrouter", "some/model", "hello", 100, gw)
 	if err != nil {
 		t.Fatalf("Call: %v", err)
@@ -320,7 +320,7 @@ func TestCallOpenRouterCarriesTheGatewaysSettlementOnItsResult(t *testing.T) {
 	// No settlement header: unsettled, so the caller prices it itself.
 	bare := openAIGateway(t, nil, nil)
 	res2, err := Call(context.Background(), "openrouter", "some/model", "hello", 100,
-		Gateway{OpenAIURL: bare.URL, RunID: "crew-1", AgentID: "agent://x/y.mercer", BudgetUSD: "1.00"})
+		Gateway{OpenAIURL: bare.URL, RunID: "crew-1", AgentID: "agent://x/y.mercer", OnBehalfOf: testChain, BudgetUSD: "1.00"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -367,7 +367,7 @@ func TestHostileSettlementHeadersOnTheOpenAIDoorNeverBecomeACharge(t *testing.T)
 			}))
 			defer hostile.Close()
 			res, err := Call(context.Background(), "openrouter", "m", "hello", 10,
-				Gateway{OpenAIURL: hostile.URL, RunID: "crew-1", AgentID: "agent://x/y", BudgetUSD: "1.00"})
+				Gateway{OpenAIURL: hostile.URL, RunID: "crew-1", AgentID: "agent://x/y", OnBehalfOf: testChain, BudgetUSD: "1.00"})
 			if err != nil {
 				// A megabyte header may be refused by the transport itself;
 				// that is no charge either.
@@ -386,7 +386,7 @@ func TestHostileSettlementHeadersOnTheOpenAIDoorNeverBecomeACharge(t *testing.T)
 	}))
 	defer dup.Close()
 	res, err := Call(context.Background(), "openrouter", "m", "hello", 10,
-		Gateway{OpenAIURL: dup.URL, RunID: "crew-1", AgentID: "agent://x/y", BudgetUSD: "1.00"})
+		Gateway{OpenAIURL: dup.URL, RunID: "crew-1", AgentID: "agent://x/y", OnBehalfOf: testChain, BudgetUSD: "1.00"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -426,7 +426,7 @@ func TestA402FromTheOpenAIGatewayIsAGatewayRefusal(t *testing.T) {
 	defer srv.Close()
 
 	_, err := Call(context.Background(), "openrouter", "m", "hello", 10,
-		Gateway{OpenAIURL: srv.URL, RunID: "crew-1", AgentID: "agent://x/y", BudgetUSD: "0.35"})
+		Gateway{OpenAIURL: srv.URL, RunID: "crew-1", AgentID: "agent://x/y", OnBehalfOf: testChain, BudgetUSD: "0.35"})
 	var gr GatewayRefusal
 	if !errors.As(err, &gr) {
 		t.Fatalf("err = %v, want a GatewayRefusal", err)
@@ -451,7 +451,7 @@ func TestAnEmptyRunOrAgentIDRefusesBeforeAnOpenRouterGatewayCall(t *testing.T) {
 		gw   Gateway
 		want string
 	}{
-		{"run id", Gateway{OpenAIURL: srv.URL, RunID: "", AgentID: "agent://x/y"}, "run id"},
+		{"run id", Gateway{OpenAIURL: srv.URL, RunID: "", AgentID: "agent://x/y", OnBehalfOf: testChain}, "run id"},
 		{"agent id", Gateway{OpenAIURL: srv.URL, RunID: "crew-1", AgentID: ""}, "agent id"},
 	} {
 		t.Run(c.name, func(t *testing.T) {

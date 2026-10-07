@@ -157,8 +157,10 @@ func runToolLoop(ctx context.Context, db, roDB *sql.DB, e estimate, sentPrompt s
 		res, err := anthropicToolLoop(ctx, db, roDB, e, sentPrompt, maxTok, gw, a, b)
 		res.Text = deliver.ActivePolicy().Reidentify(res.Text)
 		return res, err
-	case "openrouter":
-		res, err := openRouterToolLoop(ctx, db, roDB, e, sentPrompt, maxTok, gw, a, b)
+	case "openrouter", engines.LocalID:
+		// One loop for both engines that speak the OpenAI wire: the local
+		// engine is not a copy of the openrouter one, so the two cannot drift.
+		res, err := openAIToolLoop(ctx, db, roDB, e, sentPrompt, maxTok, gw, a, b)
 		res.Text = deliver.ActivePolicy().Reidentify(res.Text)
 		return res, err
 	default:
@@ -231,15 +233,13 @@ func anthropicRoundRequest(ctx context.Context, key, model string, messages []an
 	req.Header.Set("anthropic-version", "2023-06-01")
 	req.Header.Set("Content-Type", "application/json")
 	if gw.URL != "" {
-		// Every round carries the same three headers: the run and the
+		// Every round carries the same x-fuse-* headers: the run and the
 		// analyst do not change mid-task, and the budget is the same
 		// figure gatewayHeadersFor already worked out once for this task.
-		req.Header.Set("x-fuse-run-id", gw.RunID)
-		req.Header.Set("x-fuse-agent-id", gw.AgentID)
-		req.Header.Set("x-fuse-budget-usd", gw.BudgetUSD)
-		if gw.ParentRunID != "" {
-			req.Header.Set("x-fuse-parent-run-id", gw.ParentRunID)
-		}
+		// deliver.SetFuseHeaders, the function deliver.Call and the OpenAI
+		// round use too: this block was a private copy of it that had
+		// never learned x-fuse-on-behalf-of (costcrew#73).
+		deliver.SetFuseHeaders(req, gw)
 	}
 	return req, nil
 }
@@ -254,6 +254,12 @@ func anthropicRound(ctx context.Context, model string, messages []anthropicMsg,
 	key := strings.TrimSpace(os.Getenv("ANTHROPIC_API_KEY"))
 	if key == "" {
 		return roundResult{}, nil, fmt.Errorf("ANTHROPIC_API_KEY is not set in this process")
+	}
+	// The identity check deliver.Call's callAnthropic makes and this
+	// round never did (openRouterRound below has made it from the start):
+	// a gateway call with no owner chain is refused before a request exists.
+	if err := deliver.RequireIdentity(gw, gw.URL != ""); err != nil {
+		return roundResult{}, nil, err
 	}
 	req, err := anthropicRoundRequest(ctx, key, model, messages, tools, maxTok, gw)
 	if err != nil {
@@ -355,7 +361,16 @@ func anthropicToolLoop(ctx context.Context, db, roDB *sql.DB, e estimate, prompt
 		fmt.Errorf("the tool loop ran past its round cap without an answer")
 }
 
-// ------------------------------------------------------------- openrouter
+// ----------------------------------------------------- the OpenAI-shaped wire
+//
+// openrouter and local speak the same wire: POST <base>/chat/completions with
+// a messages array, tools as {"type":"function"}, and the answer in
+// choices[0].message. They are ONE implementation below, parameterised by the
+// engine, and not two copies that drift: the request builder, the round, the
+// tool loop and the settlement read are shared, and the three things that
+// differ by engine are named where they differ (where the call goes, whose key
+// it carries, and what is counted when the server reports no usage).
+// TestBothOpenAIEnginesSendTheSameRequestShape holds the sameness.
 
 // openAIToolCall is one entry of a `tool_calls` array, in the shape both
 // the assistant message that ASKS for one and this file's own bookkeeping
@@ -382,8 +397,9 @@ type openAIMsg struct {
 
 // openRouterEndpoint is a var, not a literal, only so a test can point the
 // DIRECT route at a fake server. A call that goes through a gateway never
-// reads it: its URL is deliver.OpenRouterEndpoint's answer, which is the
-// OpenAI-shaped gateway's own /v1/chat/completions.
+// reads it: its URL is deliver.OpenAIEndpoint's answer, which is the
+// OpenAI-shaped gateway's own /v1/chat/completions. The local engine never
+// reads it either: its direct address is the operator's own -model-url.
 var openRouterEndpoint = deliver.OpenRouterDirectEndpoint
 
 func openRouterRoundBody(model string, messages []openAIMsg, tools []map[string]any, maxTok int) ([]byte, error) {
@@ -398,17 +414,22 @@ func openRouterRoundBody(model string, messages []openAIMsg, tools []map[string]
 	return json.Marshal(body)
 }
 
-// openRouterRoundRequest builds one round's request, separately from sending
-// it, so the URL and every header can be asserted without a network call,
-// the way anthropicRoundRequest is. Through the OpenAI-shaped gateway it
-// carries the same x-fuse-* headers every Anthropic round does.
-func openRouterRoundRequest(ctx context.Context, key, model string, messages []openAIMsg,
+// openAIRoundRequest builds one round's request for engine ("openrouter" or
+// "local"), separately from sending it, so the URL and every header can be
+// asserted without a network call, the way anthropicRoundRequest is. Through
+// the OpenAI-shaped gateway it carries the same x-fuse-* headers every
+// Anthropic round does.
+//
+// key is the vendor key and is used by openrouter only. The local engine's
+// optional bearer token is deliver.SetLocalAuth's to read and set, so it is
+// never a parameter here, never stored on a struct and never in a message.
+func openAIRoundRequest(ctx context.Context, engine, key, model string, messages []openAIMsg,
 	tools []map[string]any, maxTok int, gw gatewayHeaders) (*http.Request, error) {
-	endpoint, routed, err := deliver.OpenRouterEndpoint(gw)
+	endpoint, routed, err := deliver.OpenAIEndpoint(engine, gw)
 	if err != nil {
 		return nil, err
 	}
-	if !routed {
+	if !routed && engine == "openrouter" {
 		endpoint = openRouterEndpoint
 	}
 	body, err := openRouterRoundBody(model, messages, tools, maxTok)
@@ -419,7 +440,11 @@ func openRouterRoundRequest(ctx context.Context, key, model string, messages []o
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+key)
+	if engine == engines.LocalID {
+		deliver.SetLocalAuth(req)
+	} else {
+		req.Header.Set("Authorization", "Bearer "+key)
+	}
 	req.Header.Set("Content-Type", "application/json")
 	if routed {
 		deliver.SetFuseHeaders(req, gw)
@@ -427,22 +452,58 @@ func openRouterRoundRequest(ctx context.Context, key, model string, messages []o
 	return req, nil
 }
 
+// openRouterRoundRequest is openAIRoundRequest for the openrouter engine, kept
+// under its old name so every caller and test that used it needed no change.
+func openRouterRoundRequest(ctx context.Context, key, model string, messages []openAIMsg,
+	tools []map[string]any, maxTok int, gw gatewayHeaders) (*http.Request, error) {
+	return openAIRoundRequest(ctx, "openrouter", key, model, messages, tools, maxTok, gw)
+}
+
+// openRouterRound is openAIRound for the openrouter engine, under its old name.
 func openRouterRound(ctx context.Context, model string, messages []openAIMsg,
 	tools []map[string]any, maxTok int, gw gatewayHeaders) (roundResult, openAIMsg, error) {
-	key := strings.TrimSpace(os.Getenv("OPENROUTER_API_KEY"))
-	if key == "" {
-		return roundResult{}, openAIMsg{}, fmt.Errorf("OPENROUTER_API_KEY is not set in this process")
+	return openAIRound(ctx, "openrouter", model, messages, tools, maxTok, gw)
+}
+
+// openAIRound sends one OpenAI-shaped round for engine and returns the
+// model's answer or its requested tools, with the assistant message to append
+// to the conversation.
+func openAIRound(ctx context.Context, engine, model string, messages []openAIMsg,
+	tools []map[string]any, maxTok int, gw gatewayHeaders) (roundResult, openAIMsg, error) {
+	local := engine == engines.LocalID
+	// Who is answering, for the messages below: a vendor's router, or the
+	// operator's own server. The word is the only thing that differs.
+	who := "the router"
+	var key string
+	timeout := 90 * time.Second
+	if local {
+		who = "the local model server"
+		timeout = deliver.LocalRoundTimeout
+	} else {
+		key = strings.TrimSpace(os.Getenv("OPENROUTER_API_KEY"))
+		if key == "" {
+			return roundResult{}, openAIMsg{}, fmt.Errorf("OPENROUTER_API_KEY is not set in this process")
+		}
 	}
 	if err := deliver.RequireIdentity(gw, gw.OpenAIURL != ""); err != nil {
 		return roundResult{}, openAIMsg{}, err
 	}
-	req, err := openRouterRoundRequest(ctx, key, model, messages, tools, maxTok, gw)
+	req, err := openAIRoundRequest(ctx, engine, key, model, messages, tools, maxTok, gw)
 	if err != nil {
 		return roundResult{}, openAIMsg{}, err
 	}
 
-	resp, err := (&http.Client{Timeout: 90 * time.Second}).Do(req)
+	resp, err := (&http.Client{Timeout: timeout}).Do(req)
 	if err != nil {
+		if local {
+			what := who
+			if gw.OpenAIURL != "" {
+				what = "the gateway in front of the local model"
+			}
+			// One line naming the address, not the stack of wrappers around
+			// "connection refused".
+			return roundResult{}, openAIMsg{}, deliver.ReachError(what, deliver.LocalTarget(gw), err)
+		}
 		return roundResult{}, openAIMsg{}, err
 	}
 	defer resp.Body.Close()
@@ -454,11 +515,11 @@ func openRouterRound(ctx context.Context, model string, messages []openAIMsg,
 		return roundResult{}, openAIMsg{}, refusal{parseGatewayRefusal(raw)}
 	}
 	if resp.StatusCode != 200 {
-		return roundResult{}, openAIMsg{}, fmt.Errorf("the router answered %d: %s",
+		return roundResult{}, openAIMsg{}, fmt.Errorf("%s answered %d: %s", who,
 			resp.StatusCode, trim(strings.TrimSpace(string(raw)), 160))
 	}
 	if len(bytes.TrimSpace(raw)) == 0 {
-		return roundResult{}, openAIMsg{}, fmt.Errorf("the router answered 200 with an empty body")
+		return roundResult{}, openAIMsg{}, fmt.Errorf("%s answered 200 with an empty body", who)
 	}
 
 	var out struct {
@@ -475,7 +536,7 @@ func openRouterRound(ctx context.Context, model string, messages []openAIMsg,
 		} `json:"usage"`
 	}
 	if err := json.Unmarshal(raw, &out); err != nil {
-		return roundResult{}, openAIMsg{}, fmt.Errorf("the router's answer did not parse: %w", err)
+		return roundResult{}, openAIMsg{}, fmt.Errorf("%s's answer did not parse: %w", who, err)
 	}
 	// Read only when the round went to a gateway: the direct host sends no
 	// x-fuse-* header, and a header a vendor happened to send must never
@@ -484,13 +545,26 @@ func openRouterRound(ctx context.Context, model string, messages []openAIMsg,
 	if gw.OpenAIURL != "" {
 		st = deliver.ParseSettlement(resp.Header)
 	}
+	inTok, outTok := out.Usage.PromptTokens, out.Usage.CompletionTokens
+	if local {
+		// A server that reports no usage must not make the round free. On this
+		// engine the price may be 0, so the token count is what a run's
+		// ceiling is made of; an unreported round is counted at its worst case
+		// (the request's bytes in, the whole output cap out), and says so.
+		var estimated bool
+		inTok, outTok, estimated = deliver.CountLocalUsage(inTok, outTok, int(req.ContentLength), maxTok)
+		if estimated {
+			fmt.Fprintf(os.Stderr, "  %s reported no token usage for this round: counted at its worst case "+
+				"(%d prompt bytes in, %d max tokens out)\n", who, inTok, outTok)
+		}
+	}
 	if len(out.Choices) == 0 {
-		return roundResult{Settlement: st, InTokens: out.Usage.PromptTokens, OutTokens: out.Usage.CompletionTokens},
-			openAIMsg{}, fmt.Errorf("the router returned no answer")
+		return roundResult{Settlement: st, InTokens: inTok, OutTokens: outTok},
+			openAIMsg{}, fmt.Errorf("%s returned no answer", who)
 	}
 	msg := out.Choices[0].Message
 
-	rr := roundResult{InTokens: out.Usage.PromptTokens, OutTokens: out.Usage.CompletionTokens, Settlement: st}
+	rr := roundResult{InTokens: inTok, OutTokens: outTok, Settlement: st}
 	assistant := openAIMsg{Role: "assistant", Content: msg.Content}
 	if len(msg.ToolCalls) > 0 {
 		assistant.ToolCalls = msg.ToolCalls
@@ -502,13 +576,16 @@ func openRouterRound(ctx context.Context, model string, messages []openAIMsg,
 	rr.Text = msg.Content
 	if len(rr.Calls) == 0 && strings.TrimSpace(rr.Text) == "" {
 		return rr, assistant, fmt.Errorf(
-			"the router returned no text and asked for no tool (finish_reason %q)",
-			out.Choices[0].FinishReason)
+			"%s returned no text and asked for no tool (finish_reason %q)",
+			who, out.Choices[0].FinishReason)
 	}
 	return rr, assistant, nil
 }
 
-func openRouterToolLoop(ctx context.Context, db, roDB *sql.DB, e estimate, prompt string,
+// openAIToolLoop drives the tool loop for either OpenAI-shaped engine: the
+// same rounds, the same dispatch, the same settlement fold, the engine being
+// e.Engine.
+func openAIToolLoop(ctx context.Context, db, roDB *sql.DB, e estimate, prompt string,
 	maxTok int, gw gatewayHeaders, a crew.Analyst, b bus) (callResult, error) {
 	messages := []openAIMsg{{Role: "user", Content: prompt}}
 	var totalIn, totalOut int
@@ -520,7 +597,7 @@ func openRouterToolLoop(ctx context.Context, db, roDB *sql.DB, e estimate, promp
 		if round < maxToolRounds {
 			tools = openAITools()
 		}
-		rr, assistant, err := openRouterRound(ctx, e.Model, messages, tools, maxTok, gw)
+		rr, assistant, err := openAIRound(ctx, e.Engine, e.Model, messages, tools, maxTok, gw)
 		totalIn += rr.InTokens
 		totalOut += rr.OutTokens
 		totalActual += roundCostMicros(rr.InTokens, rr.OutTokens, e.Price)

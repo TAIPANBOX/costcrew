@@ -1059,6 +1059,25 @@ func closePackSection(db *sql.DB, a crew.Analyst, t crew.Task) string {
 		}
 	}
 
+	// Customer units (costcrew#74): the units the AI gateway reports spend
+	// for, and which of them a person has given a business unit. A proposal
+	// for one is an allocation.rule option with a unit target; only an
+	// owner's stamp applies it. Absent on an estate with no units.
+	if units, uerr := finops.Units(db, period); uerr == nil && len(units) > 0 {
+		b.WriteString("\nCustomer units (spend the AI gateway labelled by unit)\n")
+		for _, u := range units {
+			if u.Ruled {
+				fmt.Fprintf(&b, "unit %s: %s loaded, charged back under %s\n", u.Unit, u.Loaded(), u.BusinessUnit)
+			} else {
+				fmt.Fprintf(&b, "unit %s: %s loaded, no unit rule yet\n", u.Unit, u.Loaded())
+			}
+		}
+		b.WriteString("To propose a rule for a unit with none, end the deliverable with an " +
+			"allocation.rule option whose target is " +
+			`{"unit": "<the unit exactly as listed above>", "business_unit": "<what it is charged back under>"}` +
+			"; only the owner's stamp applies it.\n")
+	}
+
 	b.WriteString("\nTrue-up since the last close\n")
 	if trueUp, _, terr := finops.TrueUpFor(db, period); terr == nil {
 		switch {
