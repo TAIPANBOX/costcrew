@@ -2111,6 +2111,235 @@ run_case $'admin answers: a reworded refusal message is not a fault' \
 	$'"you are answering for "+owner+", so a reason is needed: "+rerr.Error()' \
 	$'"a reason is needed because you are answering for "+owner+": "+rerr.Error()'
 
+# Invariants 61 to 64: sessions stored as hashes, one answer for every failed
+# sign-in, private data files, and the console's egress. Every case plants one
+# fault in the product, in the way a silent failure would look: the session
+# still works, the login still refuses, the file is still there, the page still
+# renders, and only the property under the gate is gone.
+#
+# 61. The first mutant keeps the whole login working and stores the cookie
+# itself, which is the only shape this fault has: nothing visible changes.
+run_case $'sessions: the cookie is stored as it is, not as its hash' \
+	fail \
+	./internal/auth \
+	$'TestTheDatabaseHoldsNoSessionTokenInTheClear' \
+	$'stores the cookie value itself' \
+	internal/auth/auth.go \
+	$'	return hex.EncodeToString(sum[:])\n}\n\nfunc (a *Auth) StartSession' \
+	$'	_ = sum\n	return token\n}\n\nfunc (a *Auth) StartSession'
+run_case $'sessions: a hash read from the database is accepted as a cookie' \
+	fail \
+	./internal/auth \
+	$'TestAHashReadFromTheDatabaseIsNotACookie' \
+	$'as a cookie signed in as alice' \
+	internal/auth/auth.go \
+	$'WHERE s.token_hash=? AND s.expires > ?`, sessionKey(token), now))' \
+	$'WHERE (s.token_hash=? OR s.token_hash=?) AND s.expires > ?`, sessionKey(token), token, now))'
+run_case $'sessions: the migration renames the old table instead of erasing it' \
+	fail \
+	./internal/auth \
+	$'TestOldClearTextSessionsAreEndedAndErasedByTheMigration' \
+	$'still readable in app.db' \
+	internal/store/store.go \
+	$'conn.ExecContext(ctx, `DROP TABLE sessions`)' \
+	$'conn.ExecContext(ctx, `ALTER TABLE sessions RENAME TO sessions_old`)'
+run_case $'sessions: the migration runs on every start and signs everybody out' \
+	fail \
+	./internal/auth \
+	$'TestTheMigrationRunsOnceAndKeepsTheSessionsItDidNotWrite' \
+	$'no longer resolves' \
+	internal/store/store.go \
+	$'	if current {\n		return nil\n	}' \
+	$'	if false && current {\n		return nil\n	}'
+run_case $'sessions: the CSRF token is keyed on the storage hash, not the cookie' \
+	fail \
+	./internal/auth \
+	$'TestCSRFStaysBoundToTheCookieValue' \
+	$'CSRFToken =' \
+	internal/auth/auth.go \
+	$'	m.Write([]byte(session))' \
+	$'	m.Write([]byte(sessionKey(session)))'
+run_case $'sessions: a reworded journal reason for the reset is not a fault' \
+	pass \
+	./internal/auth \
+	$'TestOldClearTextSessionsAreEndedAndErasedByTheMigration' \
+	$'' \
+	internal/store/store.go \
+	$'"session tokens are now stored as hashes; everybody signs in again once"' \
+	$'"sessions ended because tokens are now kept as hashes"'
+
+# 62. A locked account that tells its state is the fault; so is the fast one,
+# the one that skips the hash, and the one that has its own words.
+run_case $'sign-in: a locked account says it is locked' \
+	fail \
+	./internal/auth \
+	$'TestEveryFailedSignInSaysTheSame' \
+	$'a locked account says' \
+	internal/auth/auth.go \
+	$'	if u.LockedUntil > now {\n		burn(password)\n		return nil, LoginRefused, nil\n	}' \
+	$'	if u.LockedUntil > now {\n		burn(password)\n		return nil, fmt.Sprintf("locked for another %ds after repeated failures", int(u.LockedUntil-now)), nil\n	}'
+run_case $'sign-in: a locked account says it is locked, seen through the form' \
+	fail \
+	./internal/web \
+	$'TestEveryFailedSignInLooksTheSameFromOutside' \
+	$'a locked account answers' \
+	internal/auth/auth.go \
+	$'	if u.LockedUntil > now {\n		burn(password)\n		return nil, LoginRefused, nil\n	}' \
+	$'	if u.LockedUntil > now {\n		burn(password)\n		return nil, fmt.Sprintf("locked for another %ds after repeated failures", int(u.LockedUntil-now)), nil\n	}'
+run_case $'sign-in: a locked account skips the password hash' \
+	fail \
+	./internal/auth \
+	$'TestALockedAccountCostsAsMuchAsAnUnknownOne' \
+	$'skips the password hash' \
+	internal/auth/auth.go \
+	$'	if u.LockedUntil > now {\n		burn(password)\n' \
+	$'	if u.LockedUntil > now {\n'
+run_case $'sign-in: an unknown account gets words of its own' \
+	fail \
+	./internal/auth \
+	$'TestEveryFailedSignInSaysTheSame' \
+	$'wrong password says' \
+	internal/auth/auth.go \
+	$'	if u == nil {\n		burn(password)\n		return nil, LoginRefused, nil\n	}' \
+	$'	if u == nil {\n		burn(password)\n		return nil, "no such account", nil\n	}'
+run_case $'sign-in: the lockout itself is never reached' \
+	fail \
+	./internal/auth \
+	$'TestEveryFailedSignInSaysTheSame' \
+	$'the lockout itself is gone' \
+	internal/auth/auth.go \
+	$'if failed >= 3 {' \
+	$'if failed >= 3000 {'
+run_case $'sign-in: a reworded refusal is not a fault' \
+	pass \
+	./internal/auth \
+	$'TestEveryFailedSignInSaysTheSame' \
+	$'' \
+	internal/auth/auth.go \
+	$'"could not sign in: the account name or the password is not right, "' \
+	$'"sign-in refused: check the account name and the password, "'
+
+# 63. Modes, measured on the files the store really creates.
+run_case $'files: the data directory is created 0755' \
+	fail \
+	./internal/store \
+	$'TestTheDataDirectoryIsPrivateWhenTheStoreCreatesIt' \
+	$'want 0700' \
+	internal/store/store.go \
+	$'os.MkdirAll(dir, dirMode); err != nil {' \
+	$'os.MkdirAll(dir, 0o755); err != nil {'
+run_case $'files: the journal is created 0644' \
+	fail \
+	./internal/store \
+	$'TestTheJournalIsCreatedPrivateByTheFirstAppend' \
+	$'want 0600' \
+	internal/store/store.go \
+	$'os.O_APPEND|os.O_CREATE|os.O_WRONLY, fileMode)' \
+	$'os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)'
+run_case $'files: Open stops tightening files that already exist' \
+	fail \
+	./internal/store \
+	$'TestFilesFromBeforeTheChangeAreTightenedOnOpen' \
+	$'still has mode' \
+	internal/store/store.go \
+	$'	s.tighten(os.Chmod)\n	return s, nil' \
+	$'	return s, nil'
+run_case $'files: Open chmods a data directory that was already there' \
+	fail \
+	./internal/store \
+	$'TestAnExistingDataDirectoryKeepsItsMode' \
+	$'was changed to' \
+	internal/store/store.go \
+	$'os.MkdirAll(dir, dirMode); err != nil {' \
+	$'os.MkdirAll(dir, dirMode); err != nil || os.Chmod(dir, dirMode) != nil {'
+run_case $'files: a chmod the filesystem refuses is swallowed' \
+	fail \
+	./internal/store \
+	$'TestAChmodTheFilesystemRefusesIsAWarningNotSilenceNotAnOutage' \
+	$'warnings =' \
+	internal/store/store.go \
+	$'err != nil && !os.IsNotExist(err) {' \
+	$'err != nil && false {'
+run_case $'files: the session secret leaves the ignore list' \
+	fail \
+	./internal/store \
+	$'TestTheSessionSecretAndTheDatabaseFilesCannotBeCommitted' \
+	$'.gitignore has no' \
+	.gitignore \
+	$'\n.session-secret\n' \
+	$'\n'
+run_case $'files: the passports are written 0600, unreadable to the services they are for' \
+	fail \
+	./internal/stack \
+	$'TestSharedFilesStayReadableByOtherServices' \
+	$'other services can no longer read it' \
+	internal/stack/stack.go \
+	$'0o644); err != nil {' \
+	$'0o600); err != nil {'
+run_case $'files: a reworded warning about a refused chmod is not a fault' \
+	pass \
+	./internal/store \
+	$'TestAChmodTheFilesystemRefusesIsAWarningNotSilenceNotAnOutage' \
+	$'' \
+	internal/store/store.go \
+	$'"could not make %s private (0600): %v"' \
+	$'"%s is not private (0600), because: %v"'
+
+# 64. One construction planted in a real file per case. The first two are the
+# console and its command; the third is a package the console imports, which
+# only the second walk can see.
+run_case $'egress: a handler builds an http.Client' \
+	fail \
+	./internal/web \
+	$'TestTheConsoleConstructsNoOutboundHTTPClientOrRequest' \
+	$'http.Client' \
+	internal/web/server.go \
+	$'func (s *Server) logout(w http.ResponseWriter, r *http.Request) {\n' \
+	$'func (s *Server) logout(w http.ResponseWriter, r *http.Request) {\n	_ = &http.Client{}\n'
+run_case $'egress: the command line takes a reference to http.Get' \
+	fail \
+	./internal/web \
+	$'TestTheConsoleConstructsNoOutboundHTTPClientOrRequest' \
+	$'http.Get' \
+	cmd/costcrew/main.go \
+	$'func reportStoreWarnings(st *store.Store) {\n' \
+	$'func reportStoreWarnings(st *store.Store) {\n	_ = http.Get\n'
+run_case $'egress: a package the console imports starts building requests' \
+	fail \
+	./internal/web \
+	$'TestOnlyTheDeliveryPackageAmongThoseTheConsoleImportsReachesTheNetwork' \
+	$'want exactly [internal/deliver]' \
+	internal/money/money.go \
+	$'import (\n' \
+	$'import (\n	"net/http"\n' \
+	internal/money/money.go \
+	$'\nfunc (c Cents) Float() float64 { return float64(c) / 100 }' \
+	$'\nvar _ = http.Get\n\nfunc (c Cents) Float() float64 { return float64(c) / 100 }'
+run_case $'egress: the console imports the package that pushes budgets elsewhere' \
+	fail \
+	./internal/web \
+	$'TestOnlyTheDeliveryPackageAmongThoseTheConsoleImportsReachesTheNetwork' \
+	$'the console imports internal/enforce' \
+	internal/web/server.go \
+	$'import (\n' \
+	$'import (\n	_ "github.com/TAIPANBOX/costcrew/internal/enforce"\n'
+run_case $'egress: a second place reaches deliver.Call' \
+	fail \
+	./internal/web \
+	$'TestDeliverCallIsReachedFromExactlyOnePlace' \
+	$'is reached from' \
+	internal/web/planning.go \
+	$'	res, callErr := deliver.Call(' \
+	$'	_ = deliver.Call\n	res, callErr := deliver.Call('
+run_case $'egress: ordinary server code in a handler is not a fault' \
+	pass \
+	./internal/web \
+	$'TestTheConsoleConstructsNoOutboundHTTPClientOrRequest' \
+	$'' \
+	internal/web/server.go \
+	$'func (s *Server) logout(w http.ResponseWriter, r *http.Request) {\n' \
+	$'func (s *Server) logout(w http.ResponseWriter, r *http.Request) {\n	_ = http.StatusTeapot\n'
+
 echo
 if [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'

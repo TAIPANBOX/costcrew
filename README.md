@@ -109,9 +109,12 @@ flowchart TB
   every entry declares whether running it is metered per call.
 - **Produces**: twenty-two event types on the shared agent-event bus, registered in
   `agent-passport` SPEC 6.2 under the source `costcrew`, schema v0.2.
-- **Enforces**: nothing. `enforced: false` is stamped on every event, the console
-  makes no outbound call while serving a page, and `internal/enforce` is a
-  separate binary it never imports.
+- **Enforces**: nothing. `enforced: false` is stamped on every event, and
+  `internal/enforce` is a separate binary the console never imports. The
+  console makes no outbound call while serving a page, with one exception: the
+  supervisor's plan-ask (`POST /sprint/plan/ask`) calls a model through
+  `deliver.Call`, and only when `-gateway` or `-gateway-openai` is set. A test
+  refuses any other way for the console to build an outbound request.
 
 ## The three rules that make the numbers usable
 

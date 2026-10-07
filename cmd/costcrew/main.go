@@ -146,6 +146,7 @@ func setPassword(dir, spec, role string, weak bool) error {
 		return fmt.Errorf("opening the store in %s: %w", dir, err)
 	}
 	defer st.Close()
+	reportStoreWarnings(st)
 	au, err := auth.New(st, dir)
 	if err != nil {
 		return err
@@ -183,6 +184,7 @@ func rebuildFixture(dir string) error {
 		return fmt.Errorf("opening the store in %s: %w", dir, err)
 	}
 	defer st.Close()
+	reportStoreWarnings(st)
 	seeded := []string{
 		"comments", "artifacts", "tasks", "sprints",
 		"attribution", "anomalies", "drivers",
@@ -219,12 +221,24 @@ func abs(p string) string {
 	return p
 }
 
+// reportStoreWarnings prints what the store did not stop for: a data file it
+// could not make private, a vacuum that did not run (invariant 63). They are
+// warnings and not errors because refusing to start on a mount that will not
+// take a chmod would turn a hardening step into an outage; they are printed
+// because a hardening step that fails silently is no hardening.
+func reportStoreWarnings(st *store.Store) {
+	for _, w := range st.Warnings() {
+		log.Printf("CostCrew: WARNING: %s", w)
+	}
+}
+
 func run(addr, dir string, scfg stack.Config, gatewayURL, gatewayOpenAIURL string, behindTLS bool) error {
 	st, err := store.Open(dir)
 	if err != nil {
 		return fmt.Errorf("opening the store in %s: %w", dir, err)
 	}
 	defer st.Close()
+	reportStoreWarnings(st)
 
 	au, err := auth.New(st, dir)
 	if err != nil {
