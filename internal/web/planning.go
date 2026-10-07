@@ -19,6 +19,12 @@ import (
 	"github.com/TAIPANBOX/costcrew/internal/world"
 )
 
+// planAskTimeout is how long the plan-ask waits on a model. It is the longest
+// any handler in this console runs, which is why edge.go derives the server's
+// WriteTimeout from it: a response the server cuts off before the model has
+// answered is a call that was paid for and never shown.
+const planAskTimeout = 90 * time.Second
+
 var (
 	tplForecast   = page("forecast.html")
 	tplExplainers = page("explainers.html")
@@ -392,7 +398,7 @@ func (s *Server) askPlan(w http.ResponseWriter, r *http.Request) {
 		URL: s.gateway, OpenAIURL: s.gatewayOpenAI, RunID: runID, AgentID: stack.AgentURI(s.host, "supervisor"),
 		BudgetUSD: deliver.GatewayBudgetUSD(sup.PerTask, sup.PerTask),
 	}
-	ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), planAskTimeout)
 	defer cancel()
 	res, callErr := deliver.Call(ctx, sup.Engine, model, prompt, planAskMaxTokens, gw)
 	if callErr != nil {
