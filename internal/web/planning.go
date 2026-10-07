@@ -139,6 +139,29 @@ type explainerView struct {
 	TeamIsReal bool
 }
 
+// unpricedPlanAsk says why the plan-ask could not price its one call, which
+// is three different reasons and used to be one sentence ("an unknown or
+// unmetered engine") that was wrong for the local engine: local is in the
+// catalogue and metered, but only the runner configures it (-model-name,
+// -local-price-in/out, -max-run-tokens), so this console holds no price for it
+// and no token ceiling to bound it by instead.
+func unpricedPlanAsk(engine, model string) string {
+	metered, known := engines.Metered(engine)
+	switch {
+	case engine == engines.LocalID:
+		return "the supervisor runs on the local engine, a model your organisation hosts, and this " +
+			"console holds no price for it and no token ceiling to bound the call by instead (both are " +
+			"set on costcrew-run), so the call is refused before it is made; plan with costcrew-run, " +
+			"or put the supervisor on a priced engine"
+	case !known:
+		return fmt.Sprintf("%s is not an engine this console knows, so the call is refused before it is made", engine)
+	case !metered:
+		return fmt.Sprintf("%s is not billed per token, so this console has no price to bound the call by "+
+			"and refuses it before it is made", engine)
+	}
+	return fmt.Sprintf("%s has no price recorded for model %q, so the call is refused before it is made", engine, model)
+}
+
 func isRealTeam(name string) bool {
 	for _, t := range world.Teams {
 		if t.Name == name {
@@ -368,8 +391,7 @@ func (s *Server) askPlan(w http.ResponseWriter, r *http.Request) {
 	prompt := deliver.PlanPrompt(sup, packet)
 	worstMicros, model, priced := deliver.PlanWorstCase(sup, prompt, planAskMaxTokens)
 	if !priced {
-		s.refusePlanAsk(w, view, u, label, month, 0, fmt.Sprintf(
-			"%s cannot be priced (an unknown or unmetered engine), so the call is refused before it is made", sup.Engine))
+		s.refusePlanAsk(w, view, u, label, month, 0, unpricedPlanAsk(sup.Engine, model))
 		return
 	}
 	worstCents := money.Cents((worstMicros + 9_999) / 10_000)

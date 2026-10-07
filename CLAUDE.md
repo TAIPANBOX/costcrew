@@ -84,9 +84,9 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 1274 tests, 27 packages
-./scripts/gates-have-teeth.sh        # 353 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 412 scenarios, both directions
+go test ./...                        # 1296 tests, 27 packages
+./scripts/gates-have-teeth.sh        # 373 cases; needs a clean tree
+./scripts/features-are-bound.sh      # 434 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
@@ -131,18 +131,20 @@ which the library's own source makes unreachable through a real agent.
 Invariants 78 and 79 (what a download carries is data; no cache keeps a
 page or a download), with the unit team page, idryxsource's empty tools list,
 `spiffe.Close` under its lock and the parity tool's usage and audit-hash
-scrub beside them, added 20 tests (`internal/web/exports_are_data_test.go`,
+scrub, and the plan-ask's refusal for a local supervisor and the
+engines page's families (once #102 had landed the local engine) beside
+them, added 22 tests (`internal/web/exports_are_data_test.go`,
 3; `internal/web/no_store_test.go`, 4; `internal/web/download_internal_test.go`,
 3; `internal/connectors/tokenfusefocus_bounds_test.go`, 3;
 `internal/spiffe/close_test.go`, 3; `tools/idryxsource/entry_test.go`, 2;
-`tools/parity/main_flags_test.go`, 2), 18 `gates-have-teeth.sh` cases (15
-`fail`, 3 `pass`) and 20 scenarios (`features/downloads-are-data.feature`,
+`tools/parity/main_flags_test.go`, 2; `internal/web/local_engine_page_test.go`,
+2), 20 `gates-have-teeth.sh` cases (17 `fail`, 3 `pass`) and 22 scenarios (`features/downloads-are-data.feature`,
 `features/no-store.feature`, `features/links-and-tools-tell-the-truth.feature`,
-all new), and no route: 1222 -> 1242 tests, 329 -> 347 cases, 396 -> 416
+all new), and no route: 1274 -> 1296 tests, 353 -> 373 cases, 412 -> 434
 scenarios, 27 packages with tests, 60 GET routes and the write routes
-unchanged, re-measured on this branch after merging main at 2498e58 with the
+unchanged, re-measured on this branch after merging main at 4583aba with the
 three commands this block already names. `go test -cover` per package
-against that main: `internal/web` 86.5% -> 86.6%, `internal/connectors` 87.9%
+against main at 2498e58: `internal/web` 86.5% -> 86.6%, `internal/connectors` 87.9%
 -> 88.0%, `internal/spiffe` 94.4% -> 95.7%, `tools/idryxsource` 95.7% ->
 95.7%, `tools/parity` 94.6% -> 94.6%. CI's race step gained
 `./internal/spiffe/...`.

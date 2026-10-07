@@ -65,3 +65,18 @@ Feature: A link leads somewhere, and a tool says what it does
     When their audit pages are normalised for comparison
     Then the chain hash in the Go console's own markup is scrubbed, and a
       code cell that is not a hash is left alone
+
+  @test:TestAskPlanForALocalSupervisorSaysWhyItIsRefused
+  Scenario: a supervisor on the local engine is told why the plan-ask refuses
+    Given the supervisor runs on a model the organisation hosts
+    When a person asks the supervisor to plan from the console
+    Then the refusal says the console holds no price and no token ceiling for
+      that engine, and that the runner can plan with it, instead of calling it
+      an unknown or unmetered engine
+
+  @test:TestTheEnginesPageListsEveryFamilyInTheCatalogue
+  Scenario: the engines page lists every family the hire form offers
+    Given the catalogue holds five families of engine
+    When a person opens the engines page
+    Then each family is listed, the cloud's own models and a self-hosted model
+      included

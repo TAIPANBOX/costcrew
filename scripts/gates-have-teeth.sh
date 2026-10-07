@@ -2984,6 +2984,22 @@ run_case 'parity: the Go audit hash left unscrubbed' \
 	tools/parity/main.go \
 	$'regexp.MustCompile(`<td class="tight"><code>[0-9a-f]{8,64}</code></td>`)' \
 	$'regexp.MustCompile(`<td class="qtight"><code>[0-9a-f]{8,64}</code></td>`)'
+run_case 'plan-ask: a local supervisor refused with the generic sentence' \
+	fail \
+	./internal/web \
+	$'TestAskPlanForALocalSupervisorSaysWhyItIsRefused' \
+	$'the refusal does not say' \
+	internal/web/planning.go \
+	$'	case engine == engines.LocalID:' \
+	$'	case false && engine == engines.LocalID:'
+run_case 'engines page: only the first three families listed' \
+	fail \
+	./internal/web \
+	$'TestTheEnginesPageListsEveryFamilyInTheCatalogue' \
+	$'does not list the' \
+	internal/web/ops.go \
+	$'	for _, f := range families {' \
+	$'	for _, f := range families[:3] {'
 # 74 and 75. Sign-in through the organisation's identity provider. Every case
 # switches off one check the flow makes, in the place it is made, and requires
 # the test written for that check to go red for that reason. go-oidc's own
