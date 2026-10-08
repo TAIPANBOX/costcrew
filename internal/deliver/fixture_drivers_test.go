@@ -7,7 +7,7 @@ package deliver
 // generated-estate anomaly in every live run, silently. Nothing read the
 // provenance text; the desk is what Source means everywhere else (the live
 // apply path, internal/finops.applyDriver, writes t.Desk or an.Source).
-// Found by Yurii reading the code, not by any test, which is why these two
+// Found by reading the code, not by any test, which is why these two
 // exist.
 //
 // Moved here, unrenamed, from tools/run/fixture_drivers_test.go

@@ -216,8 +216,8 @@ type accountRow struct {
 
 // A viewer reads the account list and is served no controls.
 //
-// @yurii 2026-08-23, asked directly whether to close it: "лишай список
-// акаунтів". So this is a decision, not an oversight, and it should not be
+// @decided 2026-08-23, asked directly whether to close it: the account list
+// stays. So this is a decision, not an oversight, and it should not be
 // "fixed" by a later reader who notices that a read-only account can see every
 // username and role.
 //

@@ -1565,6 +1565,56 @@ run_case 'documents: a dangling bare name right after a URL is still caught' \
 	$'`docs/stack-connection.md` says what this console writes' \
 	$'https://github.com/TAIPANBOX/estate-gates/blob/main/PROVEN.md and `docs/stack-connections.md` says what this console writes'
 
+# Invariant 83: no tracked file quotes the owner or attributes a decision to
+# him by name. Every planted string is assembled from pieces ('@''...',
+# "Y"'urii') or written as \x escapes, because this script is itself a
+# tracked file the gate reads: a literal marker or a literal line of
+# Ukrainian here would turn the gate red on the clean tree and leave every
+# case below UNJUDGEABLE.
+run_case 'owner quotes: the old marker back on a scenario header' \
+	fail \
+	./internal/manifest \
+	$'^TestNoTrackedFileQuotesOrAttributesTheOwner$' \
+	$'the old provenance marker' \
+	features/handover.feature \
+	$'  @decided 2026-08-23' \
+	$'  @'"yurii"$' 2026-08-23'
+run_case 'owner quotes: a Ukrainian sentence back in a Go comment' \
+	fail \
+	./internal/manifest \
+	$'^TestNoTrackedFileQuotesOrAttributesTheOwner$' \
+	$'Ukrainian prose in a comment' \
+	internal/crew/plan.go \
+	$'// everything else. And on the chain of command: the agents decide\n' \
+	$'// everything else. And on the chain of command: the agents decide\n// \xd0\xbb\xd0\xb8\xd1\x88\xd0\xb0\xd0\xb9 \xd1\x8f\xd0\xba \xd1\x94\n'
+run_case 'owner quotes: guillemets around Cyrillic inside a Go string' \
+	fail \
+	./internal/manifest \
+	$'^TestNoTrackedFileQuotesOrAttributesTheOwner$' \
+	$'a quotation in guillemets' \
+	internal/crew/answer_test.go \
+	$'"non-latin text":            "' \
+	$'"non-latin text":            "\xc2\xab'
+run_case 'owner quotes: the owner named as the one who found it' \
+	fail \
+	./internal/manifest \
+	$'^TestNoTrackedFileQuotesOrAttributesTheOwner$' \
+	$'the owner named as the one' \
+	internal/world/series.go \
+	$'in every live run. Found by reading the code; two tests in' \
+	$'in every live run. Found by '"Y"$'urii reading the code; two tests in'
+
+# The pass case: the name as copyright holder, and both the name and the
+# marker's shape inside a URL, are not quotes or attributions of a decision.
+run_case 'owner quotes: a copyright line and the name inside URLs' \
+	pass \
+	./internal/manifest \
+	$'^TestNoTrackedFileQuotesOrAttributesTheOwner$' \
+	$'' \
+	features/handover.feature \
+	$'Feature: Somebody else can run it\n' \
+	$'Feature: Somebody else can run it\n# Copyright 2026 '"Y"$'urii Kostiuk\n# https://github.com/'"Y"$'urii-K/costcrew and <https://example.com/@'"yurii"$'/notes>\n'
+
 # Invariant 49: -behind-tls has to reach every cookie's own Secure bit, not
 # merely be read and then forgotten. This mutant is the regression the whole
 # flag exists to prevent: dropping it from setCookie's own decision reverts

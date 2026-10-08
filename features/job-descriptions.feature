@@ -2,25 +2,24 @@
 
 Feature: The crew decides according to its job descriptions
 
-  @yurii 2026-09-02
+  @decided 2026-09-02
   """
-  Вони мають вирішувати це все згідно своїх посадових інструкцій. І бажано,
-  щоб ці посадові інструкції чітко були виписані, що для супервайзера, що для
-  Фінопс-агента, щоб вони також чітко дотримувались.
-  """
-
-  @yurii 2026-09-02
-  """
-  Аналітик пропонує варіанти супервайзеру, а супервайзер питає власника
-  тільки тоді, коли він сам не може вирішити це питання, тобто, що
-  стосується безпосередньо взаємодії людей або прийняття якихось ключових
-  рішень.
+  The agents decide everything according to their job descriptions, and those
+  descriptions are written out clearly, for the supervisor and for the FinOps
+  agents alike, so that both follow them closely.
   """
 
-  @yurii 2026-09-02
+  @decided 2026-09-02
   """
-  він має сам не купувати, змінювати інфраструктуру, і тим більше переговори
-  з вендером проводити він сам особі не може.
+  An analyst offers options to the supervisor, and the supervisor asks the
+  owner only when it cannot decide the matter itself: where people deal with
+  each other directly, or where a key decision is to be made.
+  """
+
+  @decided 2026-09-02
+  """
+  An agent does not buy anything, does not change infrastructure, and least of
+  all negotiates with a vendor on its own.
   """
 
   @test:TestARoleCannotDecideAClassItDoesNotOwn

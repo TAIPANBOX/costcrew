@@ -6,10 +6,10 @@ package crew
 // each hold one B3 concern; Plan, PlanItem and Approve's caller-facing shape
 // do not change here, and Approve itself stays in crew.go, untouched.
 //
-// `@yurii 2026-09-02`, on what the supervisor is for: "він вже сам
-// розподіляє це все між агентами... в залежності від моделі, від всього,
-// задачі." And on the chain of command: "Вони мають вирішувати це все
-// згідно своїх посадових інструкцій."
+// `@decided 2026-09-02`, on what the supervisor is for: it distributes the
+// work among the agents itself, according to the task, the model and
+// everything else. And on the chain of command: the agents decide
+// everything according to their job descriptions.
 //
 // The five sources (B4-SPEC.md section 2): unowned anomalies and blocked
 // tasks are what main already reads, unchanged; cadence-due work, returned
@@ -116,7 +116,7 @@ const (
 // This chooses BETWEEN analysts already qualified by skill, desk and
 // headroom; it never changes an analyst's own engine, which is set at hire.
 // `@claude` 2026-09-02: this table, like the day-counts below, is not yet
-// his words -- see the report's NOT PROVEN line.
+// a recorded decision -- see the report's NOT PROVEN line.
 var engineByClass = map[string]string{
 	skillAnomalyTriage:     engineCheap,
 	"variance-commentary":  engineCheap,

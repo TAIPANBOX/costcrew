@@ -6,10 +6,10 @@ package crew
 // to each say a version of this themselves: the seeded mission/cadence/
 // audience columns (mandate.go's missionFor, cadenceFor, audienceFor), the
 // analyst card's "Job description" panel (internal/web/analyst.go), and the
-// live runner's prompt packet (tools/run/mandate.go). `@yurii 2026-09-02`:
-// "Вони мають вирішувати це все згідно своїх посадових інструкцій. І бажано,
-// щоб ці посадові інструкції чітко були виписані, що для супервайзера, що для
-// Фінопс-агента, щоб вони також чітко дотримувались."
+// live runner's prompt packet (tools/run/mandate.go). `@decided 2026-09-02`:
+// the agents decide everything according to their job descriptions, and
+// those descriptions are written out clearly, for the supervisor and for the
+// FinOps agents alike, so that both follow them closely.
 //
 // scripts/roles-are-bound.sh holds this file against the code and against
 // world.Crew, both ways. The validation in mustLoadRoles below is a narrower

@@ -48,8 +48,8 @@ type Recorder interface {
 // exactly as before this file existed.
 //
 // Applying an option always resolves its deliverable's whole choice:
-// `@yurii 2026-09-02`, "давати на вибір якісь певні рішення" is offering a
-// CHOICE, never independent actions, so every other still-live option
+// `@decided 2026-09-02`: an analyst offers a choice of decisions, which is
+// offering a CHOICE, never independent actions, so every other still-live option
 // crew.LiveRivalsOf finds -- the rest of THIS deliverable's own
 // alternatives, and, for anomaly.explain, the other side of a "two analysts
 // answered differently" question living on a different deliverable
@@ -369,7 +369,7 @@ func queueShowbackTasks(db *sql.DB, period string, sprintID int) error {
 // internal/detect.Driver.Covers has no periodicity column anywhere -- the
 // window IS the extent of the rhythm -- so a recurring driver with a
 // one-day window is a contradiction the store cannot see: expected on one
-// day, repeating nowhere (DRIVER-WINDOW-SPEC.md section 1, found by Yurii
+// day, repeating nowhere (DRIVER-WINDOW-SPEC.md section 1, found by
 // reading this function while C3 landed ProjectWithDrivers). For
 // driver.one-time on a task WITH an anomaly, that anomaly's own day is the
 // window's only source, target or none ("that day IS the driver, nothing to

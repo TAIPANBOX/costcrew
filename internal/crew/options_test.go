@@ -3,10 +3,9 @@ package crew_test
 // The options block: B3-SPEC.md section 2's rules, each with a test, and the
 // hostile inputs section 6 names.
 //
-// `@yurii 2026-09-02`: "він має давати на вибір якісь певні рішення, які він
-// вважає за потрібне спочатку супервайзеру, тобто головному агенту, а вже
-// той має запитувати юзера, користувача, власника цих агентів, що робити
-// далі."
+// `@decided 2026-09-02`: an analyst offers a choice of the decisions it
+// thinks right, first to the supervisor, the lead agent, and the supervisor
+// then asks the user who owns these agents what to do next.
 
 import (
 	"database/sql"

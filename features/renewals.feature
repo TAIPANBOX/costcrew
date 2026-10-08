@@ -2,14 +2,15 @@
 
 Feature: The SaaS manager's calendar, and where it stops
 
-  @yurii 2026-09-02
+  @decided 2026-09-02
   """
-  більш повною мірою замінити людей на цих посадах
+  The crew is to take over, more fully, the work that people in these roles do
+  today.
   """
 
-  @yurii 2026-09-02
+  @decided 2026-09-02
   """
-  переговори з вендером проводити він сам особі не може
+  An agent does not negotiate with a vendor on its own.
   """
 
   @test:TestRenewalsSectionListsTheCalendarWithNoticeDeadlines

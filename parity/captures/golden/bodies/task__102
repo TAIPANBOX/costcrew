@@ -74,7 +74,7 @@
 <p>From the GCP desk view, ML team activity is defined by a sharp spike on 2026-08-06 in Compute Engine, registering 33.63 USD against a 7.84 USD baseline—an excess of 25.78 USD with a z-score of 23.6 [qid:f3780134]. Earlier pattern deviations include GKE anomalies on 2026-04-07 (5.22 USD, z-score 8.04) and 2026-04-09 (5.37 USD, z-score 5.70) [qid:f3780134]. Team-level spending aggregates for the current partial month lack specific qids in the provided figures and are omitted per desk rules.</p>
 <p><strong>Classified Drivers</strong></p>
 <p>Two drivers are classified in the pack:
-*   <strong>heraldyx launch run</strong>: One-time event on 2026-08-02 scoped to Amazon Elastic Compute Cloud (AWS EC2), per source @yurii.
+*   <strong>heraldyx launch run</strong>: One-time event on 2026-08-02 scoped to Amazon Elastic Compute Cloud (AWS EC2), per source @owner.
 *   <strong>cloud range exercise</strong>: One-time event on 2026-08-04 marked for teardown the same day, scoped universally (*).</p>
 <p>Neither driver is associated with GCP service line items in the current data set.</p>
 <p><strong>Impact of Burst Pool Approval on GCP Projection</strong></p>
