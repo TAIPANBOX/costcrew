@@ -2,6 +2,7 @@ package web
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 	"net/url"
 	"sort"
@@ -72,9 +73,32 @@ func monthly(db *sql.DB, where string, arg any) ([]monthRow, error) {
 	return out, rows.Err()
 }
 
-func breakdown(db *sql.DB, where string, arg any, keyCol string) ([]spendRow, money.Cents, error) {
-	rows, err := db.Query(`SELECT `+keyCol+`, SUM(billed_cents) FROM charges
-		WHERE `+where+` GROUP BY 1 ORDER BY 2 DESC`, arg)
+// breakdownColumns are the only charges columns a page filters or groups a
+// breakdown by. A column name cannot be a bound parameter, so it is the one
+// part of the statement that is text, and it is held to this list.
+var breakdownColumns = map[string]bool{"team": true, "source": true, "service": true, "category": true}
+
+// periodBreakdownQuery is the statement every breakdown in a period runs. The
+// filtered value and the period are bound parameters, never text: the period
+// comes from ?period= and was once concatenated in, held only by s.period
+// accepting nothing but a month the store already has (invariant 85).
+func periodBreakdownQuery(filterCol, keyCol string) (string, error) {
+	if !breakdownColumns[filterCol] || !breakdownColumns[keyCol] {
+		return "", fmt.Errorf("a breakdown by %q filtered on %q: not a column a page breaks spend down by",
+			keyCol, filterCol)
+	}
+	return `SELECT ` + keyCol + `, SUM(billed_cents) FROM charges
+		WHERE ` + filterCol + `=? AND substr(day,1,7)=? GROUP BY 1 ORDER BY 2 DESC`, nil
+}
+
+// periodBreakdown is one charges column's spend in one month, split by
+// another, largest first.
+func periodBreakdown(db *sql.DB, filterCol, value, period, keyCol string) ([]spendRow, money.Cents, error) {
+	q, err := periodBreakdownQuery(filterCol, keyCol)
+	if err != nil {
+		return nil, 0, err
+	}
+	rows, err := db.Query(q, value, period)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -165,12 +189,12 @@ func (s *Server) team(w http.ResponseWriter, r *http.Request) {
 	}
 	period, months := s.period(r)
 
-	byService, total, err := breakdown(s.db, `team=? AND substr(day,1,7)='`+period+`'`, name, "service")
+	byService, total, err := periodBreakdown(s.db, "team", name, period, "service")
 	if err != nil {
 		http.Error(w, "store unavailable", http.StatusInternalServerError)
 		return
 	}
-	byDesk, _, _ := breakdown(s.db, `team=? AND substr(day,1,7)='`+period+`'`, name, "source")
+	byDesk, _, _ := periodBreakdown(s.db, "team", name, period, "source")
 	trend, _ := monthly(s.db, `team=?`, name)
 
 	anoms, _ := anomaly.List(s.db, anomaly.Filter{})
@@ -284,12 +308,12 @@ func (s *Server) desk(w http.ResponseWriter, r *http.Request) {
 	}
 	period, months := s.period(r)
 
-	byTeam, total, err := breakdown(s.db, `source=? AND substr(day,1,7)='`+period+`'`, name, "team")
+	byTeam, total, err := periodBreakdown(s.db, "source", name, period, "team")
 	if err != nil {
 		http.Error(w, "store unavailable", http.StatusInternalServerError)
 		return
 	}
-	byService, _, _ := breakdown(s.db, `source=? AND substr(day,1,7)='`+period+`'`, name, "service")
+	byService, _, _ := periodBreakdown(s.db, "source", name, period, "service")
 	trend, _ := monthly(s.db, `source=?`, name)
 
 	anoms, _ := anomaly.List(s.db, anomaly.Filter{Source: name})

@@ -2245,7 +2245,7 @@ run_case $'unit rule: a name that opens as a spreadsheet formula is accepted' \
 	./internal/crew \
 	$'TestUnitRuleTargetHostileInputs' \
 	$'spreadsheet_formula' \
-	internal/crew/unitrule.go \
+	internal/plainname/plainname.go \
 	$'strings.ContainsRune("=+-@", rune(s[0]))' \
 	$'strings.ContainsRune("", rune(s[0]))'
 run_case $'unit rule: the supervisor applies an allocation.rule on its own' \
@@ -4609,6 +4609,134 @@ run_case $'prompt floor: the rule written as one max is not a fault' \
 	internal/deliver/local.go \
 	$'\tif previous > reported {\n\t\treturn previous, true\n\t}\n\treturn reported, false\n' \
 	$'\treturn max(reported, previous), previous > reported\n'
+# Invariant 85: a period from ?period= is a bound parameter, never SQL text.
+run_case $'period: concatenated into the breakdown query again' \
+	fail \
+	./internal/web \
+	$'TestAHostilePeriodIsAValueNotSQL' \
+	$'the period was read as SQL' \
+	internal/web/drill.go \
+	$'\t"fmt"\n' \
+	$'\t"fmt"\n\t"strings"\n' \
+	internal/web/drill.go \
+	$'\trows, err := db.Query(q, value, period)' \
+	$'\trows, err := db.Query(strings.Replace(q, "substr(day,1,7)=?", "substr(day,1,7)=\'"+period+"\'", 1), value)'
+run_case $'period: any column name written into the breakdown query' \
+	fail \
+	./internal/web \
+	$'TestABreakdownRefusesAColumnItWasNotWrittenFor' \
+	$'want a refusal naming the column' \
+	internal/web/drill.go \
+	$'\tif !breakdownColumns[filterCol] || !breakdownColumns[keyCol] {' \
+	$'\tif false {'
+run_case $'period: a reworded comment on the query builder is not a fault' \
+	pass \
+	./internal/web \
+	$'TestAHostilePeriodIsAValueNotSQL|TestABreakdownReadsOnlyTheNamedPeriod|TestABreakdownRefusesAColumnItWasNotWrittenFor' \
+	$'' \
+	internal/web/drill.go \
+	$'// periodBreakdown is one charges column\'s spend in one month, split by' \
+	$'// periodBreakdown is the spend of one charges column in one month, split by'
+# Invariant 86: the rightsizing, budget recommendation and SaaS seats readers
+# bound their refusal list and name a link they did not follow.
+run_case $'csv readers: every refused row named, however many' \
+	fail \
+	./internal/connectors \
+	$'TestEveryCSVReaderCountsRefusedRowsWholeButNamesOnlyTheFirstFew' \
+	$'refused rows, want the first' \
+	internal/connectors/csvfolder.go \
+	$'\tif len(t.named) < focusRefusalsShown {\n\t\tt.named = append(t.named, reason)' \
+	$'\tif true {\n\t\tt.named = append(t.named, reason)' \
+	internal/connectors/csvfolder.go \
+	$'\t\tif len(t.named) >= focusRefusalsShown {\n\t\t\tbreak' \
+	$'\t\tif false {\n\t\t\tbreak'
+run_case $'csv readers: a link passed over in silence' \
+	fail \
+	./internal/connectors \
+	$'TestEveryCSVReaderNamesALinkItDidNotFollow' \
+	$'does not name the link it skipped' \
+	internal/connectors/csvfolder.go \
+	$'\treturn files, skipped, nil\n}' \
+	$'\treturn files, nil, nil\n}'
+run_case $'csv readers: a link in the folder followed' \
+	fail \
+	./internal/connectors \
+	$'TestEveryCSVReaderNamesALinkItDidNotFollow' \
+	$'the link\'s target was read' \
+	internal/connectors/tokenfusefocus.go \
+	$'\t\tif !e.Type().IsRegular() {' \
+	$'\t\tif false && !e.Type().IsRegular() {'
+run_case $'csv readers: a reworded comment on the shared walk is not a fault' \
+	pass \
+	./internal/connectors \
+	$'TestEveryCSVReader|TestARefusalTallyCountsEveryRefusalAndNamesTheFirstFew' \
+	$'' \
+	internal/connectors/csvfolder.go \
+	$'// skippedNote is the sentence a reader gives for a folder entry it did not' \
+	$'// skippedNote is what a reader says about a folder entry it did not'
+# Invariant 87: one rule for a unit's name, called by the reader and by the
+# unit rule.
+run_case $'unit name: a second copy of the rule written beside the call' \
+	fail \
+	./internal/crew \
+	$'TestTheUnitNameRuleIsWrittenOnce' \
+	$'is written in 2 files' \
+	internal/crew/unitrule.go \
+	$'\treturn plainname.Check("allocation.rule\'s "+label, s, max)' \
+	$'\tif strings.ContainsRune("=+-@", rune(s[0])) {\n\t\treturn "formula"\n\t}\n\treturn plainname.Check("allocation.rule\'s "+label, s, max)'
+run_case $'unit name: a zero-width or control character let through' \
+	fail \
+	./internal/plainname \
+	$'TestCheckRefusesEveryShapeANamePrintedElsewhereMustNotHave' \
+	$'want a reason beginning with the label' \
+	internal/plainname/plainname.go \
+	$'if unicode.IsControl(r) || unicode.Is(unicode.Cf, r) ||' \
+	$'if false && unicode.IsControl(r) || false && unicode.Is(unicode.Cf, r) ||'
+run_case $'unit name: the bound read one byte loose' \
+	fail \
+	./internal/plainname \
+	$'TestCheckHoldsTheBoundItIsGiven' \
+	$'an 81-byte name' \
+	internal/plainname/plainname.go \
+	$'\tif len(s) > max {' \
+	$'\tif len(s) > max+1 {'
+run_case $'unit name: a reworded comment on the rule is not a fault' \
+	pass \
+	./internal/plainname \
+	$'TestCheckRefusesEveryShapeANamePrintedElsewhereMustNotHave|TestCheckHoldsTheBoundItIsGiven' \
+	$'' \
+	internal/plainname/plainname.go \
+	$'// Check says what is wrong with s as a printed name, or "" when nothing is:' \
+	$'// Check names what is wrong with s as a printed name, or "" when nothing is:'
+# Invariant 88: the mode line's example pseudonym is no token a name can draw,
+# and Reidentify never reads it as one.
+run_case $'prompt example: back to a real token\'s shape' \
+	fail \
+	./internal/deliver \
+	$'TestTheModeLineExampleHasAShapeNoRealTokenCanTake' \
+	$'has a real token\'s shape' \
+	internal/deliver/promptdata.go \
+	$'const PromptExampleToken = "team-xxxx"' \
+	$'const PromptExampleToken = "team-7f3a"'
+run_case $'prompt example: Reidentify reads it as a name once the pattern would admit it' \
+	fail \
+	./internal/deliver \
+	$'TestReidentifyNeverReadsTheModeLineExampleAsAName' \
+	$'the example was read as a team\'s token' \
+	internal/deliver/pseudonym.go \
+	$'-[0-9a-f]{4,}`)' \
+	$'-[0-9a-fx]{4,}`)' \
+	internal/deliver/pseudonym.go \
+	$'\t\tif strings.EqualFold(text[s:e], PromptExampleToken) {' \
+	$'\t\tif false && strings.EqualFold(text[s:e], PromptExampleToken) {'
+run_case $'prompt example: a wider token pattern alone is held by the guard' \
+	pass \
+	./internal/deliver \
+	$'TestReidentifyNeverReadsTheModeLineExampleAsAName' \
+	$'' \
+	internal/deliver/pseudonym.go \
+	$'-[0-9a-f]{4,}`)' \
+	$'-[0-9a-fx]{4,}`)'
 
 echo
 if [ -n "$(git status --porcelain)" ]; then

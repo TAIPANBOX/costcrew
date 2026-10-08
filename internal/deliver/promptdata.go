@@ -78,19 +78,27 @@ const WithheldLabel = "[label withheld]"
 // nothing, said so. A best-effort mask over a half-read list is a leak.
 const maskFailed = "[withheld: the names in this installation could not be read, so nothing is sent unmasked]"
 
+// PromptExampleToken is the example pseudonym the mode line shows the model.
+// It says what a token looks like and is never one: x is not a hex digit, so
+// no name can draw it (a token is kind- and hex, pseudonym.go), and Reidentify
+// passes over it whatever the store holds. The example used to be team-7f3a,
+// a real token's shape, which one team in 65,536 could draw; a model copied it
+// into a draft on a live run (invariant 88).
+const PromptExampleToken = "team-xxxx"
+
 // ModeLine is the one line every prompt carries to say which policy it was
 // built under, so a recorded prompt can be read without knowing the flags.
 func (p *Policy) ModeLine() string {
 	switch p.Mode() {
 	case PromptMasked:
 		return "Prompt data policy: masked. Names of teams, desks, services, agents, people, " +
-			"invoices, vendors and resources are replaced by stable tokens such as team-7f3a " +
+			"invoices, vendors and resources are replaced by stable tokens such as " + PromptExampleToken + " " +
 			"(the same name is always the same token); amounts, dates and counts are real; " +
 			"free text is withheld."
 	case PromptAggregates:
 		return "Prompt data policy: aggregates. Only per-desk and per-team totals, variances, " +
 			"KPIs and series sums are sent; team and desk names are stable tokens such as " +
-			"team-7f3a; amounts and dates are real; nothing at the level of a row is sent."
+			PromptExampleToken + "; amounts and dates are real; nothing at the level of a row is sent."
 	}
 	return "Prompt data policy: full. Names, figures and text are sent as they are."
 }

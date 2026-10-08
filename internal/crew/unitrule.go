@@ -22,9 +22,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"unicode"
-	"unicode/utf8"
 
+	"github.com/TAIPANBOX/costcrew/internal/plainname"
 	"github.com/TAIPANBOX/costcrew/internal/world"
 )
 
@@ -32,7 +31,7 @@ const (
 	// UnitMaxBytes bounds a unit name. A gateway's unit is a short slug; the
 	// bound is generous and exists so a hostile file cannot make a name that
 	// fills a statement.
-	UnitMaxBytes = 128
+	UnitMaxBytes = plainname.UnitMaxBytes
 	// BusinessUnitMaxBytes bounds the label a rule gives a unit.
 	BusinessUnitMaxBytes = 80
 
@@ -105,33 +104,14 @@ func ParseUnitTarget(raw json.RawMessage) (t UnitTarget, isUnit bool, reason str
 	return t, true, ""
 }
 
-// namePlain is the one rule for a name this console prints: present, exactly
-// as typed (no padding to disagree with the reader's own trimmed value),
-// valid text within its bound, no control, format (zero-width, text
-// direction) or line-separating character, and not starting with a
-// character that makes a spreadsheet read the cell as a formula.
+// namePlain is the unit rule's reading of plainname.Check, the one rule the
+// FOCUS reader holds x_unit to as well: present and exactly as typed (no
+// padding to disagree with the reader's own trimmed value), then Check.
 func namePlain(label, s string, max int) string {
 	if s == "" || strings.TrimSpace(s) != s {
 		return fmt.Sprintf("allocation.rule's %s %q is empty or padded with whitespace", label, s)
 	}
-	if len(s) > max {
-		return fmt.Sprintf("allocation.rule's %s is %d bytes, over the %d byte limit", label, len(s), max)
-	}
-	if !utf8.ValidString(s) {
-		return fmt.Sprintf("allocation.rule's %s is not valid text", label)
-	}
-	for _, r := range s {
-		if unicode.IsControl(r) || unicode.Is(unicode.Cf, r) ||
-			unicode.Is(unicode.Zl, r) || unicode.Is(unicode.Zp, r) {
-			return fmt.Sprintf("allocation.rule's %s %q carries a control, format or "+
-				"separator character", label, s)
-		}
-	}
-	if strings.ContainsRune("=+-@", rune(s[0])) {
-		return fmt.Sprintf("allocation.rule's %s %q begins with %q, which a spreadsheet "+
-			"opens as a formula", label, s, s[:1])
-	}
-	return ""
+	return plainname.Check("allocation.rule's "+label, s, max)
 }
 
 // UnitRuleRefusal is the part of the answer that needs the store: whether

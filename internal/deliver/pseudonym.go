@@ -465,6 +465,12 @@ func (p *Policy) Reidentify(text string) string {
 				continue
 			}
 		}
+		// The mode line's example is never a name, even if a token ever came
+		// to share its spelling: tokenRe already refuses it (x is not hex),
+		// and this holds it if that pattern is ever widened.
+		if strings.EqualFold(text[s:e], PromptExampleToken) {
+			continue
+		}
 		real, ok := p.rev[strings.ToLower(text[s:e])]
 		if !ok {
 			continue

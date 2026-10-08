@@ -26,11 +26,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode"
-	"unicode/utf8"
 
 	"github.com/TAIPANBOX/costcrew/internal/estate"
 	"github.com/TAIPANBOX/costcrew/internal/money"
+	"github.com/TAIPANBOX/costcrew/internal/plainname"
 )
 
 // ------------------------------------------------------------------ schema
@@ -79,8 +78,8 @@ CREATE INDEX IF NOT EXISTS ai_calls_agent ON ai_calls(agent, day);
 //
 // source is always "ai" today: this reader is TokenFuse's own FOCUS export,
 // and every charges row it derives is source='ai' too (deriveCharges,
-// below); the cloud FOCUS readers this reader's own package comment expects
-// (AWS, Azure, GCP) will write their own desk here once they exist. date_end
+// below). The cloud FOCUS readers (cloudfocus.go, costcrew#98) do not write
+// this table: a Purchase row there is money on the bill, not coverage. date_end
 // is read from the row's own ChargePeriodEnd -- not required, not read
 // anywhere else in this file today -- rather than a seventh CommitmentDiscount*
 // column FOCUS 1.2 does not define: a Purchase row's own charge period is a
@@ -187,17 +186,9 @@ func tokenFuseFocusReader(db *sql.DB, cfg map[string]string, opt ImportOptions) 
 	if path == "" {
 		return "", fmt.Errorf("no folder is configured; set the path and save before importing")
 	}
-	files, skipped, err := focusFolder(path)
+	files, skipped, err := csvFolder(path)
 	if err != nil {
 		return "", err
-	}
-	if len(files) == 0 && len(skipped) > 0 {
-		return "", fmt.Errorf("no regular *.csv or *.csv.gz files in %s; passed over, "+
-			"each a symbolic link or not a regular file, not followed: %s", path,
-			strings.Join(skipped, ", "))
-	}
-	if len(files) == 0 {
-		return "", fmt.Errorf("no *.csv or *.csv.gz files found in %s", path)
 	}
 
 	// Refusal 1: a generated estate is not mixed with real money. Checked
@@ -268,8 +259,7 @@ func tokenFuseFocusReader(db *sql.DB, cfg map[string]string, opt ImportOptions) 
 
 	sum := newFocusSummary()
 	for _, name := range skipped {
-		sum.FileRefusals = append(sum.FileRefusals,
-			name+": a symbolic link or not a regular file, not followed")
+		sum.FileRefusals = append(sum.FileRefusals, skippedNote(name))
 	}
 	daysTouched := map[string]bool{}
 	for i, f := range files {
@@ -371,7 +361,7 @@ func replaceGeneratedEstate(tx *sql.Tx) error {
 // xUnitMaxBytes bounds x_unit, the same 128 bytes a unit name is held to
 // wherever a rule names one: a gateway's unit is a short slug, and the bound
 // exists so a hostile file cannot write a name that fills a statement.
-const xUnitMaxBytes = 128
+const xUnitMaxBytes = plainname.UnitMaxBytes
 
 // focusRefusalsShown is how many refused rows the sentence names; the count
 // of refused rows is always whole.
@@ -383,7 +373,8 @@ const focusRefusalsShown = 20
 // carries, and a statement a team reads names. So it is at most xUnitMaxBytes,
 // valid text, free of control, format (zero-width, text direction) and
 // line-separating characters, and does not begin with a character a
-// spreadsheet reads as a formula. Empty is allowed: a row with no unit is a
+// spreadsheet reads as a formula (plainname.Check, the same rule
+// crew.ParseUnitTarget holds a unit rule to). Empty is allowed: a row with no unit is a
 // row nobody attributed, which charges records as NULL. The value arrives
 // already trimmed, so padding is not a question here.
 //
@@ -393,30 +384,10 @@ func plainUnitName(s string) string {
 	if s == "" {
 		return ""
 	}
-	if len(s) > xUnitMaxBytes {
-		return fmt.Sprintf("x_unit is %d bytes, over the %d byte limit", len(s), xUnitMaxBytes)
-	}
-	if !utf8.ValidString(s) {
-		return "x_unit is not valid text"
-	}
-	for _, r := range s {
-		if unicode.IsControl(r) || unicode.Is(unicode.Cf, r) ||
-			unicode.Is(unicode.Zl, r) || unicode.Is(unicode.Zp, r) {
-			return fmt.Sprintf("x_unit %q carries a control, format or separator character", s)
-		}
-	}
-	if strings.ContainsRune("=+-@", rune(s[0])) {
-		return fmt.Sprintf("x_unit %q begins with %q, which a spreadsheet opens as a formula", s, s[:1])
-	}
-	return ""
+	return plainname.Check("x_unit", s, xUnitMaxBytes)
 }
 
 // -------------------------------------------------------------- the folder
-
-func focusFiles(dir string) ([]string, error) {
-	files, _, err := focusFolder(dir)
-	return files, err
-}
 
 // focusFolder lists the *.csv and *.csv.gz files in dir that are regular
 // files, and names the ones it passed over for being something else.

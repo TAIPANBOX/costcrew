@@ -13,8 +13,8 @@ package connectors
 // (runBudgetRecommendationImport, processBudgetRecommendationFile) because
 // the CSV mechanics -- stream the file, refuse a bad row by name, never hold
 // the whole thing in memory, strip a BOM, accept CRLF -- are the same
-// mechanics every reader in this package already uses; `focusFiles` and
-// `plural` are reused from tokenfusefocus.go rather than copied.
+// mechanics every reader in this package already uses; `csvFolder` and
+// `plural` are reused (csvfolder.go, tokenfusefocus.go) rather than copied.
 //
 // THE GUARDRAIL, stated here because this is the only place
 // budget_recommendations is written: a row here is citation material for a
@@ -288,8 +288,8 @@ func parseAzureAdvisorBudgetRow(rec []string, col map[string]int) (budgetRecRow,
 type budgetRecSummary struct {
 	FilesRead    int
 	RowsAccepted int
-	Refusals     []string
-	FileRefusals []string
+	Refusals     refusalTally
+	FileRefusals refusalTally
 }
 
 func (s *budgetRecSummary) Sentence(dryRun bool) string {
@@ -300,22 +300,22 @@ func (s *budgetRecSummary) Sentence(dryRun bool) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s %d file%s, %d row%s", verb, s.FilesRead, plural(s.FilesRead),
 		s.RowsAccepted, plural(s.RowsAccepted))
-	if n := len(s.Refusals); n > 0 {
+	if n := s.Refusals.count; n > 0 {
 		verb2 := "refused"
 		if dryRun {
 			verb2 = "would be refused"
 		}
-		fmt.Fprintf(&b, ". %d row%s %s: %s", n, plural(n), verb2, strings.Join(s.Refusals, "; "))
+		fmt.Fprintf(&b, ". %d row%s %s: %s", n, plural(n), verb2, s.Refusals.clause())
 	}
-	if n := len(s.FileRefusals); n > 0 {
-		fmt.Fprintf(&b, ". %d file%s not read: %s", n, plural(n), strings.Join(s.FileRefusals, "; "))
+	if n := s.FileRefusals.count; n > 0 {
+		fmt.Fprintf(&b, ". %d file%s not read: %s", n, plural(n), s.FileRefusals.clause())
 	}
 	b.WriteString(".")
 	return b.String()
 }
 
 // runBudgetRecommendationImport is the whole engine, shared by all three
-// readers: walk the folder (focusFiles, tokenfusefocus.go's own *.csv/
+// readers: walk the folder (csvFolder, tokenfusefocus.go's own *.csv/
 // *.csv.gz walk), stream each file, and upsert every accepted row keyed by
 // provider+team+month -- a recommendation is a current snapshot, not a log,
 // the same reasoning this package's own rightsizing-style readers apply to a
@@ -332,12 +332,9 @@ func runBudgetRecommendationImport(db *sql.DB, cfg map[string]string, opt Import
 	if path == "" {
 		return "", fmt.Errorf("no folder is configured; set the path and save before importing")
 	}
-	files, err := focusFiles(path)
+	files, skipped, err := csvFolder(path)
 	if err != nil {
 		return "", err
-	}
-	if len(files) == 0 {
-		return "", fmt.Errorf("no *.csv or *.csv.gz files found in %s", path)
 	}
 
 	var tx *sql.Tx
@@ -362,15 +359,18 @@ func runBudgetRecommendationImport(db *sql.DB, cfg map[string]string, opt Import
 
 	importedAt := time.Now().UTC().Format(time.RFC3339)
 	sum := &budgetRecSummary{}
+	for _, name := range skipped {
+		sum.FileRefusals.add(skippedNote(name))
+	}
 	for _, f := range files {
 		parsed, ferr := processBudgetRecommendationFile(f, required, parse)
 		if ferr != nil {
-			sum.FileRefusals = append(sum.FileRefusals, fmt.Sprintf("%s: %v", filepath.Base(f), ferr))
+			sum.FileRefusals.add(fmt.Sprintf("%s: %v", filepath.Base(f), ferr))
 			continue
 		}
 		sum.FilesRead++
 		sum.RowsAccepted += len(parsed.accepted)
-		sum.Refusals = append(sum.Refusals, parsed.refusals...)
+		sum.Refusals.addAll(parsed.refusals)
 		if ins == nil {
 			continue
 		}
@@ -394,7 +394,7 @@ func runBudgetRecommendationImport(db *sql.DB, cfg map[string]string, opt Import
 // processFocusFile's own return does.
 type parsedBudgetRecFile struct {
 	accepted []budgetRecRow
-	refusals []string
+	refusals refusalTally
 }
 
 // processBudgetRecommendationFile reads one file start to finish with
@@ -463,13 +463,13 @@ func processBudgetRecommendationFile(path string, required []string, parse budge
 		}
 		rowNo++
 		if len(rec) != nCols {
-			out.refusals = append(out.refusals, fmt.Sprintf("%s row %d: %d field(s), header has %d",
+			out.refusals.add(fmt.Sprintf("%s row %d: %d field(s), header has %d",
 				filepath.Base(path), rowNo, len(rec), nCols))
 			continue
 		}
 		row, err := parse(rec, col)
 		if err != nil {
-			out.refusals = append(out.refusals, fmt.Sprintf("%s row %d: %v", filepath.Base(path), rowNo, err))
+			out.refusals.add(fmt.Sprintf("%s row %d: %v", filepath.Base(path), rowNo, err))
 			continue
 		}
 		out.accepted = append(out.accepted, row)
