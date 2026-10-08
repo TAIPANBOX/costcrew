@@ -4809,6 +4809,82 @@ run_case $'re-export: the identity\'s field order is not the property' \
 	$'const callKeySQL = `COALESCE(run_id,\'\') || \'|\' || ts || \'|\' || model' \
 	$'const callKeySQL = `ts || \'|\' || COALESCE(run_id,\'\') || \'|\' || model'
 
+# Invariant 90: /ai and the AI desk read a credential as a credential, carry
+# the gateway's reason for every block, point at the gateway connector, and
+# never link a gateway agent id to a /staff card that does not exist.
+run_case $'ai page: a credential labelled as an agent' \
+	fail \
+	./internal/web \
+	$'TestTheAIPageNamesACredentialAndTheReasonForEachBlock' \
+	$'does not say "credential, not an agent"' \
+	internal/web/templates/ai.html \
+	$'{{if .Credential}} <span class="chip grain">' \
+	$'{{if false}} <span class="chip grain">'
+run_case $'ai page: the reserved-amount label whatever the reason' \
+	fail \
+	./internal/web \
+	$'TestTheAIPageNamesACredentialAndTheReasonForEachBlock' \
+	$'says a reserved amount is missing for a call refused for identity' \
+	internal/web/templates/ai.html \
+	$'{{if .OnlyIdentityRefusals}}refused for identity' \
+	$'{{if false}}refused for identity'
+run_case $'ai page: the blocked-by-reason panel dropped' \
+	fail \
+	./internal/web \
+	$'TestTheAIPageNamesACredentialAndTheReasonForEachBlock' \
+	$'Blocked, by the gateway' \
+	internal/web/templates/ai.html \
+	$'{{if .BlockedBy}}' \
+	$'{{if false}}'
+run_case $'ai page: a month mixing two exports not noted' \
+	fail \
+	./internal/web \
+	$'TestTheAIPageNotesAMonthMixingExportsFromBeforeAndAfter170' \
+	$'This month mixes' \
+	internal/finops/ai.go \
+	$'\tif before == 0 || from170 == 0 {' \
+	$'\tif true {'
+run_case $'anomalies: a gateway agent id linked to a /staff card' \
+	fail \
+	./internal/web \
+	$'TestACausedByAgentOffTheRosterIsNotLinkedToAStaffCard' \
+	$'links the gateway\'s agent id' \
+	internal/web/templates/anomalies.html \
+	$'{{if and (eq .CausedByKind "agent") .CausedByStaff}}' \
+	$'{{if eq .CausedByKind "agent"}}'
+run_case $'kpis: agent attribution says no gateway reader exists' \
+	fail \
+	./internal/web \
+	$'TestNothingSaysNoGatewayReaderExists' \
+	$'agent-attribution refusal says no gateway reader exists' \
+	internal/finops/kpi.go \
+	$'"no gateway export has been read yet, so AI spend can be "+' \
+	$'"model calls do not carry an agent header through a gateway yet, so AI spend can be "+'
+run_case $'ai-spend packet: the block reason dropped' \
+	fail \
+	./internal/deliver \
+	$'TestAISpendSectionCarriesTheBlockReason' \
+	$'does not carry' \
+	internal/deliver/packet.go \
+	$'\tif len(byReason) > 0 {' \
+	$'\tif false && len(byReason) > 0 {'
+run_case $'ai desk: a key: row not read as a credential' \
+	fail \
+	./internal/finops \
+	$'TestACredentialRowIsMarkedAndItsBlocksCarryTheirReason' \
+	$'is not marked as a credential' \
+	internal/finops/ai.go \
+	$'func IsCredential(agent string) bool { return strings.HasPrefix(agent, CredentialPrefix) }' \
+	$'func IsCredential(agent string) bool { return false && strings.HasPrefix(agent, CredentialPrefix) }'
+run_case $'ai page: the reason panel\'s wording is not the property' \
+	pass \
+	./internal/web \
+	$'TestTheAIPageNamesACredentialAndTheReasonForEachBlock' \
+	$'' \
+	internal/web/templates/ai.html \
+	$'<p class="note">A blocked call costs nothing: the gateway refused it.' \
+	$'<p class="note">A blocked call costs nothing; the gateway refused it.'
+
 echo
 if [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'

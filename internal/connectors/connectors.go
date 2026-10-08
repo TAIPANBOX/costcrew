@@ -258,7 +258,10 @@ var Catalogue = []Connector{
 			"gateways to, are separate bills.",
 		Note: "A FOCUS 1.2 CSV (or .csv.gz) with the gateway's own extension columns: an " +
 			"agent id and a run id on every row, so this is the first connector that can " +
-			"attribute AI spend to an agent rather than only a team. USD only in this step.",
+			"attribute AI spend to an agent rather than only a team. From TokenFuse 1.7.0 a call " +
+			"refused for identity is filed under the credential that sent it (key: and the key's " +
+			"name), never under the agent it claimed, and every row names its credential and, " +
+			"when blocked, why. USD only in this step.",
 		Doc: "https://focus.finops.org/",
 		Inputs: []Input{{Name: "path", Label: "Folder tokenfuse focus-export wrote to",
 			Hint: "the local path, or drop the folder on this page"}},

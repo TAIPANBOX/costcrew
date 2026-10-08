@@ -12,6 +12,7 @@
 </div>
 
 {{if .MixedNote}}<p class="msg">{{.MixedNote}}</p>{{end}}
+{{if .ExportNote}}<p class="msg">{{.ExportNote}}</p>{{end}}
 
 <div class="panel">
   <h2>Price and volume, separated</h2>
@@ -43,7 +44,8 @@
 <div class="panel">
   <h2>By agent</h2>
   <div class="body">
-    <p>Read from the gateway's own extension columns, not derived: every row a connector like TokenFuse FOCUS wrote carries the agent that made the call.</p>
+    <p>Read from the gateway's own extension columns, not derived: every row a connector like TokenFuse FOCUS wrote carries the agent that made the call.
+      A call the gateway refused for identity is the exception: from TokenFuse 1.7.0 it is filed under the credential that sent it, <code>key:</code> and the key's name, never under the agent it claimed, so such a row is a credential and not an agent.</p>
   </div>
   <div class="scroll">
   <table>
@@ -51,22 +53,45 @@
     <tbody>
     {{range .AgentRows}}
       <tr>
-        <td>{{.Agent}}</td>
+        <td>{{.Agent}}{{if .Credential}} <span class="chip grain">credential, not an agent</span><span class="sub">calls refused for identity are filed under the key that sent them</span>{{end}}</td>
         <td class="num">{{.Calls}}</td>
         <td class="num">{{.Tokens}}</td>
         <td class="num">{{.Cost}}</td>
-        <td class="num">{{if .BlockedCalls}}{{.BlockedCalls}}<span class="sub">reserved amount not carried in this export</span>{{else}}0{{end}}</td>
+        <td class="num">{{if .BlockedCalls}}{{.BlockedCalls}}<span class="sub">{{.BlockedText}}</span><span class="sub">{{if .OnlyIdentityRefusals}}refused for identity: never forwarded, nothing reserved or spent{{else}}reserved amount not carried in this export{{end}}</span>{{else}}0{{end}}</td>
       </tr>
     {{end}}
     </tbody>
   </table>
   </div>
 </div>
+{{if .BlockedBy}}
+<div class="panel">
+  <h2>Blocked, by the gateway's reason</h2>
+  <div class="body">
+    <p class="note">A blocked call costs nothing: the gateway refused it. Why it refused is the gateway's own reason, carried in exports from TokenFuse 1.7.0 on.</p>
+  </div>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Reason</th><th class="num">Calls</th><th class="num">Filed under</th><th>What it means</th></tr></thead>
+    <tbody>
+    {{range .BlockedBy}}
+      <tr>
+        <td>{{if .Known}}<code>{{.Label}}</code>{{else}}<span class="note">{{.Label}}</span>{{end}}</td>
+        <td class="num">{{.Calls}}</td>
+        <td class="num">{{.Filers}}</td>
+        <td>{{.Meaning}}</td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+</div>
+{{end}}
 {{else}}
 <div class="panel">
   <h2>What this cannot tell you</h2>
   <div class="body">
-    <p>Which <strong>agent</strong> spent it. The charge rows carry a model and a workload and no agent, so everything here is at team grain. Naming an individual analyst needs model calls to carry an agent header through a gateway.</p>
+    <p>Which <strong>agent</strong> spent it. The charge rows carry a model and a workload and no agent, so everything here is at team grain. The gateway's own per-call rows name the agent: point the <a href="/connectors/tokenfuse-focus">TokenFuse FOCUS export</a> connector at the folder its export writes to, and this page shows the spend by agent.</p>
   </div>
 </div>
 {{end}}

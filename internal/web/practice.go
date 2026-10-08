@@ -231,12 +231,23 @@ func (s *Server) ai(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var agentRows []finops.AgentAIRow
-	var mixedNote string
+	var mixedNote, exportNote string
+	var blockedBy []finops.ReasonCount
 	if real {
 		if agentRows, err = finops.AIByAgent(s.db, month); err != nil {
 			http.Error(w, "store unavailable", http.StatusInternalServerError)
 			return
 		}
+		if blockedBy, err = finops.BlockedByReason(s.db, month); err != nil {
+			http.Error(w, "store unavailable", http.StatusInternalServerError)
+			return
+		}
+		before, from170, err := finops.ExportMix(s.db, month)
+		if err != nil {
+			http.Error(w, "store unavailable", http.StatusInternalServerError)
+			return
+		}
+		exportNote = finops.ExportMixNote(before, from170)
 		if mixedNote, err = finops.MixedMoneyNote(s.db, "ai", month); err != nil {
 			http.Error(w, "store unavailable", http.StatusInternalServerError)
 			return
@@ -281,8 +292,10 @@ func (s *Server) ai(w http.ResponseWriter, r *http.Request) {
 		HasOutcomes bool
 		AgentRows   []finops.AgentAIRow
 		MixedNote   string
+		ExportNote  string
+		BlockedBy   []finops.ReasonCount
 	}{s.shellFor(r, "AI spend", "ai"), rows, total, thousands(tokens), len(list), sp,
-		crewCost, crewTasks, month, real, hasOutcomes, agentRows, mixedNote})
+		crewCost, crewTasks, month, real, hasOutcomes, agentRows, mixedNote, exportNote, blockedBy})
 }
 
 // thousands groups a large count so a reader can tell a million from ten.

@@ -443,10 +443,12 @@ func (s *Server) anomalies(w http.ResponseWriter, r *http.Request) {
 	// keep operating on plain anomaly.Anomaly values rather than needing a
 	// copy for every added field.
 	told := s.toldAnomalies()
+	staff := s.rosterNames()
 	viewRows := make([]anomalyRow, 0, len(rows))
 	for _, a := range rows {
 		owner, _ := crew.OwnerOfAnomaly(s.db, a.ID)
-		viewRows = append(viewRows, anomalyRow{Anomaly: a, Owner: owner, Told: told[a.ID]})
+		viewRows = append(viewRows, anomalyRow{Anomaly: a, Owner: owner, Told: told[a.ID],
+			CausedByStaff: staff[a.CausedBy]})
 	}
 
 	s.render(w, tplAnomalies, struct {
@@ -498,6 +500,8 @@ func (s *Server) anomalyPage(w http.ResponseWriter, r *http.Request) {
 		HasHint    bool
 		Hint       anomaly.Hint
 		HintProb   string
+		// CausedByStaff: see anomalyRow's own field of the same name.
+		CausedByStaff bool
 	}{
 		s.shellFor(r, "Anomaly "+a.ID, "anomalies"),
 		a,
@@ -507,6 +511,7 @@ func (s *Server) anomalyPage(w http.ResponseWriter, r *http.Request) {
 		a.State != anomaly.Accepted && a.State != anomaly.Dismissed,
 		daysText(a, time.Now()),
 		hasHint, hint, strconv.FormatFloat(hint.Probability, 'f', 2, 64),
+		s.rosterNames()[a.CausedBy],
 	})
 }
 

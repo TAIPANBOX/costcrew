@@ -84,15 +84,27 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 1496 tests, 31 packages
-./scripts/gates-have-teeth.sh        # 483 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 528 scenarios, both directions
+go test ./...                        # 1504 tests, 31 packages
+./scripts/gates-have-teeth.sh        # 492 cases; needs a clean tree
+./scripts/features-are-bound.sh      # 534 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 govulncheck ./...                    # CI runs it, pinned at v1.8.0; reports only vulnerabilities the code can reach
 staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refused PR #19 on two findings the list above never asked for; a staticcheck built for an older Go cannot read this module, so on such a machine CI is the only place it runs
 ```
+
+Invariant 90 (/ai and the AI desk read a credential as a credential, carry
+the gateway's reason for every block, point at the gateway connector, and
+never link a gateway agent id to a /staff card) added 8 tests
+(`internal/finops/ai_credentials_test.go`, 3;
+`internal/deliver/ai_desk_reasons_test.go`, 1;
+`internal/web/ai_credentials_page_test.go`, 4), 9 `gates-have-teeth.sh`
+cases (8 `fail`, 1 `pass`), 6 scenarios (`features/ai-desk-credentials.feature`,
+new) and two fixtures (`internal/connectors/testdata/tokenfuse-focus-1.7.0-2026-10-07.csv`
+and its pre-1.7.0 twin), and no route: 1496 -> 1504 tests, 31 packages
+unchanged, 483 -> 492 cases, 528 -> 534 scenarios, re-measured on this branch
+with the three commands this block already names.
 
 Invariant 89 (a re-export of the same gateway calls supersedes the earlier
 rows; TokenFuse 1.7.0's key and block reason are kept; the connector page
@@ -5642,6 +5654,74 @@ an absent invariant.
     in two such files would be read as one; and the identity assumes the
     exporter writes a call's instant the same way every time, which a later
     TokenFuse that changed its timestamp format would break.
+
+90. **A credential reads as a credential, a blocked call says why, and no
+    page says the gateway reader is missing.** Invariant 89 stores TokenFuse
+    1.7.0's `x_key_id` and `x_block_reason`; nothing read them, so `/ai` still
+    printed a `key:<key id>` row in the By agent table as though it were an
+    agent and labelled every blocked call "reserved amount not carried in this
+    export", which is false for a call refused for identity (never forwarded,
+    nothing reserved). Three pages and the KPI library also still said that
+    naming an agent "needs model calls to carry an agent header through a
+    gateway", written before the TokenFuse FOCUS reader existed, and an AI
+    anomaly caused by a gateway's agent id linked to `/staff/agent://...`,
+    which answers 404 because that agent is not on the crew roster.
+
+    Now `finops.AIByAgent` marks a row whose agent begins `key:` as a
+    credential (`IsCredential`) and splits its blocked calls by reason
+    (`AgentAIRow.Blocked`, "not in this export" when the row's file carried no
+    reason column). `/ai` labels such a row "credential, not an agent", prints
+    each row's blocked calls by reason, and says "refused for identity: never
+    forwarded, nothing reserved or spent" when every block on the row was
+    `identity_mismatch`, keeping the reserved-amount sentence for every other
+    reason. A "Blocked, by the gateway's reason" panel counts the month's
+    blocked calls per reason with the number of agents or credentials they
+    are filed under and what the reason means (`ReasonCount.Meaning`: the
+    meaning is spelled out only for `identity_mismatch` and the two budget
+    reasons, and every other Breaker reason is named as the gateway names
+    it). The By agent intro and the connector's own note say that a call
+    refused for identity is filed under the credential. When a month holds
+    calls from both kinds of export (`ExportMix`, by `key_id` NULL or not),
+    `/ai` says the older ones were settled by a gateway that did not yet count
+    a thinking model's reasoning as output or price every listed model at its
+    list rate, and that a call re-exported by 1.7.0 from an older trace keeps
+    its older settlement, so the note claims only what the export shows. The
+    ai-spend packet carries "blocked by the gateway's reason: ...", a sentence
+    on what `identity_mismatch` means, each agent line's reasons and
+    "[a credential, not an agent]" on a `key:` line; the reason counts are a
+    desk-wide figure and stay under `-prompt-data aggregates`. `/ai`'s
+    generated-path panel, the agent-attribution KPI's refusal and a
+    team-grain AI anomaly now point at the TokenFuse FOCUS export connector;
+    a team-grain anomaly on a cloud desk says instead that a cloud bill never
+    names the agent. `/anomalies` and an anomaly's page link a caused-by agent
+    to `/staff/<name>` only when that name is on the roster
+    (`anomalyRow.CausedByStaff`, `Server.rosterNames`), and print it unlinked
+    otherwise.
+    *(gate: `TestACredentialRowIsMarkedAndItsBlocksCarryTheirReason`,
+    `TestBlockedByReasonCountsEveryReasonAndNamesAnOlderExport`,
+    `TestExportMixNoteOnlyWhenAMonthHoldsBoth` in `internal/finops`;
+    `TestAISpendSectionCarriesTheBlockReason` in `internal/deliver`;
+    `TestTheAIPageNamesACredentialAndTheReasonForEachBlock` (assertions scoped
+    to the one row they are about), `TestTheAIPageNotesAMonthMixingExportsFromBeforeAndAfter170`,
+    `TestNothingSaysNoGatewayReaderExists`,
+    `TestACausedByAgentOffTheRosterIsNotLinkedToAStaffCard` (a roster
+    analyst's cause must still link) in `internal/web`. @measured the web and
+    deliver tests against this branch's base with the product files reverted
+    2026-10-08: every assertion red, among them "key:imposter's row does not
+    say \"credential, not an agent\"", "/anomalies links the gateway's agent
+    id to a /staff card that does not exist" and the packet's missing "blocked
+    by the gateway's reason"; the finops tests red by compile ("key.Credential
+    undefined"). Eight `fail` cases and one `pass` case in
+    `gates-have-teeth.sh`: the credential label dropped; the reserved-amount
+    label whatever the reason; the reason panel dropped; the export-mix note
+    never shown; a gateway agent linked to `/staff`; the KPI's old sentence
+    back; the packet's reasons dropped; `IsCredential` always false; and the
+    panel's wording changed, which must stay green.)* What this does not do:
+    the meaning of a Breaker reason other than the three named is not
+    explained; a pre-1.7.0 row cannot be told to be an identity refusal, so
+    it still reads as its claimed agent's block until a 1.7.0 export of the
+    same call replaces it (invariant 89); and the export-mix note reads which
+    exporter wrote a row, not which gateway settled the call.
 
 ## Decisions that have no gate yet
 
