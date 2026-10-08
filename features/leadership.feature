@@ -2,15 +2,16 @@
 
 Feature: The leadership page names itself, shows four live figures, and reads only
 
-  @yurii 2026-09-03
+  @decided 2026-09-03
   """
-  Можливо, треба ще подивитись по інтерфейсу самого CostCrew. Можливо, там
-  якісь нові речі, які можна було б додати з тих, що ми імплементували.
+  Look at CostCrew's own interface again for anything new worth adding from
+  what has been implemented.
   """
 
-  @yurii 2026-09-02
+  @decided 2026-09-02
   """
-  більш повною мірою замінити людей на цих посадах.
+  The crew is to take over, more fully, the work that people in these roles do
+  today.
   """
 
   @test:TestTheLeadershipPageShowsTheFourFiguresForTheLatestPeriod

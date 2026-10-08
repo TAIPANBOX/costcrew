@@ -188,9 +188,8 @@ func TestPartnerBudgetSectionIgnoresARecommendationForAMonthWithNoRealBudgetRow(
 
 // -------------------------------------------------------- the whole path
 //
-// `@yurii 2026-09-03`: «Так, звісно, роби все, про що ми говоримо, треба
-// протестувати і зробити як варіант використання.» -- not satisfied by unit
-// tests on the section alone.
+// `@decided 2026-09-03`: everything discussed is to be done, tested, and
+// built as a use case -- not satisfied by unit tests on the section alone.
 
 // TestEndToEndAnImportedRecommendationReachesAPostedDeliverable walks the
 // whole path spec section 4 names: import a recommendation CSV through the

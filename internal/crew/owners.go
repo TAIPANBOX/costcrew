@@ -23,7 +23,7 @@ import (
 // the people whose first names these are. Fixture data ends up in screenshots,
 // and a screenshot is a poor place to publish somebody's family name.
 var Owners = []string{
-	"y.mercer",    // Yurii
+	"y.mercer",    // the installation's owner
 	"t.langley",   // Tania
 	"a.whitfield", // Anna
 	"j.ashby",     // Jack

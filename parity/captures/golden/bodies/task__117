@@ -110,7 +110,7 @@
 <li>Budget variance is likely calculated against a prorated or full-month budget target, not the partial actual</li>
 <li>The team's <strong>run-rate</strong> remains elevated: their August anomaly on 2026-08-06 shows Compute Engine spiking to <strong>$33.63</strong> vs. <strong>$7.84</strong> baseline (z=23.6) [qid:f3780134]</li>
 </ul>
-<p><strong>Single biggest mover:</strong> The heraldyx launch on 2026-08-02 [driver record]—a one-time event attributed to @yurii—drove the ml team's Compute Engine anomaly. This explains the sustained budget pressure despite headline usage reductions elsewhere.</p>
+<p><strong>Single biggest mover:</strong> The heraldyx launch on 2026-08-02 [driver record]—a one-time event attributed to @owner—drove the ml team's Compute Engine anomaly. This explains the sustained budget pressure despite headline usage reductions elsewhere.</p>
 <hr />
 <h2>Forecast Accuracy Context</h2>
 <p>GCP forecast worst-case absolute variance is <strong>13.3%</strong> [qid:4f560380], matching AWS's ESR value but reflecting a "walk" ladder position vs. AWS's same-labeled metric. The trailing-3-month mean method shows consistent pessimistic bias (forecasts low): May -13.3%, June -7.6%, July -11.2%.</p>

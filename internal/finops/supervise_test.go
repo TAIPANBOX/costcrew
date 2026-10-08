@@ -407,8 +407,8 @@ func plantDeliverableWithTargets(t *testing.T, db *sql.DB, sprintID int, desk, o
 
 // Red first (test a from the review): two options of the SAME deliverable
 // naming different causes for the same anomaly are alternatives, never a
-// contradiction with each other -- `@yurii 2026-09-02`, "давати на вибір
-// якісь певні рішення" is offering a CHOICE, one deliverable's own. Both
+// contradiction with each other -- `@decided 2026-09-02`: an analyst
+// offers a choice of decisions, which is offering a CHOICE, one deliverable's own. Both
 // survive the pass as one carried choice on one task.
 func TestOptionsWithinOneDeliverableNeverContradict(t *testing.T) {
 	db, sprintID := superviseTestDB(t)

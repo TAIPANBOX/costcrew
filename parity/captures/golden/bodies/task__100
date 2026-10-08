@@ -77,7 +77,7 @@
 <p><strong>Single Biggest Mover</strong></p>
 <p>The Usage category shows the largest absolute movement, falling from 2,477.132 USD [qid:f8b13338] to 1,217.088 USD [qid:0925bda9]. No driver explains this variance; it is strictly attributable to the partial-month reporting window (current through 2026-08-15) versus the prior full month.</p>
 <p><strong>Drivers &amp; Anomaly Status</strong></p>
-<p>Two one-time drivers appear in the intake log for early August: a “heraldyx launch run” on 2026-08-02 (scope: Amazon Elastic Compute Cloud - Compute, per @yurii) and a “cloud range exercise” on 2026-08-04 (scope *, torn down same day). Neither explains the month-over-month contraction, which is calendar-driven.</p>
+<p>Two one-time drivers appear in the intake log for early August: a “heraldyx launch run” on 2026-08-02 (scope: Amazon Elastic Compute Cloud - Compute, per @owner) and a “cloud range exercise” on 2026-08-04 (scope *, torn down same day). Neither explains the month-over-month contraction, which is calendar-driven.</p>
 <p>The anomaly register [qid:6666867a] contains no items for the current pulse window; flagged events date to January and July 2026 (VMware Licensing spikes and a Colo Power &amp; Cooling excursion), all prior to the current period.</p>
 <p><strong>Forecast Commentary</strong></p>
 <p>The selected model (moving-average 28-day) projects 2,417.258 USD [qid:2c1e49a2] for the next 30 days, bounded by a confidence interval of 2,363.858–2,470.659 USD [qid:cbaa95ba]. This trajectory implies August will finish within normal variance of July’s run-rate once the full month closes.</p>

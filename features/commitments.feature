@@ -2,14 +2,15 @@
 
 Feature: The commitment analyst's case is measured, not generated
 
-  @yurii 2026-09-02
+  @decided 2026-09-02
   """
-  більш повною мірою замінити людей на цих посадах
+  The crew is to take over, more fully, the work that people in these roles do
+  today.
   """
 
-  @yurii 2026-09-02
+  @decided 2026-09-02
   """
-  він має сам не купувати
+  An agent does not buy anything on its own.
   """
 
   @test:TestCommitmentColumnsFillTheCommitmentsTable

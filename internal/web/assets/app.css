@@ -130,7 +130,7 @@ textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; 
 
    Then it was made static below 960px, which was WORSE: in the flow it moves
    with the page, so a trackpad's momentum slides the whole list under the
-   cursor after the finger has left it. Yurii clicked Accounts four times and
+   cursor after the finger has left it. A person clicked Accounts four times and
    got Desks, Crew and Budgets first, which are 466px, 682px and 574px away
    from it. Those are momentum distances, not layout errors.
 
@@ -253,8 +253,8 @@ tbody tr:hover td { background: var(--surface-2); }
  *
  * That is a deliberate trade and it has been made. Covering the numbers too
  * would take the clickable width from 50% to all of it, and would make a
- * figure hard to select with a mouse. @yurii 2026-08-24, asked directly:
- * "лишай як є, числа важливіші". Do not "finish the job" by extending the
+ * figure hard to select with a mouse. @decided 2026-08-24, asked directly:
+ * leave it as it is, the numbers matter more. Do not "finish the job" by extending the
  * overlay across td.num; the half that is inert is the half that was chosen.
  *
  * Having both needs JavaScript, to tell a click from a drag. This console has

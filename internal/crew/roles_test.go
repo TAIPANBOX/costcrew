@@ -278,8 +278,8 @@ func TestRoleForOnANameNothingMatches(t *testing.T) {
 }
 
 // C6-SPEC.md, the Gherkin scenario "the negotiation is a person's"
-// (features/renewals.feature). `@yurii 2026-09-02`: "переговори з вендером
-// проводити він сам особі не може". vendor.negotiate is owned by "nobody"
+// (features/renewals.feature). `@decided 2026-09-02`: an agent does not
+// negotiate with a vendor on its own. vendor.negotiate is owned by "nobody"
 // in roles.yaml, the same as purchase and infra.change, so MayDecide already
 // refuses it for every link this practice has, including the owner's own --
 // this test names that refusal for the two SaaS roles specifically, rather

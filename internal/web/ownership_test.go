@@ -381,8 +381,8 @@ func TestATransferMovesTheAuthorityWithTheAgent(t *testing.T) {
 
 // A transfer splits the spend at the moment it happens.
 //
-// @yurii 2026-08-22, when transfer was built: "Відповідно, витрати також мають
-// переходити на інших власників агента." With ownership recorded on the charge
+// @decided 2026-08-22, when transfer was built: an agent's spend moves to its
+// new owner accordingly. With ownership recorded on the charge
 // rather than read from the agent, that now has a sharper answer than "all of
 // it moves": the work still OPEN moves, because the new owner takes it on and
 // will answer for what it costs from here; the work already closed stays with

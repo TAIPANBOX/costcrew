@@ -2,9 +2,9 @@ package web
 
 // The owner's answer. B3-SPEC.md section 5.
 //
-// `@yurii 2026-09-02`: "супервайзер питає власника тільки тоді, коли він сам
-// не може вирішити це питання, тобто, що стосується безпосередньо взаємодії
-// людей або прийняття якихось ключових рішень."
+// `@decided 2026-09-02`: the supervisor asks the owner only when it cannot
+// decide the matter itself, meaning where people deal with each other
+// directly or where a key decision is to be made.
 
 import (
 	"database/sql"

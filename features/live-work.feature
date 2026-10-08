@@ -2,17 +2,16 @@
 
 Feature: A deliverable says whether a person's money bought it
 
-  @yurii 2026-08-24
+  @decided 2026-08-24
   """
-  А якщо я додам тимчасові API ключі від Claude, від Anthropic, від
-  OpenRouter... з реальним підключенням агентів і так далі.
+  Temporary API keys for Anthropic and OpenRouter are to be added, so the
+  agents run against real models.
   """
 
-  @yurii 2026-08-24
+  @decided 2026-08-24
   """
-  То давай ми їй передамо ці два ключі, шо я тобі дав від OpenRouter і від
-  Claude... шоб в неї був повноцінний варіант запуску разом з ключами від
-  OpenRouter і від Claude.
+  The handover copy is to carry both keys, OpenRouter's and Anthropic's, so
+  whoever receives it has a complete way to run it with real models.
   """
 
   The estate ships 279 generated drafts so that a new installation has
@@ -146,17 +145,17 @@ Feature: A deliverable says whether a person's money bought it
       is built from, because the promise made is one token per byte and a
       promise that covers two thirds of the string is not that promise
 
-  @yurii 2026-09-01
+  @decided 2026-09-01
   """
-  в мене задача, щоб ми могли встановлювати наші сервіси як на CostCrew, так і
-  на довільні агенти, які вже працюють в клієнта, наприклад, на AWS Bedrock, на
-  GCP, і на інші.
+  The estate's services are to be installable both beside CostCrew and on any
+  agents a client already runs, for example on AWS Bedrock, on GCP and
+  elsewhere.
   """
 
-  @yurii 2026-09-01
+  @decided 2026-09-01
   """
-  продумай, як так зробити, щоб не збирати кожен раз під різні платформи, під
-  різні інфраструктури.
+  Find a way that does not need a separate build for every platform and every
+  infrastructure.
   """
 
   # @test:TestAnEngineWithNoEnvVarCanStillBeMetered

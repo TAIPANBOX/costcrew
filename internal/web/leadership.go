@@ -7,7 +7,7 @@ package web
 // "Explainers" and showed operators a Commission form, and the pack's own
 // four numbers existed only as prose inside the body. This is the page that
 // spec asks for instead: its own route, its own template, the four figures
-// as real tiles, no sidebar entry (invariant 19 is Yurii's call, not mine),
+// as real tiles, no sidebar entry (invariant 19 is the owner's call, not mine),
 // reached from /kpis and /explainers instead.
 //
 // finops.Executive, crew.Explainers and renderBody are reused, not copied.
