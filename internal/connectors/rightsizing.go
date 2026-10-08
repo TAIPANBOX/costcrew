@@ -14,8 +14,9 @@ package connectors
 //
 // A recommendation ROW here is a current snapshot, not a log: the primary
 // key is desk+resource, and a re-import upserts it. Unlike the FOCUS
-// reader's ai_calls (an append-only ledger keyed by file hash and row
-// number, because a call happened once and stays true forever), a
+// reader's ai_calls (a ledger of calls, one row per call however many
+// exports carried it, because a call happened once and stays true forever:
+// invariant 89), a
 // provider's rightsizing recommendation for one resource is a single
 // standing fact that supersedes whatever the last import said about the
 // same resource.

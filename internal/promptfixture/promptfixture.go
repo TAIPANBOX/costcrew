@@ -256,10 +256,10 @@ func plantAI(db *sql.DB) error {
 		if _, err := db.Exec(`INSERT INTO ai_calls
 			(file_sha256, row_no, ts, day, team, agent, run_id, parent_run_id,
 			 provider, model, tokens_in, tokens_out, billed_microusd, blocked, basis,
-			 outcome, tool_calls, invoice_id)
-			VALUES ('planted-fixture',?,?,?,?,?,?,?,'Anthropic',?,1000,500,?,0,'settled',?,0,?)`,
+			 outcome, tool_calls, invoice_id, key_id, block_reason)
+			VALUES ('planted-fixture',?,?,?,?,?,?,?,'Anthropic',?,1000,500,?,0,'settled',?,0,?,?,'')`,
 			i+1, day+"T00:00:00Z", day, "ml-platform", c.agent, c.runID, c.runID,
-			c.model, c.micros, outcome, invoice); err != nil {
+			c.model, c.micros, outcome, invoice, fmt.Sprintf("fixture-credential-%02d", i+1)); err != nil {
 			return err
 		}
 		if _, err := db.Exec(`INSERT INTO charges
@@ -498,6 +498,10 @@ var Classes = map[string]Class{
 	"ai_calls.team": ID, "ai_calls.agent": ID, "ai_calls.run_id": ID, "ai_calls.parent_run_id": ID,
 	"ai_calls.provider": ID, "ai_calls.model": ID, "ai_calls.basis": Plain,
 	"ai_calls.outcome": Free, "ai_calls.invoice_id": ID,
+	// Invariant 89: TokenFuse 1.7.0's two columns. A key id is the name an
+	// operator gave a credential; a block reason is one of the Breaker's
+	// closed set of wire strings.
+	"ai_calls.key_id": ID, "ai_calls.block_reason": Plain,
 
 	"allocation_rules.source": ID, "allocation_rules.category": Plain,
 	"allocation_rules.method": Plain, "allocation_rules.note": Free,
@@ -604,7 +608,7 @@ var Classes = map[string]Class{
 	"settings.key": Plain, "settings.value": Plain,
 
 	"connections.id": Plain, "connections.config": Free, "connections.last_result": Free,
-	"connections.last_test": Plain,
+	"connections.last_test": Plain, "connections.last_import": Plain, "connections.last_import_result": Free,
 
 	"unit_rules.unit": ID, "unit_rules.business_unit": ID, "unit_rules.decided_by": ID,
 	"unit_rules.applied_at": Plain,

@@ -4738,6 +4738,77 @@ run_case $'prompt example: a wider token pattern alone is held by the guard' \
 	$'-[0-9a-f]{4,}`)' \
 	$'-[0-9a-fx]{4,}`)'
 
+# Invariant 89: a re-export of the same calls supersedes the earlier rows, an
+# older export never displaces a newer one, and TokenFuse 1.7.0's key and block
+# reason are kept.
+run_case $'re-export: the supersede step skipped' \
+	fail \
+	./internal/connectors \
+	$'TestAReExportOfTheSameCallsReplacesTheEarlierRows' \
+	$'counted twice' \
+	internal/connectors/tokenfusefocus.go \
+	$'keys, days, err := supersede(tx, local.sha, local.newColumns)' \
+	$'keys, days, err := []string(nil), []string(nil), error(nil)'
+run_case $'re-export: the agent in the call\'s identity' \
+	fail \
+	./internal/connectors \
+	$'TestAReExportOfTheSameCallsReplacesTheEarlierRows' \
+	$'the victim still carries' \
+	internal/connectors/tokenfusefocus.go \
+	$'`tokens_out || \'|\' || billed_microusd || \'|\' || blocked`' \
+	$'`tokens_out || \'|\' || billed_microusd || \'|\' || blocked || \'|\' || agent`'
+run_case $'re-export: the last file read wins' \
+	fail \
+	./internal/connectors \
+	$'TestAnOlderExportNeverDisplacesANewerOne' \
+	$'displaced the newer one' \
+	internal/connectors/tokenfusefocus.go \
+	$'\t\tAND (key_id IS NOT NULL) <= ?2`' \
+	$'\t\tAND (key_id IS NOT NULL) <= 1`' \
+	internal/connectors/tokenfusefocus.go \
+	$'WHERE file_sha256 != ?1 AND (key_id IS NOT NULL) > ?2)`' \
+	$'WHERE file_sha256 != ?1 AND (key_id IS NOT NULL) > 1)`'
+run_case $'re-export: the import counts a call twice in its own sentence' \
+	fail \
+	./internal/connectors \
+	$'TestAReExportOfTheSameCallsReplacesTheEarlierRows' \
+	$'count the calls twice' \
+	internal/connectors/tokenfusefocus.go \
+	$'\tif sum.Superseded > 0 {' \
+	$'\tif false && sum.Superseded > 0 {'
+run_case $'re-export: the credential column not written' \
+	fail \
+	./internal/connectors \
+	$'TestTheKeyAndTheBlockReasonAreKeptWhenTheExportCarriesThem' \
+	$'the two honest calls with their key' \
+	internal/connectors/tokenfusefocus.go \
+	$'\t\t\trow.KeyID, row.BlockReason); err != nil {' \
+	$'\t\t\tnil, row.BlockReason); err != nil {'
+run_case $'re-export: a refusal with client keys off reported as bad data' \
+	fail \
+	./internal/connectors \
+	$'TestAGatewayRefusalWithClientKeysOffIsNamedAsSuchNotAsBadData' \
+	$'does not say the row is the gateway\'s refusal' \
+	internal/connectors/tokenfusefocus.go \
+	$'\t\tif errors.As(err, &unfiled) {' \
+	$'\t\tif false && errors.As(err, &unfiled) {'
+run_case $'re-export: the import\'s own sentence dropped from the connector page' \
+	fail \
+	./internal/web \
+	$'TestTheConnectorPageShowsWhatTheLastImportRead' \
+	$'does not show what the import read' \
+	internal/web/templates/connector.html \
+	$'{{if .Conn.LastImportResult}}<p class="note">' \
+	$'{{if false}}<p class="note">'
+run_case $'re-export: the identity\'s field order is not the property' \
+	pass \
+	./internal/connectors \
+	$'TestAReExportOfTheSameCallsReplacesTheEarlierRows|TestAnOlderExportNeverDisplacesANewerOne' \
+	$'' \
+	internal/connectors/tokenfusefocus.go \
+	$'const callKeySQL = `COALESCE(run_id,\'\') || \'|\' || ts || \'|\' || model' \
+	$'const callKeySQL = `ts || \'|\' || COALESCE(run_id,\'\') || \'|\' || model'
+
 echo
 if [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'
