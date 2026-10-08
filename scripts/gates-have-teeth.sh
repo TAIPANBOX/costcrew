@@ -4491,7 +4491,7 @@ run_case $'local width: one queue, so a vendor task waits for a local slot' \
 	$'the vendor task waited for the local queue' \
 	tools/run/live.go \
 	$'\t\tif e.Engine == engines.LocalID {\n\t\t\tlocal = append(local, e)' \
-	$'\t\tif true {\n\t\t\tlocal = append(local, e)'
+	$'\t\tif e.Engine == engines.LocalID || true {\n\t\t\tlocal = append(local, e)'
 run_case $'local width: a task\'s deadline counts its wait for a slot' \
 	fail \
 	./tools/run \
