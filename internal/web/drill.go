@@ -81,7 +81,7 @@ var breakdownColumns = map[string]bool{"team": true, "source": true, "service": 
 // periodBreakdownQuery is the statement every breakdown in a period runs. The
 // filtered value and the period are bound parameters, never text: the period
 // comes from ?period= and was once concatenated in, held only by s.period
-// accepting nothing but a month the store already has (invariant 83).
+// accepting nothing but a month the store already has (invariant 84).
 func periodBreakdownQuery(filterCol, keyCol string) (string, error) {
 	if !breakdownColumns[filterCol] || !breakdownColumns[keyCol] {
 		return "", fmt.Errorf("a breakdown by %q filtered on %q: not a column a page breaks spend down by",

@@ -2,10 +2,10 @@
 
 Feature: Somebody else can run it
 
-  @yurii 2026-08-23
+  @decided 2026-08-23
   """
-  Мені важливо, щоб нова версія, яка написана на Go, могла бути передана Тані,
-  щоб вона могла запустити, подивитися і так далі все.
+  The Go version has to be something that can be handed to another person, who
+  can run it and look around it on their own.
   """
 
   @test:TestSignupIsOpenUntilThereIsAnAdmin

@@ -2,9 +2,10 @@
 
 Feature: The anomaly desk, end to end: the owner is told, and the queue says how long it takes
 
-  @yurii 2026-09-02
+  @decided 2026-09-02
   """
-  більш повною мірою замінити людей на цих посадах
+  The crew is to take over, more fully, the work that people in these roles do
+  today.
   """
 
   @test:TestPostingAnAnomalyDeliverableTellsTheOwner

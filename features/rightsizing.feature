@@ -2,14 +2,15 @@
 
 Feature: Rightsizing and idle, from the providers' own recommendations
 
-  @yurii 2026-09-02
+  @decided 2026-09-02
   """
-  більш повною мірою замінити людей на цих посадах
+  The crew is to take over, more fully, the work that people in these roles do
+  today.
   """
 
-  @yurii 2026-09-02
+  @decided 2026-09-02
   """
-  змінювати інфраструктуру ... він сам особі не може
+  An agent does not change infrastructure on its own.
   """
 
   @test:TestAWSRightsizingIsRead

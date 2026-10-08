@@ -2,15 +2,15 @@
 
 Feature: The bench scores a named cause against the truth
 
-  @yurii 2026-09-02
+  @decided 2026-09-02
   """
-  більш повною мірою замінити людей на цих посадах
+  The crew is to take over, more fully, the work that people in these roles do
+  today.
   """
 
-  @yurii 2026-09-02
+  @decided 2026-09-02
   """
-  мені хоча б певну кількість якихось результатів тестування було б непогано
-  мати
+  At least some measured test results are wanted.
   """
 
   @test:TestBenchPacketHidesTheDriverLabelAndItsKind

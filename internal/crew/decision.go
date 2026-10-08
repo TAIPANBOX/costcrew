@@ -4,10 +4,10 @@ package crew
 // sprint, that carries the classes its job description hands up.
 // B3-SPEC.md section 4, steps 5 and 6.
 //
-// `@yurii 2026-09-02`: "супервайзер питає власника тільки тоді, коли він сам
-// не може вирішити це питання, тобто, що стосується безпосередньо взаємодії
-// людей або прийняття якихось ключових рішень, а не щоразу, коли в агента
-// виникають якісь спірні моменти."
+// `@decided 2026-09-02`: the supervisor asks the owner only when it cannot
+// decide the matter itself, meaning where people deal with each other
+// directly or where a key decision is to be made, not every time an agent
+// meets a disputed point.
 
 import (
 	"database/sql"

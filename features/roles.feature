@@ -2,10 +2,9 @@
 
 Feature: Who may do what
 
-  @yurii 2026-08-22
+  @decided 2026-08-22
   """
-  Треба додати в аккаунт можливість видалення, але з правами адміністратора
-  можна це робити.
+  Accounts can be deleted, and deleting one takes administrator rights.
   """
 
   @test:TestAnOperatorCannotEscalateThroughAccounts

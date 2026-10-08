@@ -2,16 +2,16 @@
 
 Feature: The card says everything about one agent
 
-  @yurii 2026-08-22
+  @decided 2026-08-22
   """
-  треба для кожного агента зробити щось наподобі паспорта агента, або як ми в
-  нашому стеку робили в Genaryx, робили Agent 360... щоб коли заходиш на
-  нього, щоб була вся інформація про нього.
+  Every agent gets something like an agent passport, in the spirit of the
+  Agent 360 view built for Genaryx in this stack: opening an agent shows
+  everything about it.
   """
 
-  @yurii 2026-08-23
+  @decided 2026-08-23
   """
-  зроби подієву половину Agent 360
+  Build the event half of Agent 360.
   """
 
   @test:TestMostCardsShowWhereTheAgentStopped

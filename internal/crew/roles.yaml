@@ -2,12 +2,11 @@
 # the enforcement.
 #
 # Transcribed from go-to-market-2026-09/ROLES-2026-09.md, written 2026-09-02.
-# `@claude` throughout except the two quotes carried into features/job-descriptions.feature,
-# which are `@yurii 2026-09-02` and are why this file exists at all:
-#
-#   "Вони мають вирішувати це все згідно своїх посадових інструкцій. І бажано,
-#   щоб ці посадові інструкції чітко були виписані, що для супервайзера, що для
-#   Фінопс-агента, щоб вони також чітко дотримувались."
+# `@claude` throughout except the decisions carried into features/job-descriptions.feature,
+# which are `@decided 2026-09-02` and are why this file exists at all: the
+# agents decide everything according to their job descriptions, and those
+# descriptions are written out clearly, for the supervisor and for the FinOps
+# agents alike, so that both follow them closely.
 #
 # Every scalar below is a single double-quoted line on purpose: scripts/roles-are-bound.sh
 # reads the structured fields (id, owner, up_to, family, matches, link,

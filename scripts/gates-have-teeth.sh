@@ -1565,6 +1565,56 @@ run_case 'documents: a dangling bare name right after a URL is still caught' \
 	$'`docs/stack-connection.md` says what this console writes' \
 	$'https://github.com/TAIPANBOX/estate-gates/blob/main/PROVEN.md and `docs/stack-connections.md` says what this console writes'
 
+# Invariant 83: no tracked file quotes the owner or attributes a decision to
+# him by name. Every planted string is assembled from pieces ('@''...',
+# "Y"'urii') or written as \x escapes, because this script is itself a
+# tracked file the gate reads: a literal marker or a literal line of
+# Ukrainian here would turn the gate red on the clean tree and leave every
+# case below UNJUDGEABLE.
+run_case 'owner quotes: the old marker back on a scenario header' \
+	fail \
+	./internal/manifest \
+	$'^TestNoTrackedFileQuotesOrAttributesTheOwner$' \
+	$'the old provenance marker' \
+	features/handover.feature \
+	$'  @decided 2026-08-23' \
+	$'  @'"yurii"$' 2026-08-23'
+run_case 'owner quotes: a Ukrainian sentence back in a Go comment' \
+	fail \
+	./internal/manifest \
+	$'^TestNoTrackedFileQuotesOrAttributesTheOwner$' \
+	$'Ukrainian prose in a comment' \
+	internal/crew/plan.go \
+	$'// everything else. And on the chain of command: the agents decide\n' \
+	$'// everything else. And on the chain of command: the agents decide\n// \xd0\xbb\xd0\xb8\xd1\x88\xd0\xb0\xd0\xb9 \xd1\x8f\xd0\xba \xd1\x94\n'
+run_case 'owner quotes: guillemets around Cyrillic inside a Go string' \
+	fail \
+	./internal/manifest \
+	$'^TestNoTrackedFileQuotesOrAttributesTheOwner$' \
+	$'a quotation in guillemets' \
+	internal/crew/answer_test.go \
+	$'"non-latin text":            "' \
+	$'"non-latin text":            "\xc2\xab'
+run_case 'owner quotes: the owner named as the one who found it' \
+	fail \
+	./internal/manifest \
+	$'^TestNoTrackedFileQuotesOrAttributesTheOwner$' \
+	$'the owner named as the one' \
+	internal/world/series.go \
+	$'in every live run. Found by reading the code; two tests in' \
+	$'in every live run. Found by '"Y"$'urii reading the code; two tests in'
+
+# The pass case: the name as copyright holder, and both the name and the
+# marker's shape inside a URL, are not quotes or attributions of a decision.
+run_case 'owner quotes: a copyright line and the name inside URLs' \
+	pass \
+	./internal/manifest \
+	$'^TestNoTrackedFileQuotesOrAttributesTheOwner$' \
+	$'' \
+	features/handover.feature \
+	$'Feature: Somebody else can run it\n' \
+	$'Feature: Somebody else can run it\n# Copyright 2026 '"Y"$'urii Kostiuk\n# https://github.com/'"Y"$'urii-K/costcrew and <https://example.com/@'"yurii"$'/notes>\n'
+
 # Invariant 49: -behind-tls has to reach every cookie's own Secure bit, not
 # merely be read and then forgotten. This mutant is the regression the whole
 # flag exists to prevent: dropping it from setCookie's own decision reverts
@@ -4460,7 +4510,7 @@ run_case $'reasoning tokens: the rule written as one max is not a fault' \
 	internal/deliver/openai_usage.go \
 	$'\tif beyondPrompt := u.TotalTokens - u.PromptTokens; beyondPrompt > out {\n\t\treturn beyondPrompt\n\t}\n\treturn out\n' \
 	$'\treturn max(out, u.TotalTokens-u.PromptTokens)\n'
-# Invariant 83: a period from ?period= is a bound parameter, never SQL text.
+# Invariant 84: a period from ?period= is a bound parameter, never SQL text.
 run_case $'period: concatenated into the breakdown query again' \
 	fail \
 	./internal/web \
@@ -4488,7 +4538,7 @@ run_case $'period: a reworded comment on the query builder is not a fault' \
 	internal/web/drill.go \
 	$'// periodBreakdown is one charges column\'s spend in one month, split by' \
 	$'// periodBreakdown is the spend of one charges column in one month, split by'
-# Invariant 84: the rightsizing, budget recommendation and SaaS seats readers
+# Invariant 85: the rightsizing, budget recommendation and SaaS seats readers
 # bound their refusal list and name a link they did not follow.
 run_case $'csv readers: every refused row named, however many' \
 	fail \
@@ -4525,7 +4575,7 @@ run_case $'csv readers: a reworded comment on the shared walk is not a fault' \
 	internal/connectors/csvfolder.go \
 	$'// skippedNote is the sentence a reader gives for a folder entry it did not' \
 	$'// skippedNote is what a reader says about a folder entry it did not'
-# Invariant 85: one rule for a unit's name, called by the reader and by the
+# Invariant 86: one rule for a unit's name, called by the reader and by the
 # unit rule.
 run_case $'unit name: a second copy of the rule written beside the call' \
 	fail \
@@ -4559,7 +4609,7 @@ run_case $'unit name: a reworded comment on the rule is not a fault' \
 	internal/plainname/plainname.go \
 	$'// Check says what is wrong with s as a printed name, or "" when nothing is:' \
 	$'// Check names what is wrong with s as a printed name, or "" when nothing is:'
-# Invariant 86: the mode line's example pseudonym is no token a name can draw,
+# Invariant 87: the mode line's example pseudonym is no token a name can draw,
 # and Reidentify never reads it as one.
 run_case $'prompt example: back to a real token\'s shape' \
 	fail \

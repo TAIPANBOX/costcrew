@@ -83,7 +83,7 @@ const maskFailed = "[withheld: the names in this installation could not be read,
 // no name can draw it (a token is kind- and hex, pseudonym.go), and Reidentify
 // passes over it whatever the store holds. The example used to be team-7f3a,
 // a real token's shape, which one team in 65,536 could draw; a model copied it
-// into a draft on a live run (invariant 86).
+// into a draft on a live run (invariant 87).
 const PromptExampleToken = "team-xxxx"
 
 // ModeLine is the one line every prompt carries to say which policy it was

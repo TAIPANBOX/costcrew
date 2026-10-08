@@ -3,11 +3,10 @@
 Feature: The number a person reads before setting a ceiling is the number the run will actually reserve
 
   @claude 2026-09-03
-  No quote of Yurii's exists for this scenario: found by this session running
-  the first real live crew task on a real Anthropic account
-  (PRICE-DISPLAY-SPEC.md), not by a conversation with him. The words below are
-  this session's own reading of tools/run/main.go, live.go, due.go and
-  internal/deliver/estimate.go, not his.
+  No decision is recorded for this scenario: it was found by this session
+  running the first real live crew task on a real Anthropic account
+  (PRICE-DISPLAY-SPEC.md). The words below are this session's own reading of
+  tools/run/main.go, live.go, due.go and internal/deliver/estimate.go.
 
   A task priced for anthropic or openrouter can make up to six model calls in
   one execute() (the tool-calling loop, tools/run/loop.go), each one reserved

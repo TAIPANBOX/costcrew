@@ -4,20 +4,19 @@ package finops
 // (deterministic, as crew.Propose already is), run WITHOUT a model call.
 // Step one and a half of B4's plan item.
 //
-// `@yurii 2026-09-02`: "він має давати на вибір якісь певні рішення, які він
-// вважає за потрібне спочатку супервайзеру, тобто головному агенту, а вже
-// той має запитувати юзера, користувача, власника цих агентів, що робити
-// далі." And: "супервайзер питає власника тільки тоді, коли він сам не може
-// вирішити це питання, тобто, що стосується безпосередньо взаємодії людей
-// або прийняття якихось ключових рішень, а не щоразу, коли в агента
-// виникають якісь спірні моменти."
+// `@decided 2026-09-02`: an analyst offers a choice of the decisions it
+// thinks right, first to the supervisor, the lead agent, and the supervisor
+// then asks the user who owns these agents what to do next. And: the
+// supervisor asks the owner only when it cannot decide the matter itself,
+// meaning where people deal with each other directly or where a key decision
+// is to be made, not every time an agent meets a disputed point.
 //
 // Two properties this file holds that are easy to get wrong, both found in
 // review of the first version:
 //
 //  1. Options in ONE deliverable are ALTERNATIVES, never independent
-//     actions -- "давати на вибір якісь певні рішення" is offering a
-//     CHOICE. So this never applies more than one option of one deliverable:
+//     actions -- offering a choice of decisions (the decision above) is
+//     offering a CHOICE. So this never applies more than one option of one deliverable:
 //     it decides (or carries) the whole group together, and applying one
 //     always marks the rest not_chosen (crew.LiveRivalsOf, called from
 //     Apply).

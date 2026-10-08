@@ -3,11 +3,11 @@
 Feature: A driver written from an option carries the window the option named
 
   @claude 2026-09-03
-  No quote of Yurii's exists for this scenario: found by Yurii reading
+  No decision is recorded for this scenario: the defect was found by reading
   internal/finops/apply.go while C3 landed ProjectWithDrivers ("recurring
   ones repeat by their window"), and this session's own reading of
   internal/detect.Driver.Covers and internal/world/series.go's Drivers() is
-  what turns that reading into the rule below, not his own words about it.
+  what turns that reading into the rule below.
 
   A recurring driver applied from an option used to get a one-day window
   and behave, in every number the forecast and the detector produce, exactly
