@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/TAIPANBOX/costcrew/actions/workflows/ci.yml/badge.svg)](https://github.com/TAIPANBOX/costcrew/actions/workflows/ci.yml)
 ![Go](https://img.shields.io/badge/go-1.27-00ADD8.svg)
-![tests](https://img.shields.io/badge/tests-1478-brightgreen.svg)
+![tests](https://img.shields.io/badge/tests-1527-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)
 ![Status](https://img.shields.io/badge/enforces-nothing%20by%20design-success.svg)
 
@@ -217,10 +217,10 @@ The `costcrew` console accepts `-gateway` for its own planning calls and
 openrouter engine, from `v0.3.0` onward; sign-in through an identity provider
 (`-oidc-*`), `-prompt-data` and `-typryx-url` from `v0.4.0` onward, and on
 `costcrew-run` the local engine's `-model-url`, `-model-name` and
-`-max-run-tokens`. The `v0.2.0` image has neither
+`-max-run-tokens`, with `-local-parallel` from `v0.5.0` onward. The `v0.2.0` image has neither
 `-gateway` nor `-behind-tls`: passing `-gateway` to that image exits with
 `flag provided but not defined`. The `costcrew-run` binary in `v0.2.0` already
-accepts its separate `-gateway` flag. Pin `ghcr.io/taipanbox/costcrew:v0.4.0`
+accepts its separate `-gateway` flag. Pin `ghcr.io/taipanbox/costcrew:v0.5.0`
 for the console flags and complete release assets.
 
 Inside the stack, `./up.sh --with-finops` from
@@ -592,9 +592,9 @@ estate-gates repository's own PROVEN record:
 ## Gates
 
 ```sh
-go test ./...                        # 1478 tests, 30 packages
+go test ./...                        # 1527 tests, 31 packages
 ./scripts/features-are-bound.sh      # every scenario bound to a named test, both ways
-./scripts/gates-have-teeth.sh        # 461 cases: each gate is made to fail on purpose
+./scripts/gates-have-teeth.sh        # 522 cases: each gate is made to fail on purpose
 gofmt -l . && go vet ./...
 ```
 
