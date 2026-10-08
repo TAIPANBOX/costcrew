@@ -4928,6 +4928,57 @@ run_case $'prompt data: the engines note\'s wording is not the property' \
 	$'<p class="note">This setting governs the one call the console makes' \
 	$'<p class="note">This setting governs the single call the console makes'
 
+# Invariant 92: the typed hint on the task page, the answer id and the fields
+# sent on the anomaly's panel, and no panel anywhere with typryx off.
+run_case $'typed hint: the task page panel dropped' \
+	fail \
+	./internal/web \
+	$'TestTheTaskPageShowsTheHintOnItsAnomaly' \
+	$'the task page does not show' \
+	internal/web/templates/task.html \
+	$'{{if .HasHint}}<div class="panel">' \
+	$'{{if false}}<div class="panel">'
+run_case $'typed hint: the task panel shown with typryx off' \
+	fail \
+	./internal/web \
+	$'TestWithTypryxOffTheTaskPageHasNoHintPanel' \
+	$'mentions typryx' \
+	internal/web/work.go \
+	$'\t\thint, hasHint, _ = anomaly.HintOf(s.db, t.Anomaly)' \
+	$'\t\thint, hasHint, _ = anomaly.HintOf(s.db, t.Anomaly)\n\t\thasHint = true'
+run_case $'typed hint: the pass does not record what left' \
+	fail \
+	./internal/typryx \
+	$'TestAPassRecordsWhatLeftForTypryx' \
+	$'fields recorded with an answered hint' \
+	internal/typryx/pass.go \
+	$'h.FieldsSent, h.HeldBack = strings.Join(eg.Fields, ","), int64(eg.HeldBack)' \
+	$'h.FieldsSent, h.HeldBack = "", int64(eg.HeldBack)'
+run_case $'typed hint: "typryx saw" printed when nothing was sent' \
+	fail \
+	./internal/web \
+	$'TestANoHintRowWhereNothingWasSentDoesNotSayTypryxSawFields' \
+	$'says typryx saw' \
+	internal/web/templates/anomaly.html \
+	$'{{if or .Hint.Answered .Hint.FieldsSent}}<p class="note">A suggestion' \
+	$'{{if true}}<p class="note">A suggestion'
+run_case $'typed hint: the answer id dropped from the anomaly panel' \
+	fail \
+	./internal/web \
+	$'TestTheAnomalyPanelNamesTheAnswerAndTheFieldsSent' \
+	$'does not show' \
+	internal/web/templates/anomaly.html \
+	$'{{if .Hint.AnswerID}}<dt>Answer id</dt>' \
+	$'{{if false}}<dt>Answer id</dt>'
+run_case $'typed hint: the task panel\'s no-hint wording is not the property' \
+	pass \
+	./internal/web \
+	$'TestTheTaskPageShowsTheHintOnItsAnomaly' \
+	$'' \
+	internal/web/templates/task.html \
+	$'the analyst works it without one.' \
+	$'the analyst works without one.'
+
 echo
 if [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'

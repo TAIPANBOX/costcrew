@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/TAIPANBOX/costcrew/internal/anomaly"
 	"github.com/TAIPANBOX/costcrew/internal/crew"
 	"github.com/TAIPANBOX/costcrew/internal/money"
 	"github.com/TAIPANBOX/costcrew/internal/world"
@@ -501,6 +502,15 @@ func (s *Server) taskPage(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	// Invariant 92: the typed hint the anomaly carries, beside the work it
+	// was meant to inform. Read only when the task came from an anomaly and a
+	// hint was ever recorded; a store started without -typryx-url has no hint
+	// columns and HintOf reads that as no hint, so no panel (invariant 77).
+	var hint anomaly.Hint
+	var hasHint bool
+	if t.Anomaly != "" {
+		hint, hasHint, _ = anomaly.HintOf(s.db, t.Anomaly)
+	}
 	s.render(w, tplTask, struct {
 		shell
 		T           crew.Task
@@ -510,8 +520,12 @@ func (s *Server) taskPage(w http.ResponseWriter, r *http.Request) {
 		Notes       []crew.Comment
 		Analysts    []string
 		CanAct      bool
+		HasHint     bool
+		Hint        anomaly.Hint
+		HintProb    string
 	}{s.shellFor(r, t.Title, "board"), t, stateChip(t.State), label, av, notes,
-		s.activeAnalysts(), u.May("operator")})
+		s.activeAnalysts(), u.May("operator"),
+		hasHint, hint, strconv.FormatFloat(hint.Probability, 'f', 2, 64)})
 }
 
 // -------------------------------------------------------------------- staff
