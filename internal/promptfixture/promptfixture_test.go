@@ -37,7 +37,7 @@ func TestTheFixtureBuildsAndEveryTextColumnIsClassified(t *testing.T) {
 		have[v.Origin] = true
 	}
 	for _, want := range []string{
-		"charges.service", "charges.team", "charges.source", "charges.invoice_id", "ai_calls.agent",
+		"charges.service", "charges.team", "charges.source", "charges.invoice_id", "ai_calls.agent", "ai_calls.key_id",
 		"ai_calls.run_id", "ai_calls.model", "commitments.id", "licences.vendor", "licences.product",
 		"recommendations.resource", "recommendations.id", "users.username", "artifact_options.decided_by",
 		"artifacts.stamper", "tasks.owner", "teams.owner", "analysts.name", "chargeback.closed_by",

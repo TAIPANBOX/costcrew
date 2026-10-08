@@ -506,18 +506,41 @@ type Connection struct {
 	LastTest   string
 	LastResult string
 	OK         bool
+	// LastImport and LastImportResult are the last import that ran and the
+	// sentence its reader wrote. Until invariant 89 the web console threw
+	// that sentence away and said only that the import worked, so a refused
+	// row, a call counted once from two exports, or a gateway refusal with
+	// nobody to file it under was invisible to the person who clicked.
+	LastImport       string
+	LastImportResult string
+}
+
+// ensureImportColumns adds the two columns an installation from before them
+// lacks; running it again changes nothing (invariant 11).
+func ensureImportColumns(db *sql.DB) error {
+	if _, err := db.Exec(Schema); err != nil {
+		return err
+	}
+	for _, c := range []string{"last_import", "last_import_result"} {
+		if _, err := db.Exec(`ALTER TABLE connections ADD COLUMN ` + c + ` TEXT`); err != nil &&
+			!strings.Contains(err.Error(), "duplicate column name") {
+			return fmt.Errorf("adding connections.%s: %w", c, err)
+		}
+	}
+	return nil
 }
 
 func Load(db *sql.DB, id string) (Connection, error) {
-	if _, err := db.Exec(Schema); err != nil {
+	if err := ensureImportColumns(db); err != nil {
 		return Connection{}, err
 	}
 	c := Connection{ID: id, Config: map[string]string{}}
 	var cfg, test, result string
 	var ok int
 	err := db.QueryRow(`SELECT COALESCE(config,''), COALESCE(last_test,''),
-		COALESCE(last_result,''), ok FROM connections WHERE id=?`, id).
-		Scan(&cfg, &test, &result, &ok)
+		COALESCE(last_result,''), ok, COALESCE(last_import,''), COALESCE(last_import_result,'')
+		FROM connections WHERE id=?`, id).
+		Scan(&cfg, &test, &result, &ok, &c.LastImport, &c.LastImportResult)
 	if err == sql.ErrNoRows {
 		return c, nil
 	}
@@ -683,5 +706,16 @@ func Import(db *sql.DB, id string, confirmed bool, opt ImportOptions) (string, e
 		return "", err
 	}
 	opt.DryRun = false
-	return reader(db, conn.Config, opt)
+	msg, err := reader(db, conn.Config, opt)
+	if err != nil {
+		return msg, err
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	if _, err := db.Exec(`INSERT INTO connections(id, last_import, last_import_result)
+		VALUES (?,?,?) ON CONFLICT(id) DO UPDATE SET
+		last_import=excluded.last_import, last_import_result=excluded.last_import_result`,
+		id, now, msg); err != nil {
+		return msg, fmt.Errorf("the import ran, but recording what it read failed: %w", err)
+	}
+	return msg, nil
 }

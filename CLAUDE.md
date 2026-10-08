@@ -84,15 +84,25 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 1489 tests, 31 packages
-./scripts/gates-have-teeth.sh        # 475 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 522 scenarios, both directions
+go test ./...                        # 1496 tests, 31 packages
+./scripts/gates-have-teeth.sh        # 483 cases; needs a clean tree
+./scripts/features-are-bound.sh      # 528 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 govulncheck ./...                    # CI runs it, pinned at v1.8.0; reports only vulnerabilities the code can reach
 staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refused PR #19 on two findings the list above never asked for; a staticcheck built for an older Go cannot read this module, so on such a machine CI is the only place it runs
 ```
+
+Invariant 89 (a re-export of the same gateway calls supersedes the earlier
+rows; TokenFuse 1.7.0's key and block reason are kept; the connector page
+shows what the last import read) added 7 tests
+(`internal/connectors/tokenfusefocus_reexport_test.go`, 6;
+`internal/web/connector_last_import_test.go`, 1), 8 `gates-have-teeth.sh`
+cases (7 `fail`, 1 `pass`) and 6 scenarios
+(`features/ai-spend-re-export.feature`, new), and no route: 1489 -> 1496
+tests, 31 packages unchanged, 475 -> 483 cases, 522 -> 528 scenarios,
+re-measured on this branch with the three commands this block already names.
 
 Invariants 85 to 88 (a month from the address bar is a bound parameter; the
 rightsizing, budget recommendation and SaaS seats readers bound their refusal
@@ -5551,6 +5561,87 @@ an absent invariant.
     appeared in the same run, `team-65f4` and `team-d1b6`); one that happens
     to be a real team's is re-identified as that team, which no example
     wording can prevent.
+
+89. **A call exported twice is counted once, and the copy kept is the one that
+    names the credential.** `ai_calls` was append-only and keyed by the file's
+    hash and row number, and nothing ever deleted from it. TokenFuse 1.7.0 (its
+    own invariant 81) changed where a call refused for identity is filed: an
+    export from before it wrote the refused row under the agent id the caller
+    claimed, its victim; 1.7.0 writes it under `key:<key_id>` with `x_agent_id`
+    empty, and appends two columns, `x_key_id` and `x_block_reason`. An
+    operator who upgrades and exports the same trace again drops a file with a
+    new hash into a folder that still holds the old one, and every call was
+    then counted twice, the victim kept its misattributed refusals beside the
+    key's, and every later import re-read both.
+
+    A call now has an identity two exports of the same trace agree on,
+    `ai_calls.call_key`, a virtual column SQLite computes from the row (one
+    formula, `callKeySQL`): the run, the instant the gateway settled the call,
+    the model, both token counts, the amount and whether it was blocked. The
+    agent is left out on purpose, because it is the one field 1.7.0 moved.
+    After a file is read without error, `supersede` removes other files' rows
+    with the same identity when they came from an export no newer than this
+    one, and this file's own rows when another file's copy is newer. "Newer"
+    is one thing: the file's header carried `x_key_id`, recorded per row as
+    `key_id` being NULL (no such column) or text ("" or the key). So an export
+    from before 1.7.0 never displaces one from 1.7.0, whichever file the folder
+    lists first, and between two exports of the same generation the later file
+    read wins, both being copies of the same calls. Rows are only ever
+    superseded by another file's rows, so two genuinely separate calls that
+    agree on every field of the identity inside one export stay two. The days
+    the removed rows were on are re-derived into `charges` and `attribution`
+    with the rest, and when anything was superseded the import's sentence
+    counts what the store now holds for the files it read, so it does not add
+    one call up twice either. An installation that already holds duplicates
+    is repaired by its next import, since every import reads the whole folder.
+
+    `x_key_id` and `x_block_reason` are stored (`ai_calls.key_id`,
+    `ai_calls.block_reason`, added by `EnsureFocusSchema`), each held to the
+    printed-name rule (`plainname.Check`, at most 256 and 64 bytes): both are
+    printed on `/ai`; the prompt-data fixture classifies `key_id` as an
+    identifier and `block_reason` as plain, and plants a key in every row.
+    A row with no agent and no resource id is bad data and
+    refused by name, as before, except when the gateway blocked it and
+    `x_block_reason` says why: with client keys off a 1.7.0 export files an
+    identity refusal under no agent and no key by design, and the import says
+    that these are the gateway's refusals, counted by reason, with nobody to
+    file them under, rather than listing them as broken rows. They are not
+    imported. The import's own sentence now reaches the person who clicked
+    Import: `connectors.Import` records it with the time
+    (`connections.last_import`, `last_import_result`) and the connector's page
+    shows it as "Last import". Before, the web console discarded it and said
+    only that the import worked, so none of the above could be read there.
+    *(gate: `TestAReExportOfTheSameCallsReplacesTheEarlierRows` (a pre-1.7.0
+    export imported, the 1.7.0 export of the same three calls added beside it:
+    the calls, the money and the charges are unchanged, the victim carries no
+    row, the refusal sits under `key:imposter` with its key and reason, and a
+    third import changes nothing), `TestAnOlderExportNeverDisplacesANewerOne`
+    (the 1.7.0 file sorts first), `TestTwoIdenticalCallsInOneExportStayTwo`,
+    `TestTheKeyAndTheBlockReasonAreKeptWhenTheExportCarriesThem`,
+    `TestAGatewayRefusalWithClientKeysOffIsNamedAsSuchNotAsBadData`,
+    `TestHostileKeyAndBlockReasonAreRefusedByName` in `internal/connectors`;
+    `TestTheConnectorPageShowsWhatTheLastImportRead` in `internal/web`, red
+    on origin/main with "the connector page does not show what the import
+    read".
+    @measured `go test ./internal/connectors -run
+    'ReExport|OlderExport|TwoIdentical|TheKeyAndThe|ClientKeysOff|HostileKeyAnd'
+    -count=1` 2026-10-08 against origin/main's reader: all six red, the first
+    with "the same three calls exported twice are counted twice: {calls:3
+    blocked:1 micros:140000 cents:14 charges:1} before the re-export,
+    {calls:6 blocked:2 micros:280000 cents:28 charges:1} after" and "the
+    victim still carries 1 row(s)". Seven `fail` cases and one `pass` case in
+    `gates-have-teeth.sh`: the supersede step skipped; the agent put into the
+    identity; the last file read winning; the sentence counting a call twice;
+    the key not written; a keys-off refusal reported as bad data; the
+    connector page's "Last import" line dropped; and the
+    identity's fields reordered, which must stay green.)* What this does not
+    do: the dry run (`Test`) supersedes nothing and still counts both copies;
+    two exports of two different traces with the same run id (two gateways
+    fronting two wires) are told apart only by the model, so two calls on the
+    same model settled in the same millisecond with the same tokens and amount
+    in two such files would be read as one; and the identity assumes the
+    exporter writes a call's instant the same way every time, which a later
+    TokenFuse that changed its timestamp format would break.
 
 ## Decisions that have no gate yet
 
