@@ -1,5 +1,5 @@
 // Package plainname is the one rule for a name this console prints after
-// reading it from somewhere it does not control (invariant 86).
+// reading it from somewhere it does not control (invariant 87).
 //
 // A customer unit's name arrives in a file a gateway wrote (x_unit), becomes
 // charges.team, and is then listed and linked on /chargeback and /allocation,

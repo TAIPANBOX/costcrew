@@ -3,7 +3,7 @@ package connectors
 // What every folder-of-CSV reader in this package owes its operator, written
 // once: the folder walk that never follows a link and names what it passed
 // over, and the refusal list that is counted whole but named only for the
-// first few (invariant 85).
+// first few (invariant 86).
 //
 // The FOCUS reader had both (invariant 78). The rightsizing, budget
 // recommendation and SaaS seats readers had neither: they named every refused

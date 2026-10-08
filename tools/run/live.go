@@ -36,6 +36,7 @@ import (
 
 	"github.com/TAIPANBOX/costcrew/internal/crew"
 	"github.com/TAIPANBOX/costcrew/internal/deliver"
+	"github.com/TAIPANBOX/costcrew/internal/engines"
 	"github.com/TAIPANBOX/costcrew/internal/stack"
 )
 
@@ -67,8 +68,9 @@ type gatewayConfig struct {
 	// directly (-model-url), and MaxRunTokens is a ceiling on the tokens the
 	// whole run may use (-max-run-tokens, 0 = none), the bound that stands in
 	// for money when the local engine is priced at 0.
-	ModelURL     string
-	MaxRunTokens int
+	ModelURL      string
+	MaxRunTokens  int
+	LocalParallel int
 }
 
 func (g gatewayConfig) on() bool { return g.URL != "" || g.OpenAIURL != "" }
@@ -621,6 +623,101 @@ func (r *runBudget) total() int64 {
 	return r.spent
 }
 
+// vendorParallel is how many tasks on the vendor engines (anthropic,
+// openrouter, bedrock) a live run keeps in flight at once.
+const vendorParallel = 4
+
+// localParallelMax is the most -local-parallel accepts: a typo of 400 would
+// open 400 connections to one server, and no self-hosted server this console
+// has been run against has that many slots.
+const localParallelMax = 64
+
+// localParallel is how many local-engine tasks a live run keeps in flight:
+// -local-parallel, and 1 when it was not set. One, not the vendor width,
+// because a self-hosted server that answers one request at a time makes every
+// other request wait, and that wait counts against the round's timeout.
+func localParallel(gw gatewayConfig) int {
+	if gw.LocalParallel < 1 {
+		return 1
+	}
+	return gw.LocalParallel
+}
+
+// splitByEngine splits the run into the vendor queue and the local queue,
+// each keeping the run's own order.
+func splitByEngine(todo []estimate) (vendor, local []estimate) {
+	for _, e := range todo {
+		if e.Engine == engines.LocalID {
+			local = append(local, e)
+		} else {
+			vendor = append(vendor, e)
+		}
+	}
+	return vendor, local
+}
+
+// runQueue starts width workers that take q's tasks in order, one each until
+// q is exhausted or the run has halted. A worker checks halted after taking a
+// task as well as before, so a task taken while a refusal was being recorded
+// is not started.
+func runQueue(wg *sync.WaitGroup, q []estimate, width int, halted func() bool, work func(estimate)) {
+	if len(q) == 0 {
+		return
+	}
+	jobs := make(chan estimate)
+	for i := 0; i < width; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for e := range jobs {
+				if halted() {
+					continue
+				}
+				work(e)
+			}
+		}()
+	}
+	go func() {
+		defer close(jobs)
+		for _, e := range q {
+			if halted() {
+				return
+			}
+			jobs <- e
+		}
+	}()
+}
+
+// nothingToRun is the refusal of a run with no task left to work. With -only
+// it names that one task's own reason: the run priced it and knows exactly
+// why it cannot run (its Verdict), and a sentence listing every reason any
+// task might have had made an operator re-run the dry run to find out which
+// (measured 2026-10-08: two tasks refused this way, and the run did not say
+// which check refused them).
+func nothingToRun(ests []estimate, only int) error {
+	if only != 0 {
+		for _, e := range ests {
+			if e.Task.ID != only {
+				continue
+			}
+			if e.Verdict != "" {
+				return fmt.Errorf("nothing to run: task %d was refused: %s", only, e.Verdict)
+			}
+			return fmt.Errorf("nothing to run: task %d was refused", only)
+		}
+		return fmt.Errorf("nothing to run: task %d is not among the open tasks this run priced "+
+			"(it may be done, blocked, in another -sprint, or on another -engine)", only)
+	}
+	return fmt.Errorf("nothing to run: every open task was refused or is on a subscription; " +
+		"run without -live to see each task's reason")
+}
+
+// taskDeadline is one task's own deadline: two minutes per round its engine
+// can loop through. A var only so a test can shorten it.
+var taskDeadline = func(engine string) time.Duration {
+	return 2 * time.Minute * time.Duration(loopsFor(engine))
+}
+
 // spend runs the live half: it checks the whole run against the ceiling
 // before the first call, then executes task by task, stopping the moment
 // anything refuses.
@@ -670,8 +767,7 @@ func spend(db, roDB *sql.DB, ests []estimate, maxTok int, cap money.Cents, only 
 		todo = append(todo, e)
 	}
 	if len(todo) == 0 {
-		return fmt.Errorf("nothing to run: every open task was refused, is on a " +
-			"subscription, or does not match -only")
+		return nothingToRun(ests, only)
 	}
 
 	// reservedWorstCase(e), not e.WorstMicros: this IS the "worst case of the
@@ -719,75 +815,84 @@ func spend(db, roDB *sql.DB, ests []estimate, maxTok int, cap money.Cents, only 
 	// minutes of somebody watching a terminal, and the wait is entirely the
 	// model's: nothing here is CPU-bound.
 	//
-	// Four rather than as many as possible, because the far side rate-limits
-	// and a run that trips that turns into a page of blocked tasks. Safe at
-	// any width, because the ceiling is RESERVED before each call rather than
-	// checked against a balance several calls are racing.
-	const atOnce = 4
+	// Four on the vendor engines rather than as many as possible, because the
+	// far side rate-limits and a run that trips that turns into a page of
+	// blocked tasks. Safe at any width, because the ceiling is RESERVED before
+	// each call rather than checked against a balance several calls are racing.
+	//
+	// ONE on the local engine unless the operator says otherwise
+	// (-local-parallel). A server on the organisation's own hardware usually
+	// answers one request at a time and QUEUES the rest, and the queue counts
+	// against each round's client timeout: measured 2026-10-08, four local
+	// tasks in flight against Ollama on an 8-vCPU VM left 17 of 19 blocked
+	// with "no answer in time", and the same 19 one at a time all finished.
+	// The vendor width was right for a vendor and wrong for a single slot.
+	//
+	// Two queues, each in the run's own order, each with its own workers, so
+	// a vendor task never waits for a local slot it does not need. A task's
+	// deadline starts when a worker takes it, so waiting in this runner's
+	// queue is never counted against it.
+	vendorQ, localQ := splitByEngine(todo)
+	width := localParallel(gw)
+	if len(localQ) > 0 {
+		fmt.Printf("Local engine: %d task(s), %d at a time (-local-parallel %d).\n", len(localQ), width, width)
+	}
 
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	var done, blocked, discarded int
 	var stop bool
 
-	sem := make(chan struct{}, atOnce)
-	for _, e := range todo {
+	halted := func() bool {
 		mu.Lock()
-		halted := stop
-		mu.Unlock()
-		if halted {
-			break
-		}
-		wg.Add(1)
-		sem <- struct{}{}
-		go func(e estimate) {
-			defer wg.Done()
-			defer func() { <-sem }()
-
-			// Scaled by how many rounds this task's engine can loop
-			// through: a task on the tool loop can make up to
-			// maxToolRounds model calls in series, each able to take up
-			// to the 90-second HTTP timeout the round functions set, so
-			// the SAME "2 minutes was for one call" reasoning above needs
-			// the same multiple this task's reservation already got.
-			deadline := 2 * time.Minute * time.Duration(loopsFor(e.Engine))
-			ctx, cancel := context.WithTimeout(context.Background(), deadline)
-			err := execute(ctx, db, roDB, e, maxTok, run, b, gw)
-			cancel()
-
-			mu.Lock()
-			defer mu.Unlock()
-			if err == nil {
-				done++
-				return
-			}
-			var d answerDiscarded
-			if errors.As(err, &d) {
-				// Already blocked by a person: leave their reason alone.
-				discarded++
-				return
-			}
-			var r refusal
-			if errors.As(err, &r) {
-				// A refusal stops the run. Nothing new starts; what is already
-				// in flight finishes, and every one of those has its worst
-				// case reserved, so the ceiling holds.
-				fmt.Printf("\nstopped at %q: %v\n", trim(e.Task.Title, 40), err)
-				stop = true
-				return
-			}
-			// A person may have blocked the task while this call was in
-			// flight: their reason stands, and the runner's own is written
-			// only on a task nobody blocked (invariant 66).
-			if _, e2 := db.Exec(
-				`UPDATE tasks SET state='blocked', reason=?, updated=datetime('now') WHERE id=? AND state <> 'blocked'`,
-				"the engine did not answer: "+trim(err.Error(), 160), e.Task.ID); e2 != nil {
-				fmt.Printf("  could not record the block: %v\n", e2)
-			}
-			blocked++
-			fmt.Printf("  %-22s %-14s BLOCKED: %v\n", trim(e.Task.Title, 22), e.Analyst.Name, err)
-		}(e)
+		defer mu.Unlock()
+		return stop
 	}
+	work := func(e estimate) {
+		// Scaled by how many rounds this task's engine can loop
+		// through: a task on the tool loop can make up to
+		// maxToolRounds model calls in series, each able to take up
+		// to the 90-second HTTP timeout the round functions set, so
+		// the SAME "2 minutes was for one call" reasoning above needs
+		// the same multiple this task's reservation already got.
+		ctx, cancel := context.WithTimeout(context.Background(), taskDeadline(e.Engine))
+		err := execute(ctx, db, roDB, e, maxTok, run, b, gw)
+		cancel()
+
+		mu.Lock()
+		defer mu.Unlock()
+		if err == nil {
+			done++
+			return
+		}
+		var d answerDiscarded
+		if errors.As(err, &d) {
+			// Already blocked by a person: leave their reason alone.
+			discarded++
+			return
+		}
+		var r refusal
+		if errors.As(err, &r) {
+			// A refusal stops the run. Nothing new starts; what is already
+			// in flight finishes, and every one of those has its worst
+			// case reserved, so the ceiling holds.
+			fmt.Printf("\nstopped at %q: %v\n", trim(e.Task.Title, 40), err)
+			stop = true
+			return
+		}
+		// A person may have blocked the task while this call was in
+		// flight: their reason stands, and the runner's own is written
+		// only on a task nobody blocked (invariant 66).
+		if _, e2 := db.Exec(
+			`UPDATE tasks SET state='blocked', reason=?, updated=datetime('now') WHERE id=? AND state <> 'blocked'`,
+			"the engine did not answer: "+trim(err.Error(), 160), e.Task.ID); e2 != nil {
+			fmt.Printf("  could not record the block: %v\n", e2)
+		}
+		blocked++
+		fmt.Printf("  %-22s %-14s BLOCKED: %v\n", trim(e.Task.Title, 22), e.Analyst.Name, err)
+	}
+	runQueue(&wg, vendorQ, vendorParallel, halted, work)
+	runQueue(&wg, localQ, width, halted, work)
 	wg.Wait()
 
 	// The cents, once, over the whole run. Until this runs the tasks carry the

@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/TAIPANBOX/costcrew/actions/workflows/ci.yml/badge.svg)](https://github.com/TAIPANBOX/costcrew/actions/workflows/ci.yml)
 ![Go](https://img.shields.io/badge/go-1.27-00ADD8.svg)
-![tests](https://img.shields.io/badge/tests-1466-brightgreen.svg)
+![tests](https://img.shields.io/badge/tests-1478-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)
 ![Status](https://img.shields.io/badge/enforces-nothing%20by%20design-success.svg)
 
@@ -457,6 +457,21 @@ server's own. A server that reports no usage is counted at the worst case for
 that round, the bytes sent plus the whole output cap, rather than at nothing,
 and the runner says so.
 
+In a conversation of several rounds, each round re-sends everything before
+it, so a later round is never counted below the prompt of the round before,
+whatever the server reports. A server reports less than that when it cut the
+prompt to fit its context window, and the runner prints a line saying so: the
+model then answered without the start of what it was sent, and the fix is a
+larger context on the server (Ollama's `OLLAMA_CONTEXT_LENGTH`). The first
+round of a task is counted as the server reports it.
+
+The runner sends your server one task at a time. A self-hosted server usually
+answers one request at a time and makes the rest wait, and that wait counts
+against each request's five-minute timeout, so four at once (the width the
+vendor engines keep) leaves the tasks at the back blocked for having waited.
+If your server answers several at once (Ollama's `OLLAMA_NUM_PARALLEL`), set
+`-local-parallel` to that number, up to 64.
+
 If the server is not there, the run stops before the first task with one
 line naming the address. No task is blocked for a call that never happened.
 
@@ -577,9 +592,9 @@ estate-gates repository's own PROVEN record:
 ## Gates
 
 ```sh
-go test ./...                        # 1466 tests, 30 packages
+go test ./...                        # 1478 tests, 30 packages
 ./scripts/features-are-bound.sh      # every scenario bound to a named test, both ways
-./scripts/gates-have-teeth.sh        # 449 cases: each gate is made to fail on purpose
+./scripts/gates-have-teeth.sh        # 461 cases: each gate is made to fail on purpose
 gofmt -l . && go vet ./...
 ```
 

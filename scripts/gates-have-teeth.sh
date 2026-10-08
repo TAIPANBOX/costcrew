@@ -2844,8 +2844,8 @@ run_case $'blocked meanwhile: the run counts a discarded answer as a failed task
 	$'TestARunLeavesAPersonsBlockAloneAndCountsTheDiscardedAnswer' \
 	$'the summary does not say 0 of 1 done and 1 discarded' \
 	tools/run/live.go \
-	$'			if errors.As(err, &d) {\n				// Already blocked by a person' \
-	$'			if errors.As(err, &d) && false {\n				// Already blocked by a person'
+	$'		if errors.As(err, &d) {\n			// Already blocked by a person' \
+	$'		if errors.As(err, &d) && false {\n			// Already blocked by a person'
 run_case $'blocked meanwhile: the discard is not said' \
 	fail \
 	./tools/run \
@@ -2860,7 +2860,7 @@ run_case $'blocked meanwhile: the summary does not count the discard' \
 	$'TestARunLeavesAPersonsBlockAloneAndCountsTheDiscardedAnswer' \
 	$'the summary does not say' \
 	tools/run/live.go \
-	$'				discarded++\n' \
+	$'			discarded++\n' \
 	$''
 run_case $'blocked meanwhile: a failed call overwrites the person\'s reason' \
 	fail \
@@ -4510,7 +4510,106 @@ run_case $'reasoning tokens: the rule written as one max is not a fault' \
 	internal/deliver/openai_usage.go \
 	$'\tif beyondPrompt := u.TotalTokens - u.PromptTokens; beyondPrompt > out {\n\t\treturn beyondPrompt\n\t}\n\treturn out\n' \
 	$'\treturn max(out, u.TotalTokens-u.PromptTokens)\n'
-# Invariant 84: a period from ?period= is a bound parameter, never SQL text.
+run_case $'local width: the local engine defaults to the vendor width' \
+	fail \
+	./tools/run \
+	$'TestOnAServerThatAnswersOneAtATimeNoLocalTaskIsBlockedWaiting' \
+	$'the default on the local engine is one task at a time' \
+	tools/run/live.go \
+	$'\tif gw.LocalParallel < 1 {\n\t\treturn 1\n' \
+	$'\tif gw.LocalParallel < 1 {\n\t\treturn vendorParallel\n'
+run_case $'local width: -local-parallel is ignored for the vendor width' \
+	fail \
+	./tools/run \
+	$'TestLocalParallelSetsHowManyLocalTasksRunAtOnce' \
+	$'with -local-parallel 3, want 3' \
+	tools/run/live.go \
+	$'\trunQueue(&wg, localQ, width, halted, work)\n' \
+	$'\trunQueue(&wg, localQ, vendorParallel, halted, work)\n'
+run_case $'local width: the vendor engines take the local width' \
+	fail \
+	./tools/run \
+	$'TestVendorEnginesStillRunFourAtOnce' \
+	$'vendor requests at once, want 4' \
+	tools/run/live.go \
+	$'\trunQueue(&wg, vendorQ, vendorParallel, halted, work)\n' \
+	$'\trunQueue(&wg, vendorQ, width, halted, work)\n'
+run_case $'local width: one queue, so a vendor task waits for a local slot' \
+	fail \
+	./tools/run \
+	$'TestAVendorTaskIsNotHeldBehindTheLocalQueue' \
+	$'the vendor task waited for the local queue' \
+	tools/run/live.go \
+	$'\t\tif e.Engine == engines.LocalID {\n\t\t\tlocal = append(local, e)' \
+	$'\t\tif e.Engine == engines.LocalID || true {\n\t\t\tlocal = append(local, e)'
+run_case $'local width: a task\'s deadline counts its wait for a slot' \
+	fail \
+	./tools/run \
+	$'TestWaitingForALocalSlotIsNotCountedAgainstTheTasksDeadline' \
+	$'a task that waited for its slot was blocked' \
+	tools/run/live.go \
+	$'\tvendorQ, localQ := splitByEngine(todo)\n' \
+	$'\tvendorQ, localQ := splitByEngine(todo)\n\tqueued := time.Now()\n' \
+	tools/run/live.go \
+	$'ctx, cancel := context.WithTimeout(context.Background(), taskDeadline(e.Engine))' \
+	$'ctx, cancel := context.WithDeadline(context.Background(), queued.Add(taskDeadline(e.Engine)))'
+run_case $'local width: -local-parallel has no upper bound' \
+	fail \
+	./tools/run \
+	$'TestLocalParallelIsValidatedBeforeTheStoreOpens' \
+	$'want a refusal naming the flag' \
+	tools/run/local.go \
+	$'if o.Parallel < 0 || o.Parallel > localParallelMax {' \
+	$'if o.Parallel < 0 {'
+run_case $'-only: a refused task\'s own reason is dropped' \
+	fail \
+	./tools/run \
+	$'TestOnlyATaskThatWasRefusedSaysItsOwnReason' \
+	$'want it to name the task\'s own refusal' \
+	tools/run/live.go \
+	$'return fmt.Errorf("nothing to run: task %d was refused: %s", only, e.Verdict)' \
+	$'return fmt.Errorf("nothing to run: task %d was refused", only)'
+run_case $'-only: a task that is not open is called refused' \
+	fail \
+	./tools/run \
+	$'TestOnlyATaskThatIsNotOpenSaysSo' \
+	$'calls a task that was never priced refused' \
+	tools/run/live.go \
+	$'\t\t\tif e.Task.ID != only {\n\t\t\t\tcontinue' \
+	$'\t\t\tif false {\n\t\t\t\tcontinue'
+run_case $'-only: the reason is reworded, which is not a fault' \
+	pass \
+	./tools/run \
+	$'TestOnlyATaskThatIsNotOpenSaysSo|TestOnlyATaskThatWasRefusedSaysItsOwnReason' \
+	$'' \
+	tools/run/live.go \
+	$'"(it may be done, blocked, in another -sprint, or on another -engine)"' \
+	$'"(done, blocked, another sprint or another engine)"'
+run_case $'prompt floor: a later local round is taken at what the server reported' \
+	fail \
+	./tools/run \
+	$'TestALocalRoundIsNeverCountedBelowThePreviousRoundsPrompt' \
+	$'was counted at the 229 the server reported' \
+	internal/deliver/local.go \
+	$'\tif previous > reported {\n\t\treturn previous, true\n' \
+	$'\tif false {\n\t\treturn previous, true\n'
+run_case $'prompt floor: a vendor engine\'s count is raised too' \
+	fail \
+	./tools/run \
+	$'TestAnOpenRouterRoundIsNotFloored' \
+	$'as the vendor reported them' \
+	tools/run/loop.go \
+	$'if e.Engine == engines.LocalID && rr.InTokens > 0 {' \
+	$'if rr.InTokens > 0 {'
+run_case $'prompt floor: the rule written as one max is not a fault' \
+	pass \
+	./internal/deliver \
+	$'TestFloorLocalPrompt' \
+	$'' \
+	internal/deliver/local.go \
+	$'\tif previous > reported {\n\t\treturn previous, true\n\t}\n\treturn reported, false\n' \
+	$'\treturn max(reported, previous), previous > reported\n'
+# Invariant 85: a period from ?period= is a bound parameter, never SQL text.
 run_case $'period: concatenated into the breakdown query again' \
 	fail \
 	./internal/web \
@@ -4538,7 +4637,7 @@ run_case $'period: a reworded comment on the query builder is not a fault' \
 	internal/web/drill.go \
 	$'// periodBreakdown is one charges column\'s spend in one month, split by' \
 	$'// periodBreakdown is the spend of one charges column in one month, split by'
-# Invariant 85: the rightsizing, budget recommendation and SaaS seats readers
+# Invariant 86: the rightsizing, budget recommendation and SaaS seats readers
 # bound their refusal list and name a link they did not follow.
 run_case $'csv readers: every refused row named, however many' \
 	fail \
@@ -4575,7 +4674,7 @@ run_case $'csv readers: a reworded comment on the shared walk is not a fault' \
 	internal/connectors/csvfolder.go \
 	$'// skippedNote is the sentence a reader gives for a folder entry it did not' \
 	$'// skippedNote is what a reader says about a folder entry it did not'
-# Invariant 86: one rule for a unit's name, called by the reader and by the
+# Invariant 87: one rule for a unit's name, called by the reader and by the
 # unit rule.
 run_case $'unit name: a second copy of the rule written beside the call' \
 	fail \
@@ -4609,7 +4708,7 @@ run_case $'unit name: a reworded comment on the rule is not a fault' \
 	internal/plainname/plainname.go \
 	$'// Check says what is wrong with s as a printed name, or "" when nothing is:' \
 	$'// Check names what is wrong with s as a printed name, or "" when nothing is:'
-# Invariant 87: the mode line's example pseudonym is no token a name can draw,
+# Invariant 88: the mode line's example pseudonym is no token a name can draw,
 # and Reidentify never reads it as one.
 run_case $'prompt example: back to a real token\'s shape' \
 	fail \
