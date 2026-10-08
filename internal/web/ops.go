@@ -190,7 +190,8 @@ func (s *Server) engines(w http.ResponseWriter, r *http.Request) {
 		shell
 		Groups []engineGroup
 		Dry    bool
-	}{s.shellFor(r, "Engines", "engines"), groups, engines.Dry(av)})
+		Prompt promptDataView
+	}{s.shellFor(r, "Engines", "engines"), groups, engines.Dry(av), currentPromptData()})
 }
 
 // ---------------------------------------------------------------- accounts

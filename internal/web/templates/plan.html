@@ -12,6 +12,8 @@
     <button type="submit">Update the plan</button>
   </div>
 </form>
+<p class="note">The goal is read here to route work by skill. Whether a model also reads it is this console's <a href="/engines">-prompt-data setting</a>, <code>{{.Prompt.Mode}}</code>: {{if .Prompt.Withheld}}<strong>the goal you type is withheld</strong>; if you ask the supervisor to plan, it reads <code>{{.Prompt.Stand}}</code> where the goal would be, and plans from the items and the roster alone.{{else}}it is sent to the supervisor as typed.{{end}}</p>
+<p class="note">{{.Prompt.Line}}</p>
 {{if .P.GoalUnmatched}}<p class="msg">The goal names no skill this crew's roster holds, so it added nothing: the five sources below still apply.</p>{{end}}
 
 <div class="tiles">
@@ -72,7 +74,13 @@
 <div class="panel">
   <h2>The supervisor's own plan</h2>
   {{if .AskRefusal}}
-    <p class="msg">The call was refused: <span class="note">{{.AskRefusal}}</span></p>
+    {{if eq .AskStage "answer"}}
+    <p class="msg">The call was made and paid for, booked at {{.AskCost}}, but its answer was refused, so there is no plan to approve from it: <span class="note">{{.AskRefusal}}</span></p>
+    {{else if eq .AskStage "failed"}}
+    <p class="msg">The call was tried and failed, and nothing was booked for it: <span class="note">{{.AskRefusal}}</span></p>
+    {{else}}
+    <p class="msg">The call was refused before it was made, so nothing was spent: <span class="note">{{.AskRefusal}}</span></p>
+    {{end}}
     {{if .AskRawAnswer}}
     <p>What the model wrote, in full, so nothing here hides what it said:</p>
     <pre class="scroll">{{.AskRawAnswer}}</pre>

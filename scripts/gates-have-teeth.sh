@@ -4885,6 +4885,49 @@ run_case $'ai page: the reason panel\'s wording is not the property' \
 	$'<p class="note">A blocked call costs nothing: the gateway refused it.' \
 	$'<p class="note">A blocked call costs nothing; the gateway refused it.'
 
+# Invariant 91: the -prompt-data setting is shown where a person meets it, and
+# a plan-ask's refusal says whether anything was paid.
+run_case $'prompt data: the mode dropped from /engines' \
+	fail \
+	./internal/web \
+	$'TestTheEnginesAndPlanPagesShowThePromptDataMode' \
+	$'/engines does not name the -prompt-data mode' \
+	internal/web/templates/engines.html \
+	$'<p>This console runs with <code>-prompt-data {{.Prompt.Mode}}</code>. The model is told, in these words: <q>{{.Prompt.Line}}</q></p>' \
+	$'<p>This console runs with a prompt-data setting.</p>'
+run_case $'prompt data: the plan page does not say the goal is withheld' \
+	fail \
+	./internal/web \
+	$'TestTheEnginesAndPlanPagesShowThePromptDataMode' \
+	$'does not say plainly that the typed goal is withheld' \
+	internal/web/templates/plan.html \
+	$'{{if .Prompt.Withheld}}<strong>the goal you type is withheld</strong>' \
+	$'{{if false}}<strong>the goal you type is withheld</strong>'
+run_case $'plan ask: a paid answer that failed validation called refused before the call' \
+	fail \
+	./internal/web \
+	$'TestAPaidAnswerThatFailedValidationIsNotCalledARefusedCall' \
+	$'is not said to be paid' \
+	internal/web/planning.go \
+	$'\t\tview.AskStage = "answer"' \
+	$'\t\tview.AskStage = "before"'
+run_case $'plan ask: a failed call called refused before the call' \
+	fail \
+	./internal/web \
+	$'TestACallThatFailedSaysNothingWasBooked' \
+	$'not described as tried and failed' \
+	internal/web/planning.go \
+	$'\t\tview.AskStage = "failed"' \
+	$'\t\tview.AskStage = ""'
+run_case $'prompt data: the engines note\'s wording is not the property' \
+	pass \
+	./internal/web \
+	$'TestTheEnginesAndPlanPagesShowThePromptDataMode' \
+	$'' \
+	internal/web/templates/engines.html \
+	$'<p class="note">This setting governs the one call the console makes' \
+	$'<p class="note">This setting governs the single call the console makes'
+
 echo
 if [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'

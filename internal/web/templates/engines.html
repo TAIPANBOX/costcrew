@@ -4,6 +4,15 @@
   <p>Grouped by how you pay, because that is the question you actually have. Three answers to "what do I need", not a list of twelve providers.</p>
 </header>
 
+<div class="panel">
+  <h2>What a model is sent</h2>
+  <div class="body">
+    <p>This console runs with <code>-prompt-data {{.Prompt.Mode}}</code>. The model is told, in these words: <q>{{.Prompt.Line}}</q></p>
+    {{if .Prompt.Withheld}}<p class="note">Text a person types is withheld under this setting, a sprint goal included: where it would go, the model reads <code>{{.Prompt.Stand}}</code>.</p>{{end}}
+    <p class="note">This setting governs the one call the console makes, the supervisor's plan. <code>costcrew-run</code> reads its own <code>-prompt-data</code> flag for the crew's tasks.</p>
+  </div>
+</div>
+
 {{if .Dry}}
 <p class="msg">Nothing is configured, so the crew is in dry mode: every figure the engine computes is real and the analysts simply do not write. The console is not broken.</p>
 {{end}}
