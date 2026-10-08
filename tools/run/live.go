@@ -345,6 +345,13 @@ func execute(ctx context.Context, db, roDB *sql.DB, e estimate, maxTok int, run 
 	// came to that, so the next task is checked against what was really used.
 	run.settleTokens(reserveTokens, int64(res.InTokens)+int64(res.OutTokens))
 	run.noteSettlement(res.Settlement)
+	// And on the task itself, on every path, stopped included: the tokens
+	// were used whether or not a draft follows (invariant 93).
+	if used := int64(res.InTokens) + int64(res.OutTokens); used > 0 {
+		if e2 := recordTokens(db, e.Task.ID, used, run.tokenCeiling); e2 != nil {
+			fmt.Fprintf(os.Stderr, "  could not record the tokens task %d used: %v\n", e.Task.ID, e2)
+		}
+	}
 	if err != nil {
 		// A task that stopped is not a task that cost nothing (costcrew#82):
 		// the run's ceiling above already counts what the rounds that were
@@ -502,6 +509,30 @@ func recordCharge(db *sql.DB, taskID int, micros int64) error {
 	_, err := db.Exec(`UPDATE tasks
 		SET live_micros = live_micros + ?, updated = datetime('now')
 		WHERE id = ?`, micros, taskID)
+	return err
+}
+
+// recordTokens adds the tokens one task's calls used to tasks.live_tokens and
+// notes the run's token ceiling beside them (invariant 93). One statement, for
+// the same reason recordCharge is one.
+//
+// A store the console has not started on since the columns were added is
+// given them here, once, and only by a run that has tokens to record: a dry
+// run never reaches this, so it still changes nothing.
+func recordTokens(db *sql.DB, taskID int, tokens, ceiling int64) error {
+	write := func() error {
+		_, err := db.Exec(`UPDATE tasks
+			SET live_tokens = live_tokens + ?, live_token_ceiling = ?, updated = datetime('now')
+			WHERE id = ?`, tokens, ceiling, taskID)
+		return err
+	}
+	err := write()
+	if err != nil && strings.Contains(err.Error(), "no such column") {
+		if err := crew.EnsureLiveSpendLedger(db); err != nil {
+			return err
+		}
+		err = write()
+	}
 	return err
 }
 

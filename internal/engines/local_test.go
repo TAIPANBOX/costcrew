@@ -135,7 +135,10 @@ func TestResetLocalForgetsThePreviousRunsSetting(t *testing.T) {
 	}
 }
 
-// Check reads the endpoint's variable and calls nothing.
+// Check calls nothing, and never reads the local engine as ready off this
+// console's own environment: the console never calls it, so its readiness is
+// costcrew-run's (invariant 93). This test used to require "ready" whenever
+// COSTCREW_MODEL_URL was set here, which was the defect itself.
 func TestCheckReadsTheLocalEndpointFromTheEnvironment(t *testing.T) {
 	ready := func(env map[string]string) Availability {
 		av := Check(func(k string) string { return env[k] }, func(string) (string, error) {
@@ -149,13 +152,16 @@ func TestCheckReadsTheLocalEndpointFromTheEnvironment(t *testing.T) {
 		t.Fatal("local is not in Check's answer")
 		return Availability{}
 	}
-	if a := ready(map[string]string{"COSTCREW_MODEL_URL": "http://127.0.0.1:11434/v1"}); !a.Ready {
-		t.Errorf("a set COSTCREW_MODEL_URL is not ready: %q", a.Reason)
+	set := ready(map[string]string{"COSTCREW_MODEL_URL": "http://127.0.0.1:11434/v1"})
+	if set.Ready || !set.RunnerOnly || !strings.Contains(set.Reason, "decided by costcrew-run") ||
+		!strings.Contains(set.Reason, "COSTCREW_MODEL_URL is set in this console's own environment, which says nothing") {
+		t.Errorf("a COSTCREW_MODEL_URL set in the console's environment: ready=%v reason=%q", set.Ready, set.Reason)
 	}
-	if a := ready(map[string]string{"COSTCREW_MODEL_URL": "   "}); a.Ready {
-		t.Error("a blank COSTCREW_MODEL_URL reads as ready")
+	if a := ready(map[string]string{"COSTCREW_MODEL_URL": "   "}); a.Ready || !strings.Contains(a.Reason, "is not set in this console") {
+		t.Errorf("a blank COSTCREW_MODEL_URL: ready=%v reason=%q", a.Ready, a.Reason)
 	}
-	if a := ready(nil); a.Ready || !strings.Contains(a.Reason, "COSTCREW_MODEL_URL") {
+	if a := ready(nil); a.Ready || !strings.Contains(a.Reason, "COSTCREW_MODEL_URL is not set") ||
+		!strings.Contains(a.Reason, "decided by costcrew-run") {
 		t.Errorf("an unset endpoint: ready=%v reason=%q", a.Ready, a.Reason)
 	}
 }
@@ -185,5 +191,46 @@ func TestThePriceTableNamesTheOperatorsLocalPrice(t *testing.T) {
 func TestSelfHostedFamilyHasATitleAndANote(t *testing.T) {
 	if FamilyTitle(SelfHosted) == string(SelfHosted) || FamilyNote(SelfHosted) == "" {
 		t.Error("the self-hosted family renders as its raw id with no note")
+	}
+}
+
+// TestTheLocalHowTextNamesCostcrewRunsFlags (invariant 93): the flags that
+// set the local engine up are costcrew-run's, -local-parallel included with
+// its default.
+func TestTheLocalHowTextNamesCostcrewRunsFlags(t *testing.T) {
+	e, ok := Lookup(LocalID)
+	if !ok {
+		t.Fatal("local is not in the catalogue")
+	}
+	for _, want := range []string{"costcrew-run, not this console", "-model-url", "-model-name",
+		"-local-parallel", "default 1"} {
+		if !strings.Contains(e.How, want) {
+			t.Errorf("the local engine's How text does not say %q: %q", want, e.How)
+		}
+	}
+}
+
+// TestLiveMarkTitleSaysWhatWroteIt: a self-hosted model and an assistant
+// already paid for are not "a real key".
+func TestLiveMarkTitleSaysWhatWroteIt(t *testing.T) {
+	for id, want := range map[string]string{
+		LocalID: "own server", "claude-cli": "already pays for", "local-cli": "already pays for",
+		"anthropic": "against a real key", "": "against a real key",
+	} {
+		got := LiveMarkTitle(id)
+		if !strings.Contains(got, want) {
+			t.Errorf("%q: %q does not say %q", id, got, want)
+		}
+		if id == LocalID || id == "claude-cli" || id == "local-cli" {
+			if strings.Contains(got, "real key") {
+				t.Errorf("%q is described as a real key: %q", id, got)
+			}
+		}
+	}
+}
+
+func TestTheCatalogueCountsItself(t *testing.T) {
+	if FamilyCount() != 5 || EngineCount() != 7 {
+		t.Errorf("%d families and %d engines; a change here moves the engines page's own sentence, so check it reads well", FamilyCount(), EngineCount())
 	}
 }

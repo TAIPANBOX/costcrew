@@ -4979,6 +4979,167 @@ run_case $'typed hint: the task panel\'s no-hint wording is not the property' \
 	$'the analyst works it without one.' \
 	$'the analyst works without one.'
 
+# Invariant 93: the local engine is costcrew-run's, its flags are named, the
+# engines page counts its own catalogue, the forms name engines, and a local
+# run's tokens reach the task page and the card.
+run_case $'local engine: ready read off the console\'s own environment' \
+	fail \
+	./internal/engines \
+	$'TestCheckReadsTheLocalEndpointFromTheEnvironment' \
+	$'a COSTCREW_MODEL_URL set in the console' \
+	internal/engines/engines.go \
+	$'\t\tcase e.RunnerOnly:' \
+	$'\t\tcase false && e.RunnerOnly:'
+run_case $'local engine: the How text loses -local-parallel' \
+	fail \
+	./internal/engines \
+	$'TestTheLocalHowTextNamesCostcrewRunsFlags' \
+	$'-local-parallel' \
+	internal/engines/engines.go \
+	$'"-local-parallel for how many tasks it sends the server at once " +' \
+	$'"" +'
+run_case $'engines page: the count written by hand' \
+	fail \
+	./internal/web \
+	$'TestTheEnginesPageCountsItsCatalogueAndLeavesLocalToTheRunner' \
+	$'does not count its own catalogue' \
+	internal/web/templates/engines.html \
+	$'{{.Families}} answers to "what do I need", covering {{.EngineCount}} engines.' \
+	$'Three answers to "what do I need", not a list of twelve providers.'
+run_case $'hire form: raw engine ids' \
+	fail \
+	./internal/web \
+	$'TestTheHireAndRebriefFormsNameTheEngines' \
+	$'does not name the local engine' \
+	internal/web/templates/hire.html \
+	$'<option value="{{.ID}}">{{.Name}} ({{.ID}})</option>' \
+	$'<option value="{{.ID}}">{{.ID}}</option>'
+run_case $'runner: a task\'s tokens not recorded' \
+	fail \
+	./tools/run \
+	$'TestEachTaskRecordsTheTokensItsCallsUsed' \
+	$'tokens against a ceiling' \
+	tools/run/live.go \
+	$'if used := int64(res.InTokens) + int64(res.OutTokens); used > 0 {' \
+	$'if used := int64(res.InTokens) + int64(res.OutTokens); false && used > 0 {'
+run_case $'task page: a local task shown as money against a guard' \
+	fail \
+	./internal/web \
+	$'TestALocalTaskShowsTokensAgainstTheRunCeiling' \
+	$'against a per-task guard' \
+	internal/web/templates/task.html \
+	$'{{if .Local}}' \
+	$'{{if false}}'
+run_case $'task page: every live deliverable marked as a real key' \
+	fail \
+	./internal/web \
+	$'TestALocalTaskShowsTokensAgainstTheRunCeiling' \
+	$'marked as written against a real key' \
+	internal/web/work.go \
+	$'engines.LiveMarkTitle(engineFor(a.Author))' \
+	$'engines.LiveMarkTitle("")'
+run_case $'agent card: a local agent\'s tokens dropped' \
+	fail \
+	./internal/web \
+	$'TestTheLocalAgentCardShowsTheTokensItsWorkUsed' \
+	$'does not show the tokens' \
+	internal/web/analyst.go \
+	$'\tif a.Engine == engines.LocalID {' \
+	$'\tif false && a.Engine == engines.LocalID {'
+run_case $'agent card: the tokens sentence\'s wording is not the property' \
+	pass \
+	./internal/web \
+	$'TestTheLocalAgentCardShowsTheTokensItsWorkUsed' \
+	$'' \
+	internal/web/templates/analyst.html \
+	$'are what its live work used{{end}}' \
+	$'are what its live work consumed{{end}}'
+
+# Invariant 94: a unit's business unit, /teams' customer units and wording,
+# and the chargeback units panel's period.
+run_case $'units: a ruled unit\'s page names no business unit' \
+	fail \
+	./internal/web \
+	$'TestAUnitsPageNamesTheBusinessUnitItsRuleChargesItUnder' \
+	$'does not name its business unit' \
+	internal/web/templates/team.html \
+	$'{{if .OffRoster}}{{if .HasRule}}' \
+	$'{{if .OffRoster}}{{if false}}'
+run_case $'teams: the customer units panel dropped' \
+	fail \
+	./internal/web \
+	$'TestTheTeamsPageListsTheCustomerUnitsAndNamesBusinessUnits' \
+	$'/teams does not contain' \
+	internal/web/templates/teams.html \
+	$'{{if .Units}}' \
+	$'{{if false}}'
+run_case $'teams: the column back to Unit' \
+	fail \
+	./internal/web \
+	$'TestTheTeamsPageListsTheCustomerUnitsAndNamesBusinessUnits' \
+	$'still calls a team\'s business unit its Unit' \
+	internal/web/templates/teams.html \
+	$'{{.Sort.Header "unit" "Business unit" "tight" false}}' \
+	$'{{.Sort.Header "unit" "Unit" "tight" false}}'
+run_case $'chargeback: the units panel says today' \
+	fail \
+	./internal/web \
+	$'TestTheChargebackUnitsPanelNamesItsPeriodNotToday' \
+	$'still says its figures are today' \
+	internal/web/templates/chargeback.html \
+	$'These are {{.Period}}\'s figures as they stand now: the live allocation, not a frozen close.' \
+	$'These are today\'s figures.'
+run_case $'chargeback: the units panel\'s closing words are not the property' \
+	pass \
+	./internal/web \
+	$'TestTheChargebackUnitsPanelNamesItsPeriodNotToday' \
+	$'' \
+	internal/web/templates/chargeback.html \
+	$'the live allocation, not a frozen close.' \
+	$'the live allocation rather than a frozen close.'
+
+# Invariant 95: four small sentences that said something untrue.
+run_case $'reconciliation: the exact-model-name limit unstated' \
+	fail \
+	./internal/web \
+	$'TestTheReconciliationPageStatesTheExactModelNameLimit' \
+	$'does not say' \
+	internal/web/templates/reconciliation.html \
+	$'<p class="note">A model is matched by its exact name, character for character.' \
+	$'<p class="note">'
+run_case $'connectors: a usage folder listed as an API call' \
+	fail \
+	./internal/web \
+	$'TestTheUsageConnectorsAreListedAsFoldersNotCalls' \
+	$'listed as an API call' \
+	internal/connectors/connectors.go \
+	$'\t\tKind: ExportDrop, Feeds: "provider_usage", Metered: false, // a folder: see anthropic-usage' \
+	$'\t\tKind: API, Feeds: "provider_usage", Metered: false, // a folder: see anthropic-usage'
+run_case $'connectors: the drop-a-folder hint back' \
+	fail \
+	./internal/web \
+	$'TestTheFocusConnectorPageOffersNoDropAndLinksToTheAIPage' \
+	$'offers to take a dropped folder' \
+	internal/connectors/connectors.go \
+	$'Hint: "the local path on the machine this console runs on"}},' \
+	$'Hint: "the local path, or drop the folder on this page"}},'
+run_case $'connectors: the TokenFuse page loses its link to /ai' \
+	fail \
+	./internal/web \
+	$'TestTheFocusConnectorPageOffersNoDropAndLinksToTheAIPage' \
+	$'does not link to the AI spend page' \
+	internal/web/templates/connector.html \
+	$'{{- if eq .C.ID "tokenfuse-focus"}}' \
+	$'{{- if false}}'
+run_case $'connectors: the /ai link\'s words are not the property' \
+	pass \
+	./internal/web \
+	$'TestTheFocusConnectorPageOffersNoDropAndLinksToTheAIPage' \
+	$'' \
+	internal/web/templates/connector.html \
+	$'View the imported AI spend, by agent and by the gateway\'s reason for each block' \
+	$'See the imported AI spend, by agent and by the gateway\'s reason for each block'
+
 echo
 if [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'

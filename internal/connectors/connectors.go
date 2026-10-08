@@ -264,13 +264,15 @@ var Catalogue = []Connector{
 			"when blocked, why. USD only in this step.",
 		Doc: "https://focus.finops.org/",
 		Inputs: []Input{{Name: "path", Label: "Folder tokenfuse focus-export wrote to",
-			Hint: "the local path, or drop the folder on this page"}},
+			Hint: "the local path on the machine this console runs on"}},
 		Cannot: "It cannot tell you what the call was for: an outcome is what the calling " +
 			"agent tagged, or nothing.",
 	},
 	{
 		ID: "anthropic-usage", Name: "Anthropic usage and cost", Provider: "ai",
-		Kind: API, Feeds: "provider_usage", Metered: false,
+		// ExportDrop, not API: the console reads a folder and calls nothing.
+		// The API call is costcrew-usage's, run apart (invariant 95).
+		Kind: ExportDrop, Feeds: "provider_usage", Metered: false,
 		Auth: "none for the console: it reads a folder. costcrew-usage fetches the folder with an " +
 			"Admin API key read from ANTHROPIC_ADMIN_KEY (sk-ant-admin..., not an ordinary API key), " +
 			"never stored and never printed",
@@ -300,7 +302,7 @@ var Catalogue = []Connector{
 	},
 	{
 		ID: "openai-usage", Name: "OpenAI organization usage and costs", Provider: "ai",
-		Kind: API, Feeds: "provider_usage", Metered: false,
+		Kind: ExportDrop, Feeds: "provider_usage", Metered: false, // a folder: see anthropic-usage
 		Auth: "none for the console: it reads a folder. costcrew-usage fetches the folder with an " +
 			"Admin key read from OPENAI_ADMIN_KEY, never stored and never printed",
 		CostNote: "OpenAI's API reference for these endpoints names no charge for calling them " +

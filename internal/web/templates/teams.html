@@ -15,7 +15,7 @@
   <table>
     <thead><tr>
       {{.Sort.Header "team" "Team" "" false}}
-      {{.Sort.Header "unit" "Unit" "tight" false}}
+      {{.Sort.Header "unit" "Business unit" "tight" false}}
       {{.Sort.Header "direct" "Direct" "num" true}}
       {{.Sort.Header "allocated" "Allocated" "num" true}}
       {{.Sort.Header "loaded" "Fully loaded" "num" true}}
@@ -36,4 +36,21 @@
   </table>
   </div>
 </div>
+
+{{if .Units}}
+<div class="panel" id="units">
+  <h2>Customer units</h2>
+  <div class="body">
+    <p class="note">Units the AI gateway reports, which are charged but are not teams on the roster. A unit is charged back under a business unit once a person stamps a rule for it; the same list, with its rules, is on <a href="/chargeback?period={{.Period}}#units">the chargeback page</a>. {{.Period}}, as it stands now.</p>
+  </div>
+  <div class="scroll"><table>
+    <thead><tr><th>Unit</th><th>Business unit</th><th class="num">Fully loaded</th></tr></thead>
+    <tbody>{{range .Units}}
+      <tr><td><a href="/team/{{.Unit}}?period={{$.Period}}">{{.Unit}}</a></td>
+          <td>{{if .Ruled}}{{.BusinessUnit}}{{else}}<span class="note">no rule yet</span>{{end}}</td>
+          <td class="num">{{.Loaded}}</td></tr>
+    {{end}}</tbody>
+  </table></div>
+</div>
+{{end}}
 {{end}}

@@ -11,6 +11,7 @@ import (
 
 	"github.com/TAIPANBOX/costcrew/internal/anomaly"
 	"github.com/TAIPANBOX/costcrew/internal/crew"
+	"github.com/TAIPANBOX/costcrew/internal/engines"
 	"github.com/TAIPANBOX/costcrew/internal/money"
 	"github.com/TAIPANBOX/costcrew/internal/world"
 )
@@ -241,6 +242,9 @@ type artView struct {
 	// than as markup -- unlike Rendered above, nothing here is ever wrapped
 	// in template.HTML.
 	Options []optionView
+	// LiveTitle is the "written live" mark's own words, by the author's
+	// engine (invariant 93).
+	LiveTitle string
 }
 
 // optionView adds the two figures formatted as money, which the template
@@ -486,11 +490,29 @@ func (s *Server) taskPage(w http.ResponseWriter, r *http.Request) {
 	arts, _ := crew.Artifacts(s.db, id)
 	notes, _ := crew.Comments(s.db, id)
 
+	engineOf := map[string]string{}
+	engineFor := func(name string) string {
+		if e, ok := engineOf[name]; ok {
+			return e
+		}
+		an, err := crew.GetAnalyst(s.db, name)
+		if err != nil {
+			engineOf[name] = ""
+			return ""
+		}
+		engineOf[name] = an.Engine
+		return an.Engine
+	}
 	av := make([]artView, 0, len(arts))
 	for _, a := range arts {
 		opts, _ := crew.Options(s.db, a.ID)
-		av = append(av, artView{a, renderBody(a.Body), optionViews(opts)})
+		av = append(av, artView{a, renderBody(a.Body), optionViews(opts), engines.LiveMarkTitle(engineFor(a.Author))})
 	}
+	// Invariant 93: what the task's own calls used in tokens, and whether
+	// its analyst runs on the organisation's own model, where money bounds
+	// nothing and the tokens are the measure.
+	tokens, tokenCeiling, _ := crew.TaskTokens(s.db, id)
+	local := t.Assignee != "" && engineFor(t.Assignee) == engines.LocalID
 	// The sprint's label, so the page can link the week this belongs to
 	// rather than printing a row id nobody can look up.
 	label := ""
@@ -523,9 +545,22 @@ func (s *Server) taskPage(w http.ResponseWriter, r *http.Request) {
 		HasHint     bool
 		Hint        anomaly.Hint
 		HintProb    string
+		Tokens      string
+		TokenCeil   string
+		Local       bool
+		SpentAny    bool
 	}{s.shellFor(r, t.Title, "board"), t, stateChip(t.State), label, av, notes,
 		s.activeAnalysts(), u.May("operator"),
-		hasHint, hint, strconv.FormatFloat(hint.Probability, 'f', 2, 64)})
+		hasHint, hint, strconv.FormatFloat(hint.Probability, 'f', 2, 64),
+		tokenText(tokens), tokenText(tokenCeiling), local, t.Spent > 0})
+}
+
+// tokenText is a token count for the page, "" for none.
+func tokenText(n int64) string {
+	if n <= 0 {
+		return ""
+	}
+	return thousands(n)
 }
 
 // -------------------------------------------------------------------- staff

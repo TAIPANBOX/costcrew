@@ -25,10 +25,15 @@ func deskNames() []string {
 	return out
 }
 
-func engineNames() []string {
-	out := make([]string, 0, len(engines.Catalogue))
+// engineOption is one engine as the hire and re-brief forms offer it: the
+// name a person recognises, with the id the roster stores (invariant 93; the
+// forms used to list the raw ids alone, "claude-cli", "local").
+type engineOption struct{ ID, Name string }
+
+func engineNames() []engineOption {
+	out := make([]engineOption, 0, len(engines.Catalogue))
 	for _, e := range engines.Catalogue {
-		out = append(out, e.ID)
+		out = append(out, engineOption{e.ID, e.Name})
 	}
 	return out
 }
@@ -44,12 +49,13 @@ func (s *Server) hirePage(w http.ResponseWriter, r *http.Request) {
 	}
 	s.render(w, tplHire, struct {
 		shell
-		Desks, Engines, Cadences, Attestations, Skills, Rights []string
-		Needs                                                  map[string]string
-		Host                                                   string
+		Desks, Cadences, Attestations, Skills, Rights []string
+		Engines                                       []engineOption
+		Needs                                         map[string]string
+		Host                                          string
 	}{s.shellFor(r, "Hire an analyst", "staff"),
-		deskNames(), engineNames(), crew.Cadences, crew.Attestations,
-		crew.SkillPool, crew.Rights, crew.AttestationNeeds, s.host})
+		deskNames(), crew.Cadences, crew.Attestations,
+		crew.SkillPool, crew.Rights, engineNames(), crew.AttestationNeeds, s.host})
 }
 
 // parseAnalyst reads the form once, so hire and re-brief cannot drift apart in
@@ -145,12 +151,13 @@ func (s *Server) rebriefPage(w http.ResponseWriter, r *http.Request) {
 
 	s.render(w, tplRebrief, struct {
 		shell
-		A                                                crew.Analyst
-		Desks, Engines, Cadences, Skills, Rights, States []string
-		Has, HasRight                                    map[string]bool
+		A                                       crew.Analyst
+		Desks, Cadences, Skills, Rights, States []string
+		Engines                                 []engineOption
+		Has, HasRight                           map[string]bool
 	}{s.shellFor(r, "Re-brief "+a.Name, "staff"), a,
-		deskNames(), engineNames(), crew.Cadences, crew.SkillPool, crew.Rights,
-		crew.States, has, hasRight})
+		deskNames(), crew.Cadences, crew.SkillPool, crew.Rights,
+		crew.States, engineNames(), has, hasRight})
 }
 
 func (s *Server) rebrief(w http.ResponseWriter, r *http.Request) {

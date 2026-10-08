@@ -64,6 +64,13 @@ func EnsureLiveSpendLedger(db *sql.DB) error {
 		// What has already been booked into spent_cents for this task, so the
 		// settle pass is idempotent and stays right across several runs.
 		"live_cents INTEGER NOT NULL DEFAULT 0",
+		// Invariant 93: the tokens the task's own calls used, and the run's
+		// -max-run-tokens when the run had one (0: none). On the local engine
+		// at a price of 0 money bounds nothing and tokens are the only
+		// measure of what the work used, so the task page and the agent card
+		// show these instead of "0.00 against a per-task guard".
+		"live_tokens INTEGER NOT NULL DEFAULT 0",
+		"live_token_ceiling INTEGER NOT NULL DEFAULT 0",
 	} {
 		if _, err := db.Exec("ALTER TABLE tasks ADD COLUMN " + col); err != nil &&
 			!strings.Contains(err.Error(), "duplicate column") {
@@ -195,6 +202,29 @@ func LiveSpendBy(db *sql.DB, analyst string) (micros int64, tasks int, err error
 		 WHERE live_micros > 0 AND assignee = ?`, analyst).
 		Scan(&micros, &tasks)
 	return micros, tasks, err
+}
+
+// TaskTokens is what one task's own calls used in tokens, and the token
+// ceiling of the last run that worked it (0: none). A store from before
+// invariant 93 reads as nothing used.
+func TaskTokens(db *sql.DB, task int) (tokens, ceiling int64, err error) {
+	err = db.QueryRow(`SELECT live_tokens, live_token_ceiling FROM tasks WHERE id=?`, task).
+		Scan(&tokens, &ceiling)
+	if err != nil && strings.Contains(err.Error(), "no such column") {
+		return 0, 0, nil
+	}
+	return tokens, ceiling, err
+}
+
+// LiveTokensBy is what one analyst's own calls used in tokens, over how many
+// tasks: the agent card's measure for an engine money does not bound.
+func LiveTokensBy(db *sql.DB, analyst string) (tokens int64, tasks int, err error) {
+	err = db.QueryRow(`SELECT COALESCE(SUM(live_tokens),0), COUNT(*) FROM tasks
+		 WHERE live_tokens > 0 AND assignee = ?`, analyst).Scan(&tokens, &tasks)
+	if err != nil && strings.Contains(err.Error(), "no such column") {
+		return 0, 0, nil
+	}
+	return tokens, tasks, err
 }
 
 // RealMoney is the sentence three pages carry, written once.

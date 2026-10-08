@@ -70,7 +70,50 @@ type Engine struct {
 	// waves the call through with no bound at all. Unknown is not free, and
 	// neither is keyless.
 	Metered bool
+
+	// RunnerOnly is an engine this console never calls itself: only
+	// costcrew-run does, so its readiness is costcrew-run's and Check says so
+	// instead of reading it off this process's environment (invariant 93).
+	RunnerOnly bool
 }
+
+// Lookup is the catalogue's entry for an engine id.
+func Lookup(id string) (Engine, bool) {
+	for _, e := range Catalogue {
+		if e.ID == id {
+			return e, true
+		}
+	}
+	return Engine{}, false
+}
+
+// LiveMarkTitle is what the "written live" mark on a deliverable says about
+// the model that wrote it, by its engine: a self-hosted model and an
+// assistant already paid for are not "a real key" (invariant 93).
+func LiveMarkTitle(id string) string {
+	const rest = " Everything unmarked on this page was generated when the estate was seeded."
+	e, _ := Lookup(id)
+	switch {
+	case id == LocalID:
+		return "A model on the organisation's own server wrote this; no vendor was called or billed." + rest
+	case e.Family == Subscription || e.Family == Existing:
+		return "A model wrote this through an assistant the organisation already pays for, not a per-token key." + rest
+	}
+	return "A model wrote this against a real key." + rest
+}
+
+// FamilyCount and EngineCount are the catalogue's own sizes, so a page that
+// says how many there are cannot drift from what it lists.
+func FamilyCount() int {
+	seen := map[Family]bool{}
+	for _, e := range Catalogue {
+		seen[e.Family] = true
+	}
+	return len(seen)
+}
+
+// EngineCount is how many engines the catalogue holds.
+func EngineCount() int { return len(Catalogue) }
 
 var Catalogue = []Engine{
 	{
@@ -165,10 +208,14 @@ var Catalogue = []Engine{
 			"tokens (-local-price-in, -local-price-out); left at 0, the run is " +
 			"bounded by a token ceiling (-max-run-tokens) instead of by money.",
 		How: "Run any server that speaks /v1/chat/completions (Ollama, vLLM, LM " +
-			"Studio, llama.cpp), give its base URL as -model-url or " +
-			"COSTCREW_MODEL_URL, and name the model it serves with -model-name.",
+			"Studio, llama.cpp). Then give costcrew-run, not this console, its " +
+			"flags: the server's base URL as -model-url (or COSTCREW_MODEL_URL in " +
+			"costcrew-run's environment), the model it serves as -model-name, and " +
+			"-local-parallel for how many tasks it sends the server at once " +
+			"(default 1, one at a time).",
 		Doc:         "https://github.com/TAIPANBOX/costcrew#running-the-crew-on-a-model-inside-your-own-network",
 		EndpointEnv: "COSTCREW_MODEL_URL",
+		RunnerOnly:  true,
 	},
 	{
 		ID: "local-cli", Name: "A local assistant already paid for", Family: Existing,
@@ -211,6 +258,20 @@ func Check(lookup func(string) string, look func(string) (string, error)) []Avai
 			} else {
 				a.Reason = e.EnvVar + " is not set in this process's environment"
 			}
+		case e.RunnerOnly:
+			// This console never calls a self-hosted model: its one call,
+			// the supervisor's plan, refuses it. Whether one works is
+			// costcrew-run's to say, from its own flags and environment, so
+			// this console's environment is reported and decides nothing
+			// (invariant 93; it used to read "ready" off it).
+			here := "is not set"
+			if e.EndpointEnv != "" && strings.TrimSpace(lookup(e.EndpointEnv)) != "" {
+				here = "is set"
+			}
+			a.Reason = "decided by costcrew-run, from its own -model-url (or " + e.EndpointEnv +
+				" in its environment) and -model-name. This console never calls this engine: " +
+				"the supervisor's plan, the one call it makes, refuses it. " + e.EndpointEnv + " " +
+				here + " in this console's own environment, which says nothing either way."
 		case e.EndpointEnv != "":
 			if v := strings.TrimSpace(lookup(e.EndpointEnv)); v != "" {
 				a.Ready, a.Reason = true, e.EndpointEnv+" names a server (not called to check that it answers)"

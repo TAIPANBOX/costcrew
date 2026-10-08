@@ -463,6 +463,14 @@ func (s *Server) analyst(w http.ResponseWriter, r *http.Request) {
 
 	// What of this agent's cost is real. Per-analyst, not a share of the total.
 	liveMicros, liveTasks, _ := crew.LiveSpendBy(s.db, a.Name)
+	// Invariant 93: on the organisation's own model money bounds nothing, so
+	// the card says what its live work used in tokens.
+	var localTokens string
+	var localTasks int
+	if a.Engine == engines.LocalID {
+		n, tasks, _ := crew.LiveTokensBy(s.db, a.Name)
+		localTokens, localTasks = tokenText(n), tasks
+	}
 
 	s.render(w, tplAnalyst, struct {
 		shell
@@ -498,12 +506,15 @@ func (s *Server) analyst(w http.ResponseWriter, r *http.Request) {
 		SortStops  sortSpec
 		RealMoney  string
 		JD         jobDescription
+		// LocalTokens and LocalTasks: see the comment above.
+		LocalTokens string
+		LocalTasks  int
 	}{s.shellFor(r, a.Name, "staff"), a, sc, agentChip(a.State),
 		work, caused, handled, events, children, rhythm, rights, cannotEver,
 		engine, doc, docJSON, spend, month, guardUsed, s.host, u.May("operator"),
 		mayManage(u, a), append(deskNames(), "management"), owners, others,
 		openWork, elsewhere, rsrt, wsrt, stops, summariseStops(stops), ssrt,
-		crew.RealMoney(liveMicros, liveTasks), jobDescriptionFor(a)})
+		crew.RealMoney(liveMicros, liveTasks), jobDescriptionFor(a), localTokens, localTasks})
 }
 
 // analystPassport serves the document itself.
