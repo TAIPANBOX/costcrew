@@ -296,6 +296,17 @@ type planPageView struct {
 	AskRawAnswer string // the model's own text, shown WHOLE beside a refusal reason
 	ModelPlan    crew.Plan
 	ModelPlanOK  bool // true: ModelPlan is a real, approvable plan
+	// AskStage says which refusal AskRefusal is (invariant 91): "before",
+	// refused before any call, nothing spent; "failed", the call was tried and
+	// failed, nothing booked; "answer", the call was made and PAID FOR and the
+	// answer failed validation. The page used to print "The call was refused"
+	// for all three, so a person could not tell a refusal that cost nothing
+	// from a paid call whose answer was thrown away.
+	AskStage string
+	AskCost  money.Cents // what this ask was booked at; meaningful when AskStage is "answer"
+	// Prompt is the installation's -prompt-data setting, shown beside the
+	// goal box because the goal is the one thing on this page a person types.
+	Prompt promptDataView
 }
 
 func (s *Server) planPage(w http.ResponseWriter, r *http.Request) {
@@ -316,6 +327,7 @@ func (s *Server) planPage(w http.ResponseWriter, r *http.Request) {
 	applySort(p.Items, srt, planItemSort, "guard")
 	s.render(w, tplPlan, planPageView{
 		shell: s.shellFor(r, "Plan a sprint", "sprints"), P: p, CanAct: u.May("operator"), Sort: srt,
+		Prompt: currentPromptData(),
 	})
 }
 
@@ -356,7 +368,7 @@ func (s *Server) askPlan(w http.ResponseWriter, r *http.Request) {
 
 	view := planPageView{
 		shell: s.shellFor(r, "Plan a sprint", "sprints"), P: det, CanAct: u.May("operator"),
-		Sort: srt, Asked: true,
+		Sort: srt, Asked: true, Prompt: currentPromptData(),
 	}
 
 	month := ""
@@ -443,6 +455,7 @@ func (s *Server) askPlan(w http.ResponseWriter, r *http.Request) {
 		// which is not the same as never having been priced: nothing was
 		// actually spent, so this settles zero, same as the pre-call
 		// refusals above.
+		view.AskStage = "failed"
 		s.refusePlanAsk(w, view, u, label, month, 0, "the call could not be made: "+reason)
 		return
 	}
@@ -481,6 +494,10 @@ func (s *Server) askPlan(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "store unavailable", http.StatusInternalServerError)
 		return
 	}
+	view.AskCost = cents
+	if view.AskRefusal != "" {
+		view.AskStage = "answer"
+	}
 	s.journalPlanAsked(u, label, cents, string(outcome), view.AskRefusal)
 	s.render(w, tplPlan, view)
 }
@@ -490,6 +507,9 @@ func (s *Server) askPlan(w http.ResponseWriter, r *http.Request) {
 // journals it, and renders the page with the refusal shown.
 func (s *Server) refusePlanAsk(w http.ResponseWriter, view planPageView, u *auth.User, label, month string, micros int64, reason string) {
 	view.AskRefusal = reason
+	if view.AskStage == "" {
+		view.AskStage = "before"
+	}
 	cents, err := crew.SettlePlanAsk(s.db, label, month, "supervisor", micros, crew.PlanAskRefused, reason)
 	if err != nil {
 		http.Error(w, "store unavailable", http.StatusInternalServerError)

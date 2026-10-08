@@ -84,15 +84,25 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 1504 tests, 31 packages
-./scripts/gates-have-teeth.sh        # 492 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 534 scenarios, both directions
+go test ./...                        # 1508 tests, 31 packages
+./scripts/gates-have-teeth.sh        # 497 cases; needs a clean tree
+./scripts/features-are-bound.sh      # 537 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 govulncheck ./...                    # CI runs it, pinned at v1.8.0; reports only vulnerabilities the code can reach
 staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refused PR #19 on two findings the list above never asked for; a staticcheck built for an older Go cannot read this module, so on such a machine CI is the only place it runs
 ```
+
+Invariant 91 (/engines and /sprint/plan show the -prompt-data setting and
+say the typed goal is withheld under masked and aggregates; a plan-ask's
+refusal says whether the call was refused before it was made, failed, or was
+paid for and had its answer refused) added 4 tests
+(`internal/web/promptdata_shown_test.go`), 5 `gates-have-teeth.sh` cases
+(4 `fail`, 1 `pass`) and 3 scenarios (`features/prompt-data-shown.feature`,
+new), and no route: 1504 -> 1508 tests, 31 packages unchanged, 492 -> 497
+cases, 534 -> 537 scenarios, re-measured on this branch with the three
+commands this block already names.
 
 Invariant 90 (/ai and the AI desk read a credential as a credential, carry
 the gateway's reason for every block, point at the gateway connector, and
@@ -5722,6 +5732,44 @@ an absent invariant.
     it still reads as its claimed agent's block until a 1.7.0 export of the
     same call replaces it (invariant 89); and the export-mix note reads which
     exporter wrote a row, not which gateway settled the call.
+
+91. **The prompt-data setting is shown where a person types, and a refused
+    plan-ask says whether it was paid for.** Invariant 70 withholds free text
+    from the model under `-prompt-data masked` and `aggregates`, the sprint
+    goal included (`PlanPacket` sends `deliver.WithheldFreeText` in its
+    place). The setting was printed only in the console's start-up log, so a
+    person typing a goal on `/sprint/plan` and asking the supervisor to plan
+    it had no way to know the supervisor would never read it. And
+    `plan.html` printed "The call was refused" for three different things: a
+    refusal before any call (nothing spent), a call that failed at the
+    gateway (nothing booked), and a call that was made and paid for whose
+    answer then failed `crew.ValidatePlanAnswer`, booked into `plan_asks`.
+
+    `/engines` now has a "What a model is sent" panel naming the mode and
+    printing `ActivePolicy().ModeLine()` word for word, saying under masked
+    and aggregates that typed text, a sprint goal included, is withheld and
+    what the model reads in its place, and that the setting governs the
+    console's one call while `costcrew-run` reads its own flag.
+    `/sprint/plan` says beside the goal box whether the goal reaches the
+    model ("the goal you type is withheld" under masked and aggregates) and
+    prints the mode line. `planPageView.AskStage` is `before`, `failed` or
+    `answer`, and the page says respectively that nothing was spent, that
+    the call was tried and nothing was booked, or that the call was made and
+    paid for, with the amount `SettlePlanAsk` booked (`AskCost`).
+    *(gate: `TestTheEnginesAndPlanPagesShowThePromptDataMode` (all three
+    modes, both pages), `TestAPaidAnswerThatFailedValidationIsNotCalledARefusedCall`,
+    `TestARefusalBeforeTheCallSaysNothingWasSpent`,
+    `TestACallThatFailedSaysNothingWasBooked` (a local fake gateway answering
+    502) in `internal/web`. @measured 2026-10-08 with the product files
+    reverted to this branch's base: all four red, e.g. "/sprint/plan does not
+    say plainly that the typed goal is withheld under masked" and "a
+    refusal before any call does not say nothing was spent". Four `fail`
+    cases and one `pass` case in `gates-have-teeth.sh`: the mode dropped from
+    `/engines`; the plan page's withheld sentence never shown; a paid answer
+    labelled as refused before the call; a failed call labelled the same;
+    and the engines note reworded, which must stay green.)* What this does
+    not do: it shows the console's own setting, not the one a `costcrew-run`
+    invocation used, which only that run's log records.
 
 ## Decisions that have no gate yet
 
