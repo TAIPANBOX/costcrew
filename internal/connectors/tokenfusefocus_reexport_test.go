@@ -280,9 +280,9 @@ func TestAGatewayRefusalWithClientKeysOffIsNamedAsSuchNotAsBadData(t *testing.T)
 // /ai, so both are held to the printed-name rule.
 func TestHostileKeyAndBlockReasonAreRefusedByName(t *testing.T) {
 	for name, edit := range map[string]func(c *reexportCall){
-		"a key with a line break":    func(c *reexportCall) { c.key = "flint key" },
+		"a key with a line break":    func(c *reexportCall) { c.key = "flint\u2028key" },
 		"a key over the byte limit":  func(c *reexportCall) { c.key = strings.Repeat("k", 257) },
-		"a reason with a direction":  func(c *reexportCall) { c.reason = "identity‮mismatch" },
+		"a reason with a direction":  func(c *reexportCall) { c.reason = "identity\u202emismatch" },
 		"a reason read as a formula": func(c *reexportCall) { c.reason = "=HYPERLINK(1)" },
 	} {
 		t.Run(name, func(t *testing.T) {
