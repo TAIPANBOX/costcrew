@@ -586,7 +586,7 @@ func TestARunWithABadModelURLFailsBeforeTheStoreIsOpened(t *testing.T) {
 	t.Cleanup(engines.ResetLocal)
 	dir := t.TempDir()
 	err := run(dir, "", 2000, 0, false, false, false, 0, "", "", "", "", "",
-		localOptions{ModelURL: "http://svc:pw@models.internal/v1"})
+		localOptions{ModelURL: "http://svc:pw@models.internal/v1"}, "")
 	if err == nil || strings.Contains(err.Error(), "pw") {
 		t.Fatalf("err = %v, want a refusal that does not repeat the password", err)
 	}

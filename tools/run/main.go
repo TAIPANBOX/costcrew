@@ -26,6 +26,7 @@ import (
 	"github.com/TAIPANBOX/costcrew/internal/engines"
 	"github.com/TAIPANBOX/costcrew/internal/money"
 	"github.com/TAIPANBOX/costcrew/internal/store"
+	"github.com/TAIPANBOX/costcrew/internal/typryx"
 )
 
 func main() {
@@ -95,6 +96,13 @@ func main() {
 	maxRunTokens := flag.Int("max-run-tokens", 0,
 		"ceiling on the tokens a live run may use, counted over every task and reserved before each "+
 			"call; required when the local engine is priced at 0, because money cannot bound it then")
+	// Invariant 76: before -live works a task on an anomaly, typryx is asked
+	// for a typed hint, which the analyst then reads in its packet. Off
+	// unless pointed somewhere; falls back to COSTCREW_TYPRYX_URL, and the
+	// key is read from COSTCREW_TYPRYX_KEY by internal/typryx, never here.
+	typryxURL := flag.String("typryx-url", typryx.URLEnvDefault(),
+		"with -live, typryx to ask for a typed hint about each anomaly task before it is worked, "+
+			"e.g. http://127.0.0.1:4320; empty asks nothing. Falls back to COSTCREW_TYPRYX_URL.")
 	// How much of this installation's billing data a model may be sent
 	// (invariant 70). Read from the environment by internal/deliver, like the
 	// gateway above, so this file stays the one that provably cannot spend.
@@ -122,7 +130,7 @@ func main() {
 
 	local := localOptions{ModelURL: *modelURL, ModelName: *modelName,
 		PriceIn: *localIn, PriceOut: *localOut, MaxRunTokens: *maxRunTokens}
-	if err := run(*dir, *ceiling, *maxTok, *sprint, *live, *supervise, *due, *only, *engine, *events, *host, *gateway, *gatewayOpenAI, local); err != nil {
+	if err := run(*dir, *ceiling, *maxTok, *sprint, *live, *supervise, *due, *only, *engine, *events, *host, *gateway, *gatewayOpenAI, local, *typryxURL); err != nil {
 		fmt.Fprintln(os.Stderr, "run:", err)
 		os.Exit(dueExitCode(err))
 	}
@@ -184,7 +192,7 @@ type estimate struct {
 	Refused bool
 }
 
-func run(dir, ceiling string, maxTok, sprint int, live, supervise, due bool, only int, engine, events, host, gateway, gatewayOpenAI string, local localOptions) error {
+func run(dir, ceiling string, maxTok, sprint int, live, supervise, due bool, only int, engine, events, host, gateway, gatewayOpenAI string, local localOptions, typryxURL string) error {
 	// Validated before the store or the bus are even opened. A bad -gateway
 	// value is a configuration mistake, not a spending one, and the sooner it
 	// is reported the less of the run has already happened around it.
@@ -205,6 +213,10 @@ func run(dir, ceiling string, maxTok, sprint int, live, supervise, due bool, onl
 	}
 	gwCfg := gatewayConfig{URL: gatewayURL, OpenAIURL: gatewayOpenAIURL, Host: host,
 		ModelURL: modelURL, MaxRunTokens: local.MaxRunTokens}
+	typryxBase, err := typryx.NormalizeURL(typryxURL)
+	if err != nil {
+		return err
+	}
 
 	st, err := store.Open(dir)
 	if err != nil {
@@ -285,6 +297,23 @@ func run(dir, ceiling string, maxTok, sprint int, live, supervise, due bool, onl
 	by := map[string]crew.Analyst{}
 	for _, a := range roster {
 		by[a.Name] = a
+	}
+
+	// Before pricing, because pricing reads the packet once and carries it to
+	// the call (estimate.Packet): a hint asked after it would never reach
+	// the analyst. -live only, and only with -live's own ceiling present.
+	if live && hasCap && typryxBase != "" {
+		var picked []crew.Task
+		for _, t := range tasks {
+			if (engine == "" || by[t.Assignee].Engine == engine) && (only == 0 || t.ID == only) {
+				picked = append(picked, t)
+			}
+		}
+		sum, err := hintTasks(db, typryx.New(typryxBase, typryx.KeyFromEnv(), typryx.DefaultTimeout), picked, b)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("typryx: %d asked, %d hinted, %d with no hint\n", sum.Asked, sum.Hinted, sum.NoHint)
 	}
 
 	ests := make([]estimate, 0, len(tasks))

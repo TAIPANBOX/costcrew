@@ -482,6 +482,11 @@ func (s *Server) anomalyPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Invariant 76: typryx's hint, when one was ever recorded. A store
+	// started without -typryx-url has no hint columns, and HintOf reads that
+	// as no hint, so the page renders exactly what it rendered before.
+	hint, hasHint, _ := anomaly.HintOf(s.db, a.ID)
+
 	s.render(w, tplAnomaly, struct {
 		shell
 		A          anomaly.Anomaly
@@ -490,6 +495,9 @@ func (s *Server) anomalyPage(w http.ResponseWriter, r *http.Request) {
 		Analysts   []string
 		Actionable bool
 		DaysText   string
+		HasHint    bool
+		Hint       anomaly.Hint
+		HintProb   string
 	}{
 		s.shellFor(r, "Anomaly "+a.ID, "anomalies"),
 		a,
@@ -498,6 +506,7 @@ func (s *Server) anomalyPage(w http.ResponseWriter, r *http.Request) {
 		s.activeAnalysts(),
 		a.State != anomaly.Accepted && a.State != anomaly.Dismissed,
 		daysText(a, time.Now()),
+		hasHint, hint, strconv.FormatFloat(hint.Probability, 'f', 2, 64),
 	})
 }
 

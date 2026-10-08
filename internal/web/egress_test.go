@@ -8,6 +8,10 @@ package web_test
 // checked the sentence: a handler that grew an http.Client would have made the
 // documentation false without a test going red.
 //
+// Invariant 77 adds a third door and keeps it narrow: internal/typryx, asked
+// for a typed hint at the console's start when -typryx-url is set, reached
+// from cmd/costcrew and never from anything internal/web imports.
+//
 // This is a reading of today's source, the same limit invariants 49 and 50
 // state for their own walks. It sees a construction written the ordinary way
 // (an identifier selected from net/http or net). It does not see one built
@@ -240,6 +244,10 @@ var doors = map[string]struct{ reason, file string }{
 	"internal/deliver": {"the supervisor's plan-ask, POST /sprint/plan/ask, behind -gateway", ""},
 	"internal/sso": {"sign-in through the identity provider: discovery, JWKS and the token " +
 		"endpoint of the configured issuer, behind -oidc-issuer", "client.go"},
+	// The third (invariant 77): a typed hint about each open anomaly, asked
+	// at the console's start after detection, behind -typryx-url, and never
+	// from a page (the test after this one).
+	"internal/typryx": {"a typed hint from typryx at start, behind -typryx-url", "typryx.go"},
 }
 
 // Among the module's own packages the console imports, only the doors above
@@ -284,6 +292,38 @@ func TestOnlyTheDeliveryPackageAmongThoseTheConsoleImportsReachesTheNetwork(t *t
 	}
 	if reached["internal/enforce"] {
 		t.Error("the console imports internal/enforce, which pushes budgets to another system")
+	}
+}
+
+// Invariant 77: typryx is asked from the console's START, after detection,
+// and never while a page is served. So no package the web server imports
+// reaches internal/typryx, and cmd/costcrew runs exactly one hint pass, in
+// one place.
+func TestTypryxIsAskedFromTheConsolesStartNeverFromAPage(t *testing.T) {
+	fromWeb := reachable(t, "internal/web")
+	if !fromWeb["internal/anomaly"] || !fromWeb["internal/deliver"] {
+		t.Fatalf("the import walk from internal/web reached neither internal/anomaly nor internal/deliver (%v): it measured nothing", fromWeb)
+	}
+	if fromWeb["internal/typryx"] {
+		t.Error("internal/web reaches internal/typryx: a page handler could ask typryx while serving a page")
+	}
+	if !reachable(t, "cmd/costcrew")["internal/typryx"] {
+		t.Error("cmd/costcrew does not reach internal/typryx: -typryx-url would do nothing")
+	}
+	var passes []string
+	fset, files := nonTestFiles(t, "../../cmd/costcrew")
+	for name, f := range files {
+		ast.Inspect(f, func(n ast.Node) bool {
+			if sel, ok := n.(*ast.SelectorExpr); ok {
+				if id, ok := sel.X.(*ast.Ident); ok && id.Name == "typryx" && sel.Sel.Name == "HintAnomalies" {
+					passes = append(passes, name+":"+strconv.Itoa(fset.Position(sel.Pos()).Line))
+				}
+			}
+			return true
+		})
+	}
+	if len(passes) != 1 {
+		t.Errorf("cmd/costcrew runs typryx.HintAnomalies at %v, want exactly one place", passes)
 	}
 }
 

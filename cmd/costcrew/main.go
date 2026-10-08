@@ -32,6 +32,7 @@ import (
 	"github.com/TAIPANBOX/costcrew/internal/sso"
 	"github.com/TAIPANBOX/costcrew/internal/stack"
 	"github.com/TAIPANBOX/costcrew/internal/store"
+	"github.com/TAIPANBOX/costcrew/internal/typryx"
 	"github.com/TAIPANBOX/costcrew/internal/web"
 	"github.com/TAIPANBOX/costcrew/internal/world"
 )
@@ -122,6 +123,18 @@ func main() {
 		"switch password sign-in off except for accounts whose password was set with "+
 			"-set-password, the way back in when the provider is down. Falls back to "+sso.Env.Only+".")
 
+	// Invariant 76 and 77: typryx, asked for a typed hint about each new
+	// anomaly after detection. Off unless pointed somewhere, falling back to
+	// COSTCREW_TYPRYX_URL; the key is read from COSTCREW_TYPRYX_KEY by
+	// internal/typryx and never from a flag, which a process listing shows.
+	typryxURL := flag.String("typryx-url", typryx.URLEnvDefault(),
+		"typryx to ask for a typed hint about each open anomaly after detection, e.g. "+
+			"http://127.0.0.1:4320; empty (the default) asks nothing and changes nothing. "+
+			"Falls back to COSTCREW_TYPRYX_URL; the key comes from COSTCREW_TYPRYX_KEY.")
+	typryxMax := flag.Int("typryx-max-asks", 50,
+		"with -typryx-url, ask about at most this many anomalies per start, largest by money first; "+
+			"an anomaly already answered is never asked again")
+
 	// How much of the installation's billing data a model may be sent
 	// (invariant 70). The console builds one prompt of its own, the
 	// supervisor's plan-ask, and this governs it the same way it governs the
@@ -182,7 +195,15 @@ func main() {
 	if err != nil {
 		log.Fatalf("costcrew: %v", err)
 	}
-	if err := run(*addr, *dir, cfg, gatewayURL, gatewayOpenAIURL, *behindTLS, oidcCfg); err != nil {
+	typryxBase, err := typryx.NormalizeURL(*typryxURL)
+	if err != nil {
+		log.Fatalf("costcrew: %v", err)
+	}
+	if *typryxMax < 0 {
+		log.Fatalf("costcrew: -typryx-max-asks must be zero or more, got %d", *typryxMax)
+	}
+	tx := typryx.New(typryxBase, typryx.KeyFromEnv(), typryx.DefaultTimeout)
+	if err := run(*addr, *dir, cfg, gatewayURL, gatewayOpenAIURL, *behindTLS, oidcCfg, tx, *typryxMax); err != nil {
 		log.Fatalf("costcrew: %v", err)
 	}
 }
@@ -288,7 +309,8 @@ func reportStoreWarnings(st *store.Store) {
 	}
 }
 
-func run(addr, dir string, scfg stack.Config, gatewayURL, gatewayOpenAIURL string, behindTLS bool, oidcCfg *sso.Config) error {
+func run(addr, dir string, scfg stack.Config, gatewayURL, gatewayOpenAIURL string, behindTLS bool, oidcCfg *sso.Config,
+	tx *typryx.Client, typryxMax int) error {
 	st, err := store.Open(dir)
 	if err != nil {
 		return fmt.Errorf("opening the store in %s: %w", dir, err)
@@ -491,6 +513,30 @@ func run(addr, dir string, scfg stack.Config, gatewayURL, gatewayOpenAIURL strin
 		return fmt.Errorf("running detection: %w", err)
 	}
 	log.Printf("CostCrew: %d anomalies, %d of them new", found, added)
+
+	// Invariant 76: typryx's hints, AFTER detection and off the start's own
+	// path. Detection above has already finished and nothing below waits for
+	// typryx: the pass runs beside the listener, and a typryx that is down
+	// costs it three timeouts before it stops asking, never a start. Without
+	// -typryx-url this whole block is skipped, the hint columns are never
+	// added, and the console is the console it was (invariant 77).
+	hintCtx, stopHints := context.WithCancel(context.Background())
+	defer stopHints()
+	if tx != nil {
+		if err := anomaly.EnsureHintColumns(st.DB()); err != nil {
+			return fmt.Errorf("adding the hint columns: %w", err)
+		}
+		ids, err := anomaly.NeedingHint(st.DB(), typryxMax)
+		if err != nil {
+			return fmt.Errorf("listing anomalies for typryx: %w", err)
+		}
+		log.Printf("CostCrew: asking typryx for a typed hint on %d anomalies, in the background", len(ids))
+		go func() {
+			sum := typryx.HintAnomalies(hintCtx, st.DB(), tx, ids, rec)
+			log.Printf("CostCrew: typryx: %d asked, %d hinted, %d with no hint%s", sum.Asked, sum.Hinted, sum.NoHint,
+				map[bool]string{true: "; stopped early, typryx stopped answering", false: ""}[sum.Stopped])
+		}()
+	}
 
 	// The board is seeded from the anomalies, so every finding arrives with
 	// its investigation already open rather than as a row nobody owns.

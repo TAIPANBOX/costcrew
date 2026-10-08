@@ -84,9 +84,9 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 1418 tests, 29 packages
-./scripts/gates-have-teeth.sh        # 427 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 490 scenarios, both directions
+go test ./...                        # 1463 tests, 30 packages
+./scripts/gates-have-teeth.sh        # 444 cases; needs a clean tree
+./scripts/features-are-bound.sh      # 507 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
@@ -103,9 +103,9 @@ the reconciliation against the gateway's rows) added 45 tests
 new package), 16 `gates-have-teeth.sh` cases (14 `fail`, 2 `pass`) and 18
 scenarios (`features/provider-usage-reconciliation.feature`, new), and two GET
 routes (`/reconciliation`, `/export/reconciliation.csv`) and no write route:
-1373 -> 1418 tests, 28 -> 29 packages, 411 -> 427 cases, 472 -> 490
+1418 -> 1463 tests, 29 -> 30 packages, 428 -> 444 cases, 489 -> 507
 scenarios, 60 -> 62 GET routes and no write route added, re-measured after
-merging origin/main at 944e487 (#110) with the three commands this block
+merging origin/main at 20e3fa0 (#108) with the three commands this block
 already names. The CSV export goes through invariant 78's `writeCSV`, which
 landed while this was open, so its formula guard is that invariant's. The prompt-data gate's fixture (`internal/promptfixture`)
 imports both provider-usage fixture folders and classifies the two new
@@ -177,6 +177,22 @@ against main at 2498e58: `internal/web` 86.5% -> 86.6%, `internal/connectors` 87
 -> 88.0%, `internal/spiffe` 94.4% -> 95.7%, `tools/idryxsource` 95.7% ->
 95.7%, `tools/parity` 94.6% -> 94.6%. CI's race step gained
 `./internal/spiffe/...`.
+
+Invariants 76 and 77 (a typed hint from typryx decides nothing and only
+the template's fields leave; with typryx unset nothing changes, and typryx is
+the console's third door, opened at start and never by a page) added 45
+tests (`internal/typryx`, 24, new package; `internal/anomaly/hint_test.go`, 4;
+`internal/deliver/hint_test.go` and `hint_golden_test.go`, 5;
+`internal/web/typryx_hint_test.go` and `egress_test.go`, 4;
+`tools/run/hint_test.go`, 5; `internal/manifest/typryx_start_test.go`, 3),
+17 `gates-have-teeth.sh` cases (15 `fail`, 2 `pass`) and 17 scenarios
+(`features/typed-hint.feature`, new), one wire type (`anomaly_hinted`) and no
+route. Measured after merging `main` through invariant 82 (#110):
+1373 -> 1418 tests, 28 -> 29 packages, 411 -> 428 cases, 472 -> 489
+scenarios, GET and write routes unchanged, with the three commands this block
+already names. The hint section joined invariant 70's header inventory and
+its six text columns `promptfixture.Classes`. The existing case `egress: a package the console imports
+starts building requests` had its expected words widened to the three doors.
 
 Invariants 61 to 64 (a session token is never stored; every failed sign-in
 says the same thing; the console's own files are private; the console's
@@ -3812,6 +3828,13 @@ an absent invariant.
     a local variable called `http`), all in `internal/web/egress_test.go`. Five
     `fail` cases and one `pass` case in `gates-have-teeth.sh`, each planting one
     construction in a real file.)*
+
+    Invariant 77 adds a third door on purpose: `internal/typryx` is the third
+    package the console reaches that builds an outbound request, named in the
+    walk's `doors` beside `internal/deliver` and `internal/sso` (invariant 74)
+    and held to `typryx.go`. It is reached from `cmd/costcrew` alone, at
+    start, never from a page.
+
 65. **Every gateway call names the person it spends for, and a task whose
     analyst has no owner is refused rather than sent with an empty chain.**
     costcrew#73, measured on the appliance proving run of 2026-09-17: the
@@ -4717,6 +4740,141 @@ an absent invariant.
     admin signed up through the form has no break-glass account until
     somebody runs `-set-password` for one; and a break-glass password is as
     strong as whoever chose it, with no second factor.
+76. **A typed hint from typryx is a suggestion that decides nothing, and only
+    the fields its template names leave.** `@decided 2026-10-07`: before an
+    analyst works an anomaly, the console asks typryx (TAIPANBOX/typryx) for
+    its `triage.anomaly_class` answer, the class and its probability, keeps it
+    with the backend that produced it, shows it on the anomaly page as a
+    suggestion labelled with its source, and puts it into the analyst's packet
+    as a hint the analyst may disagree with. It is asked by the console after
+    detection (`-typryx-url`, or `COSTCREW_TYPRYX_URL`; the key from
+    `COSTCREW_TYPRYX_KEY` only, never a flag) and by the runner on `-live`
+    before a task's packet is built (a dry run asks nothing, because a hint
+    from a hosted backend is metered there).
+
+    What leaves is decided by the template, not by this console: the client
+    reads the template's `fields` from typryx's own `GET /v1/templates` and
+    sends exactly those, picked from a closed vocabulary (`typryx.Offered`:
+    the anomaly line, the registered changes, desk, service, day, direction,
+    excess) that holds no team, owner, agent, analyst or person. A template
+    naming a field outside it gets no hint and nothing is sent. typryx holds
+    back anything else on its own side too; this side does not rely on that.
+
+    The answer is checked again here rather than trusted: one of the
+    template's own options, a probability distribution over exactly those
+    options, each in 0 to 1, summing to one within 0.01, the answer carrying
+    the highest, an answer id typryx mints, a known backend. typryx's backend
+    names map onto the three data modes the launchers use: `jev` (Jev, hosted
+    by TypeSafe AI), `own-model` (its `openai-logprobs` backend pointed at a
+    model the operator runs) and `off` (its `stub` backend, not a model's
+    judgement); any other name is not kept. Every failure (unreachable, a
+    timeout, a non-200, an answer that does not validate, a body over 64 KiB, a
+    redirect, which is never followed) is "no hint" with a reason that never
+    echoes what typryx sent, stored and shown as such. A failure never
+    overwrites an answer, and an answered anomaly is never asked again.
+
+    typryx may hand what it is sent to a hosted model, so the installation's
+    `-prompt-data` setting (invariant 70) governs it as it governs a packet:
+    under `masked` every name the store holds is replaced by its token and a
+    driver's label is withheld; under `aggregates` the service is not offered
+    (a template naming it gets no hint), the anomaly line carries none, and no
+    registered change is sent. In the packet, `masked` drops the model's name
+    (a name the store's list does not hold) and masks the rest with the
+    packet, and `aggregates` sends no hint section, because a hint is a cause.
+    The six `hint_*` text columns are classified in `promptfixture.Classes`,
+    and the fixture plants an answered and a failed hint so invariant 70's
+    gate reads the section in every mode.
+
+    The hint lives in eight nullable `hint_*` columns on `anomalies`
+    (`anomaly.EnsureHintColumns`, run only when typryx is configured);
+    `anomaly.SaveHint` names those columns and no other, so a hint cannot move
+    an anomaly's state, owner or reason, and nothing in this repository reads a
+    hint to decide anything. Detection is never held: the console's pass runs
+    beside the listener after detection, and stops after three asks in a row
+    that typryx never answered, leaving the rest for the next start. Each
+    outcome goes on the journal and the bus as `anomaly_hinted` (`info`): the
+    anomaly id, which backend answered, the model, the class and its
+    probability, the answer id, the NAMES of the fields sent and how many typryx
+    held back, or the reason there is no hint; never a field's value. The
+    bench's driver-hiding packet carries no hint, because the hint was asked
+    with the change registry in its state.
+
+    What this does not do: it does not check what typryx does with the fields
+    once they arrive, or which backend is really behind it (the backend name is
+    typryx's own claim); it does not measure whether a hint is right (typryx's
+    own calibration and typryx-evalset do that); `-due` asks nothing, because
+    cadence-due work is not anomaly work; and `anomaly_hinted` is not yet in
+    agent-passport's registry (SPEC 6.2), a follow-up.
+    *(gate: `TestOnlyTheTemplatesFieldsLeave`,
+    `TestTheTemplateDecidesWhichFieldsLeave`,
+    `TestATemplateNamingAFieldThisConsoleDoesNotSendGetsNoHint`,
+    `TestEachBackendIsRecordedWithItsDataMode`,
+    `TestHostileAnswersAreNoHintNeverAGuess` (22 hostile shapes),
+    `TestAHostileModelNameIsDroppedNotShown`, `TestARedirectIsNotFollowed`,
+    `TestATimeoutIsNoHintWithAReason`, `TestUnreachableIsNoHintWithAReason`,
+    `TestATypryxWithoutTheTemplateIsNoHint`, `TestATemplateThatIsNotAChoiceIsNoHint`,
+    `TestRecentChangesAreCappedAtTenAndScopedToTheDeskAndService`,
+    `TestTheURLAndTheKeyComeFromTheirEnvironmentTwins`,
+    `TestTheKeyTravelsInItsHeaderAndNowhereElse`, `TestNormalizeURL`,
+    `TestANilClientAsksNothing`, `TestAHintDecidesNothing` (every table but
+    the hint columns compared row for row),
+    `TestTheBusRecordsTheBackendNeverTheFields` (through a real
+    `stack.Emitter`), `TestANoHintIsReportedWithItsReason`,
+    `TestAPassStopsAfterThreeAsksTypryxNeverAnswered`,
+    `TestATypryxThatHangsCostsBoundedTime`,
+    `TestWhatTypryxIsSentFollowsThePromptDataSetting` (over invariant 70's
+    fixture and checker, all three modes),
+    `TestAnAnswerIsKeptAndNeverAskedAgain`, `TestACancelledPassStopsAtOnce`
+    in `internal/typryx`; `TestSaveHintNeverMovesTheAnomaly`,
+    `TestEnsureHintColumnsIsSafeToRunTwice`,
+    `TestAStoreWithoutTheHintColumnsHasNoHintAndRefusesAWrite`,
+    `TestHintSourceNamesEachDataMode` in `internal/anomaly`;
+    `TestTheTriagePacketCarriesTheHintAsASuggestion`,
+    `TestANoHintReasonReachesThePacket`,
+    `TestTheBenchHidingPacketCarriesNoHint` in `internal/deliver`;
+    `TestTheAnomalyPageShowsTheHintLabelledWithItsSource`,
+    `TestTheAnomalyPageSaysWhyThereIsNoHintAndEscapesIt` in `internal/web`;
+    `TestADryRunAsksTypryxNothing`, `TestALiveRunAsksTypryxBeforeTheTaskIsPriced`,
+    `TestALiveRunWithNoCeilingAsksTypryxNothing`,
+    `TestABadTypryxURLIsRefusedBeforeTheStoreOpens`,
+    `TestTheRunnersPacketCarriesTheHintAndAnAnswerIsNotAskedAgain` in
+    `tools/run`; `TestAStartWithTypryxStoresHintsAndReportsTheBackend` in
+    `internal/manifest`, against the built binary; invariant 70's
+    `TestNoRealIdentifierLeavesInMaskedOrAggregatesPackets` and
+    `TestMaskedPacketsKeepEverySectionHeaderTheirModeSends` over the hint
+    section. Twelve `fail` cases and one `pass` case in `gates-have-teeth.sh`.)*
+
+77. **With typryx unset nothing changes, and typryx is the console's third
+    door, opened at start and never by a page.** The console without
+    `-typryx-url` adds no column, asks nothing, and renders the packets and
+    the anomaly page it rendered before typryx existed, byte for byte. The
+    packet half is held by a golden file written by its own test against
+    `main` before the hint was added (`internal/deliver/testdata/triage_packets.golden`,
+    the first eight anomaly tasks of the seeded board), so re-writing it is a
+    visible decision in the diff, not a quiet re-baseline. Configured,
+    `internal/typryx` is the third package, beside `internal/deliver` and
+    `internal/sso`, that the console reaches and that builds an outbound
+    request (invariant 64's `doors`, held to `typryx.go`), it is reached from
+    `cmd/costcrew` only,
+    never from anything `internal/web` imports, and `typryx.HintAnomalies`
+    is called from one place there. A typryx that never answers does not
+    hold the start: the built console listens while the ask is still waiting.
+
+    What this does not do: the page half compares the page before and after
+    the migration on the same server rather than against a file, because the
+    page carries the day it was rendered ("open for N days"); the whole HTTP
+    surface was compared against `main` once, by hand, with the parity tool
+    (PR body), not by a gate; and it reads today's source, the same limit
+    invariant 64 states, so a client built some other way would not be seen.
+    *(gate: `TestWithTypryxUnsetTheTriagePacketIsByteIdentical`,
+    `TestTheMigrationAloneChangesNoPacket` in `internal/deliver`;
+    `TestWithoutAHintTheAnomalyPageIsByteIdentical`,
+    `TestTypryxIsAskedFromTheConsolesStartNeverFromAPage` and the widened
+    `TestOnlyTheDeliveryPackageAmongThoseTheConsoleImportsReachesTheNetwork`
+    in `internal/web`; `TestWithoutTypryxTheConsoleAddsNoHintColumn` and
+    `TestATypryxThatHangsNeverHoldsTheConsolesStart` in `internal/manifest`,
+    against the built binary. Three `fail` cases and one `pass` case in
+    `gates-have-teeth.sh`.)*
 
 78. **What a download carries is data: never markup in a Markdown file,
     never a formula in a CSV, and never a second parameter in its file

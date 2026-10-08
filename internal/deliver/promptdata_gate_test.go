@@ -187,6 +187,7 @@ var sectionHeaders = []string{
 	"The desk's month", "Forecasting (", "The AI desk's month",
 	"Unit economics, cost per outcome", "The provider's own budget recommendation",
 	"The close pack", "Customer units", "What you posted on this desk before",
+	"A typed hint (a suggestion, not a finding)",
 }
 
 func headersIn(ps []builtPacket) map[string]bool {
@@ -229,6 +230,7 @@ func TestMaskedPacketsKeepEverySectionHeaderTheirModeSends(t *testing.T) {
 		"Drivers on this service and desk": true, "The last posted explanation on this service": true,
 		"Rightsizing recommendations on": true, "The SaaS renewal calendar": true,
 		"Unit economics, cost per outcome": true, "What you posted on this desk before": true,
+		"A typed hint (a suggestion, not a finding)": true,
 	}
 	for _, h := range sectionHeaders {
 		switch {
