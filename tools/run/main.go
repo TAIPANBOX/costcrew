@@ -98,7 +98,7 @@ func main() {
 			"call; required when the local engine is priced at 0, because money cannot bound it then")
 	// How many local-engine tasks run at once. One by default, because a
 	// self-hosted server usually answers one request at a time and queues the
-	// rest, and the queue counts against each round's timeout (invariant 83).
+	// rest, and the queue counts against each round's timeout (invariant 84).
 	// The vendor engines keep their own width, four.
 	localParallel := flag.Int("local-parallel", 1,
 		"how many local-engine tasks a live run keeps in flight at once (default 1); raise it only to "+

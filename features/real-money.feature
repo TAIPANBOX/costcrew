@@ -15,18 +15,18 @@ Feature: The console reads what an agent actually spent
   fixed 1000/500 tokens. fixtures/README.md there carries the rest.
   """
 
-  @yurii 2026-09-01
+  @decided 2026-09-01
   """
-  в мене задача, щоб ми могли встановлювати наші сервіси як на CostCrew, так
-  і на довільні агенти, які вже працюють в клієнта, наприклад, на AWS
-  Bedrock, на GCP, і на інші
+  The estate's services are to be installable both beside CostCrew and on any
+  agents a client already runs, for example on AWS Bedrock, on GCP and
+  elsewhere.
   """
 
   This is the first reader the connector registry has ever held: a folder of
   FOCUS 1.2-style CSV files as `tokenfuse focus-export` writes them, with the
   gateway's own extension columns naming an agent and a run on every row. The
   scenarios below are about the console reading what an agent already
-  running at a client actually spent, which is what the quote above asks
+  running at a client actually spent, which is what the decision above asks
   for; the shape here is the one the cloud FOCUS readers (AWS, Azure, GCP)
   will reuse.
 

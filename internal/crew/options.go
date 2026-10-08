@@ -3,10 +3,9 @@ package crew
 // The options block: an analyst's deliverable ends in a machine-readable
 // list of OPTIONS, never an action. B3-SPEC.md sections 1 and 2.
 //
-// `@yurii 2026-09-02`: "він має давати на вибір якісь певні рішення, які він
-// вважає за потрібне спочатку супервайзеру, тобто головному агенту, а вже
-// той має запитувати юзера, користувача, власника цих агентів, що робити
-// далі."
+// `@decided 2026-09-02`: an analyst offers a choice of the decisions it
+// thinks right, first to the supervisor, the lead agent, and the supervisor
+// then asks the user who owns these agents what to do next.
 //
 // An analyst's Post has never applied anything (crew.go's own comment on
 // Post says so). What changes here is that the deliverable's PROSE now also
@@ -757,8 +756,8 @@ func MarkOptionCarried(db *sql.DB, artifactID, ordinal int) error {
 }
 
 // MarkOptionNotChosen records that this option was not the one a deliverable's
-// choice applied. `@yurii 2026-09-02`: "давати на вибір якісь певні рішення"
-// is offering a CHOICE, and roles.yaml's own option.select ("which of an
+// choice applied. `@decided 2026-09-02`: an analyst offers a choice of
+// decisions, which is offering a CHOICE, and roles.yaml's own option.select ("which of an
 // analyst's options is carried forward") is the supervisor's word for
 // making it -- an owner's stamp makes the same kind of choice. actor is
 // whoever applied the option THIS one lost to; reason names it.

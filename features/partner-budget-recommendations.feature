@@ -2,16 +2,15 @@
 
 Feature: A provider's own budget recommendation, cited beside the team's real one
 
-  @yurii 2026-09-03
+  @decided 2026-09-03
   """
-  це можна отримувати від користувача, або, наприклад, подивитись, які
-  пропозиції дають провайдери хмарні
+  A budget can come from the user, or from what the cloud providers themselves
+  suggest.
   """
 
-  @yurii 2026-09-03
+  @decided 2026-09-03
   """
-  Так, звісно, роби все, про що ми говоримо, треба протестувати і зробити
-  як варіант використання.
+  Everything discussed is to be done, tested, and built as a use case.
   """
 
   @test:TestAWSBudgetsRecommendedIsRead

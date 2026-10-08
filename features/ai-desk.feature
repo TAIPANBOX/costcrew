@@ -2,9 +2,10 @@
 
 Feature: AI spend with an agent's name on it
 
-  @yurii 2026-09-02
+  @decided 2026-09-02
   """
-  більш повною мірою замінити людей на цих посадах
+  The crew is to take over, more fully, the work that people in these roles do
+  today.
   """
 
   @test:TestAISpendSectionNamesTheAgentAndTheModel

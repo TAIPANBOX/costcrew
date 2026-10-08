@@ -579,9 +579,9 @@ func trimBytes(s string, n int) string {
 // --------------------------------------------------- the analyst's own history
 
 // A person on this job remembers two things between tasks: what they said
-// last time, and what happened to it. `@yurii 2026-09-02`, the ask this
-// section serves: analysts that "більш повною мірою замінити людей на цих
-// посадах" -- B8-SPEC.md section 1.
+// last time, and what happened to it. `@decided 2026-09-02`, the ask this
+// section serves: analysts that take over, more fully, the work people in
+// these roles do -- B8-SPEC.md section 1.
 
 // ownHistorySection is the last three artifacts THIS analyst posted on THIS
 // desk, newest first, each with the task title, the date it was posted, the
@@ -1043,10 +1043,10 @@ func unitEconomicsSection(db *sql.DB) string {
 // ------------------------------------------------------------ the close pack
 
 // C2-SPEC.md: a chargeback analyst's last three days of the month.
-// `@yurii 2026-09-02`, the ask this section serves: "більш повною мірою
-// замінити людей на цих посадах" -- a chargeback analyst's own words for the
-// job, "reconcile, allocate, freeze, send the statements, answer the
-// arguments."
+// `@decided 2026-09-02`, the ask this section serves: the crew is to take
+// over, more fully, the work people in these roles do -- and a chargeback
+// analyst's own words for the job are "reconcile, allocate, freeze, send the
+// statements, answer the arguments."
 
 // periodInTitle finds a YYYY-MM period inside a task's own title -- the
 // same shape finops.Months and finops.Allocate already use as a period key.
@@ -1346,8 +1346,8 @@ const renewalsSectionWindowDays = 90
 // ones, and the honest word that no benchmark is connected -- never a
 // figure with no source behind it, C6-SPEC.md section 2's own words.
 //
-// `@yurii 2026-09-02`, the boundary this section is written around without
-// crossing: "переговори з вендером проводити він сам особі не може" -- what
+// `@decided 2026-09-02`, the boundary this section is written around without
+// crossing: an agent does not negotiate with a vendor on its own -- what
 // follows is background FOR the pack a person takes into that conversation
 // (roles.yaml's recommendation.renewal), never the conversation itself, and
 // nothing here proposes dropping a seat or a term; that is the model's own

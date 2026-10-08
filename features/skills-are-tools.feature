@@ -2,11 +2,10 @@
 
 Feature: A skill becomes a tool
 
-  @yurii 2026-09-02
+  @decided 2026-09-02
   """
-  щоб вони були вже готові з відповідними навичками, які потребують FinOps
-  Analyst в реальному житті. І з відповідними розуміннями свого якогось
-  робочого простору, робочого флоу.
+  The agents come ready with the skills a FinOps analyst needs in real life,
+  and with an understanding of their own workspace and workflow.
   """
 
   @test:TestThePacketCarriesTheAnomalysFigures
@@ -38,7 +37,7 @@ Feature: A skill becomes a tool
     Then every one is refused by name, none of them touches the canary row,
       and none of them panics
 
-  # No quote of Yurii's exists for this scenario.
+  # No decision is recorded for this scenario.
 
   @test:TestAStakeholderBriefingAnalystCallingBudgetsSucceeds
   Scenario: A role's own reads promise is backed by a right it actually holds

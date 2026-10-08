@@ -22,7 +22,8 @@ import (
 //	                                                        label, where a
 //	                                                        click does nothing
 //
-// Crew and Sprints are the two Yurii named, unprompted, on 2026-08-24.
+// `@decided 2026-08-24`: Crew and Sprints are the two kept in reach, named
+// unprompted.
 //
 // @measured, Chrome at 1440x1020, 2026-08-24: content 936, slack 84.
 // The same measurement at 900px of viewport is 36px SHORT, so the trap returns
@@ -39,9 +40,10 @@ import (
 // true before this page existed and is not re-measured again here.
 //
 // A person could not find Rightsizing (C5) at all: the page existed and
-// nothing in the sidebar led to it. `@yurii 2026-09-03`, looking at the site's
-// own screenshot of that page: "я не бачу в боковому меню вкладки такої Right
-// Sizing. Так і не зміг знайти." So the 28th link is his call, made, and this
+// nothing in the sidebar led to it. `@decided 2026-09-03`, looking at the site's
+// own screenshot of that page: Rightsizing was missing from the sidebar and
+// could not be found, so it goes there. The 28th link is the owner's call,
+// made, and this
 // budget moves with it rather than the link going in under a stale number.
 //
 // @measured, the in-app browser against a real console on a fresh store,
@@ -58,7 +60,7 @@ import (
 // moved from about 964px to about 992px. Everybody already below that older
 // figure was already scrolling and is unaffected; the band this change costs
 // is a viewport between 964 and 992 pixels tall. The structural answer is
-// still fewer destinations, and it is still his call, now with the price of
+// still fewer destinations, and it is still the owner's call, now with the price of
 // one link measured rather than estimated.
 //
 // The test holds the INPUTS that produced 980, because Go cannot lay out CSS.
@@ -103,7 +105,7 @@ func TestTheSidebarFitsAWindow(t *testing.T) {
 // fixed a 1020px window and nothing shorter. Then static below 960px, which was
 // WORSE, because in the flow the panel moves with the page and a trackpad's
 // momentum slides the whole list under the cursor after the finger has left it.
-// Yurii clicked Accounts four times and got Desks, Crew and Budgets, which sit
+// A person clicked Accounts four times and got Desks, Crew and Budgets, which sit
 // 574px, 682px and 466px away from it. Those are momentum distances.
 //
 // Fixed is the only one of the three where the page cannot move the panel.

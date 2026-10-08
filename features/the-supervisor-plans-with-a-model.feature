@@ -2,15 +2,15 @@
 
 Feature: The supervisor plans with a model, beside the deterministic plan
 
-  @yurii 2026-09-02
+  @decided 2026-09-02
   """
-  він вже сам розподіляє це все між агентами... в залежності від моделі, від
-  всього, задачі.
+  The supervisor distributes the work among the agents itself, according to
+  the task, the model and everything else.
   """
 
-  @yurii 2026-09-02
+  @decided 2026-09-02
   """
-  Вони мають вирішувати це все згідно своїх посадових інструкцій.
+  The agents decide everything according to their job descriptions.
   """
 
   @test:TestAskPlanAcceptsAValidRerouteAndShowsBothPlans

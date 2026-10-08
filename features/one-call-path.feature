@@ -14,8 +14,8 @@ Feature: The runner and the bench spend through one door
   to a mandate: B6 put the TokenFuse gateway in tools/run's own call path so
   every crew call is metered per agent, and the bench had grown a second,
   private caller with a key read from the environment and no gateway --
-  exactly the hole B6 had just closed. There is no quote of Yurii's for this
-  step; none is invented here, per [[gherkin-when-his-words-do-not-exist]].
+  exactly the hole B6 had just closed. There is no recorded decision for this
+  step, and none is invented here.
   This step moves call() and everything it needs to spend correctly out of
   tools/run/live.go into internal/deliver, as one exported Call over one
   exported Gateway type, so tools/run keeps a one-line wrapper at its old

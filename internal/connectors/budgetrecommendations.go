@@ -2,8 +2,8 @@ package connectors
 
 // PARTNER-BUDGET-RECOMMENDATIONS-SPEC.md: a second, read-only budget input
 // beside the person-entered one this console has always had.
-// `@yurii 2026-09-03`: «це можна отримувати від користувача, або, наприклад,
-// подивитись, які пропозиції дають провайдери хмарні».
+// `@decided 2026-09-03`: a budget can come from the user,
+// or from what the cloud providers themselves suggest.
 //
 // Three readers, one per provider's own published budget-recommendation
 // shape, into one shared `budget_recommendations` table -- the same split

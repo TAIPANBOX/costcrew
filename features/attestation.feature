@@ -2,9 +2,9 @@
 
 Feature: An identity is bound to something, or the console says it is not
 
-  @yurii 2026-08-22
+  @decided 2026-08-22
   """
-  тепер додай атестацію агентам, щоб bom_incomplete зник
+  Give the agents attestations, so that the bom_incomplete finding goes away.
   """
 
   @claude

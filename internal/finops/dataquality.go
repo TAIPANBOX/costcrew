@@ -1,8 +1,8 @@
 package finops
 
 // The data-quality analyst's own measurement: C9-SPEC.md section 2.
-// `@yurii 2026-09-02`, the ask this role exists to answer: "більш повною
-// мірою замінити людей на цих посадах." Its mission in roles.yaml: "Check
+// `@decided 2026-09-02`, the ask this role exists to answer: the crew is to
+// take over, more fully, the work people in these roles do. Its mission in roles.yaml: "Check
 // that what the console reports can be traced to a charge, and stop the
 // crew when it cannot."
 //

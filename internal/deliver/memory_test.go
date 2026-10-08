@@ -8,8 +8,8 @@ package deliver
 // on the desk, each with the fate of its options) and driversSection's
 // widened window (90 -> 180 days, capped at 24, "and N more").
 //
-// `@yurii 2026-09-02`, the ask this step serves: analysts that "більш
-// повною мірою замінити людей на цих посадах."
+// `@decided 2026-09-02`, the ask this step serves: analysts that take
+// over, more fully, the work people in these roles do.
 
 import (
 	"database/sql"

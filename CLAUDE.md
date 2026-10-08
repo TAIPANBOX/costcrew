@@ -84,9 +84,9 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 1475 tests, 30 packages
-./scripts/gates-have-teeth.sh        # 456 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 515 scenarios, both directions
+go test ./...                        # 1478 tests, 30 packages
+./scripts/gates-have-teeth.sh        # 461 cases; needs a clean tree
+./scripts/features-are-bound.sh      # 518 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
@@ -94,16 +94,30 @@ govulncheck ./...                    # CI runs it, pinned at v1.8.0; reports onl
 staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refused PR #19 on two findings the list above never asked for; a staticcheck built for an older Go cannot read this module, so on such a machine CI is the only place it runs
 ```
 
-Invariant 83 (a run on the local engine sends the operator's server no more
+Invariant 84 (a run on the local engine sends the operator's server no more
 tasks at once than `-local-parallel`, one by default; `-only` says the named
 task's own reason; a later round's prompt is never counted below the round
 before it) added 12 tests (`tools/run/local_parallel_test.go`, 8;
 `tools/run/local_prompt_floor_test.go`, 3; `internal/deliver/local_test.go`,
 1), 12 `gates-have-teeth.sh` cases (10 `fail`, 2 `pass`) and 8 scenarios
 (`features/local-server-capacity.feature`, new), one flag on `costcrew-run`
-(`-local-parallel`, declared in `components.json`) and no route: 1463 ->
-1475 tests, 30 packages unchanged, 444 -> 456 cases, 507 -> 515 scenarios,
-re-measured on this branch with the three commands this block already names.
+(`-local-parallel`, declared in `components.json`) and no route: 1466 ->
+1478 tests, 30 packages unchanged, 449 -> 461 cases, 510 -> 518 scenarios,
+re-measured after merging main through invariant 83 (#112) with the three
+commands this block already names.
+
+Invariant 83 (no tracked file quotes the owner or attributes a decision to
+him by name) added 3 tests (`internal/manifest/no_owner_quotes_test.go`), 5
+`gates-have-teeth.sh` cases (4 `fail`, 1 `pass`) and 3 scenarios
+(`features/no-owner-quotes.feature`, new), and no route: 1463 -> 1466 tests,
+444 -> 449 cases, 507 -> 510 scenarios, 30 packages unchanged, measured on
+this branch with the three commands this block already names. It also
+rewrote, without changing what any of them checks, 72 provenance markers
+carrying the owner's name in 54 files, every Ukrainian sentence of his in
+scenario headers, Go comments, `roles.yaml`, the stylesheet and two scripts,
+and the five frozen parity captures that carried the marker as a driver's
+source (through `parity mutate`, so their sha256 and the manifest digest
+stay consistent).
 
 Invariants 80 and 81 (a provider's own usage and cost, read from a folder;
 the reconciliation against the gateway's rows) added 45 tests
@@ -707,9 +721,11 @@ an absent invariant.
     the pairs are known to people and not to the code.)*
 
 14. **Every scenario in `features/` names a test, and every name is real.**
-    The scenarios come from the owner's own asks, written above each one, and
-    are not derived from the code: a scenario written by reading what was built only
-    proves it can be described.
+    The scenarios come from the owner's own asks, recorded above each one
+    under `@decided` with the date and a paraphrase, never his own words
+    (this repository is public; invariant 83), and are not derived from the
+    code: a scenario written by reading what was built only proves it can be
+    described.
     *(gate: `scripts/features-are-bound.sh`, reachable from the suite as
     `TestFeatureBindingsHold`. It checks the POINTER in both directions and
     deliberately not whether the test asserts what the scenario says, which
@@ -4581,7 +4597,7 @@ an absent invariant.
     limit, invariant 44), and the next task is checked against the real count;
     the token ceiling is not shared between two invocations of the runner; and
     the price is the operator's number, which this console cannot check.
-    Invariant 83 adds one floor to the count a server reports, on later
+    Invariant 84 adds one floor to the count a server reports, on later
     rounds of the tool loop only, and names what it leaves uncounted.
     *(gate: `TestALocalRunAtPriceZeroIsRefusedAtStartWithoutATokenCeiling`,
     `TestALocalRunAtPriceZeroRunsOnceItHasATokenCeiling`,
@@ -5208,7 +5224,63 @@ an absent invariant.
     shared rule ignoring the total, a total smaller than its parts believed,
     and the rule rewritten as one `max`, which must not trip it.)*
 
-83. **A run on the local engine sends the operator's server no more tasks at
+83. **No tracked file quotes the owner or attributes a decision to him by
+    name.** This repository is public. `@decided 2026-09-09`: in any public
+    repository there is no verbatim quote of the owner, no provenance marker
+    carrying his name, and no sentence saying that he said, asked, decided
+    or wanted something; a decision is still recorded, as `@decided` with
+    its date and a paraphrase, and that line is never edited afterwards;
+    his name as author, maintainer or copyright holder is not covered.
+    `@decided 2026-10-08`: this repository is cleaned of it completely.
+    Measured that day, before the change: 72 markers in 54 files (scenario
+    headers in 28 feature files, Go comments, `roles.yaml`, the stylesheet,
+    and five parity captures whose driver source was the marker), and 148
+    lines of Ukrainian prose in his words. Every one became `@decided` with
+    the same date and an English paraphrase; where the quote was the whole
+    of a scenario header, the paraphrase is the header now. The five parity
+    captures were rewritten through `parity mutate`, marker to `@owner`, so
+    each body's sha256 and the capture's digest still describe it.
+
+    `TestNoTrackedFileQuotesOrAttributesTheOwner` reads every file git
+    tracks, binary files aside, and refuses four shapes on the line they
+    occur on: the old marker (an at-sign and his first name, any case); a
+    guillemet on a line that also carries Cyrillic; Cyrillic in prose, which
+    is anywhere in a non-Go text file and inside a comment of a Go file (read
+    with `go/scanner`, so a comment is a comment); and his first name
+    capitalised as a word outside a line about authorship (copyright, the
+    copyright sign, author, maintainer). URLs are blanked first, with the
+    same `urlSpan` the document gate (invariant 48) uses, so a name inside an
+    address passes. A Go string literal may carry Cyrillic, because
+    hostile-input tests need non-Latin text, and so may a file under a
+    `testdata/` directory. The test refuses to report a clean tree when it
+    read fewer than 100 text files, no feature file or no Go file. The rule
+    and its own tests assemble every string that would trip it (the name
+    from two pieces, the guillemets as `\u00ab` escapes), because they are
+    tracked files it reads; the harness cases do the same with bash
+    concatenation and `\x` escapes.
+
+    What this does not catch: an English quote of his words in ordinary
+    quotation marks, an attribution that does not use his name ("the owner
+    said"), and a paraphrase that is in fact a translation. Those are prose
+    a reader judges. It reads only what git tracks. Git history still holds
+    every old line; rewriting history is a separate decision and was not
+    taken here.
+    *(gate: `TestNoTrackedFileQuotesOrAttributesTheOwner`,
+    `TestTheOwnerQuoteWalkSeesEveryShapeItNames` (sixteen shapes, so the
+    clean tree is the rule finding nothing and not the rule unable to find
+    anything) and `TestTheOwnerQuoteWalkLeavesTheseAlone` (twelve) in
+    `internal/manifest`. @measured `go test ./internal/manifest -run
+    TestNoTrackedFileQuotesOrAttributesTheOwner -count=1` 2026-10-08 against
+    `origin/main` at `eeee11e` with only the test file added: 240 findings,
+    72 of them the marker, 6 guillemet quotations, 148 lines of Ukrainian
+    prose and 14 attributions by name. Four `fail` cases and one `pass` case
+    in `gates-have-teeth.sh`: the marker back on a scenario header, a
+    Ukrainian sentence back in a Go comment, guillemets around Cyrillic
+    inside a Go string, the name back as the one who found a defect, and a
+    copyright line with the name and the marker's shape inside URLs, which
+    must not trip it.)*
+
+84. **A run on the local engine sends the operator's server no more tasks at
     once than the operator said it answers, one by default, and a later
     round's prompt is never counted below the round before it.** @measured
     2026-10-08 on an 8-vCPU VM with Ollama on CPU answering one request at a

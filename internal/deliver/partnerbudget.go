@@ -2,9 +2,8 @@ package deliver
 
 // PARTNER-BUDGET-RECOMMENDATIONS-SPEC.md: the finops-partner's own packet
 // section, citing a provider's own budget recommendation beside the team's
-// real, finance-set one. `@yurii 2026-09-03`: «це можна отримувати від
-// користувача, або, наприклад, подивитись, які пропозиції дають провайдери
-// хмарні».
+// real, finance-set one. `@decided 2026-09-03`: a budget can come
+// from the user, or from what the cloud providers themselves suggest.
 //
 // THE GUARDRAIL, stated here because this is the ONLY place outside
 // internal/connectors that reads budget_recommendations. This function reads

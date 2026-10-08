@@ -2,14 +2,11 @@
 
 Feature: The figures answer to each other
 
-  @yurii 2026-08-22
+  @decided 2026-08-22
   """
-  Пройдись по всім вкладкам, по всім агентам, по всім дескам, по всім
-  командам... щоб там було нормальне наповнення, логічне, щоб не було просто
-  тупих цифр, а щоб вони якось між собою відображали дійсність. Тобто, щоб
-  можна було по одному показнику перевірити далі в команді, скільки загальна
-  сума чогось там, наприклад... Щоб це не були просто відокремлені цифри,
-  взяті з нікуди.
+  Go through every tab, agent, desk and team so that each is filled in
+  logically: figures that reflect reality together, so that one indicator can
+  be followed into a team's totals, never isolated numbers taken from nowhere.
   """
 
   @test:TestOwnersAndCrewAgreeOnUnboundAgents

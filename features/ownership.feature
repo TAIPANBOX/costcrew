@@ -1,8 +1,8 @@
 # language: en
 #
-# Every scenario here comes from something Yurii asked for, quoted verbatim
-# above it. They are NOT derived from the code: a scenario written by reading
-# what I built only proves I can describe my own work.
+# Every scenario here comes from a recorded decision, paraphrased above it
+# under @decided. They are NOT derived from the code: a scenario written by
+# reading what I built only proves I can describe my own work.
 #
 # Each scenario names the test that holds it with an at-test tag. Nothing reads
 # these files at runtime; scripts/features-are-bound.sh asserts the binding in
@@ -10,12 +10,10 @@
 
 Feature: An agent belongs to somebody, and belongs to them completely
 
-  @yurii 2026-08-22
+  @decided 2026-08-22
   """
-  І треба мати можливість видаляти агентів, але це мають робити тільки ті,
-  хто є їхнім власником. І також дати можливість передати агента в інший
-  юніт, чи в інший там деск, чи ще кудись. Відповідно, витрати також мають
-  переходити на інших власників агента.
+  Agents can be deleted, but only by their owner. An agent can also be handed
+  to another unit or desk, and its spend moves to its new owner accordingly.
   """
 
   @test:TestAnOperatorCannotRemoveOrTransferSomebodyElsesAgent
