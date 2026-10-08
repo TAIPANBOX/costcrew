@@ -23,7 +23,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -122,12 +121,9 @@ func saasSeatsReader(db *sql.DB, cfg map[string]string, opt ImportOptions) (stri
 	if path == "" {
 		return "", fmt.Errorf("no folder is configured; set the path and save before importing")
 	}
-	files, err := saasSeatsFiles(path)
+	files, skipped, err := csvFolder(path)
 	if err != nil {
 		return "", err
-	}
-	if len(files) == 0 {
-		return "", fmt.Errorf("no *.csv or *.csv.gz files found in %s", path)
 	}
 
 	tx, err := db.Begin()
@@ -159,6 +155,9 @@ func saasSeatsReader(db *sql.DB, cfg map[string]string, opt ImportOptions) (stri
 	}
 
 	sum := newSaasSeatsSummary()
+	for _, name := range skipped {
+		sum.FileRefusals.add(skippedNote(name))
+	}
 	for i, f := range files {
 		// A SAVEPOINT per file, the same reason tokenfusefocus.go gives: a
 		// file that fails part way through must contribute NOTHING, not
@@ -171,8 +170,7 @@ func saasSeatsReader(db *sql.DB, cfg map[string]string, opt ImportOptions) (stri
 		}
 		local, ferr := processSaasSeatsFile(f, ins)
 		if ferr != nil {
-			sum.FileRefusals = append(sum.FileRefusals,
-				fmt.Sprintf("%s: %v", filepath.Base(f), ferr))
+			sum.FileRefusals.add(fmt.Sprintf("%s: %v", filepath.Base(f), ferr))
 			if !opt.DryRun {
 				if _, err := tx.Exec("ROLLBACK TO " + sp); err != nil {
 					return "", err
@@ -195,29 +193,6 @@ func saasSeatsReader(db *sql.DB, cfg map[string]string, opt ImportOptions) (stri
 		}
 	}
 	return sum.Sentence(opt.DryRun), nil
-}
-
-// -------------------------------------------------------------- the folder
-
-func saasSeatsFiles(dir string) ([]string, error) {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return nil, fmt.Errorf("reading %s: %w", dir, err)
-	}
-	var out []string
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
-		lower := strings.ToLower(e.Name())
-		if strings.HasSuffix(lower, ".csv") || strings.HasSuffix(lower, ".csv.gz") {
-			out = append(out, filepath.Join(dir, e.Name()))
-		}
-	}
-	// Sorted, not directory order: the same determinism reason
-	// tokenfusefocus.go's own focusFiles already gives (invariant 7).
-	sort.Strings(out)
-	return out, nil
 }
 
 // processSaasSeatsFile reads one file start to finish with csv.Reader, one
@@ -400,8 +375,8 @@ func parseSaasSeatsRow(rec []string, col map[string]int) (saasSeatsRow, error) {
 type saasSeatsSummary struct {
 	FilesRead    int
 	RowsAccepted int
-	Refusals     []string
-	FileRefusals []string
+	Refusals     refusalTally
+	FileRefusals refusalTally
 	Vendors      map[string]bool
 	IdleSeats    int
 	WasteCents   money.Cents
@@ -423,7 +398,7 @@ func (s *saasSeatsSummary) accept(row saasSeatsRow) {
 	s.WasteCents += money.Cents(int64(idle) * row.PerSeatCents)
 }
 
-func (s *saasSeatsSummary) refuse(reason string) { s.Refusals = append(s.Refusals, reason) }
+func (s *saasSeatsSummary) refuse(reason string) { s.Refusals.add(reason) }
 
 func (s *saasSeatsSummary) merge(o *saasSeatsSummary) {
 	s.RowsAccepted += o.RowsAccepted
@@ -432,7 +407,7 @@ func (s *saasSeatsSummary) merge(o *saasSeatsSummary) {
 	}
 	s.IdleSeats += o.IdleSeats
 	s.WasteCents += o.WasteCents
-	s.Refusals = append(s.Refusals, o.Refusals...)
+	s.Refusals.addAll(o.Refusals)
 }
 
 func (s *saasSeatsSummary) Sentence(dryRun bool) string {
@@ -444,15 +419,15 @@ func (s *saasSeatsSummary) Sentence(dryRun bool) string {
 	fmt.Fprintf(&b, "%s %d file%s, %d row%s, %d distinct vendor%s, %d idle seat%s, %s a month wasted.",
 		verb, s.FilesRead, plural(s.FilesRead), s.RowsAccepted, plural(s.RowsAccepted),
 		len(s.Vendors), plural(len(s.Vendors)), s.IdleSeats, plural(s.IdleSeats), s.WasteCents)
-	if n := len(s.Refusals); n > 0 {
+	if n := s.Refusals.count; n > 0 {
 		verb2 := "refused"
 		if dryRun {
 			verb2 = "would be refused"
 		}
-		fmt.Fprintf(&b, " %d row%s %s: %s.", n, plural(n), verb2, strings.Join(s.Refusals, "; "))
+		fmt.Fprintf(&b, " %d row%s %s: %s.", n, plural(n), verb2, s.Refusals.clause())
 	}
-	if n := len(s.FileRefusals); n > 0 {
-		fmt.Fprintf(&b, " %d file%s not read: %s.", n, plural(n), strings.Join(s.FileRefusals, "; "))
+	if n := s.FileRefusals.count; n > 0 {
+		fmt.Fprintf(&b, " %d file%s not read: %s.", n, plural(n), s.FileRefusals.clause())
 	}
 	return b.String()
 }

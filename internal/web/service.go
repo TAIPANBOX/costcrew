@@ -163,8 +163,8 @@ func (s *Server) service(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	byTeam, total, _ := breakdown(s.db, `service=? AND substr(day,1,7)='`+period+`'`, name, "team")
-	byCategory, _, _ := breakdown(s.db, `service=? AND substr(day,1,7)='`+period+`'`, name, "category")
+	byTeam, total, _ := periodBreakdown(s.db, "service", name, period, "team")
+	byCategory, _, _ := periodBreakdown(s.db, "service", name, period, "category")
 	trend, _ := monthly(s.db, `service=?`, name)
 
 	anoms, _ := anomaly.List(s.db, anomaly.Filter{})
