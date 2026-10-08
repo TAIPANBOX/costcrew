@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/TAIPANBOX/costcrew/actions/workflows/ci.yml/badge.svg)](https://github.com/TAIPANBOX/costcrew/actions/workflows/ci.yml)
 ![Go](https://img.shields.io/badge/go-1.27-00ADD8.svg)
-![tests](https://img.shields.io/badge/tests-997-brightgreen.svg)
+![tests](https://img.shields.io/badge/tests-1463-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)
 ![Status](https://img.shields.io/badge/enforces-nothing%20by%20design-success.svg)
 
@@ -214,10 +214,13 @@ make one before you hand anybody the address.
 The `costcrew` console accepts `-gateway` for its own planning calls and
 `-behind-tls` from `v0.2.1` onward, and `-gateway-openai` (or
 `COSTCREW_GATEWAY_OPENAI`), the gateway that fronts the OpenAI wire for an
-openrouter engine, from `v0.3.0` onward. The `v0.2.0` image has neither
+openrouter engine, from `v0.3.0` onward; sign-in through an identity provider
+(`-oidc-*`), `-prompt-data` and `-typryx-url` from `v0.4.0` onward, and on
+`costcrew-run` the local engine's `-model-url`, `-model-name` and
+`-max-run-tokens`. The `v0.2.0` image has neither
 `-gateway` nor `-behind-tls`: passing `-gateway` to that image exits with
 `flag provided but not defined`. The `costcrew-run` binary in `v0.2.0` already
-accepts its separate `-gateway` flag. Pin `ghcr.io/taipanbox/costcrew:v0.3.0`
+accepts its separate `-gateway` flag. Pin `ghcr.io/taipanbox/costcrew:v0.4.0`
 for the console flags and complete release assets.
 
 Inside the stack, `./up.sh --with-finops` from
@@ -281,8 +284,7 @@ The image holds five binaries, all static and run as the same non-root user:
 three are not services. Each runs once, prints, and exits, so a compose file
 runs them as separate containers from the same image with the entrypoint
 replaced, mounting the console's data directory. Images up to `v0.3.0` carry
-only the first two; `costcrew-usage` is in the first release built after the
-provider usage readers landed.
+only the first two; `v0.4.0` is the first to carry all five.
 
 `costcrew-enforce` shows what the console's budgets would set on a TokenFuse
 control plane and sends nothing unless told to. It is the one binary here that
@@ -575,9 +577,9 @@ estate-gates repository's own PROVEN record:
 ## Gates
 
 ```sh
-go test ./...                        # 1050 tests, 20 packages
+go test ./...                        # 1463 tests, 30 packages
 ./scripts/features-are-bound.sh      # every scenario bound to a named test, both ways
-./scripts/gates-have-teeth.sh        # 220 cases: each gate is made to fail on purpose
+./scripts/gates-have-teeth.sh        # 444 cases: each gate is made to fail on purpose
 gofmt -l . && go vet ./...
 ```
 
