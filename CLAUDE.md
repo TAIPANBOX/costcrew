@@ -5255,7 +5255,10 @@ an absent invariant.
     longer than the server's context window: the server cut it and reported
     what it kept, 229 for a conversation of 4309 tokens (4309 measured by the
     same server with a larger context), 2050 for a single message of about
-    4280. So the count is bounded where the bound is a fact and not a guess:
+    4280, and 2050 for the runner's own first-round request (2946 tokens)
+    grown by one 160-row tool result to a second round of 7814 tokens
+    (counted by the same server at a 16384-token context, its own was 4096).
+    So the count is bounded where the bound is a fact and not a guess:
     the tool loop re-sends the whole conversation every round, so a round's
     prompt can never be shorter than the previous round's, and on the local
     engine a later round's reported prompt below that is raised to it
@@ -5263,7 +5266,9 @@ an absent invariant.
     naming both numbers and the two causes (a context window that cut the
     prompt, or a server that counts only what it had not cached). The raised
     figure is what the token ceiling, the operator's price and the `tool_call`
-    event read. A vendor engine's count is what the vendor bills and is never
+    event read. On that measured second round it counts 2946 where the server
+    said 2050: no longer below the round before, and still 4868 tokens short
+    of the 7814 sent, which is the limit stated below. A vendor engine's count is what the vendor bills and is never
     raised.
 
     Why not the larger bound, one token per byte of the request, which
