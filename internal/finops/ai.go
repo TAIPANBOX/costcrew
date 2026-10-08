@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/TAIPANBOX/costcrew/internal/money"
 	"github.com/TAIPANBOX/costcrew/internal/world"
@@ -155,6 +156,126 @@ type AgentAIRow struct {
 	Tokens       int64
 	Cost         money.Micros
 	BlockedCalls int
+	// Credential is true when Agent is not an agent at all but the
+	// credential a call was made with: TokenFuse 1.7.0 files a call refused
+	// for identity under key:<key id>, never under the agent id it claimed
+	// (invariant 90).
+	Credential bool
+	// Blocked is BlockedCalls split by the reason the gateway gave, largest
+	// first; a reason of "" with Known false is a blocked row from an export
+	// written before TokenFuse 1.7.0, which carried no reason at all.
+	Blocked []ReasonCount
+}
+
+// CredentialPrefix is how TokenFuse 1.7.0 files a call refused for identity:
+// under the credential, key:<key id>. It cannot be mistaken for an agent id,
+// which is an agent:// URI or a plain name.
+const CredentialPrefix = "key:"
+
+// IsCredential says whether an ai_calls agent is a credential, not an agent.
+func IsCredential(agent string) bool { return strings.HasPrefix(agent, CredentialPrefix) }
+
+// ReasonCount is one block reason and how many calls it stopped.
+type ReasonCount struct {
+	Reason string
+	Known  bool // false: the row's export carried no x_block_reason column
+	Calls  int
+	Filers int // distinct agents or credentials the calls are filed under
+}
+
+// Label is the reason as the page prints it.
+func (r ReasonCount) Label() string {
+	if !r.Known {
+		return "not in this export"
+	}
+	if r.Reason == "" {
+		return "none given"
+	}
+	return r.Reason
+}
+
+// IdentityMismatch is the one reason this console reads more into than its
+// name: the gateway refused the call because the agent id it carried did
+// not belong to the credential that sent it, so it was never forwarded.
+const IdentityMismatch = "identity_mismatch"
+
+// Meaning is what a reader can take from a reason, and no more. The reasons
+// are TokenFuse's Breaker's own wire strings; only the ones whose meaning is
+// in their name, or that this console's invariant 89 is about, are spelled
+// out, and every other one is named as the gateway named it.
+func (r ReasonCount) Meaning() string {
+	switch {
+	case !r.Known:
+		return "The export was written before TokenFuse 1.7.0, which did not say why a call " +
+			"was blocked; a refusal for identity in it is filed under the agent the caller claimed."
+	case r.Reason == IdentityMismatch:
+		return "The agent id did not belong to the credential that sent it. The call was not " +
+			"forwarded, nothing was spent, and it is filed under the credential, not the agent it claimed."
+	case r.Reason == "budget_exceeded":
+		return "The run's budget would have been passed. What the gateway reserved before " +
+			"refusing is not carried in the export."
+	case r.Reason == "unit_budget_exceeded":
+		return "The business unit's budget would have been passed. What the gateway reserved " +
+			"before refusing is not carried in the export."
+	case r.Reason == "":
+		return "Blocked with no reason in the row."
+	default:
+		return "Refused by the gateway for the reason it names. What it reserved before " +
+			"refusing is not carried in the export."
+	}
+}
+
+// BlockedByReason is the month's blocked calls grouped by the reason the
+// gateway gave, largest first, ties on the reason so the order is the same on
+// every render (invariant 7).
+func BlockedByReason(db *sql.DB, month string) ([]ReasonCount, error) {
+	rows, err := db.Query(`SELECT block_reason IS NOT NULL, COALESCE(block_reason,''),
+			COUNT(*), COUNT(DISTINCT agent)
+		FROM ai_calls WHERE day LIKE ? AND blocked=1
+		GROUP BY block_reason IS NOT NULL, COALESCE(block_reason,'')
+		ORDER BY 3 DESC, 1 DESC, 2 ASC`, month+"%")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []ReasonCount
+	for rows.Next() {
+		var r ReasonCount
+		if err := rows.Scan(&r.Known, &r.Reason, &r.Calls, &r.Filers); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// ExportMix counts the month's calls by the export that wrote them: rows
+// whose file carried TokenFuse 1.7.0's x_key_id column, and rows whose file
+// did not (ai_calls.key_id NULL, invariant 89).
+func ExportMix(db *sql.DB, month string) (before, from170 int, err error) {
+	err = db.QueryRow(`SELECT COALESCE(SUM(CASE WHEN key_id IS NULL THEN 1 ELSE 0 END),0),
+			COALESCE(SUM(CASE WHEN key_id IS NOT NULL THEN 1 ELSE 0 END),0)
+		FROM ai_calls WHERE day LIKE ?`, month+"%").Scan(&before, &from170)
+	return
+}
+
+// ExportMixNote is the sentence /ai prints when a month holds calls from both
+// kinds of export, and "" otherwise. A call exported before 1.7.0 was settled
+// by a gateway older than 1.7.0, which neither counted a thinking model's
+// reasoning as output nor settled every listed model at its list rate. A call
+// exported BY 1.7.0 may have been settled by either: the export reads the
+// trace, and an old trace re-exported keeps its old settlement. So the note
+// says what is certain and no more.
+func ExportMixNote(before, from170 int) string {
+	if before == 0 || from170 == 0 {
+		return ""
+	}
+	return fmt.Sprintf("This month mixes %d call%s from an export written before TokenFuse 1.7.0 "+
+		"with %d from 1.7.0 or later. The older ones were settled by a gateway that did not yet count "+
+		"a thinking model's reasoning as output tokens or price every listed model at its list rate, "+
+		"so their tokens and cost are not comparable one for one with calls settled under 1.7.0. "+
+		"A call exported by 1.7.0 from an older trace keeps its older settlement.",
+		before, map[bool]string{true: "", false: "s"}[before == 1], from170)
 }
 
 // AIByAgent is the per-agent table section 6 asks for. BlockedCalls is a
@@ -173,6 +294,7 @@ func AIByAgent(db *sql.DB, month string) ([]AgentAIRow, error) {
 	}
 	defer rows.Close()
 	var out []AgentAIRow
+	idx := map[string]int{}
 	for rows.Next() {
 		var r AgentAIRow
 		var micros int64
@@ -180,9 +302,59 @@ func AIByAgent(db *sql.DB, month string) ([]AgentAIRow, error) {
 			return nil, err
 		}
 		r.Cost = money.Micros(micros)
+		r.Credential = IsCredential(r.Agent)
+		idx[r.Agent] = len(out)
 		out = append(out, r)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	rows.Close()
+
+	br, err := db.Query(`SELECT agent, block_reason IS NOT NULL, COALESCE(block_reason,''), COUNT(*)
+		FROM ai_calls WHERE day LIKE ? AND blocked=1
+		GROUP BY agent, block_reason IS NOT NULL, COALESCE(block_reason,'')
+		ORDER BY agent, 4 DESC, 2 DESC, 3 ASC`, month+"%")
+	if err != nil {
+		return nil, err
+	}
+	defer br.Close()
+	for br.Next() {
+		var agent string
+		var rc ReasonCount
+		if err := br.Scan(&agent, &rc.Known, &rc.Reason, &rc.Calls); err != nil {
+			return nil, err
+		}
+		if i, ok := idx[agent]; ok {
+			out[i].Blocked = append(out[i].Blocked, rc)
+		}
+	}
+	return out, br.Err()
+}
+
+// OnlyIdentityRefusals is true when every blocked call on the row was refused
+// for identity: then nothing was reserved, and the page says that instead of
+// saying the reserved amount is not carried.
+func (r AgentAIRow) OnlyIdentityRefusals() bool {
+	if len(r.Blocked) == 0 {
+		return false
+	}
+	for _, b := range r.Blocked {
+		if !b.Known || b.Reason != IdentityMismatch {
+			return false
+		}
+	}
+	return true
+}
+
+// BlockedText is the row's blocked calls by reason, "2 budget_exceeded, 1
+// identity_mismatch", in the order AIByAgent read them.
+func (r AgentAIRow) BlockedText() string {
+	parts := make([]string, 0, len(r.Blocked))
+	for _, b := range r.Blocked {
+		parts = append(parts, fmt.Sprintf("%d %s", b.Calls, b.Label()))
+	}
+	return strings.Join(parts, ", ")
 }
 
 // MixedMoneyNote is invariant 20 extended to charges: a figure that mixes

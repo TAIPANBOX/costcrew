@@ -69,7 +69,7 @@
         <td class="tight">{{.Day}}</td>
         <td class="num">{{printf "%.1f" .Z}}</td>
         <td>
-          {{if .CausedBy}}{{if eq .CausedByKind "agent"}}<a href="/staff/{{.CausedBy}}">{{.CausedBy}}</a>{{else if eq .CausedByKind "team"}}<a href="/team/{{.CausedBy}}">{{.CausedBy}}</a>{{else}}{{.CausedBy}}{{end}}{{else}}<span class="note">not established</span>{{end}}
+          {{if .CausedBy}}{{if and (eq .CausedByKind "agent") .CausedByStaff}}<a href="/staff/{{.CausedBy}}">{{.CausedBy}}</a>{{else if eq .CausedByKind "team"}}<a href="/team/{{.CausedBy}}">{{.CausedBy}}</a>{{else}}{{.CausedBy}}{{end}}{{else}}<span class="note">not established</span>{{end}}
           <span class="sub"><span class="chip grain">{{.CausedByKind}}</span></span>
         </td>
         <td>{{if .HandledBy}}<a href="/staff/{{.HandledBy}}">{{.HandledBy}}</a>{{else}}<span class="note">nobody yet</span>{{end}}</td>

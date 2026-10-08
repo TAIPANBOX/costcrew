@@ -20,6 +20,22 @@ type anomalyRow struct {
 	anomaly.Anomaly
 	Owner string
 	Told  bool
+	// CausedByStaff is whether CausedBy has a card at /staff/<name>. An AI
+	// anomaly's cause can be the agent a gateway named (an agent:// id from
+	// the TokenFuse export), which is not on this console's roster, and a
+	// link to its card answered 404 (invariant 90).
+	CausedByStaff bool
+}
+
+// rosterNames is every analyst name /staff/<name> answers for.
+func (s *Server) rosterNames() map[string]bool {
+	out := map[string]bool{}
+	if roster, err := crew.Roster(s.db); err == nil {
+		for _, a := range roster {
+			out[a.Name] = true
+		}
+	}
+	return out
 }
 
 // toldAnomalies is every anomaly id THIS STEP'S OWN event has already told

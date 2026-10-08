@@ -49,10 +49,10 @@
     <dl class="facts">
       <dt>Caused by</dt>
       <dd>
-        {{if .A.CausedBy}}<strong>{{if eq .A.CausedByKind "agent"}}<a href="/staff/{{.A.CausedBy}}">{{.A.CausedBy}}</a>{{else if eq .A.CausedByKind "team"}}<a href="/team/{{.A.CausedBy}}">{{.A.CausedBy}}</a>{{else}}{{.A.CausedBy}}{{end}}</strong>{{else}}<strong>not established</strong>{{end}}
+        {{if .A.CausedBy}}<strong>{{if and (eq .A.CausedByKind "agent") .CausedByStaff}}<a href="/staff/{{.A.CausedBy}}">{{.A.CausedBy}}</a>{{else if eq .A.CausedByKind "team"}}<a href="/team/{{.A.CausedBy}}">{{.A.CausedBy}}</a>{{else}}{{.A.CausedBy}}{{end}}</strong>{{else}}<strong>not established</strong>{{end}}
         <span class="chip grain">grain: {{.A.CausedByKind}}</span>
         {{if eq .A.CausedByKind "team"}}
-        <span class="sub">This is the finest grain that can be proven here. Naming an individual agent needs model calls to carry an agent header through the gateway.</span>
+        <span class="sub">This is the finest grain that can be proven here.{{if eq .A.Source "ai"}} An agent is named only where the gateway's own per-call rows say which agent spent: the <a href="/connectors/tokenfuse-focus">TokenFuse FOCUS export</a> connector reads them for this desk.{{else}} A cloud bill names a team, a service and a resource, never the agent that ran it.{{end}}</span>
         {{end}}
       </dd>
       <dt>Handled by</dt>

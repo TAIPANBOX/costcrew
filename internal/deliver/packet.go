@@ -932,6 +932,10 @@ func aiSpendSection(db *sql.DB) string {
 	if err != nil {
 		return ""
 	}
+	byReason, err := finops.BlockedByReason(db, month)
+	if err != nil {
+		return ""
+	}
 
 	var calls, blockedCalls int
 	var total money.Micros
@@ -949,6 +953,24 @@ func aiSpendSection(db *sql.DB) string {
 		fmt.Fprintf(&b, "basis: %d settled, %d estimated (%.0f%% of the non-blocked calls), "+
 			"%d blocked\n", settled, estimated, float64(estimated)/float64(n)*100, blockedBasis)
 	}
+	// Invariant 90: the gateway's own reason for each block, a desk-wide
+	// count, so it stays under aggregates. identity_mismatch is the one an
+	// analyst must not read as an agent's overspend: the call was refused
+	// for carrying another agent's id, and it is filed under the credential.
+	if len(byReason) > 0 {
+		parts := make([]string, 0, len(byReason))
+		for _, r := range byReason {
+			parts = append(parts, fmt.Sprintf("%d %s", r.Calls, r.Label()))
+		}
+		fmt.Fprintf(&b, "blocked by the gateway's reason: %s\n", strings.Join(parts, ", "))
+		for _, r := range byReason {
+			if r.Known && r.Reason == finops.IdentityMismatch {
+				b.WriteString("identity_mismatch: the call carried an agent id that did not belong to " +
+					"the credential that sent it; it was never forwarded, cost nothing, and is filed " +
+					"under the credential (key:...), not the agent it claimed\n")
+			}
+		}
+	}
 
 	// Aggregates stop at the desk's totals: per agent and per model are rows.
 	if ActivePolicy().Aggregates() {
@@ -961,7 +983,14 @@ func aiSpendSection(db *sql.DB) string {
 		if shown >= aiSpendSectionCap {
 			break
 		}
-		fmt.Fprintf(&b, "  %-56s %8s  %d calls, %d blocked\n", r.Agent, r.Cost, r.Calls, r.BlockedCalls)
+		note := ""
+		if r.BlockedCalls > 0 {
+			note = " (" + r.BlockedText() + ")"
+		}
+		if r.Credential {
+			note += " [a credential, not an agent]"
+		}
+		fmt.Fprintf(&b, "  %-56s %8s  %d calls, %d blocked%s\n", r.Agent, r.Cost, r.Calls, r.BlockedCalls, note)
 		shown++
 	}
 	if len(byAgent) > shown {

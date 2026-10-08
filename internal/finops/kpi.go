@@ -292,9 +292,10 @@ func KPIs(db *sql.DB, period string) ([]KPI, error) {
 		Value: fmt.Sprintf("%.0f", attrPct), Unit: "%", Target: ">= 90",
 		HasVal: hasAttr, Meets: hasAttr && attrPct >= 90,
 		Note: attrNote,
-		Blocked: blockedIf(!hasAttr, "model calls do not carry an agent header through a "+
-			"gateway yet, so AI spend can be attributed to a team and no further. The "+
-			"anomaly pages say which grain they are at rather than implying the finer one."),
+		Blocked: blockedIf(!hasAttr, "no gateway export has been read yet, so AI spend can be "+
+			"attributed to a team and no further. The TokenFuse FOCUS export connector "+
+			"(/connectors/tokenfuse-focus) reads the gateway's per-call rows, which name the agent. "+
+			"The anomaly pages say which grain they are at rather than implying the finer one."),
 	})
 
 	return out, nil
