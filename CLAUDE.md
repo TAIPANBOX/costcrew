@@ -84,15 +84,30 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 1463 tests, 30 packages
-./scripts/gates-have-teeth.sh        # 444 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 507 scenarios, both directions
+go test ./...                        # 1474 tests, 31 packages
+./scripts/gates-have-teeth.sh        # 458 cases; needs a clean tree
+./scripts/features-are-bound.sh      # 511 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 govulncheck ./...                    # CI runs it, pinned at v1.8.0; reports only vulnerabilities the code can reach
 staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refused PR #19 on two findings the list above never asked for; a staticcheck built for an older Go cannot read this module, so on such a machine CI is the only place it runs
 ```
+
+Invariants 83 to 86 (a month from the address bar is a bound parameter; the
+rightsizing, budget recommendation and SaaS seats readers bound their refusal
+list and name a link they did not follow; one rule for a unit's name; an
+example pseudonym no team can draw) added 11 tests
+(`internal/web/drill_period_test.go`, 3;
+`internal/connectors/csvreaders_bounds_test.go`, 3;
+`internal/crew/unitname_once_test.go`, 1;
+`internal/plainname/plainname_test.go`, 2, a new package;
+`internal/deliver/promptdata_example_test.go`, 2), 14 `gates-have-teeth.sh`
+cases (10 `fail`, 4 `pass`; one older case retargeted at the file its line
+moved to) and 4 scenarios (`features/small-defects-2026-10-08.feature`, new),
+and no route: 1463 -> 1474 tests, 30 -> 31 packages, 444 -> 458 cases,
+507 -> 511 scenarios, re-measured on this branch with the three commands this
+block already names.
 
 Invariants 80 and 81 (a provider's own usage and cost, read from a folder;
 the reconciliation against the gateway's rows) added 45 tests
@@ -4932,9 +4947,10 @@ an absent invariant.
     Eight `fail` cases and one `pass` case in `gates-have-teeth.sh`.)*
     What this does not cover: the HTML results export
     (`/export/results.html`) is escaped by its own template, not by these
-    rules; `budgetrecommendations.go`, `rightsizing.go` and `saasseats.go`
-    share `focusFiles` and so no longer follow a link either, but they still
-    name every refused row and say nothing about a link they passed over; the
+    rules; `budgetrecommendations.go` and `rightsizing.go` shared `focusFiles`
+    and so did not follow a link, but they named every refused row and said
+    nothing about a link they passed over, and `saasseats.go` had its own
+    walk and did follow one (both closed by invariant 84); the
     `os.Lstat` before reading narrows the window in which a regular file can
     be swapped for a link, it does not close it; and `mdText` makes a value
     inert in a Markdown viewer, not in every renderer somebody might paste
@@ -5194,6 +5210,145 @@ an absent invariant.
     in `gates-have-teeth.sh`: the round reading `completion_tokens` alone, the
     shared rule ignoring the total, a total smaller than its parts believed,
     and the rule rewritten as one `max`, which must not trip it.)*
+
+83. **A month from the address bar is a bound parameter, never text in a
+    query.** The team, desk and service pages break spend down by month, and
+    the month comes from `?period=`. Six call sites in `internal/web/drill.go`
+    and `internal/web/service.go` wrote it into the SQL by concatenation
+    (`substr(day,1,7)='`+period+`'`). That was safe only because `s.period`
+    hands back nothing but a month the store already holds, a check in a
+    different function that nothing tied to these queries. Now all six call
+    `periodBreakdown`, whose statement (`periodBreakdownQuery`) binds both the
+    filtered value and the month as parameters. The two column names are the
+    one part still written as text, since a column cannot be a parameter;
+    they come from the code, and the builder refuses any name outside the
+    four a page breaks spend down by (`team`, `source`, `service`,
+    `category`). The month check in `s.period` is unchanged and still decides
+    which month a page shows; it is no longer what keeps a quote out of SQL.
+    *(gate: `TestAHostilePeriodIsAValueNotSQL` (six hostile months handed to
+    the builder directly, with the month check out of the way: an `OR`
+    widening, a `UNION`, a `DROP TABLE`, a bare quote, a NUL; each must
+    return nothing, raise no error and leave the table whole),
+    `TestABreakdownReadsOnlyTheNamedPeriod`,
+    `TestABreakdownRefusesAColumnItWasNotWrittenFor` in `internal/web`.
+    @measured `go test ./internal/web -run 'TestAHostilePeriod|TestABreakdown'
+    -count=1` 2026-10-08, against the six sites moved onto one function that
+    still concatenated: "a hostile period returned 2 rows totalling 10299:
+    the period was read as SQL" for `2026-01' OR '1'='1` (another team's
+    99.99 shown on alpha's page), 3 rows for the `UNION`, and "database table
+    is locked" for the `DROP TABLE`, which reached the engine. Two `fail`
+    cases and one `pass` case in `gates-have-teeth.sh`: the month spliced back
+    into the statement, the column list dropped, and a reworded comment.)*
+    What this does not cover: `monthly` and the other breakdowns still build
+    a WHERE clause from a constant string in the code; only values that come
+    from a request are held here.
+
+84. **The rightsizing, budget recommendation and SaaS seats readers count
+    every refused row but name only the first twenty, and never follow a
+    link, naming it instead.** The FOCUS reader already did both (invariant
+    78). These three named every refused row, so a file of a thousand bad
+    rows built a summary of about 85 KB on the connector page (@measured
+    below: 86,931 bytes for the rightsizing reader); two of them passed over
+    a link without a word; and the SaaS seats reader kept its own copy of the
+    folder walk, which FOLLOWED the link and read the file it pointed at,
+    another user's file or `/dev/zero` as readily as an export. Now all four
+    folder readers call one walk, `csvFolder` (`internal/connectors/csvfolder.go`,
+    over `focusFolder`): regular `*.csv` and `*.csv.gz` files only, each
+    passed-over entry named "a symbolic link or not a regular file, not
+    followed", and a folder holding nothing but such entries refused with
+    their names rather than "no files found". The three readers keep their
+    refusals in one type, `refusalTally`, which counts every one and names the
+    first `focusRefusalsShown` (20, the FOCUS reader's own bound, reused and
+    not restated), per file and across the import, and says "and N more".
+    Their file refusals, links included, are bounded the same way.
+    *(gate: `TestEveryCSVReaderCountsRefusedRowsWholeButNamesOnlyTheFirstFew`
+    and `TestEveryCSVReaderNamesALinkItDidNotFollow` (one table, one case per
+    reader: a thousand bad rows and one good; a link beside a file; a folder
+    of only a link; twenty-five links), and
+    `TestARefusalTallyCountsEveryRefusalAndNamesTheFirstFew` in
+    `internal/connectors`. @measured `go test ./internal/connectors -run
+    TestEveryCSVReader -count=1` 2026-10-08 before the fix: "the sentence
+    names 1000 refused rows, want the first 20" for all three; "the sentence
+    does not name the link it skipped: Read 1 file, 1 row." for rightsizing
+    and budget recommendations; and for SaaS seats "licences holds 2 rows,
+    want 1: the link's target was read", with a folder of only a link
+    imported without error and twenty-five links read as twenty-six files.
+    Three `fail` cases and one `pass` case in `gates-have-teeth.sh`: the
+    bound dropped from the tally, the passed-over names dropped from the
+    walk, the walk following a link again, and a reworded comment.)*
+    What this does not do: the accepted rows of one rightsizing or budget
+    file are still held in memory before they are written, as before; and
+    the FOCUS reader keeps its own `focusSummary`, whose bound was already
+    the same number and is held by invariant 78's cases.
+
+85. **A unit's name is judged by one function, wherever it is judged.** The
+    FOCUS reader (`plainUnitName`, before a row is kept) and
+    `crew.ParseUnitTarget` (before a rule for the unit can be stamped) held
+    the same rule in two packages: a byte bound, valid text, no control,
+    format or line-separating character, no leading formula character. Two
+    copies of one rule is how a reader comes to accept a name the rule then
+    refuses. Both now call `plainname.Check` (`internal/plainname`, a new
+    package both can import), and `plainname.UnitMaxBytes` (128) is the one
+    bound both name. Each caller keeps what was its own and nothing else:
+    the reader lets an empty unit through (a row nobody attributed) and
+    labels its reasons `x_unit`; the unit rule refuses an empty or padded
+    name and labels its reasons `allocation.rule's target.unit`. The wording
+    each page shows is unchanged, held by the callers' existing tests
+    (`TestXUnitIsRefusedUnlessItIsAPlainBoundedName`,
+    `TestUnitRuleTargetHostileInputs`).
+    *(gate: `TestTheUnitNameRuleIsWrittenOnce` in `internal/crew` reads every
+    non-test Go file under `internal/`, `tools/` and `cmd/` and requires the
+    rule's formula-prefix line in exactly one, `internal/plainname/plainname.go`;
+    `TestCheckRefusesEveryShapeANamePrintedElsewhereMustNotHave` and
+    `TestCheckHoldsTheBoundItIsGiven` in `internal/plainname` test the
+    function once, directly. @measured `go test ./internal/crew -run
+    TestTheUnitNameRuleIsWrittenOnce -count=1` 2026-10-08 before the change:
+    "the plain-name rule is written in 2 files
+    [internal/connectors/tokenfusefocus.go internal/crew/unitrule.go]". The
+    plainname tests were written with the package and are held by their
+    cases. Three `fail` cases and one `pass` case in `gates-have-teeth.sh`: a
+    second copy planted beside the unit rule's call, the format-character
+    check dropped, the bound read one byte loose, and a reworded comment;
+    the older `unit rule: a name that opens as a spreadsheet formula is
+    accepted` case now plants its fault in `plainname.go`, where the line
+    lives.)* What this does not do: it reads source for one distinctive line,
+    so a copy rewritten in other words would not be seen; and the other
+    printed-text rules (a downloaded cell, invariant 78; an on-behalf reason,
+    invariant 58) are different rules and stay where they are.
+
+86. **The example pseudonym a prompt shows the model has a shape no real
+    pseudonym can take, and a draft that repeats it keeps it as written.**
+    The mode line every masked or aggregates prompt carries said tokens look
+    like `team-7f3a`: `team-` and four hex digits, the exact shape of a real
+    token, which one team name in 65,536 draws. @measured on the R4 live run
+    of 2026-10-07 (masked and aggregates through a local model, the captures
+    in that run's private evidence folder): a model copied the example into an
+    aggregates draft, where it stayed as a stray token because no team held
+    it. Had one held it, re-identification would have written that team's
+    name into a sentence about nobody. The example is now
+    `deliver.PromptExampleToken`, `team-xxxx`: `x` is not a hex digit, so the
+    token pattern never matches it and no name can be issued it, and
+    `Reidentify` also passes over that exact string by name, so a later
+    widening of the token pattern does not bring the problem back.
+    *(gate: `TestTheModeLineExampleHasAShapeNoRealTokenCanTake` (both modes'
+    example read out of the mode line itself) and
+    `TestReidentifyNeverReadsTheModeLineExampleAsAName` (a real team is
+    planted on the example's own spelling, since the key cannot be steered to
+    it, and a draft carrying the example beside a real token must come back
+    with the example unchanged and the real token re-identified) in
+    `internal/deliver`. @measured `go test ./internal/deliver -run
+    'TestTheModeLineExample|TestReidentifyNeverReadsTheModeLineExample'
+    -count=1` 2026-10-08 before the fix: "the mode line's example
+    \"team-7f3a\" has a real token's shape" in both modes, and the planted
+    draft re-identified as "Pseudonyms look like data-eng" in both. Two
+    `fail` cases and one `pass` case in `gates-have-teeth.sh`: the example
+    back to a hex shape; the token pattern widened to admit `x` with the
+    guard removed; and the pattern widened with the guard kept, which must
+    stay green, so the guard is shown to hold on its own.)* What this does
+    not do: a model can still invent a token of the real shape (two such
+    appeared in the same run, `team-65f4` and `team-d1b6`); one that happens
+    to be a real team's is re-identified as that team, which no example
+    wording can prevent.
 
 ## Decisions that have no gate yet
 
