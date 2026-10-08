@@ -2,8 +2,9 @@
 <p class="crumb"><a href="/teams">Teams</a> / {{.T.Name}}</p>
 <header class="page">
   <h1>{{.T.Name}}</h1>
-  {{if .OffRoster}}<p>A unit an imported file named; it is not on the roster, so it has no business unit or cadence here · {{.Period}}</p>
-  {{else}}<p>{{.T.Unit}} unit · hears from FinOps {{.T.Cadence}} · {{.Period}}</p>{{end}}
+  {{if .OffRoster}}{{if .HasRule}}<p>A customer unit the AI gateway reports, charged back under business unit <strong>{{.Rule.BusinessUnit}}</strong> by a rule {{.Rule.DecidedBy}} stamped on {{.Rule.AppliedAt}}. It is not on the roster, so it has no FinOps cadence here · {{.Period}}</p>
+  {{else}}<p>A customer unit an imported file named. No rule charges it back under a business unit yet, so its spend is in the showback's "(unruled units)" line; it is not on the roster, so it has no FinOps cadence here · {{.Period}}</p>{{end}}
+  {{else}}<p>Business unit {{.T.Unit}} · hears from FinOps {{.T.Cadence}} · {{.Period}}</p>{{end}}
 </header>
 
 <form class="filters" method="get">

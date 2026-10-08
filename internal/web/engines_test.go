@@ -62,7 +62,7 @@ func TestTheHireFormOffersTheCatalogue(t *testing.T) {
 
 	_, body, _ := h.get(t, "/staff/new")
 	for _, e := range engines.Catalogue {
-		if !strings.Contains(body, ">"+e.ID+"<") {
+		if !strings.Contains(body, `<option value="`+e.ID+`">`) {
 			t.Errorf("the hire form does not offer %q, which the engines page "+
 				"documents and the estimator prices", e.ID)
 		}

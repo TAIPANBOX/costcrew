@@ -188,10 +188,13 @@ func (s *Server) engines(w http.ResponseWriter, r *http.Request) {
 	}
 	s.render(w, tplEngines, struct {
 		shell
-		Groups []engineGroup
-		Dry    bool
-		Prompt promptDataView
-	}{s.shellFor(r, "Engines", "engines"), groups, engines.Dry(av), currentPromptData()})
+		Groups      []engineGroup
+		Dry         bool
+		Prompt      promptDataView
+		Families    int
+		EngineCount int
+	}{s.shellFor(r, "Engines", "engines"), groups, engines.Dry(av), currentPromptData(),
+		engines.FamilyCount(), engines.EngineCount()})
 }
 
 // ---------------------------------------------------------------- accounts

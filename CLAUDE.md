@@ -84,15 +84,44 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 1513 tests, 31 packages
-./scripts/gates-have-teeth.sh        # 503 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 541 scenarios, both directions
+go test ./...                        # 1527 tests, 31 packages
+./scripts/gates-have-teeth.sh        # 522 cases; needs a clean tree
+./scripts/features-are-bound.sh      # 553 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 govulncheck ./...                    # CI runs it, pinned at v1.8.0; reports only vulnerabilities the code can reach
 staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refused PR #19 on two findings the list above never asked for; a staticcheck built for an older Go cannot read this module, so on such a machine CI is the only place it runs
 ```
+
+Invariant 95 (the reconciliation page states its exact-model-name limit; the
+usage connectors are listed as folders; the TokenFuse connector asks for a
+path and links to /ai) added 3 tests (`internal/web/small_text_test.go`), 5
+`gates-have-teeth.sh` cases (4 `fail`, 1 `pass`) and 3 scenarios
+(`features/small-text-2026-10-08b.feature`, new), and no route: 1524 -> 1527
+tests, 31 packages unchanged, 517 -> 522 cases, 550 -> 553 scenarios,
+re-measured on this branch with the three commands this block already names.
+
+Invariant 94 (a unit's page names its stamped business unit; /teams lists
+the customer units and says "Business unit"; the chargeback units panel names
+its period) added 3 tests (`internal/web/units_and_teams_test.go`), 5
+`gates-have-teeth.sh` cases (4 `fail`, 1 `pass`) and 3 scenarios
+(`features/units-and-teams.feature`, new), and no route: 1521 -> 1524 tests,
+31 packages unchanged, 512 -> 517 cases, 547 -> 550 scenarios, re-measured on
+this branch with the three commands this block already names.
+
+Invariant 93 (the local engine's readiness is costcrew-run's and its flags
+are named; the engines page counts its catalogue; the forms name engines; a
+local run's tokens reach the task page and the card; the live mark says what
+wrote a deliverable) added 8 tests (`internal/engines/local_test.go`, 3;
+`tools/run/local_tokens_task_test.go`, 1;
+`internal/web/local_engine_truthful_test.go`, 4) and rewrote two in place
+that asserted the defect (`TestCheckReadsTheLocalEndpointFromTheEnvironment`,
+`TestTheHireFormOffersTheCatalogue`), 9 `gates-have-teeth.sh` cases (8
+`fail`, 1 `pass`) and 6 scenarios (`features/local-engine-truthful.feature`,
+new), and no route: 1513 -> 1521 tests, 31 packages unchanged, 503 -> 512
+cases, 541 -> 547 scenarios, re-measured on this branch with the three
+commands this block already names.
 
 Invariant 92 (the typed hint on the task page; typryx's answer id, the
 fields sent and the count held back on the anomaly's panel; no "typryx saw"
@@ -5825,6 +5854,125 @@ an absent invariant.
     What this does not do: it records the field NAMES that left, never their
     values, so the panel cannot show what typryx read; and a hint recorded
     before this change says its fields were not recorded.
+
+93. **The local engine is costcrew-run's, and a local run is measured in
+    tokens where money measures nothing.** The console never calls a model the
+    organisation hosts (its one call, the supervisor's plan, refuses the local
+    engine), yet `/engines` marked that engine "ready" whenever
+    `COSTCREW_MODEL_URL` was set in the console's own environment, and its
+    setup text named `-model-url` and `-model-name` without saying they are
+    `costcrew-run`'s flags or naming `-local-parallel` (default 1,
+    invariant 84). The page said "Three answers ... not a list of twelve
+    providers" over a catalogue of five families and seven engines, the hire
+    and re-brief forms listed raw ids ("claude-cli", "local"), a local task at
+    a price of 0 showed "0.00 against a per-task guard" while the run was
+    bounded by `-max-run-tokens` and nothing recorded the tokens per task, and
+    every live deliverable's mark said "A model wrote this against a real
+    key", a self-hosted model and a paid-for assistant included.
+
+    `engines.Engine.RunnerOnly` (true for `local`) makes `Check` report the
+    engine as costcrew-run's to decide, naming whether `COSTCREW_MODEL_URL` is
+    set here and saying that decides nothing; the page shows "set up where
+    costcrew-run runs" for it. The local How text names costcrew-run's three
+    flags and `-local-parallel`'s default. The page's sentence counts the
+    catalogue (`FamilyCount`, `EngineCount`). The forms offer "Name (id)".
+    `costcrew-run` adds each task's tokens to `tasks.live_tokens` and notes
+    the run's token ceiling in `tasks.live_token_ceiling` (`recordTokens`,
+    on every path a call's tokens are settled on, stopped tasks included; a
+    store without the columns is given them by the first run with tokens to
+    record, never by a dry run). The task page of a local analyst's task says
+    the tokens used, in a run bounded at the ceiling or with none, that no
+    vendor bills the engine, and the money line only when the operator's own
+    price made it non-zero; any other task shows its tokens beside its money.
+    The agent card of a local analyst says the tokens its live work used
+    across how many tasks (`crew.LiveTokensBy`). `engines.LiveMarkTitle`
+    words the live mark by the author's engine.
+    *(gate: `TestCheckReadsTheLocalEndpointFromTheEnvironment` (rewritten:
+    it required the old "ready"), `TestTheLocalHowTextNamesCostcrewRunsFlags`,
+    `TestLiveMarkTitleSaysWhatWroteIt`, `TestTheCatalogueCountsItself` in
+    `internal/engines`; `TestEachTaskRecordsTheTokensItsCallsUsed` in
+    `tools/run` (a local run at price 0 against a fake server: the tasks'
+    tokens sum to the run summary's 300, each with the 1000000 ceiling);
+    `TestTheEnginesPageCountsItsCatalogueAndLeavesLocalToTheRunner`,
+    `TestTheHireAndRebriefFormsNameTheEngines`,
+    `TestALocalTaskShowsTokensAgainstTheRunCeiling`,
+    `TestTheLocalAgentCardShowsTheTokensItsWorkUsed` in `internal/web`.
+    @measured 2026-10-08 with the web files reverted: every web assertion red
+    (e.g. "a local task at no price shows 0.00 against a per-task guard",
+    "the hire form does not name the local engine"); with `live.go`
+    reverted, "task 1: 0 tokens against a ceiling of 0"; with `engines.go`
+    reverted, the engines tests fail to compile ("set.RunnerOnly
+    undefined"). Eight `fail` cases and one `pass` case in
+    `gates-have-teeth.sh`: readiness read off the console's environment;
+    the How text losing `-local-parallel`; the count written by hand; raw
+    ids in the hire form; the tokens not recorded; a local task shown as
+    money against a guard; every live mark a real key; the card's tokens
+    dropped; and the card sentence reworded, which must stay green.)* What
+    this does not do: a task worked before this change has no tokens
+    recorded; the ceiling noted on a task is the last run's that worked it;
+    and the console still cannot say whether a costcrew-run elsewhere has a
+    server configured.
+
+94. **A unit, a team's business unit and a period are each named for what
+    they are.** A customer unit (a gateway's `x_unit`, invariant 68's
+    showback) has a page at `/team/<unit>`, which said it "has no business
+    unit" even after a person stamped the rule that charges it back under
+    one. `/teams` listed only the roster's ten teams, so a unit could not be
+    found from there, and its column headed "Unit" held a team's BUSINESS
+    unit, a different thing from a customer unit. `/team/<name>` said "X
+    unit" for the same field. And `/chargeback`'s customer units panel said
+    "These are today's figures" over a column headed "Today", while it reads
+    the allocation of the month selected.
+
+    The unit's page now names the business unit, who stamped the rule and
+    when (`finops.UnitRules`), or says no rule covers it yet and that its
+    spend is the showback's "(unruled units)" line. `/teams` has a "Customer
+    units" panel (`finops.UnitsOf` over the allocation it already reads, the
+    same call `/chargeback`'s panel makes, so the two cannot disagree), each
+    unit linked to its page, with a link to the chargeback panel
+    (`#units`); its team column and a team's own page say "Business unit".
+    The chargeback panel says "These are <period>'s figures as they stand
+    now: the live allocation, not a frozen close", under a "<period>, live"
+    column.
+    *(gate: `TestAUnitsPageNamesTheBusinessUnitItsRuleChargesItUnder` (the
+    rule stamped by the owner through the real route),
+    `TestTheTeamsPageListsTheCustomerUnitsAndNamesBusinessUnits` (and no
+    panel on an estate with no units),
+    `TestTheChargebackUnitsPanelNamesItsPeriodNotToday` in `internal/web`.
+    @measured 2026-10-08 with the handler and the three templates reverted:
+    all three red, among them "a ruled unit's page says it has no business
+    unit", "/teams does not contain \"<h2>Customer units</h2>\"" and "the
+    chargeback units panel still says its figures are today's". Four
+    `fail` cases and one `pass` case in `gates-have-teeth.sh`.)* What this
+    does not do: `/teams`' units are the month's live allocation, as the
+    chargeback panel's are, not a closed period's frozen figures.
+
+95. **Four sentences on the connector and reconciliation pages say what is
+    true.** The reconciliation (invariant 81) matches a model by its exact
+    name, so a gateway's alias and the provider's dated id for the same model
+    come out as one row over and one row under on the same day, and the page
+    did not say so. `anthropic-usage` and `openai-usage` were catalogued as
+    `API` connectors, listed on `/connectors` as "api", while the console
+    only reads a folder `costcrew-usage` writes (their own `Auth` line says
+    so). The TokenFuse connector's path hint offered "or drop the folder on
+    this page", which no page accepts. And that connector's page did not lead
+    to `/ai`, where what it imported is shown.
+
+    The reconciliation page now says a model is matched by its exact name,
+    with the alias and dated-id example, and that the two gaps offset in the
+    total. The two usage connectors are `ExportDrop`. The hint asks for "the
+    local path on the machine this console runs on". The TokenFuse connector
+    page links to `/ai`.
+    *(gate: `TestTheReconciliationPageStatesTheExactModelNameLimit`,
+    `TestTheUsageConnectorsAreListedAsFoldersNotCalls`,
+    `TestTheFocusConnectorPageOffersNoDropAndLinksToTheAIPage` in
+    `internal/web`. @measured 2026-10-08 with the three product files
+    reverted: all three red, e.g. "anthropic-usage is listed as an API call
+    although the console reads a folder" and "the connector page offers to
+    take a dropped folder, which it cannot". Four `fail` cases and one
+    `pass` case in `gates-have-teeth.sh`.)* What this does not do: the
+    reconciliation still does not join an alias to its dated id; it says that
+    it does not.
 
 ## Decisions that have no gate yet
 

@@ -187,6 +187,18 @@ func (s *Server) team(w http.ResponseWriter, r *http.Request) {
 		}
 		team, offRoster = world.Team{Name: name}, true
 	}
+	// Invariant 94: a unit charged back under a business unit by a stamped
+	// rule names that business unit; the page used to say a unit has none.
+	var unitRule finops.UnitRule
+	var hasRule bool
+	if offRoster {
+		rules, _ := finops.UnitRules(s.db) // no table yet reads as no rules
+		for _, ur := range rules {
+			if ur.Unit == name {
+				unitRule, hasRule = ur, true
+			}
+		}
+	}
 	period, months := s.period(r)
 
 	byService, total, err := periodBreakdown(s.db, "team", name, period, "service")
@@ -253,6 +265,8 @@ func (s *Server) team(w http.ResponseWriter, r *http.Request) {
 		shell
 		T         world.Team
 		OffRoster bool
+		HasRule   bool
+		Rule      finops.UnitRule
 		Period    string
 		Months    []string
 		ByService []spendRow
@@ -271,7 +285,7 @@ func (s *Server) team(w http.ResponseWriter, r *http.Request) {
 		SortTrend sortSpec
 		SortUtil  sortSpec
 		SortDesk  sortSpec
-	}{s.shellFor(r, name, "teams"), team, offRoster, period, months, byService, byDesk,
+	}{s.shellFor(r, name, "teams"), team, offRoster, hasRule, unitRule, period, months, byService, byDesk,
 		trend, total, direct, allocated, direct + allocated, mine, openMoney,
 		licences, seatWaste, util, srt, tsrt, usrt, dsrt})
 }
@@ -479,13 +493,20 @@ func (s *Server) teams(w http.ResponseWriter, r *http.Request) {
 		"openmoney": func(a, b teamRow) int { return cmpInt64(int64(a.OpenMoney), int64(b.OpenMoney)) },
 	}, "loaded")
 
+	// Invariant 94: the customer units the gateway reports are charged too,
+	// and the roster table above never listed them, so a person on /teams
+	// could not find one. Read off the allocation already in hand, the same
+	// way /chargeback's own units panel is, so the two cannot disagree.
+	rules, _ := finops.UnitRules(s.db) // no table yet reads as no rules
+	units := finops.UnitsOf(alloc, rules)
 	s.render(w, tplTeams, struct {
 		shell
 		Rows   []teamRow
 		Period string
 		Months []string
 		Sort   sortSpec
-	}{s.shellFor(r, "Teams", "teams"), rows, period, months, srt})
+		Units  []finops.UnitLine
+	}{s.shellFor(r, "Teams", "teams"), rows, period, months, srt, units})
 }
 
 type deskRow struct {

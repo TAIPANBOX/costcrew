@@ -26,13 +26,13 @@
   </div>
 </div>
 {{- if .Units}}
-<div class="panel">
+<div class="panel" id="units">
   <h2>Customer units</h2>
   <div class="body">
-    <p class="note">The units the AI gateway already knows, charged as it reports them. A unit is charged back under a business unit only once a person has stamped a rule for it; until then its spend is one "(unruled units)" line in the showback export, so the file still adds up. These are today's figures.</p>
+    <p class="note">The units the AI gateway already knows, charged as it reports them. A unit is charged back under a business unit only once a person has stamped a rule for it; until then its spend is one "(unruled units)" line in the showback export, so the file still adds up. These are {{.Period}}'s figures as they stand now: the live allocation, not a frozen close.</p>
   </div>
   <div class="scroll"><table>
-    <thead><tr><th>Unit</th><th>Business unit</th><th class="num">Today</th></tr></thead>
+    <thead><tr><th>Unit</th><th>Business unit</th><th class="num">{{.Period}}, live</th></tr></thead>
     <tbody>{{range .Units}}
       <tr><td>{{.Unit}}</td>
           <td>{{if .Ruled}}{{.BusinessUnit}}{{else}}<span class="note">no rule yet</span>{{end}}</td>

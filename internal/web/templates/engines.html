@@ -1,7 +1,7 @@
 {{define "content"}}
 <header class="page">
   <h1>Engines</h1>
-  <p>Grouped by how you pay, because that is the question you actually have. Three answers to "what do I need", not a list of twelve providers.</p>
+  <p>Grouped by how you pay, because that is the question you actually have: {{.Families}} answers to "what do I need", covering {{.EngineCount}} engines.</p>
 </header>
 
 <div class="panel">
@@ -27,7 +27,7 @@
       <div class="row" style="align-items:baseline">
         <div style="flex:1 1 auto">
           <strong>{{.Name}}</strong>
-          {{if .Ready}}<span class="chip accepted">ready</span>{{else}}<span class="chip dismissed">not set up</span>{{end}}
+          {{if .RunnerOnly}}<span class="chip grain">set up where costcrew-run runs</span>{{else if .Ready}}<span class="chip accepted">ready</span>{{else}}<span class="chip dismissed">not set up</span>{{end}}
         </div>
       </div>
       <dl class="facts" style="margin-top:8px">

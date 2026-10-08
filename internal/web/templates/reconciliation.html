@@ -18,6 +18,7 @@
   <div class="body">
     <p class="note">{{.Rec.Scope}}</p>
     <p class="note">Matched means the gap is within the larger of {{.Rec.ToleranceCents}} cent{{if ne .Rec.ToleranceCents 1}}s{{end}} and {{.Rec.ToleranceBP}} basis points of the provider's figure. Gateway under means the provider billed more than the gateway recorded; gateway over the reverse. Provider missing means the provider's cost report was not read for that day, which is not the same as the provider billing nothing. Tokens are shown beside the money and do not decide the status.</p>
+    <p class="note">A model is matched by its exact name, character for character. When the gateway records an alias (say <code>claude-sonnet-4-5</code>) and the provider bills the dated id (<code>claude-sonnet-4-5-20250929</code>), the same calls show as two rows on the same day, one gateway over on the alias and one gateway under on the dated id; the two gaps offset in the total above.</p>
     <p class="note">{{.Matched}} matched, {{.Under}} gateway under, {{.Over}} gateway over, {{.Missing}} provider missing. The provider's cost report covers {{.Rec.DaysCovered}} of the window's days; {{.Rec.DaysMissing}} {{if eq .Rec.DaysMissing 1}}is{{else}}are{{end}} not covered. <a href="{{.CSV}}">Download as CSV</a></p>
   </div>
   <div class="scroll">

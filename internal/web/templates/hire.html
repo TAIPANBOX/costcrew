@@ -98,7 +98,7 @@
           {{range $m, $need := .Needs}}{{if $need}}<br><code>{{$m}}</code>: {{$need}}{{end}}{{end}}</span>
       </dd>
       <dt>Engine</dt>
-      <dd><select name="engine">{{range .Engines}}<option value="{{.}}">{{.}}</option>{{end}}</select>
+      <dd><select name="engine">{{range .Engines}}<option value="{{.ID}}">{{.Name}} ({{.ID}})</option>{{end}}</select>
         <span class="sub">Becomes the declared model on the passport.</span></dd>
     </dl>
   </div>

@@ -15,10 +15,14 @@
       <dt>Desk</dt><dd>{{if .T.Desk}}<a href="/desk/{{.T.Desk}}">{{.T.Desk}}</a>{{else}}<span class="note">not on a desk</span>{{end}}</dd>
       <dt>Sprint</dt><dd>{{if .T.Sprint}}<a href="/sprint/{{.T.Sprint}}">{{.SprintLabel}}</a>{{else}}<span class="note">not in a sprint</span>{{end}}</dd>
       <dt>What it cost</dt>
+      {{if .Local}}
+      <dd>{{if .Tokens}}<strong>{{.Tokens}} tokens</strong> on the organisation's own model{{if .TokenCeil}}, in a run bounded at {{.TokenCeil}} tokens (<code>-max-run-tokens</code>){{else}}, in a run with no token ceiling{{end}}{{else}}No tokens recorded yet on the organisation's own model{{end}}. No vendor bills this engine{{if .SpentAny}}; at the operator's own price it came to {{.T.Spent}}, against a per-task guard of {{.T.Budget}}{{end}}.</dd>
+      {{else}}
       <dd class="{{if .T.OverGuard}}up{{end}}">
         <strong>{{.T.Spent}}</strong> against a per-task guard of {{.T.Budget}}
-        {{if .T.OverGuard}} · over the guard{{end}}
+        {{if .T.OverGuard}} · over the guard{{end}}{{if .Tokens}}<span class="sub">{{.Tokens}} tokens</span>{{end}}
       </dd>
+      {{end}}
       {{if .T.Anomaly}}<dt>Came from</dt><dd><a href="/anomalies/{{.T.Anomaly}}">anomaly {{.T.Anomaly}}</a></dd>{{end}}
       <dt>Opened</dt><dd>{{.T.Created}}</dd>
     </dl>
@@ -40,7 +44,7 @@
 
 {{end}}{{range .Arts}}
 <div class="panel">
-  <h2>Deliverable · {{.State}}{{if .Author}} · {{.Author}}{{end}}{{if eq .Source "live"}} <span class="live-mark" title="A model wrote this against a real key. Everything unmarked on this page was generated when the estate was seeded.">written live</span>{{end}}</h2>
+  <h2>Deliverable · {{.State}}{{if .Author}} · {{.Author}}{{end}}{{if eq .Source "live"}} <span class="live-mark" title="{{.LiveTitle}}">written live</span>{{end}}</h2>
   <div class="body">
     {{if .Reason}}<p class="msg">Returned: {{.Reason}}</p>{{end}}
     <div class="doc">{{.Rendered}}</div>

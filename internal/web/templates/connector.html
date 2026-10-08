@@ -57,6 +57,9 @@
     {{if .Conn.LastResult}}<p class="{{if .Conn.OK}}note{{else}}msg{{end}}">{{.Conn.LastResult}}<br><span class="note">{{.Conn.LastTest}}</span></p>{{end}}
     <p class="note">A test says WHAT it found, not just that it worked. A green tick tells nobody anything.</p>
     {{if .Conn.LastImportResult}}<p class="note"><strong>Last import</strong>, {{.Conn.LastImport}}: {{.Conn.LastImportResult}}</p>{{end}}
+    {{- if eq .C.ID "tokenfuse-focus"}}
+    <p class="note"><a href="/ai">View the imported AI spend, by agent and by the gateway's reason for each block</a></p>
+    {{end}}
     {{- if or (eq .C.ID "aws-rightsizing") (eq .C.ID "gcp-recommender") (eq .C.ID "azure-advisor")}}
     <p class="note"><a href="/rightsizing">View imported rightsizing recommendations</a></p>
     {{end}}
