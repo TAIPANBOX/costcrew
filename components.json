@@ -394,6 +394,9 @@
           "live": {
             "required": false
           },
+          "local-parallel": {
+            "required": false
+          },
           "local-price-in": {
             "required": false
           },

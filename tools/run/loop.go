@@ -402,6 +402,11 @@ type openAIMsg struct {
 // reads it either: its direct address is the operator's own -model-url.
 var openRouterEndpoint = deliver.OpenRouterDirectEndpoint
 
+// localRoundTimeout is deliver.LocalRoundTimeout, the client timeout on one
+// round to the operator's server, held in a var only so a test can shorten it
+// and show a queue passing it in milliseconds rather than five minutes.
+var localRoundTimeout = deliver.LocalRoundTimeout
+
 func openRouterRoundBody(model string, messages []openAIMsg, tools []map[string]any, maxTok int) ([]byte, error) {
 	body := map[string]any{
 		"model":      model,
@@ -478,7 +483,7 @@ func openAIRound(ctx context.Context, engine, model string, messages []openAIMsg
 	timeout := 90 * time.Second
 	if local {
 		who = "the local model server"
-		timeout = deliver.LocalRoundTimeout
+		timeout = localRoundTimeout
 	} else {
 		key = strings.TrimSpace(os.Getenv("OPENROUTER_API_KEY"))
 		if key == "" {
@@ -589,12 +594,28 @@ func openAIToolLoop(ctx context.Context, db, roDB *sql.DB, e estimate, prompt st
 	var totalActual int64
 	var acc deliver.Settlement
 
+	// prevIn is the previous round's counted prompt, the floor under this
+	// one's on the local engine (deliver.FloorLocalPrompt). A vendor's count is
+	// what the vendor bills, so it is never raised.
+	var prevIn int
 	for round := 1; round <= maxToolRounds; round++ {
 		var tools []map[string]any
 		if round < maxToolRounds {
 			tools = openAITools()
 		}
 		rr, assistant, err := openAIRound(ctx, e.Engine, e.Model, messages, tools, maxTok, gw)
+		if e.Engine == engines.LocalID && rr.InTokens > 0 {
+			var raised bool
+			reported := rr.InTokens
+			if rr.InTokens, raised = deliver.FloorLocalPrompt(rr.InTokens, prevIn); raised {
+				fmt.Fprintf(os.Stderr, "  the local model server counted %d prompt tokens for round %d, fewer than "+
+					"the %d of the round before, all of which this round re-sent: counted at %d. A server does this "+
+					"when it cuts a prompt to fit its context window (the model then answered without the start "+
+					"of the conversation: raise the server's context length) or counts only tokens it had not "+
+					"cached\n", reported, round, prevIn, rr.InTokens)
+			}
+			prevIn = rr.InTokens
+		}
 		totalIn += rr.InTokens
 		totalOut += rr.OutTokens
 		totalActual += roundCostMicros(rr.InTokens, rr.OutTokens, e.Price)

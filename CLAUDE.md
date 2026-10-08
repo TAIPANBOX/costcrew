@@ -84,15 +84,26 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 1463 tests, 30 packages
-./scripts/gates-have-teeth.sh        # 444 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 507 scenarios, both directions
+go test ./...                        # 1475 tests, 30 packages
+./scripts/gates-have-teeth.sh        # 456 cases; needs a clean tree
+./scripts/features-are-bound.sh      # 515 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 govulncheck ./...                    # CI runs it, pinned at v1.8.0; reports only vulnerabilities the code can reach
 staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refused PR #19 on two findings the list above never asked for; a staticcheck built for an older Go cannot read this module, so on such a machine CI is the only place it runs
 ```
+
+Invariant 83 (a run on the local engine sends the operator's server no more
+tasks at once than `-local-parallel`, one by default; `-only` says the named
+task's own reason; a later round's prompt is never counted below the round
+before it) added 12 tests (`tools/run/local_parallel_test.go`, 8;
+`tools/run/local_prompt_floor_test.go`, 3; `internal/deliver/local_test.go`,
+1), 12 `gates-have-teeth.sh` cases (10 `fail`, 2 `pass`) and 8 scenarios
+(`features/local-server-capacity.feature`, new), one flag on `costcrew-run`
+(`-local-parallel`, declared in `components.json`) and no route: 1463 ->
+1475 tests, 30 packages unchanged, 444 -> 456 cases, 507 -> 515 scenarios,
+re-measured on this branch with the three commands this block already names.
 
 Invariants 80 and 81 (a provider's own usage and cost, read from a folder;
 the reconciliation against the gateway's rows) added 45 tests
@@ -4570,6 +4581,8 @@ an absent invariant.
     limit, invariant 44), and the next task is checked against the real count;
     the token ceiling is not shared between two invocations of the runner; and
     the price is the operator's number, which this console cannot check.
+    Invariant 83 adds one floor to the count a server reports, on later
+    rounds of the tool loop only, and names what it leaves uncounted.
     *(gate: `TestALocalRunAtPriceZeroIsRefusedAtStartWithoutATokenCeiling`,
     `TestALocalRunAtPriceZeroRunsOnceItHasATokenCeiling`,
     `TestTokenReservationsAreHeldWhileInFlight`,
@@ -5194,6 +5207,119 @@ an absent invariant.
     in `gates-have-teeth.sh`: the round reading `completion_tokens` alone, the
     shared rule ignoring the total, a total smaller than its parts believed,
     and the rule rewritten as one `max`, which must not trip it.)*
+
+83. **A run on the local engine sends the operator's server no more tasks at
+    once than the operator said it answers, one by default, and a later
+    round's prompt is never counted below the round before it.** @measured
+    2026-10-08 on an 8-vCPU VM with Ollama on CPU answering one request at a
+    time (the R2 run of that evening): `costcrew-run -sprint 20 -engine local`
+    kept four tasks in flight, the vendor width, and each round to the local
+    engine has a five-minute client timeout (`deliver.LocalRoundTimeout`); 17
+    of 19 tasks were blocked with "no answer in time" while they waited in the
+    server's own queue, and the same 19 run one at a time all finished (mean
+    163 s each). Now `spend()` keeps two queues, each in the run's own order
+    and each with its own workers: the vendor engines four at once
+    (`vendorParallel`, unchanged), the local engine `-local-parallel` at once,
+    1 when it is not set (`localParallel`), refused below 0 or above 64 before
+    the store opens (`localOptions.apply`, `localParallelMax`; 0 reads as 1).
+    A vendor task never waits for a local slot. The run says how many local
+    tasks it runs at a time on the line after `LIVE.`.
+
+    What each timeout covers, precisely. A task's own deadline
+    (`taskDeadline`, two minutes per round its engine can loop through) starts
+    when a worker takes the task, so waiting in this runner's queue is never
+    counted against it. A round's client timeout (`localRoundTimeout`, five
+    minutes) starts when its request is sent and covers everything until the
+    answer's headers arrive, which includes any time the request waits in the
+    SERVER's queue. That wait cannot be told apart from the server's own work
+    on a non-streamed answer, so it is not subtracted: the property held is
+    that this runner adds nothing to that queue beyond `-local-parallel`
+    requests. A server shared with other clients, or a `-local-parallel` above
+    the requests the server answers at once (Ollama's `OLLAMA_NUM_PARALLEL`),
+    puts requests back in its queue and the timeout counts that wait.
+
+    `-only <id>` that leaves nothing to run now says that task's own reason:
+    `nothing to run: task <id> was refused: <its Verdict>` when the run priced
+    it and refused it, and `task <id> is not among the open tasks this run
+    priced` when it is done, blocked, in another sprint or on another engine
+    (`nothingToRun`). Without `-only` the run says every open task was
+    refused or is on a subscription and to run without `-live` to see why.
+
+    The token count. The request this was raised from said a server counts
+    only freshly evaluated prompt tokens, so a cached prompt under-reports.
+    Measured 2026-10-08 against Ollama 0.40.0 on loopback, that is not what
+    this version does: a repeated prompt reported 1570 prompt tokens both
+    times, with `prompt_tokens_details.cached_tokens` 1569 inside the count
+    and not subtracted from it, and the runner's own requests reported 2946
+    and 2964 with 0 and 1076 cached. What did under-report was a prompt
+    longer than the server's context window: the server cut it and reported
+    what it kept, 229 for a conversation of 4309 tokens (4309 measured by the
+    same server with a larger context), 2050 for a single message of about
+    4280. So the count is bounded where the bound is a fact and not a guess:
+    the tool loop re-sends the whole conversation every round, so a round's
+    prompt can never be shorter than the previous round's, and on the local
+    engine a later round's reported prompt below that is raised to it
+    (`deliver.FloorLocalPrompt`, applied in `openAIToolLoop`), with a line
+    naming both numbers and the two causes (a context window that cut the
+    prompt, or a server that counts only what it had not cached). The raised
+    figure is what the token ceiling, the operator's price and the `tool_call`
+    event read. A vendor engine's count is what the vendor bills and is never
+    raised.
+
+    Why not the larger bound, one token per byte of the request, which
+    invariant 73 uses for a round the server did not measure at all: the
+    runner's real requests run about 3.3 bytes per token (9,800 bytes reported
+    as 2,946 tokens, measured the same day), so settling every local round at
+    its bytes would charge it and count it against `-max-run-tokens` at about
+    three times what the server read, on every call and not only the ones
+    that under-report. A figure that is three times too high every time would
+    be read as a measurement; a floor that is sometimes too low is stated
+    here as one.
+
+    What this does not do: the FIRST round of a task has no previous round
+    and is counted as the server reports it, so a first prompt cut by the
+    context window is counted at what the server kept; a later round cut
+    below its own true length but not below the previous round's is counted
+    as reported; and a cut prompt means the model answered without the start
+    of what it was sent, which this change names on the line it prints but
+    does not refuse or block. The context window is the operator's server
+    setting (Ollama's `OLLAMA_CONTEXT_LENGTH`, 4096 on the server measured
+    here), and the runner's requests for a full packet and the tool catalogue
+    can exceed it. The single-shot local call (`deliver.callLocal`, used
+    outside the tool loop) has one round and so no floor.
+    *(gate: `TestOnAServerThatAnswersOneAtATimeNoLocalTaskIsBlockedWaiting`
+    (the incident in miniature: a server that answers one request at a time,
+    four local tasks, a round timeout shortened to 500 ms through
+    `localRoundTimeout`),
+    `TestLocalParallelSetsHowManyLocalTasksRunAtOnce`,
+    `TestVendorEnginesStillRunFourAtOnce`,
+    `TestAVendorTaskIsNotHeldBehindTheLocalQueue`,
+    `TestWaitingForALocalSlotIsNotCountedAgainstTheTasksDeadline`,
+    `TestLocalParallelIsValidatedBeforeTheStoreOpens`,
+    `TestOnlyATaskThatWasRefusedSaysItsOwnReason`,
+    `TestOnlyATaskThatIsNotOpenSaysSo` (`tools/run/local_parallel_test.go`);
+    `TestALocalRoundIsNeverCountedBelowThePreviousRoundsPrompt`,
+    `TestALocalRoundThatReportsMoreThanThePreviousIsTakenAsReported`,
+    `TestAnOpenRouterRoundIsNotFloored` (`tools/run/local_prompt_floor_test.go`);
+    `TestFloorLocalPrompt` (`internal/deliver`). @measured `go test
+    ./tools/run -run 'TestOnAServerThatAnswersOneAtATime|TestLocalParallelSets|TestOnlyATask|TestALocalRoundIsNeverCounted'
+    -count=1` 2026-10-08 against `eeee11e` with only the test seams added
+    (`localRoundTimeout`, `taskDeadline` and an unread `LocalParallel`
+    field): "2 of 4 local tasks were blocked waiting in a server that answers
+    one at a time (the server saw 4 at once)", each blocked task "did not
+    answer: no answer in time (context deadline exceeded (Client.Timeout
+    exceeded while awaiting headers))"; "handed 4 local requests at once with
+    -local-parallel 3, want 3"; "nothing to run: every open task was refused,
+    is on a subscription, or does not match -only" for both `-only` tests;
+    and "the token ceiling counted 3269, want 6040". The vendor-width, the
+    vendor-not-held and the slot-deadline tests passed there too, because the
+    old single queue of four held those three properties already; they are
+    guards against a change that breaks them, each with its own `fail` case.
+    `TestLocalParallelIsValidatedBeforeTheStoreOpens` and `TestFloorLocalPrompt`
+    were red by compile, the flag and the function being new. Ten `fail` and
+    two `pass` cases in `gates-have-teeth.sh`; the two existing `blocked
+    meanwhile` cases had their anchors re-indented, the worker body having
+    moved out of a goroutine literal, without changing what they plant.)*
 
 ## Decisions that have no gate yet
 

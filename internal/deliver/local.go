@@ -212,6 +212,30 @@ func CountLocalUsage(reportedIn, reportedOut, requestBytes, maxTok int) (in, out
 	return requestBytes, maxTok, true
 }
 
+// FloorLocalPrompt is a later round's prompt count on the local engine, given
+// what the server reported for it and the count of the round before it. The
+// tool loop re-sends the whole conversation every round, so a round's prompt
+// holds the previous round's prompt entire and can never be shorter than it: a
+// server that reports fewer tokens than that is not describing what it was
+// sent. It either cut the prompt to fit its context window (measured
+// 2026-10-08 on Ollama 0.40.0: a 4309-token conversation reported as 229) or
+// counts only the tokens it did not already have cached. The count is raised
+// to the previous round's, which is a floor on what was sent and never more
+// than it, and raised says so.
+//
+// Not a byte-based bound. One token per byte is a ceiling on a prompt, and the
+// runner's real requests run about 3.3 bytes per token (9,800 bytes reported
+// as 2,946 tokens, the same day): settling every local call at its bytes would
+// charge it and count it against -max-run-tokens at three times what the
+// server read. A floor that is sometimes too low is stated as such; a figure
+// that is always three times too high would be read as a measurement.
+func FloorLocalPrompt(reported, previous int) (in int, raised bool) {
+	if previous > reported {
+		return previous, true
+	}
+	return reported, false
+}
+
 // callLocal is the single-shot call on the local engine: the same OpenAI
 // request the openrouter route sends (openRouterBody, SetFuseHeaders), to the
 // address OpenAIEndpoint names. The tool loop in tools/run does not come
