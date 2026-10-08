@@ -84,15 +84,25 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 1508 tests, 31 packages
-./scripts/gates-have-teeth.sh        # 497 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 537 scenarios, both directions
+go test ./...                        # 1513 tests, 31 packages
+./scripts/gates-have-teeth.sh        # 503 cases; needs a clean tree
+./scripts/features-are-bound.sh      # 541 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 govulncheck ./...                    # CI runs it, pinned at v1.8.0; reports only vulnerabilities the code can reach
 staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refused PR #19 on two findings the list above never asked for; a staticcheck built for an older Go cannot read this module, so on such a machine CI is the only place it runs
 ```
+
+Invariant 92 (the typed hint on the task page; typryx's answer id, the
+fields sent and the count held back on the anomaly's panel; no "typryx saw"
+sentence where nothing was sent) added 5 tests
+(`internal/typryx/pass_fields_test.go`, 1;
+`internal/web/typryx_hint_task_test.go`, 4), 6 `gates-have-teeth.sh` cases
+(5 `fail`, 1 `pass`) and 4 scenarios
+(`features/typed-hint-on-the-task.feature`, new), and no route: 1508 -> 1513
+tests, 31 packages unchanged, 497 -> 503 cases, 537 -> 541 scenarios,
+re-measured on this branch with the three commands this block already names.
 
 Invariant 91 (/engines and /sprint/plan show the -prompt-data setting and
 say the typed goal is withheld under masked and aggregates; a plan-ask's
@@ -5770,6 +5780,51 @@ an absent invariant.
     and the engines note reworded, which must stay green.)* What this does
     not do: it shows the console's own setting, not the one a `costcrew-run`
     invocation used, which only that run's log records.
+
+92. **The typed hint is on the task it informs, and its panel says what was
+    sent.** Invariant 76 stores typryx's hint on the anomaly and shows it on
+    the anomaly's page; the analyst's task, where the work happens, did not
+    show it at all. The anomaly's panel printed neither typryx's answer id
+    (the key into typryx's own ledger) nor which fields left, and it printed
+    "typryx saw only the fields its triage.anomaly_class template names" on a
+    no-hint row too, including one where typryx was unreachable and nothing
+    left.
+
+    `typryx.HintAnomalies` now keeps what its egress record already knew on
+    the anomaly's row (`hint_fields_sent`, the comma-separated names, never a
+    value; `hint_held_back`, the count typryx reported), written by
+    `anomaly.SaveHint` under the same guard as the hint (a failure never
+    overwrites an answer). `anomaly.HintOf` reads them apart from the rest, so
+    a store whose hint columns predate these two still shows its hint, with
+    `FieldsKnown` false. The anomaly's panel names the answer id, the fields
+    sent and the count held back, says "none: nothing about this anomaly left
+    for typryx" when nothing was sent, says "not recorded" for a row from
+    before, and prints the "typryx saw only" sentence only for an answer or
+    when fields were sent. `/task/{id}`, for a task opened from an anomaly
+    with a recorded hint, shows the suggested cause, its probability and
+    source, and a link to the anomaly. With typryx off no hint columns exist,
+    `HintOf` reads that as no hint, and neither page shows a panel
+    (invariant 77). The prompt-data fixture classifies `hint_fields_sent` as
+    plain: template field names.
+    *(gate: `TestAPassRecordsWhatLeftForTypryx` in `internal/typryx` (an
+    answered ask and an unreachable one); `TestTheTaskPageShowsTheHintOnItsAnomaly`,
+    `TestTheAnomalyPanelNamesTheAnswerAndTheFieldsSent`,
+    `TestANoHintRowWhereNothingWasSentDoesNotSayTypryxSawFields` and
+    `TestWithTypryxOffTheTaskPageHasNoHintPanel` in `internal/web`. @measured
+    2026-10-08 with `pass.go`, both templates and the task handler reverted:
+    the first four red ("fields recorded with an answered hint: known true,
+    sent \"\"", "the task page does not show \"A suggestion from typryx\"",
+    "the anomaly panel does not show \"<dt>Answer id</dt>...\"", "a no-hint
+    row where nothing was sent says typryx saw the template's fields"); the
+    fifth holds invariant 77 and passed before and after, which is its job,
+    and its own `fail` case below plants the panel with typryx off. Five
+    `fail` cases and one `pass` case in `gates-have-teeth.sh`: the task panel
+    dropped; the task panel shown with typryx off; the pass not recording what
+    left; the "typryx saw" sentence printed regardless; the answer id dropped;
+    and the task panel's no-hint wording changed, which must stay green.)*
+    What this does not do: it records the field NAMES that left, never their
+    values, so the panel cannot show what typryx read; and a hint recorded
+    before this change says its fields were not recorded.
 
 ## Decisions that have no gate yet
 

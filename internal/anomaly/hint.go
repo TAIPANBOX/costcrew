@@ -42,6 +42,22 @@ type Hint struct {
 	Reason      string  // why there is no hint, when there is none
 	LatencyMS   int64   // how long the ask took, as this console measured it
 	At          string  // RFC 3339, when the ask finished
+	// FieldsSent names the fields that left for typryx, comma separated, ""
+	// when none did (typryx was unreachable, its template was refused, the
+	// state lacked a field). HeldBack is how many typryx itself reported
+	// holding back. FieldsKnown is false on a row recorded before this
+	// console kept them (invariant 92): then nobody can say what was sent.
+	FieldsSent  string
+	HeldBack    int64
+	FieldsKnown bool
+}
+
+// Fields is FieldsSent as a list.
+func (h Hint) Fields() []string {
+	if h.FieldsSent == "" {
+		return nil
+	}
+	return strings.Split(h.FieldsSent, ",")
 }
 
 // Answered says whether this is a hint rather than a recorded failure.
@@ -59,6 +75,9 @@ var hintColumns = []struct{ name, decl string }{
 	{"hint_reason", "TEXT"},
 	{"hint_latency_ms", "INTEGER"},
 	{"hint_at", "TEXT"},
+	// Invariant 92: what left for typryx. NULL on a row recorded before.
+	{"hint_fields_sent", "TEXT"},
+	{"hint_held_back", "INTEGER"},
 }
 
 // EnsureHintColumns adds the hint columns to anomalies when they are missing.
@@ -128,6 +147,16 @@ func SaveHint(db *sql.DB, id string, h Hint) error {
 		}
 		return err
 	}
+	if n, _ := res.RowsAffected(); n > 0 {
+		// The same row, the same guard: only when the hint above was written.
+		if _, err := db.Exec(`UPDATE anomalies SET hint_fields_sent=?, hint_held_back=? WHERE id=?`,
+			h.FieldsSent, h.HeldBack, id); err != nil {
+			if strings.Contains(err.Error(), "no such column") {
+				return ErrNoHintColumns
+			}
+			return err
+		}
+	}
 	if n, _ := res.RowsAffected(); n == 0 && h.Answered() {
 		if _, err := Get(db, id); errors.Is(err, ErrNotFound) {
 			return ErrNotFound
@@ -156,11 +185,22 @@ func HintOf(db *sql.DB, id string) (h Hint, ok bool, err error) {
 	if !class.Valid && !reason.Valid {
 		return Hint{}, false, nil
 	}
-	return Hint{
+	h = Hint{
 		Class: class.String, Probability: prob.Float64, Backend: backend.String,
 		Model: model.String, AnswerID: answer.String, Reason: reason.String,
 		LatencyMS: lat.Int64, At: at.String,
-	}, true, nil
+	}
+	// Read apart from the rest, so a store whose hint columns predate these
+	// two still shows the hint it has (with nothing known about the fields).
+	var fields sql.NullString
+	var held sql.NullInt64
+	ferr := db.QueryRow(`SELECT hint_fields_sent, hint_held_back FROM anomalies WHERE id=?`, id).
+		Scan(&fields, &held)
+	if ferr != nil && !strings.Contains(ferr.Error(), "no such column") {
+		return Hint{}, false, ferr
+	}
+	h.FieldsSent, h.HeldBack, h.FieldsKnown = fields.String, held.Int64, fields.Valid
+	return h, true, nil
 }
 
 // NeedingHint lists, largest by money first, the anomalies a hint pass should

@@ -47,6 +47,7 @@ func HintAnomalies(ctx context.Context, db *sql.DB, c *Client, ids []string, rec
 			continue
 		}
 		h, eg := c.Ask(ctx, State(db, a))
+		h.FieldsSent, h.HeldBack = strings.Join(eg.Fields, ","), int64(eg.HeldBack)
 		s.Asked++
 		if err := anomaly.SaveHint(db, id, h); err != nil {
 			s.NoHint++

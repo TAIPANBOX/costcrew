@@ -522,6 +522,7 @@ var Classes = map[string]Class{
 	// is typryx's own, and the reason is a sentence this console composes.
 	"anomalies.hint_class": Plain, "anomalies.hint_backend": Plain, "anomalies.hint_model": ID,
 	"anomalies.hint_answer_id": ID, "anomalies.hint_reason": Generated, "anomalies.hint_at": Plain,
+	"anomalies.hint_fields_sent": Plain, // invariant 92: template field names, never values
 
 	"artifact_options.class": Plain, "artifact_options.summary": Free, "artifact_options.risk": Plain,
 	"artifact_options.needs": Free, "artifact_options.evidence": Free, "artifact_options.target": Plain,

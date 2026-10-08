@@ -38,8 +38,14 @@
       {{else}}<dt>No hint</dt><dd>{{.Hint.Reason}}</dd>
       {{end}}<dt>Source</dt><dd>{{.Hint.Source}}{{if .Hint.Backend}} <span class="chip grain">backend: {{.Hint.Backend}}</span>{{end}}{{if .Hint.Model}} <span class="chip grain">model: {{.Hint.Model}}</span>{{end}}</dd>
       <dt>Asked</dt><dd>{{.Hint.At}}, {{.Hint.LatencyMS}} ms</dd>
+      {{if .Hint.AnswerID}}<dt>Answer id</dt><dd><code>{{.Hint.AnswerID}}</code> <span class="sub">typryx's own id for this answer, in its ledger</span></dd>{{end}}
+      {{if .Hint.FieldsKnown}}{{if .Hint.FieldsSent}}<dt>Fields sent</dt><dd>{{range .Hint.Fields}}<code>{{.}}</code> {{end}}</dd>
+      <dt>Held back</dt><dd>{{.Hint.HeldBack}} <span class="sub">fields typryx itself reported holding back</span></dd>
+      {{else}}<dt>Fields sent</dt><dd>none: nothing about this anomaly left for typryx</dd>{{end}}
+      {{else}}<dt>Fields sent</dt><dd><span class="note">not recorded: asked before this console kept them</span></dd>{{end}}
     </dl>
-    <p class="note">A suggestion, never a decision: nothing on this page changed because of it, and an analyst may disagree with it. typryx saw only the fields its triage.anomaly_class template names, never a team, an owner or an agent.</p>
+    {{if or .Hint.Answered .Hint.FieldsSent}}<p class="note">A suggestion, never a decision: nothing on this page changed because of it, and an analyst may disagree with it. typryx saw only the fields its triage.anomaly_class template names, never a team, an owner or an agent.</p>
+    {{else if .Hint.FieldsKnown}}<p class="note">No suggestion, and nothing was sent: the ask stopped before any field of this anomaly left for typryx.</p>{{end}}
   </div>
 </div>
 
