@@ -1,0 +1,52 @@
+{{define "content"}}
+<header class="page">
+  <h1>Reconciliation</h1>
+  <p>What {{.C.Name}} says the provider billed, per model per day, beside the sum of the gateway's own per-call rows for the same model and day. The agents share one provider key, so which agent spent what comes only from the gateway's rows; money the provider billed and the gateway never recorded is money no agent is charged with. The gap is its own column and its own line, and a matched row still prints it.</p>
+  <p class="note">{{range $i, $x := .All}}{{if $i}} · {{end}}{{if eq $x.ID $.C.ID}}<strong>{{$x.Name}}</strong>{{else}}<a href="/reconciliation?connector={{$x.ID}}">{{$x.Name}}</a>{{end}}{{end}} · <a href="/connectors/{{.C.ID}}">the connector</a></p>
+</header>
+
+{{if .Rec.Empty}}
+<div class="panel"><p class="empty">Nothing to reconcile{{if .Rec.From}} between {{.Rec.From}} and {{.Rec.To}}{{end}}: neither the provider's report nor the gateway's rows have been imported for {{.Rec.GatewayProvider}}. Import the provider's folder on <a href="/connectors/{{.C.ID}}">the connector</a> and the gateway's export on <a href="/connectors/tokenfuse-focus">TokenFuse FOCUS export</a>.</p></div>
+{{else}}
+<div class="tiles">
+  <div class="tile"><div class="k">Provider billed</div><div class="v">{{.Provider}}</div><div class="s">USD, {{.Rec.From}} to {{.Rec.To}}</div></div>
+  <div class="tile"><div class="k">Gateway recorded</div><div class="v">{{.Gateway}}</div><div class="s">USD, unblocked calls</div></div>
+  <div class="tile"><div class="k">Gap</div><div class="v {{if ne .Rec.GapMicros 0}}up{{end}}">{{.Gap}}</div><div class="s">gateway minus provider, every row included</div></div>
+</div>
+
+<div class="panel">
+  <div class="body">
+    <p class="note">{{.Rec.Scope}}</p>
+    <p class="note">Matched means the gap is within the larger of {{.Rec.ToleranceCents}} cent{{if ne .Rec.ToleranceCents 1}}s{{end}} and {{.Rec.ToleranceBP}} basis points of the provider's figure. Gateway under means the provider billed more than the gateway recorded; gateway over the reverse. Provider missing means the provider's cost report was not read for that day, which is not the same as the provider billing nothing. Tokens are shown beside the money and do not decide the status.</p>
+    <p class="note">{{.Matched}} matched, {{.Under}} gateway under, {{.Over}} gateway over, {{.Missing}} provider missing. The provider's cost report covers {{.Rec.DaysCovered}} of the window's days; {{.Rec.DaysMissing}} {{if eq .Rec.DaysMissing 1}}is{{else}}are{{end}} not covered. <a href="{{.CSV}}">Download as CSV</a></p>
+  </div>
+  <div class="scroll">
+  <table>
+    <thead><tr>
+      <th class="tight">Day</th><th>Model</th>
+      <th class="num">Provider</th><th class="num">Gateway</th><th class="num">Gap</th><th class="tight">Status</th>
+      <th class="num">Tokens in (provider / gateway)</th><th class="num">Tokens out (provider / gateway)</th>
+    </tr></thead>
+    <tbody>{{range .Rows}}
+      <tr>
+        <td class="tight">{{.Day}}</td>
+        <td>{{.Model}}</td>
+        <td class="num">{{.Provider}}</td>
+        <td class="num">{{.Gateway}}</td>
+        <td class="num">{{.Gap}}</td>
+        <td class="tight"><span class="chip {{.Chip}}">{{.Status}}</span></td>
+        <td class="num">{{if .ProviderIn}}{{.ProviderIn}}{{else}}<span class="note">not read</span>{{end}} / {{.GatewayIn}}</td>
+        <td class="num">{{if .ProviderOut}}{{.ProviderOut}}{{else}}<span class="note">not read</span>{{end}} / {{.GatewayOut}}</td>
+      </tr>
+    {{end}}
+      <tr>
+        <td class="tight"><strong>total</strong></td><td>{{.Rec.From}} to {{.Rec.To}}</td>
+        <td class="num"><strong>{{.Provider}}</strong></td><td class="num"><strong>{{.Gateway}}</strong></td>
+        <td class="num"><strong>{{.Gap}}</strong></td><td></td><td></td><td></td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+</div>
+{{end}}
+{{end}}

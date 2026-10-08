@@ -84,15 +84,34 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 1418 tests, 29 packages
-./scripts/gates-have-teeth.sh        # 428 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 489 scenarios, both directions
+go test ./...                        # 1463 tests, 30 packages
+./scripts/gates-have-teeth.sh        # 444 cases; needs a clean tree
+./scripts/features-are-bound.sh      # 507 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 govulncheck ./...                    # CI runs it, pinned at v1.8.0; reports only vulnerabilities the code can reach
 staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refused PR #19 on two findings the list above never asked for; a staticcheck built for an older Go cannot read this module, so on such a machine CI is the only place it runs
 ```
+
+Invariants 80 and 81 (a provider's own usage and cost, read from a folder;
+the reconciliation against the gateway's rows) added 45 tests
+(`internal/connectors/providerusage_test.go`, 13;
+`internal/connectors/providerusage_shapes_test.go`, 7;
+`internal/connectors/reconcile_test.go`, 9;
+`internal/web/reconciliation_test.go`, 6; `tools/usage/main_test.go`, 10, a
+new package), 16 `gates-have-teeth.sh` cases (14 `fail`, 2 `pass`) and 18
+scenarios (`features/provider-usage-reconciliation.feature`, new), and two GET
+routes (`/reconciliation`, `/export/reconciliation.csv`) and no write route:
+1418 -> 1463 tests, 29 -> 30 packages, 428 -> 444 cases, 489 -> 507
+scenarios, 60 -> 62 GET routes and no write route added, re-measured after
+merging origin/main at 20e3fa0 (#108) with the three commands this block
+already names. The CSV export goes through invariant 78's `writeCSV`, which
+landed while this was open, so its formula guard is that invariant's. The prompt-data gate's fixture (`internal/promptfixture`)
+imports both provider-usage fixture folders and classifies the two new
+tables' text columns, so `TestEveryTextColumnIsClassified` measures them. One binary
+(`costcrew-usage`, in the image) and one catalogue entry (`openai-usage`)
+were added; `anthropic-usage` went from documented to built.
 
 Invariant 82 (a thinking model's reasoning is counted as output, whichever
 way an OpenAI-shaped server splits the count) added 5 tests
@@ -576,7 +595,7 @@ an absent invariant.
    provider (invariant 74) and answer 404 when none is configured; `/signup` is
    open only while nobody can administer the installation (invariant 10); and
    `/calendar` and `/stats` are aliases that redirect to a guarded page.
-   *(gate: `TestEveryRouteRequiresASession`, which walks all 60 GET routes
+   *(gate: `TestEveryRouteRequiresASession`, which walks all 62 GET routes
    registered in `server.go`. Its regexp is anchored to the registration and
    not to the string `HandleFunc`, because it once fired on a route named in a
    COMMENT, and a gate that fires on prose gets deleted the first week.)*
@@ -4939,6 +4958,180 @@ an absent invariant.
     Two `fail` cases and one `pass` case in `gates-have-teeth.sh`.)*
     What this does not do: it does not clear what a browser cached before
     this change, and it says nothing to a cache that ignores the header.
+
+80. **A provider's own usage and cost are read from a folder, strictly,
+    exactly and once, and the console never calls the provider for them.**
+    The crew's agents share one provider API key, so which agent spent what
+    is known only from the gateway's per-call rows (`ai_calls`, invariant
+    25); the provider sees one key. The control that keeps that attribution
+    honest is the reconciliation in invariant 81, and this is its provider
+    half. `anthropic-usage` and `openai-usage`
+    (`internal/connectors/providerusage.go`) read a folder of the providers'
+    own JSON reports into `provider_usage` (one row per connector, report,
+    day, model, token type, API key and workspace or project: tokens for a
+    usage report, exact micro-dollars for a cost report) and
+    `provider_usage_days` (which days each report covered). The endpoints and
+    fields relied on are pinned in that file's header with the URL and the
+    read date (2026-10-07): Anthropic's `usage_report/messages` and
+    `cost_report`, whose amount is a decimal STRING in cents; OpenAI's
+    `usage/completions` and `costs`, whose amount is a JSON NUMBER in
+    dollars, read from the public OpenAPI document at a pinned commit because
+    the reference pages answered 403. Neither provider's documentation names
+    a charge for these reports, so both entries are `Metered: false`; that is
+    a reading of their documents, not a measured bill.
+
+    The console reads only the folder because invariant 64 holds that it
+    makes no outbound call of its own (`internal/web/egress_test.go` walks
+    every package the console imports, and `internal/connectors` is one).
+    The network half is a separate binary, `costcrew-usage` (`tools/usage`),
+    in the image and declared in `components.json`, which no package the
+    console imports imports. It sends only GET requests to the four report
+    endpoints, never calls a model, reads the admin key from
+    `ANTHROPIC_ADMIN_KEY` or `OPENAI_ADMIN_KEY` and from nowhere else, never
+    writes it to the folder, redacts it from anything printed (a provider
+    error body can echo it), and refuses every redirect, because Go's client
+    copies a custom header such as `x-api-key` to wherever a redirect points.
+    It stops on a repeated page cursor and after 400 pages, refuses a
+    response over 32 MB, and checks what it fetched with the SAME parser the
+    console reads with (`connectors.ParseProviderUsageFile`) before writing a
+    byte, atomically and 0600. The catalogue entries ask the console for no
+    secret: the earlier `anthropic-usage` entry named `ANTHROPIC_ADMIN_KEY`
+    as a console input, which a reader of a folder never needs.
+
+    Strict means: JSON keys are matched EXACTLY and a duplicate key refuses
+    the file (`encoding/json` alone matches keys case-insensitively and lets
+    the last duplicate win, so a second `amount` or an `AMOUNT` would
+    otherwise replace the real figure); a field of the wrong type, a token
+    count that is not a plain non-negative integer or is over ten
+    quadrillion, an amount over ten million dollars in one row, an exponent
+    past 40 (checked before `big.Rat` sees it: `1e999999999` would not come
+    back), a byte that is not UTF-8 (`encoding/json` quietly turns one into
+    U+FFFD, so a model name with a broken byte would be stored as something
+    nobody wrote; found by this change's own shape test, which went red with
+    the file accepted), a bucket that is not one whole UTC day, the same day twice in one
+    file (a pagination loop saved to disk), a currency other than USD, a
+    control character in an id or a model, and a last page that says more
+    pages exist each refuse the whole file, by name, and nothing it carries
+    reaches the store while a good file beside it still lands. Unknown fields
+    are ignored, because both providers add fields and refusing them would
+    refuse every export the month one is added. Exact means: an amount is
+    read with `math/big`, never `float64`, scaled to micro-dollars and
+    rounded half away from zero once per provider row, which is already a
+    day's aggregate. Once means: a day's rows are REPLACED, never added to,
+    so a second import changes nothing, and when two files carry a day the
+    one whose name sorts last wins (`costcrew-usage` names files by the time
+    it fetched them). It never writes `charges`: the provider's figure is a
+    check on the gateway's, not a second copy of the same money.
+
+    What it does not do: no live read of either provider has been made from
+    this repository (the bounded live check was not run: looking for an
+    admin key in the Keychain was refused by the session's permission
+    classifier, so no key was found to try); OpenAI's line item is read as
+    "model, token type" from the specification's own example, not from a
+    documented grammar, and one in another shape is kept whole as its own
+    model; Anthropic's cost report carries no API key (only a workspace) and
+    no Priority Tier cost at all, both stated on the connector and the page.
+    *(gate: `TestAnthropicUsageFolderIsRead`, `TestOpenAIUsageFolderIsRead`,
+    `TestBothUsageConnectorsAreBuiltAndFree`,
+    `TestProviderUsageTestDescribesAndWritesNothing`,
+    `TestProviderUsageImportTwiceChangesNothing`,
+    `TestALaterFileReplacesADayRatherThanAddingToIt`,
+    `TestProviderUsageHostileInput` (22 hostile files, each beside a good
+    one), `TestOpenAIHostileInput`, `TestAnUnknownFieldNeverChangesAKnownOne`,
+    `TestDecimalMicrosIsExactAndBounded` (including `0.0000035`, which a
+    float64 route rounds to 3 micro-dollars instead of 4),
+    `TestMicrosExact`, `TestProviderUsageFolderBoundaries`,
+    `TestProviderUsageNeverWritesCharges`,
+    `TestEveryFieldShapeIsRefusedWithItsOwnReason` (49 shapes, each refused
+    with a reason that names the field), `TestParseProviderUsageFileCountsWhatItRead`,
+    `TestTooManyPagesOrValuesAreRefused`, `TestASumThatWouldWrapIsRefused`,
+    `TestTheRefusalListIsBounded` in `internal/connectors`;
+    `TestAnthropicFetchWritesWhatTheConsoleReads`,
+    `TestOpenAIFetchSendsABearerAndRepeatedGroupBy`,
+    `TestAPaginationLoopIsStoppedAndNothingIsWritten`,
+    `TestAPageCapStopsAProviderThatNeverEnds`,
+    `TestARefusedKeyIsReportedForScopeAndNeverEchoed`,
+    `TestARedirectIsNotFollowedSoTheKeyGoesNowhereElse`,
+    `TestAResponseTheConsoleWouldRefuseIsNotWritten`,
+    `TestAnOversizedResponseIsRefused`, `TestDryRunFetchesChecksAndWritesNothing`,
+    `TestTheFlagsAreCheckedBeforeAnyRequest` in `tools/usage`, all against
+    `httptest` fakes. Held from outside this change:
+    `TestOnlyTheDeliveryPackageAmongThoseTheConsoleImportsReachesTheNetwork`
+    (invariant 64); `TestEveryTextColumnIsClassified` (the prompt-data
+    gate), whose fixture imports both provider-usage folders, so a text
+    column added to `provider_usage` or `provider_usage_days` without a
+    class in `internal/promptfixture.Classes` goes red (checked by removing
+    `provider_usage.model`'s class: "text columns with no decision on whether
+    they are identifiers: provider_usage.model"); and
+    `TestEveryBinaryThisRepositoryBuildsIsDeclaredAndTheReverse`
+    with `TestTheDockerfileShipsExactlyTheBinariesTheManifestSaysItDoes`
+    (invariant 60). `TestASecretIsNeverRendered` was retargeted from
+    `anthropic-usage`, which no longer names a secret, to `openrouter-usage`,
+    the one entry that still does, with the property unchanged. Nine
+    `fail` cases and one `pass` case in `gates-have-teeth.sh`.)*
+
+81. **The reconciliation sets the provider's amount beside the gateway's sum
+    for each day and model, and the gap is never absorbed.**
+    `connectors.Reconcile` (`internal/connectors/reconcile.go`), the page
+    `/reconciliation` and the CSV `/export/reconciliation.csv`
+    (`internal/web/reconciliation.go`): for each day and model, the
+    provider's cost (`provider_usage`, invariant 80), the sum of the
+    gateway's UNBLOCKED rows for the same provider (`ai_calls.provider`,
+    which TokenFuse writes as `Anthropic` or `OpenAI`, compared without
+    case), the gap (gateway minus provider) and one status: `provider
+    missing` when the provider's cost report was not read for that day at
+    all, which is a different fact from the provider billing nothing (a
+    covered day with no row for the model, which reads as `gateway over`
+    when the gateway has spend there); otherwise `matched` when the gap is
+    within the larger of `tolerance_cents` (default 1) and `tolerance_bp` of
+    the provider's figure (default 50, half a percent), and `gateway under`
+    or `gateway over` beyond it. Integer arithmetic throughout, with the
+    totals checked for overflow. The gap is never absorbed: a matched row
+    still prints its gap, a model only one side knows is a row of its own
+    (Anthropic's web search cost, which has no model, is one), the window's
+    whole gap is a tile on the page and the last line of the CSV, and every
+    amount carries all six decimals, because a reconciliation rounded to
+    cents hides the drift it exists to show. Tokens sit beside the money
+    and do not decide the status: whether the gateway's `tokens_in` counts
+    cache reads is the gateway's definition, not the provider's.
+
+    The gateway's rows carry no API key, so "the same key" is a scope the
+    operator states on the connector (`api_key_ids`, and `workspace_ids` or
+    `project_ids`), and the page prints the scope it applied in a sentence.
+    Anthropic's cost report has no key, so there the key filter narrows the
+    tokens and never the money, and the sentence says so. Reading the page
+    creates no table and writes nothing; it has no form; a viewer reads it;
+    the CSV goes through the console's one `writeCSV` (invariant 78), with
+    the model, which a provider's JSON supplies, as a text column, so a name
+    starting `=` reaches a spreadsheet as text, and the six-decimal amounts,
+    negative gaps included, as number columns a SUM still reads.
+
+    What it does not do: model names are compared exactly, so a gateway
+    that records an alias (`claude-sonnet-4-5`) where the provider reports
+    a dated id shows as two rows, one `gateway over` and one `gateway
+    under`, rather than being matched by a guess; and a day is a UTC day on
+    both sides, which is what both providers' daily buckets and the
+    gateway's `ChargePeriodStart` give.
+    *(gate: `TestReconcileSetsTheProviderBesideTheGatewaySum`,
+    `TestTheGapIsNeverAbsorbed`, `TestReconcileToleranceBoundary` (the
+    edge, one micro-dollar past it, and a zero tolerance),
+    `TestAProviderZeroIsNotProviderMissing`,
+    `TestReconcileReadsOnlyThisProvidersUnblockedCalls`,
+    `TestReconcileScopesByKeyAndWorkspace`,
+    `TestReconcileOnAFreshStoreIsEmptyAndCreatesNothing`,
+    `TestReconcileDefaultWindowEndsOnTheLatestDay`,
+    `TestReconcileRefusesABadWindow`, `TestReconcileConnectorsAreTheTwoProviderReaders`,
+    `TestReconcileWithOnlyTheGatewaysRows` in `internal/connectors`;
+    `TestTheReconciliationPageShowsTheGapAndTheStatus`,
+    `TestTheReconciliationCSVCarriesEveryRowAndTheGapLine`,
+    `TestTheReconciliationPageSaysWhenThereIsNothingToReconcile`,
+    `TestTheReconciliationRefusesAnUnknownConnectorOrABadWindow`,
+    `TestAViewerReadsTheReconciliation`,
+    `TestTheAIPageAndTheConnectorLinkToTheReconciliation` in
+    `internal/web`; `/reconciliation` is on `TestPagesRenderTheSameTwice`'s
+    path list, and invariant 1's walk covers both new GET routes. Five
+    `fail` cases and one `pass` case in `gates-have-teeth.sh`; the CSV's
+    formula guard is invariant 78's own, and its cases hold it.)*
 
 82. **What a thinking model generated is counted as output, whichever way its
     server splits the count.** @measured control call to Vertex AI's

@@ -4295,6 +4295,139 @@ run_case $'prompt data: a longer token and a reworded stand-in are not faults' \
 	$'[withheld: free text is not sent to the model' \
 	$'[withheld: typed text is not sent to the model'
 
+# Invariant 80: the provider usage readers read strictly, exactly and once.
+run_case 'provider usage: a duplicate key is no longer refused' \
+	fail \
+	./internal/connectors \
+	$'TestProviderUsageHostileInput' \
+	$'appears twice' \
+	internal/connectors/providerusage.go \
+	$'				if _, dup := o.obj[key]; dup {' \
+	$'				if _, dup := o.obj[key]; dup && false {'
+run_case 'provider usage: a day repeated in one file is no longer refused' \
+	fail \
+	./internal/connectors \
+	$'TestProviderUsageHostileInput' \
+	$'pagination loop' \
+	internal/connectors/providerusage.go \
+	$'			if prev, dup := seenDay[day]; dup {' \
+	$'			if prev, dup := seenDay[day]; dup && false {'
+run_case 'provider usage: an amount is read through float64' \
+	fail \
+	./internal/connectors \
+	$'TestDecimalMicrosIsExactAndBounded' \
+	$'decimalMicros("0.0000035"' \
+	internal/connectors/providerusage.go \
+	$'	r, ok := new(big.Rat).SetString(lit)' \
+	$'	fl, ferr := strconv.ParseFloat(lit, 64)\n	r, ok := new(big.Rat).SetFloat64(fl), ferr == nil'
+run_case 'provider usage: a day is added to instead of replaced' \
+	fail \
+	./internal/connectors \
+	$'TestProviderUsageImportTwiceChangesNothing' \
+	$'constraint' \
+	internal/connectors/providerusage.go \
+	$'DELETE FROM provider_usage WHERE connector=? AND report=? AND day=?`' \
+	$'DELETE FROM provider_usage WHERE connector=? AND report=? AND day=? AND 0`'
+run_case 'provider usage: the older file wins a day two files carry' \
+	fail \
+	./internal/connectors \
+	$'TestALaterFileReplacesADayRatherThanAddingToIt' \
+	$'replaced, not' \
+	internal/connectors/providerusage.go \
+	$'			if _, had := winners[k]; had {\n				superseded++\n			}' \
+	$'			if _, had := winners[k]; had {\n				superseded++\n				continue\n			}'
+run_case 'provider usage: a byte that is not UTF-8 is quietly replaced' \
+	fail \
+	./internal/connectors \
+	$'TestEveryFieldShapeIsRefusedWithItsOwnReason' \
+	$'not valid UTF-8' \
+	internal/connectors/providerusage.go \
+	$'	if !utf8.Valid(data) {' \
+	$'	if false {'
+run_case 'provider usage: a reworded refusal is not a fault' \
+	pass \
+	./internal/connectors \
+	$'TestDecimalMicrosIsExactAndBounded' \
+	$'' \
+	internal/connectors/providerusage.go \
+	$'is not a decimal number", name, truncateForMessage(lit))\n	}\n	if m[3]' \
+	$'does not read as a decimal amount", name, truncateForMessage(lit))\n	}\n	if m[3]'
+
+# Invariant 81: the reconciliation shows the gap and never absorbs it.
+run_case 'reconciliation: a day never read reads as the provider billing nothing' \
+	fail \
+	./internal/connectors \
+	$'TestAProviderZeroIsNotProviderMissing' \
+	$'a day never read' \
+	internal/connectors/reconcile.go \
+	$'	if !covered {\n		return StatusProviderMissing' \
+	$'	if false {\n		return StatusProviderMissing'
+run_case 'reconciliation: a matched row loses its gap' \
+	fail \
+	./internal/connectors \
+	$'TestTheGapIsNeverAbsorbed' \
+	$'still shown' \
+	internal/connectors/reconcile.go \
+	$'		r.Status = reconStatus(r.Covered, r.ProviderMicros, r.GapMicros, conf.tolCents, conf.tolBP)\n' \
+	$'		r.Status = reconStatus(r.Covered, r.ProviderMicros, r.GapMicros, conf.tolCents, conf.tolBP)\n		if r.Status == StatusMatched {\n			r.GapMicros = 0\n		}\n'
+run_case 'reconciliation: the tolerance edge is no longer matched' \
+	fail \
+	./internal/connectors \
+	$'TestReconcileToleranceBoundary' \
+	$'want "matched"' \
+	internal/connectors/reconcile.go \
+	$'	case ag <= tol:' \
+	$'	case ag < tol:'
+run_case 'reconciliation: blocked calls count as gateway spend' \
+	fail \
+	./internal/connectors \
+	$'TestReconcileReadsOnlyThisProvidersUnblockedCalls' \
+	$'blocked calls' \
+	internal/connectors/reconcile.go \
+	$'FROM ai_calls WHERE blocked=0 AND lower(COALESCE(provider,\'\'))=lower(?) AND day BETWEEN' \
+	$'FROM ai_calls WHERE 1=1 AND lower(COALESCE(provider,\'\'))=lower(?) AND day BETWEEN'
+run_case 'reconciliation: a key filter drops a cost report that carries no key' \
+	fail \
+	./internal/connectors \
+	$'TestReconcileScopesByKeyAndWorkspace' \
+	$'no reconciliation row for 2026-10-01' \
+	internal/connectors/reconcile.go \
+	$'		if !spec.costHasKey {' \
+	$'		if false {'
+run_case 'reconciliation: a reworded page introduction is not a fault' \
+	pass \
+	./internal/web \
+	$'TestTheReconciliationPageShowsTheGapAndTheStatus' \
+	$'' \
+	internal/web/templates/reconciliation.html \
+	$'The gap is its own column and its own line, and a matched row still prints it.' \
+	$'The difference has a column and a line of its own; a matched row prints it too.'
+
+# Invariant 80, the fetcher: the admin key goes to one host and is never shown.
+run_case 'usage fetcher: a redirect is followed with the key' \
+	fail \
+	./tools/usage \
+	$'TestARedirectIsNotFollowedSoTheKeyGoesNowhereElse' \
+	$'reached the redirect' \
+	tools/usage/main.go \
+	$'		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },' \
+	$'		CheckRedirect: nil,'
+run_case 'usage fetcher: a key the provider echoes is printed' \
+	fail \
+	./tools/usage \
+	$'TestARefusedKeyIsReportedForScopeAndNeverEchoed' \
+	$'was printed' \
+	tools/usage/main.go \
+	$'	return strings.ReplaceAll(msg, key, "[the admin key]")' \
+	$'	return msg'
+run_case 'usage fetcher: a repeated page cursor is followed' \
+	fail \
+	./tools/usage \
+	$'TestAPaginationLoopIsStoppedAndNothingIsWritten' \
+	$'pagination loop' \
+	tools/usage/main.go \
+	$'		if seen[next] {' \
+	$'		if false {'
 run_case $'reasoning tokens: the tool loop reads completion_tokens alone' \
 	fail \
 	./tools/run \

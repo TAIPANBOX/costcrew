@@ -759,10 +759,13 @@ func TestEveryConnectorSaysWhatItCannotDo(t *testing.T) {
 
 // A secret must never reach the page, only whether it is set.
 func TestASecretIsNeverRendered(t *testing.T) {
-	t.Setenv("ANTHROPIC_ADMIN_KEY", "sk-ant-admin-thismustnotappear")
+	// openrouter-usage, not anthropic-usage: the Anthropic reader reads a
+	// folder now and the console holds no key for it (invariant 80), so the
+	// one entry left that names a secret is where this property is checked.
+	t.Setenv("OPENROUTER_API_KEY", "sk-or-thismustnotappear")
 	h := start(t)
 	h.signUp(t, "owner", "owner-password-2026")
-	_, body, _ := h.get(t, "/connectors/anthropic-usage")
+	_, body, _ := h.get(t, "/connectors/openrouter-usage")
 	if strings.Contains(body, "thismustnotappear") {
 		t.Fatal("the connector page rendered the secret itself")
 	}

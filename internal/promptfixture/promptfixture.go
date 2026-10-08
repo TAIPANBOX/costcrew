@@ -345,6 +345,38 @@ func importCSVs(db *sql.DB) error {
 			return fmt.Errorf("%s: %w", c.id, err)
 		}
 	}
+	// The provider usage readers (invariant 80) read a folder of JSON, so
+	// each one's whole fixture folder is copied, and their two tables then
+	// stand in this installation for the column check to classify.
+	for _, c := range []struct{ id, dir string }{
+		{"anthropic-usage", "anthropic"}, {"openai-usage", "openai"},
+	} {
+		src := filepath.Join(testdata, "provider-usage", c.dir)
+		entries, err := os.ReadDir(src)
+		if err != nil {
+			return err
+		}
+		dir, err := os.MkdirTemp("", "promptfixture-"+c.id+"-")
+		if err != nil {
+			return err
+		}
+		defer os.RemoveAll(dir)
+		for _, e := range entries {
+			data, err := os.ReadFile(filepath.Join(src, e.Name()))
+			if err != nil {
+				return err
+			}
+			if err := os.WriteFile(filepath.Join(dir, e.Name()), data, 0o644); err != nil {
+				return err
+			}
+		}
+		if err := connectors.Save(db, c.id, map[string]string{"path": dir}); err != nil {
+			return fmt.Errorf("%s: %w", c.id, err)
+		}
+		if _, err := connectors.Import(db, c.id, false, connectors.ImportOptions{}); err != nil {
+			return fmt.Errorf("%s: %w", c.id, err)
+		}
+	}
 	return nil
 }
 
@@ -546,6 +578,15 @@ var Classes = map[string]Class{
 	"recommendations.resource": ID, "recommendations.action": Plain, "recommendations.current": Plain,
 	"recommendations.recommended": Plain, "recommendations.source_file": ID,
 	"recommendations.imported_at": Plain,
+
+	// invariant 80: the provider's own usage and cost. A model, a key and a
+	// workspace or project name something; the rest is a date, an enum or a hash.
+	"provider_usage.connector": Plain, "provider_usage.report": Plain, "provider_usage.day": Plain,
+	"provider_usage.model": ID, "provider_usage.token_type": Plain,
+	"provider_usage.api_key_id": ID, "provider_usage.scope": ID,
+	"provider_usage_days.connector": Plain, "provider_usage_days.report": Plain,
+	"provider_usage_days.day": Plain, "provider_usage_days.source_file": ID,
+	"provider_usage_days.file_sha256": Plain, "provider_usage_days.imported_at": Plain,
 
 	"sessions.token_hash": Secret, "sessions.username": ID,
 

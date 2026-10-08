@@ -8,7 +8,7 @@
 # manifests at the published image, so there is one owner rather than two
 # copies that drift.
 #
-# FOUR BINARIES, AND THE SEPARATION BETWEEN THEM IS THE PRODUCT'S OWN
+# FIVE BINARIES, AND THE SEPARATION BETWEEN THEM IS THE PRODUCT'S OWN
 #
 # The console reads, shows and records; while it serves a page it makes no
 # outbound call. The exceptions are the supervisor's plan-ask (POST
@@ -31,7 +31,13 @@
 # plane (the only binary here that changes another system), and
 # `tools/idryxsource` writes the roster as the `agents` source idryx asks for.
 # The console never invokes either; a launcher runs them as separate
-# containers from this same image with `--entrypoint`. Which binaries the image
+# containers from this same image with `--entrypoint`.
+#
+# `tools/usage` (costcrew-usage) is the fifth: it fetches a model provider's
+# own usage and cost reports into the folder the console's anthropic-usage
+# and openai-usage readers read. It is the network half the console must not
+# have (invariant 64), so it is its own entrypoint too, run on a schedule with
+# an admin key in its environment and nothing else. Which binaries the image
 # holds is declared as `checked.image` in components.json and compared with
 # this file by internal/manifest (TestTheDockerfileShipsExactlyTheBinariesTheManifestSaysItDoes).
 #
@@ -73,7 +79,9 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -trimpath -ldflags="-
  && CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -trimpath -ldflags="-s -w" \
       -o /out/costcrew-enforce ./tools/enforce \
  && CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -trimpath -ldflags="-s -w" \
-      -o /out/costcrew-idryxsource ./tools/idryxsource
+      -o /out/costcrew-idryxsource ./tools/idryxsource \
+ && CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -trimpath -ldflags="-s -w" \
+      -o /out/costcrew-usage ./tools/usage
 
 # gcr.io/distroless/static-debian12:nonroot
 FROM gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab
@@ -85,6 +93,7 @@ COPY --from=build /out/costcrew /usr/local/bin/costcrew
 COPY --from=build /out/costcrew-run /usr/local/bin/costcrew-run
 COPY --from=build /out/costcrew-enforce /usr/local/bin/costcrew-enforce
 COPY --from=build /out/costcrew-idryxsource /usr/local/bin/costcrew-idryxsource
+COPY --from=build /out/costcrew-usage /usr/local/bin/costcrew-usage
 # 65532 is distroless's `nonroot` uid. Numeric on purpose: a kubelet running
 # with runAsNonRoot cannot verify a NAME and refuses the container outright.
 USER 65532:65532

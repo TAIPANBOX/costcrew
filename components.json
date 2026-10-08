@@ -474,6 +474,52 @@
           "why": "it builds the envelope itself rather than going through internal/stack, so the two-row vocabulary table does not apply to it and its emitted type set is whatever a caller passes. A deployment feeding the bus from here rather than from the console is emitting types nothing registered."
         }
       }
+    },
+    {
+      "name": "costcrew-usage",
+      "class": "tool",
+      "checked": {
+        "package": "github.com/TAIPANBOX/costcrew/tools/usage",
+        "image": true,
+        "flags": {
+          "base-url": {
+            "required": false
+          },
+          "dry-run": {
+            "required": false
+          },
+          "from": {
+            "required": false
+          },
+          "out": {
+            "required": false
+          },
+          "to": {
+            "required": false
+          },
+          "vendor": {
+            "required": false
+          }
+        }
+      },
+      "declared": {
+        "role": {
+          "value": "fetches a model provider's own usage and cost reports (Anthropic's Admin API usage_report/messages and cost_report, OpenAI's organization usage/completions and costs) into the folder the console's anthropic-usage and openai-usage readers read",
+          "why": "as above"
+        },
+        "reads_an_admin_key_from_the_environment": {
+          "value": "ANTHROPIC_ADMIN_KEY for -vendor anthropic, OPENAI_ADMIN_KEY for -vendor openai; never written to the folder, never printed, never sent on a redirect",
+          "why": "the manifest's env check is scoped to COSTCREW_ names, so a provider's own variable is declared here instead. The key is the provider's, and nothing in this repository can tell an admin key from an ordinary one before the provider answers; a 401 or 403 is reported as a key that may not have admin scope."
+        },
+        "the_console_never_runs_it": {
+          "value": true,
+          "why": "the console makes no outbound call of its own (invariant 64, internal/web/egress_test.go walks every package the console imports). The network half of the provider-usage readers therefore lives in this binary, which no package the console imports imports, and the console reads only the folder it writes."
+        },
+        "only_reads": {
+          "value": "GET requests to four read-only report endpoints; it never calls a model and never changes anything at the provider",
+          "why": "neither provider's documentation names a charge for these reports (read 2026-10-07); that is a reading of their documents, not a measured bill"
+        }
+      }
     }
   ]
 }
