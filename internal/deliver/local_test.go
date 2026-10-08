@@ -620,3 +620,25 @@ func TestTheLocalEngineLoopsAndSendsTheOpenAICatalogue(t *testing.T) {
 			ToolCatalogueTokens("local"), ToolCatalogueTokens("openrouter"))
 	}
 }
+
+// The floor raises a later round's prompt count to the previous round's and
+// never lowers one: it is a floor on what was sent, not an estimate of it.
+func TestFloorLocalPrompt(t *testing.T) {
+	cases := []struct {
+		reported, previous, want int
+		raised                   bool
+	}{
+		{229, 4309, 4309, true}, // the measured cut: 4309 sent, 229 reported
+		{2964, 2946, 2964, false},
+		{3000, 3000, 3000, false}, // equal is not raised
+		{3001, 3000, 3001, false},
+		{120, 0, 120, false}, // the first round has no floor
+	}
+	for _, c := range cases {
+		got, raised := FloorLocalPrompt(c.reported, c.previous)
+		if got != c.want || raised != c.raised {
+			t.Errorf("FloorLocalPrompt(%d, %d) = %d, %v; want %d, %v",
+				c.reported, c.previous, got, raised, c.want, c.raised)
+		}
+	}
+}

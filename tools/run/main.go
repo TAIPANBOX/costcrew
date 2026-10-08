@@ -96,6 +96,13 @@ func main() {
 	maxRunTokens := flag.Int("max-run-tokens", 0,
 		"ceiling on the tokens a live run may use, counted over every task and reserved before each "+
 			"call; required when the local engine is priced at 0, because money cannot bound it then")
+	// How many local-engine tasks run at once. One by default, because a
+	// self-hosted server usually answers one request at a time and queues the
+	// rest, and the queue counts against each round's timeout (invariant 84).
+	// The vendor engines keep their own width, four.
+	localParallel := flag.Int("local-parallel", 1,
+		"how many local-engine tasks a live run keeps in flight at once (default 1); raise it only to "+
+			"what your server answers at once, e.g. Ollama's OLLAMA_NUM_PARALLEL. Vendor engines run four at once")
 	// Invariant 76: before -live works a task on an anomaly, typryx is asked
 	// for a typed hint, which the analyst then reads in its packet. Off
 	// unless pointed somewhere; falls back to COSTCREW_TYPRYX_URL, and the
@@ -129,7 +136,7 @@ func main() {
 	}
 
 	local := localOptions{ModelURL: *modelURL, ModelName: *modelName,
-		PriceIn: *localIn, PriceOut: *localOut, MaxRunTokens: *maxRunTokens}
+		PriceIn: *localIn, PriceOut: *localOut, MaxRunTokens: *maxRunTokens, Parallel: *localParallel}
 	if err := run(*dir, *ceiling, *maxTok, *sprint, *live, *supervise, *due, *only, *engine, *events, *host, *gateway, *gatewayOpenAI, local, *typryxURL); err != nil {
 		fmt.Fprintln(os.Stderr, "run:", err)
 		os.Exit(dueExitCode(err))
@@ -212,7 +219,7 @@ func run(dir, ceiling string, maxTok, sprint int, live, supervise, due bool, onl
 		return err
 	}
 	gwCfg := gatewayConfig{URL: gatewayURL, OpenAIURL: gatewayOpenAIURL, Host: host,
-		ModelURL: modelURL, MaxRunTokens: local.MaxRunTokens}
+		ModelURL: modelURL, MaxRunTokens: local.MaxRunTokens, LocalParallel: local.Parallel}
 	typryxBase, err := typryx.NormalizeURL(typryxURL)
 	if err != nil {
 		return err

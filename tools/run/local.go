@@ -28,13 +28,16 @@ import (
 )
 
 // localOptions is what the flags -model-url, -model-name, -local-price-in,
-// -local-price-out and -max-run-tokens carry, unvalidated.
+// -local-price-out, -max-run-tokens and -local-parallel carry, unvalidated.
 type localOptions struct {
 	ModelURL     string
 	ModelName    string
 	PriceIn      float64 // USD per million input tokens
 	PriceOut     float64 // USD per million output tokens
 	MaxRunTokens int
+	// Parallel is -local-parallel: how many local-engine tasks run at once.
+	// 0 means the default, 1.
+	Parallel int
 }
 
 // apply validates the options and publishes them to the engines package, which
@@ -58,6 +61,10 @@ func (o localOptions) apply() (string, error) {
 	}
 	if o.MaxRunTokens < 0 {
 		return "", fmt.Errorf("-max-run-tokens must be zero or more; zero means no token ceiling")
+	}
+	if o.Parallel < 0 || o.Parallel > localParallelMax {
+		return "", fmt.Errorf("-local-parallel must be between 1 and %d: how many local-engine tasks run "+
+			"at once, which should not exceed the requests your server answers at once", localParallelMax)
 	}
 	if o.ModelName != "" {
 		if err := engines.ConfigureLocal(engines.LocalSetting{
