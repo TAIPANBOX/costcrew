@@ -22,10 +22,10 @@ func TestCheckRefusesEveryShapeANamePrintedElsewhereMustNotHave(t *testing.T) {
 		{"not valid text", "acme\xff", "is not valid text"},
 		{"a newline", "acme\nprod", "control, format or separator"},
 		{"a NUL", "acme\x00", "control, format or separator"},
-		{"a zero-width space", "acme​prod", "control, format or separator"},
-		{"a right-to-left override", "‮acme", "control, format or separator"},
-		{"a line separator", "acme prod", "control, format or separator"},
-		{"a paragraph separator", "acme prod", "control, format or separator"},
+		{"a zero-width space", "acme\u200bprod", "control, format or separator"},
+		{"a right-to-left override", "\u202eacme", "control, format or separator"},
+		{"a line separator", "acme\u2028prod", "control, format or separator"},
+		{"a paragraph separator", "acme\u2029prod", "control, format or separator"},
 		{"=", "=SUM(A1)", "opens as a formula"},
 		{"+", "+1", "opens as a formula"},
 		{"-", "-1", "opens as a formula"},
