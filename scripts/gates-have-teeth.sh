@@ -2556,7 +2556,7 @@ run_case 'image: a reworded comment above a digest is not a fault' \
 	$'TestEveryBaseImageIsPinnedByDigest' \
 	$'' \
 	Dockerfile \
-	$'\n# golang:1.27-alpine\nFROM' \
+	$'\n# golang:1.27.2-alpine\nFROM' \
 	$'\n# the golang 1.27 alpine build image\nFROM'
 # Invariant 59: the HTTP edge. Each fault below is one the three defects were
 # made of, planted back; the last of each group is a harmless edit the gate must
