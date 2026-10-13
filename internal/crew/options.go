@@ -20,9 +20,11 @@ package crew
 // the task with the reason.
 
 import (
+	"bytes"
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
 	"regexp"
 	"strings"
 	"time"
@@ -352,6 +354,54 @@ func validateDriverTarget(class string, raw json.RawMessage, hasAnomaly bool) (r
 	return ""
 }
 
+// announcedTarget is driver.announced's own target (ANNOUNCED-DRIVER-SPEC.md
+// section 2): the service, the window, and the signed expected change of its
+// daily cost. Decoded strictly: a key it does not declare is refused.
+type announcedTarget struct {
+	Scope      string `json:"scope"`
+	Start      string `json:"start"`
+	End        string `json:"end"`
+	DailyCents *int64 `json:"daily_cents"`
+}
+
+// validateAnnouncedTarget is ANNOUNCED-DRIVER-SPEC.md section 2's save-time
+// gate for driver.announced, beside validateDriverTarget and following its
+// shape: absent, malformed, or a window the two existing classes already
+// refuse is refused with the reason, and the reason names the class. The
+// window is checked by validateDriverTarget itself, so the 366-day bound and
+// the date rules are the same rules, not a second copy of them.
+func validateAnnouncedTarget(raw json.RawMessage) (reason string) {
+	const class = "driver.announced"
+	if len(raw) == 0 {
+		return class + ` needs a target ("target": {"scope": "<service>", "start": "YYYY-MM-DD", "end": "YYYY-MM-DD", "daily_cents": <signed integer>}); none was given`
+	}
+	if len(raw) > targetMaxBytes {
+		return fmt.Sprintf("%s's target is %d bytes, over the %d byte limit", class, len(raw), targetMaxBytes)
+	}
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.DisallowUnknownFields()
+	var tgt announcedTarget
+	if err := dec.Decode(&tgt); err != nil {
+		return fmt.Sprintf("%s's target does not decode: %s", class, err.Error())
+	}
+	// One object and nothing after it: a second value or a stray byte is not a
+	// target this gate can vouch for, so it is refused rather than ignored.
+	if _, err := dec.Token(); err != io.EOF {
+		return class + "'s target carries data after its object"
+	}
+	if s := strings.TrimSpace(tgt.Scope); s == "" || s == "*" {
+		return class + "'s target.scope must name one service"
+	}
+	if tgt.DailyCents == nil || *tgt.DailyCents == 0 {
+		return class + "'s target.daily_cents must be a non-zero signed integer; a decision with no expected move is a driver.one-time"
+	}
+	window, _ := json.Marshal(map[string]string{"start": tgt.Start, "end": tgt.End})
+	if r := validateDriverTarget("driver.recurring", window, false); r != "" {
+		return strings.Replace(r, "driver.recurring", class, 1)
+	}
+	return ""
+}
+
 // ValidClassesFor is the class vocabulary one role's deliverable may name:
 // the union of its decides_alone and hands_up lists. The same closed
 // vocabulary the prompt packet already shows the model
@@ -526,6 +576,15 @@ func ValidateAndSaveOptions(db *sql.DB, artifactID int, roleName, body string, r
 				hasAnomalyChecked = true
 			}
 			if reason := validateDriverTarget(o.Class, o.Target, hasAnomaly); reason != "" {
+				journalOptionRefused(rec, roleName, artifactID, reason)
+				return true, reason, nil
+			}
+		}
+		// driver.announced carries its own target, decoded strictly
+		// (ANNOUNCED-DRIVER-SPEC.md section 2): refused here, whole, the same
+		// way the two classes above are.
+		if o.Class == "driver.announced" {
+			if reason := validateAnnouncedTarget(o.Target); reason != "" {
 				journalOptionRefused(rec, roleName, artifactID, reason)
 				return true, reason, nil
 			}

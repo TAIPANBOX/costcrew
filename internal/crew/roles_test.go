@@ -53,8 +53,10 @@ func TestEveryRoleHasAJobDescription(t *testing.T) {
 	if got := len(crew.AllRoles()); got != 26 {
 		t.Errorf("roles.yaml declares %d role families, want 26 (25 analyst families and the supervisor)", got)
 	}
-	if got := len(crew.AllClasses()); got != 35 {
-		t.Errorf("roles.yaml declares %d decision classes, want 35", got)
+	// 36 since ANNOUNCED-DRIVER-SPEC.md: driver.announced is the thirty-sixth,
+	// the one class the owner alone closes and no role decides alone.
+	if got := len(crew.AllClasses()); got != 36 {
+		t.Errorf("roles.yaml declares %d decision classes, want 36", got)
 	}
 	if got := len(crew.Never()); got != 6 {
 		t.Errorf("roles.yaml's never: list has %d entries, want 6 (the five about decision authority and \"act on a task somebody blocked\")", got)
