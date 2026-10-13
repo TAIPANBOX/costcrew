@@ -108,12 +108,14 @@ flowchart TB
   AWS Budgets recommended threshold, GCP Cost Recommender and Azure Advisor
   budget-shaped recommendations, SaaS seats. Twelve built, six documented, and
   every entry declares whether running it is metered per call.
-- **Produces**: twenty-three event types on the shared agent-event bus, twenty-two
-  of them registered in `agent-passport` SPEC 6.2 under the source `costcrew`,
-  schema v0.2; the newest, `anomaly_hinted`, is not registered yet.
-- **Enforces**: nothing. `enforced: false` is stamped on every event, and
-  `internal/enforce` is a separate binary the console never imports. The
-  console makes no outbound call while serving a page, with two exceptions:
+- **Produces**: twenty-three event types on the shared agent-event bus, all of
+  them registered in `agent-passport` SPEC 6.2 under the source `costcrew`,
+  schema v0.2. The runner (`costcrew-run`) also writes `tool_call` events to the
+  same bus when `-stack-events` is set; that word is the estate's shared one, not
+  one this console declares.
+- **Enforces**: nothing. `enforced: false` is stamped on every `budget_threshold`
+  event, and `internal/enforce` is a separate binary the console never imports.
+  The console makes no outbound call while serving a page, with two exceptions:
   the supervisor's plan-ask (`POST /sprint/plan/ask`) calls a model through
   `deliver.Call`, and only when `-gateway` or `-gateway-openai` is set; and
   sign-in through the organisation's identity provider reaches that
@@ -476,13 +478,17 @@ assets. `v0.1.0` and `v0.2.0` predate image signing and attestations.
 
 `tools/run -due` takes only cadence-due work, under a ceiling, and refuses
 unless a person has turned it on at `/cadence` in the console: the routine
-runs when the platform's operator un-suspends it AND the console's switch is
-on; either alone spends nothing.
+runs only when its CronJob is not suspended AND the console's switch is on;
+either alone spends nothing.
 
-`stack-k8s/manifests/49-costcrew.yaml` ships `costcrew-crew` as a CronJob
-with `suspend: true`, and its command line already carries `-live -ceiling
-$(COSTCREW_CEILING)`. Once a platform operator un-suspends it, that line
-needs `-due` added:
+`stack-k8s/manifests/49-costcrew.yaml` ships `costcrew-crew` as a daily CronJob
+with `suspend: false`. Its command line carries `-due`, so a scheduled run does
+only cadence-due work and exits 2, creating nothing, while the console's switch
+is off. Each run is capped by `-ceiling $(COSTCREW_CEILING)`. The manifest ships
+no default for `COSTCREW_CEILING`: the key has to come from the `stack-wiring`
+ConfigMap, and the pod does not start without it. Once the switch is on, a run
+may spend the smaller of that ceiling and the console's own
+`cadence.ceiling_cents`, which is set at `/cadence`. The command line is:
 
 ```sh
 costcrew-run -data /var/lib/costcrew -due -live -ceiling "$(COSTCREW_CEILING)" \
@@ -717,7 +723,9 @@ driver, against the posted/returned stamp) right in its own header.
 
 ## Status
 
-- [x] Rewritten in Go, the Python original deleted 2026-08-25
+- [x] Rewritten in Go. The Python capture script was retired 2026-08-25
+      (`81f9916`); the golden parity captures are frozen from the Python
+      original, which is not in this repository's history
 - [x] Registered producer on the shared bus: every type this console emits is listed under `costcrew` in SPEC 6.2, and estate-gates C4 holds that both ways
 - [x] Installed by `stack-up --with-finops`
 - [x] Live agents: `tools/run -live` prices the worst case before every call
