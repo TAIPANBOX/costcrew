@@ -20,7 +20,9 @@ package main
 // usage {"input_tokens":2874,"output_tokens":200}, headers
 // x-fuse-cost-usd: 0.058110, x-fuse-spent-usd: 0.058110, x-fuse-price:
 // fallback, and the runner's own price engines.Price{InPerM: 3.00,
-// OutPerM: 15.00} (the anthropic/claude-sonnet-5 row). None of these tests
+// OutPerM: 15.00} (the anthropic/claude-sonnet-5 row as it stood on the day
+// of the incident; since 2026-10-13 that row is the vendor's 2 / 10, and the
+// replay keeps the old figure because it is the incident's). None of these tests
 // assert the runner's own figure as a literal (it is float arithmetic,
 // 11622 or 11621): they compute it through deliver.ActualMicros and
 // require the recorded figure to DIFFER from it and to equal the
