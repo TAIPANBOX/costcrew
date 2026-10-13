@@ -242,7 +242,7 @@ func projectWithDriversAsAt(db *sql.DB, desk, period string, through int) (money
 				wholeDeskExcluded[day] = true
 			}
 		} else {
-			ov.scoped, err = dayCents(db, desk, d.Scope, period, cut)
+			ov.scoped, err = decisionDayCents(db, d, period, cut)
 			if err != nil {
 				return 0, "", nil, err
 			}

@@ -50,10 +50,11 @@ func TestAnOldDatabaseGainsTheColumnAndItsDriversReadAsBefore(t *testing.T) {
 	db := openTemp(t)
 	mustExec(t, db, `CREATE TABLE drivers(date_start TEXT, date_end TEXT, scope TEXT, label TEXT, kind TEXT, source TEXT)`)
 	mustExec(t, db, `INSERT INTO drivers VALUES ('2026-09-01','2026-09-30','svc','batch','recurring','onprem')`)
-	if err := estate.EnsureDriverExpectedColumn(db); err != nil {
+	// The console's own open path: every drivers column the store has gained.
+	if err := estate.EnsureDriverColumns(db); err != nil {
 		t.Fatal(err)
 	}
-	if err := estate.EnsureDriverExpectedColumn(db); err != nil { // idempotent
+	if err := estate.EnsureDriverColumns(db); err != nil { // idempotent
 		t.Fatalf("second run: %v", err)
 	}
 	var n int

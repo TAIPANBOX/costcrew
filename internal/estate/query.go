@@ -204,9 +204,10 @@ func BudgetVsActual(db *sql.DB, source string) ([]BudgetRow, error) {
 
 // Drivers reads the registry. Expected is set only where the row carries an
 // announced amount; a NULL column, which is every row written before the
-// column existed, reads as nil and never as zero.
+// column existed, reads as nil and never as zero. Team is empty where the row
+// names no team, which is a split and every row written before the column.
 func Drivers(db *sql.DB) ([]world.Driver, error) {
-	rows, err := db.Query(`SELECT date_start, date_end, scope, label, kind, source, expected_daily_cents
+	rows, err := db.Query(`SELECT date_start, date_end, scope, label, kind, source, expected_daily_cents, team
 		FROM drivers ORDER BY date_start, label`)
 	if err != nil {
 		return nil, err
@@ -216,13 +217,15 @@ func Drivers(db *sql.DB) ([]world.Driver, error) {
 	for rows.Next() {
 		var d world.Driver
 		var expected sql.NullInt64
-		if err := rows.Scan(&d.Start, &d.End, &d.Scope, &d.Label, &d.Kind, &d.Source, &expected); err != nil {
+		var team sql.NullString
+		if err := rows.Scan(&d.Start, &d.End, &d.Scope, &d.Label, &d.Kind, &d.Source, &expected, &team); err != nil {
 			return nil, err
 		}
 		if expected.Valid {
 			v := expected.Int64
 			d.Expected = &v
 		}
+		d.Team = team.String
 		out = append(out, d)
 	}
 	return out, rows.Err()

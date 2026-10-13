@@ -28,6 +28,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/TAIPANBOX/costcrew/internal/plainname"
 )
 
 // OptionState is where one option of a deliverable has got to.
@@ -358,10 +360,11 @@ func validateDriverTarget(class string, raw json.RawMessage, hasAnomaly bool) (r
 // section 2): the service, the window, and the signed expected change of its
 // daily cost. Decoded strictly: a key it does not declare is refused.
 type announcedTarget struct {
-	Scope      string `json:"scope"`
-	Start      string `json:"start"`
-	End        string `json:"end"`
-	DailyCents *int64 `json:"daily_cents"`
+	Scope      string  `json:"scope"`
+	Start      string  `json:"start"`
+	End        string  `json:"end"`
+	DailyCents *int64  `json:"daily_cents"`
+	Team       *string `json:"team"`
 }
 
 // validateAnnouncedTarget is ANNOUNCED-DRIVER-SPEC.md section 2's save-time
@@ -394,6 +397,16 @@ func validateAnnouncedTarget(raw json.RawMessage) (reason string) {
 	}
 	if tgt.DailyCents == nil || *tgt.DailyCents == 0 {
 		return class + "'s target.daily_cents must be a non-zero signed integer; a decision with no expected move is a driver.one-time"
+	}
+	// The team is optional: absent or null splits the step across the desk's
+	// teams; a name moves only that team (ANNOUNCED-DRIVER-SPEC.md section 11).
+	if tgt.Team != nil {
+		if strings.TrimSpace(*tgt.Team) == "" || strings.TrimSpace(*tgt.Team) != *tgt.Team {
+			return class + "'s target.team must name one team, with no padding; leave the key out to split the step"
+		}
+		if r := plainname.Check("target.team", *tgt.Team, plainname.UnitMaxBytes); r != "" {
+			return class + "'s " + r
+		}
 	}
 	window, _ := json.Marshal(map[string]string{"start": tgt.Start, "end": tgt.End})
 	if r := validateDriverTarget("driver.recurring", window, false); r != "" {

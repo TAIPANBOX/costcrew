@@ -343,6 +343,11 @@ type Driver struct {
 	// the one-time and recurring kinds, and for a row written before the
 	// column existed (ANNOUNCED-DRIVER-SPEC.md section 3).
 	Expected *int64
+
+	// Team names the one team an announced decision moves. Empty means the
+	// step is split across the service's teams on the desk
+	// (ANNOUNCED-DRIVER-SPEC.md section 11).
+	Team string
 }
 
 func Drivers() []Driver {

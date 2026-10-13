@@ -69,10 +69,11 @@ func TestNoRoleDecidesAnAnnouncedDriverAlone(t *testing.T) {
 // other rather than against itself.
 func wellFormedAnnounced(raw json.RawMessage) bool {
 	var tgt struct {
-		Scope      string `json:"scope"`
-		Start      string `json:"start"`
-		End        string `json:"end"`
-		DailyCents *int64 `json:"daily_cents"`
+		Scope      string  `json:"scope"`
+		Start      string  `json:"start"`
+		End        string  `json:"end"`
+		DailyCents *int64  `json:"daily_cents"`
+		Team       *string `json:"team"`
 	}
 	dec := json.NewDecoder(strings.NewReader(string(raw)))
 	dec.DisallowUnknownFields()
@@ -83,6 +84,9 @@ func wellFormedAnnounced(raw json.RawMessage) bool {
 		return false
 	}
 	if tgt.DailyCents == nil || *tgt.DailyCents == 0 {
+		return false
+	}
+	if tgt.Team != nil && (strings.TrimSpace(*tgt.Team) == "" || strings.TrimSpace(*tgt.Team) != *tgt.Team) {
 		return false
 	}
 	s, err := time.Parse("2006-01-02", tgt.Start)
@@ -102,13 +106,24 @@ func wellFormedAnnounced(raw json.RawMessage) bool {
 // and then. None may panic; every refusal must name the class; every
 // acceptance must be well-formed by the independent rule above.
 func TestAnnouncedTargetSurvivesHostileBytesAcrossSeeds(t *testing.T) {
-	pools := map[string][]string{
-		"scope":       {`"svc-a"`, `"svc-a"`, `"*"`, `""`, `"   "`, `1`, `null`},
-		"start":       {`"2026-11-01"`, `"2026-11-01"`, `"2026-10-01"`, `"2026-13-01"`, `"2026-02-30"`, `"nope"`, `1`, `null`},
-		"end":         {`"2026-11-30"`, `"2026-11-30"`, `"2026-10-01"`, `"2027-12-31"`, `""`, `"2026-11-1"`, `1`},
-		"daily_cents": {`-30000`, `-30000`, `30000`, `0`, `1.5`, `"-1"`, `99999999999999999999`, `-9223372036854775808`, `null`, `1e3`, `true`},
+	// Each key draws a valid value 85% of the time, so that a fixed 200 seeds
+	// reach accepted targets, and a hostile one the rest: the sweep is about the
+	// hostile values, and it must also reach the accepting path.
+	valid := map[string][]string{
+		"scope":       {`"svc-a"`},
+		"start":       {`"2026-11-01"`},
+		"end":         {`"2026-11-30"`},
+		"daily_cents": {`-30000`, `30000`},
+		"team":        {`"data-eng"`, `null`},
 	}
-	keys := []string{"scope", "start", "end", "daily_cents"}
+	hostile := map[string][]string{
+		"scope":       {`"*"`, `""`, `"   "`, `1`, `null`},
+		"start":       {`"2026-10-01"`, `"2026-13-01"`, `"2026-02-30"`, `"nope"`, `1`, `null`},
+		"end":         {`"2026-10-01"`, `"2027-12-31"`, `""`, `"2026-11-1"`, `1`},
+		"daily_cents": {`0`, `1.5`, `"-1"`, `99999999999999999999`, `-9223372036854775808`, `null`, `1e3`, `true`},
+		"team":        {`""`, `" data-eng "`, `7`, `"a\nb"`},
+	}
+	keys := []string{"scope", "start", "end", "daily_cents", "team"}
 	accepted := 0
 	for seed := int64(1); seed <= 200; seed++ {
 		rng := rand.New(rand.NewSource(seed))
@@ -116,13 +131,16 @@ func TestAnnouncedTargetSurvivesHostileBytesAcrossSeeds(t *testing.T) {
 		b.WriteString("{")
 		n := 0
 		for _, k := range keys {
-			if rng.Intn(5) == 0 {
+			if rng.Intn(6) == 0 {
 				continue
+			}
+			pool := valid[k]
+			if rng.Intn(100) >= 85 {
+				pool = hostile[k]
 			}
 			if n > 0 {
 				b.WriteString(",")
 			}
-			pool := pools[k]
 			fmt.Fprintf(&b, `%q:%s`, k, pool[rng.Intn(len(pool))])
 			n++
 		}
@@ -149,5 +167,35 @@ func TestAnnouncedTargetSurvivesHostileBytesAcrossSeeds(t *testing.T) {
 	}
 	if accepted == 0 {
 		t.Fatal("no seed produced a valid target: the sweep measured nothing")
+	}
+}
+
+// ANNOUNCED-DRIVER-SPEC.md section 11: the target may name the one team a
+// decision moves. Absent or null means the step is split across the desk's
+// teams; a named team must be a real plain name.
+func TestAnnouncedTargetMayNameATeam(t *testing.T) {
+	raw := json.RawMessage(`{"scope":"Amazon EC2","start":"2026-11-01","end":"2026-11-30","daily_cents":-30000,"team":"data-eng"}`)
+	if r := validateAnnouncedTarget(raw); r != "" {
+		t.Fatalf("a target naming a team was refused: %s", r)
+	}
+	unnamed := json.RawMessage(`{"scope":"Amazon EC2","start":"2026-11-01","end":"2026-11-30","daily_cents":-30000,"team":null}`)
+	if r := validateAnnouncedTarget(unnamed); r != "" {
+		t.Fatalf("a null team was refused, but null means the split: %s", r)
+	}
+}
+
+func TestAnnouncedTargetRefusesAnEmptyOrTypedTeam(t *testing.T) {
+	for name, body := range map[string]string{
+		"empty team":   `{"scope":"s","start":"2026-11-01","end":"2026-11-30","daily_cents":-1,"team":""}`,
+		"spaced team":  `{"scope":"s","start":"2026-11-01","end":"2026-11-30","daily_cents":-1,"team":"   "}`,
+		"number team":  `{"scope":"s","start":"2026-11-01","end":"2026-11-30","daily_cents":-1,"team":7}`,
+		"control team": "{\"scope\":\"s\",\"start\":\"2026-11-01\",\"end\":\"2026-11-30\",\"daily_cents\":-1,\"team\":\"a\\nb\"}",
+	} {
+		r := validateAnnouncedTarget(json.RawMessage(body))
+		if r == "" {
+			t.Errorf("%s: accepted %s", name, body)
+		} else if !strings.Contains(r, "driver.announced") {
+			t.Errorf("%s: the reason does not name the class: %s", name, r)
+		}
 	}
 }

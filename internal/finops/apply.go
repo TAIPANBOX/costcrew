@@ -463,6 +463,7 @@ func applyAnnounced(db *sql.DB, opt crew.Option, t crew.Task, actor string) erro
 		Start      string `json:"start"`
 		End        string `json:"end"`
 		DailyCents int64  `json:"daily_cents"`
+		Team       string `json:"team"`
 	}
 	if err := json.Unmarshal(opt.Target, &tgt); err != nil {
 		return fmt.Errorf("driver.announced's target does not decode after it was checked: %w", err)
@@ -470,7 +471,7 @@ func applyAnnounced(db *sql.DB, opt crew.Option, t crew.Task, actor string) erro
 	expected := tgt.DailyCents
 	return estate.InsertDriver(db, world.Driver{
 		Start: tgt.Start, End: tgt.End, Scope: strings.TrimSpace(tgt.Scope), Label: opt.Summary,
-		Kind: "announced", Source: source, Expected: &expected,
+		Kind: "announced", Source: source, Expected: &expected, Team: tgt.Team,
 	})
 }
 

@@ -20,7 +20,8 @@ CREATE TABLE IF NOT EXISTS charges(
   provenance TEXT);         -- NULL means generated; set by a connector's reader
 CREATE TABLE IF NOT EXISTS drivers(
   date_start TEXT, date_end TEXT, scope TEXT, label TEXT, kind TEXT, source TEXT,
-  expected_daily_cents INTEGER);  -- NULL unless kind is announced (ANNOUNCED-DRIVER-SPEC.md section 3)
+  expected_daily_cents INTEGER,  -- NULL unless kind is announced (ANNOUNCED-DRIVER-SPEC.md section 3)
+  team TEXT);                    -- NULL: the step is split across the desk's teams (section 11)
 CREATE TABLE IF NOT EXISTS attribution(
   source TEXT, team TEXT, service TEXT, day_start TEXT, day_end TEXT,
   agent TEXT, confidence TEXT);
@@ -37,7 +38,7 @@ func Seed(db *sql.DB) (int, error) {
 	if _, err := db.Exec(SeedSchema); err != nil {
 		return 0, err
 	}
-	if err := EnsureDriverExpectedColumn(db); err != nil {
+	if err := EnsureDriverColumns(db); err != nil {
 		return 0, err
 	}
 	var have int

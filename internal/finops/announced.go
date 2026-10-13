@@ -12,6 +12,7 @@ import (
 
 	"github.com/TAIPANBOX/costcrew/internal/estate"
 	"github.com/TAIPANBOX/costcrew/internal/money"
+	"github.com/TAIPANBOX/costcrew/internal/world"
 )
 
 // announcedBaselineDays is how far back of an announced driver's start its
@@ -63,11 +64,11 @@ func AnnouncedEffects(db *sql.DB, period string) ([]AnnouncedEffect, error) {
 			Announced: money.Cents(*d.Expected),
 		}
 
-		spend, err := dayCents(db, d.Source, d.Scope, period, "31")
+		spend, err := decisionDayCents(db, d, period, "31")
 		if err != nil {
 			return nil, err
 		}
-		base, haveBase, err := announcedBaseline(db, d.Source, d.Scope, d.Start)
+		base, haveBase, err := estate.SpendMedian(db, d.Source, d.Scope, d.Team, d.Start)
 		if err != nil {
 			return nil, err
 		}
@@ -117,6 +118,38 @@ func AnnouncedEffects(db *sql.DB, period string) ([]AnnouncedEffect, error) {
 	return out, nil
 }
 
+// decisionDayCents is the spend a decision is measured against: its named
+// team's when it names one, the service's on its desk when it does not
+// (ANNOUNCED-DRIVER-SPEC.md section 11).
+func decisionDayCents(db *sql.DB, d world.Driver, period, cut string) (map[string]money.Cents, error) {
+	if d.Kind == "announced" && d.Team != "" {
+		return teamDayCents(db, d.Source, d.Scope, d.Team, period, cut)
+	}
+	return dayCents(db, d.Source, d.Scope, period, cut)
+}
+
+// teamDayCents is one team's billed cents per day on one desk's service within
+// a period, up to the cutoff day: dayCents narrowed to a single team.
+func teamDayCents(db *sql.DB, source, service, team, period, cut string) (map[string]money.Cents, error) {
+	rows, err := db.Query(`SELECT day, SUM(billed_cents) FROM charges
+		WHERE source=? AND service=? AND team=? AND substr(day,1,7)=? AND substr(day,9,2)<=?
+		GROUP BY day`, source, service, team, period, cut)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]money.Cents{}
+	for rows.Next() {
+		var day string
+		var v int64
+		if err := rows.Scan(&day, &v); err != nil {
+			return nil, err
+		}
+		out[day] = money.Cents(v)
+	}
+	return out, rows.Err()
+}
+
 // effectGap is how far an effect's measured figure is from its announced one,
 // and whether there is a measured figure at all.
 func effectGap(e AnnouncedEffect) (money.Cents, bool) {
@@ -124,37 +157,6 @@ func effectGap(e AnnouncedEffect) (money.Cents, bool) {
 		return 0, false
 	}
 	return (e.Measured - e.Announced).Abs(), true
-}
-
-// announcedBaseline is the median of the scope's daily spend over the up to
-// announcedBaselineDays before start, on the days that have a charge. It is
-// false when no day before the start has one.
-func announcedBaseline(db *sql.DB, source, service, start string) (money.Cents, bool, error) {
-	from := shiftDay(start, -announcedBaselineDays)
-	to := shiftDay(start, -1)
-	rows, err := db.Query(`SELECT day, SUM(billed_cents) FROM charges
-		WHERE source=? AND service=? AND day>=? AND day<=? GROUP BY day`,
-		source, service, from, to)
-	if err != nil {
-		return 0, false, err
-	}
-	defer rows.Close()
-	var vals []money.Cents
-	for rows.Next() {
-		var day string
-		var v int64
-		if err := rows.Scan(&day, &v); err != nil {
-			return 0, false, err
-		}
-		vals = append(vals, money.Cents(v))
-	}
-	if err := rows.Err(); err != nil {
-		return 0, false, err
-	}
-	if len(vals) == 0 {
-		return 0, false, nil
-	}
-	return medianCents(vals), true, nil
 }
 
 // announcedAnswer finds the day an applied option carrying this decision's
@@ -178,16 +180,6 @@ func announcedAnswer(db *sql.DB, label string) (string, bool, error) {
 	return decided[:len("2006-01-02")], true, nil
 }
 
-// shiftDay is day moved by n days, as the same YYYY-MM-DD string. A day that
-// does not parse is returned unchanged.
-func shiftDay(day string, n int) string {
-	t, err := time.Parse("2006-01-02", day)
-	if err != nil {
-		return day
-	}
-	return t.AddDate(0, 0, n).Format("2006-01-02")
-}
-
 // signedDays is to minus from in whole days, negative when to is earlier.
 // Unlike daysBetween, which clamps a negative span to zero, it keeps the sign,
 // because an answer given after a start is a fact the page must show.
@@ -198,18 +190,6 @@ func signedDays(from, to string) int {
 		return 0
 	}
 	return int(t.Sub(f).Hours() / 24)
-}
-
-// medianCents is the median of vals. For an even count it is the integer mean
-// of the two middle values, rounded down, as internal/detect's median is.
-func medianCents(vals []money.Cents) money.Cents {
-	s := append([]money.Cents(nil), vals...)
-	sort.Slice(s, func(i, j int) bool { return s[i] < s[j] })
-	n := len(s)
-	if n%2 == 1 {
-		return s[n/2]
-	}
-	return (s[n/2-1] + s[n/2]) / 2
 }
 
 // AnnouncedEffectOf is the record of the announced driver with this label on
