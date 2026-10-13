@@ -564,6 +564,7 @@ var Classes = map[string]Class{
 
 	"drivers.date_start": Plain, "drivers.date_end": Plain, "drivers.scope": ID,
 	"drivers.label": Free, "drivers.kind": Plain, "drivers.source": ID,
+	"drivers.team": ID,
 
 	"explainers.team": ID, "explainers.topic": Generated, "explainers.audience": Plain,
 	"explainers.author": ID, "explainers.body": Free, "explainers.state": Plain,

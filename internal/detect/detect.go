@@ -21,6 +21,7 @@ package detect
 import (
 	"math"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/TAIPANBOX/costcrew/internal/money"
@@ -78,8 +79,13 @@ func Default() Config {
 }
 
 // Driver is a registry entry that explains spend on a date range.
+//
+// Expected is set only for kind "announced": the signed change of the
+// service's daily cost against its clean baseline (ANNOUNCED-DRIVER-SPEC.md
+// section 4). nil for every other kind.
 type Driver struct {
 	Start, End, Scope, Label, Kind string
+	Expected                       *money.Cents
 }
 
 // Covers reports whether this driver applies to a service on a day, and
@@ -149,11 +155,16 @@ func Find(points []Point, service string, drivers []Driver, cfg Config) []Findin
 			lo = 0
 		}
 
-		hist := sameDayType(points[lo:i], days[lo:i], days[i])
+		// An announced decision moves the history before its start by its
+		// amount, so the baseline is at the new level from the first day it
+		// lands (ANNOUNCED-DRIVER-SPEC.md section 4). The day is then judged by
+		// the same rule as every other day.
+		window, step, names, earliest := shiftForAnnounced(points[lo:i], service, points[i].Day, drivers)
+		hist := sameDayType(window, days[lo:i], days[i])
 		if len(hist) < 5 {
 			// Not enough of the same kind of day yet, so fall back to the
 			// plain window rather than reporting on a baseline of two.
-			hist = amounts(points[lo:i])
+			hist = amounts(window)
 		}
 		med := median(hist)
 		mad := medianAbsDev(hist, med)
@@ -188,10 +199,26 @@ func Find(points []Point, service string, drivers []Driver, cfg Config) []Findin
 		if expected {
 			continue
 		}
+		if label == "" {
+			// An announcement that starts a few days later is a hint for the
+			// finding, never a reason to drop it.
+			label = earlyHint(drivers, service, points[i].Day)
+		}
+		rule := ruleText(cfg)
+		if step != 0 {
+			// The facts the detector has: the announced step and where it
+			// starts, the day's amount, and the expected level, which is the
+			// shifted median on every day (a window already past the start is
+			// not shifted, and its median is the new level already). No move is
+			// derived from a level the step is then taken away from again.
+			rule = "differs from announced decision " + names +
+				" (expected " + step.String() + "/day from " + earliest + "): " +
+				amt.String() + " against an expected " + med.String()
+		}
 		found = append(found, Finding{
 			Day: points[i].Day, Direction: dir, Amount: amt, Baseline: med,
 			Excess: excess, Z: z, Driver: label,
-			Rule: ruleText(cfg),
+			Rule: rule,
 		})
 	}
 
@@ -225,6 +252,60 @@ func explain(drivers []Driver, service, day string) (label string, expected bool
 		label = d.Label
 	}
 	return label, false
+}
+
+// shiftForAnnounced returns the history with every day before an announced
+// driver's start moved by that driver's amount, for each announced driver that
+// covers day on service (ANNOUNCED-DRIVER-SPEC.md section 4), the summed step,
+// the labels of those drivers, and the earliest of their starts. Two decisions
+// on one service in one window add up: the step is their sum, not the largest
+// of them. The input is not modified.
+func shiftForAnnounced(hist []Point, service, day string, drivers []Driver) ([]Point, money.Cents, string, string) {
+	out := append([]Point(nil), hist...)
+	var step money.Cents
+	var labels []string
+	earliest := ""
+	for _, d := range drivers {
+		if d.Expected == nil {
+			continue
+		}
+		if applies, _ := d.Covers(service, day); !applies {
+			continue
+		}
+		step += *d.Expected
+		labels = append(labels, d.Label)
+		if earliest == "" || d.Start < earliest {
+			earliest = d.Start
+		}
+		for k := range out {
+			if out[k].Day < d.Start {
+				out[k].Amount += *d.Expected
+			}
+		}
+	}
+	return out, step, strings.Join(labels, ", "), earliest
+}
+
+// earlyHintDays is how far before an announced driver's start a finding still
+// carries that driver's label as a hint. It is a guess, and stays one until a
+// month of real decisions has been read (ANNOUNCED-DRIVER-SPEC.md section 10).
+// The hint never suppresses a finding.
+const earlyHintDays = 7
+
+// earlyHint names an announced driver on service that starts within
+// earlyHintDays after day.
+func earlyHint(drivers []Driver, service, day string) string {
+	t, err := time.Parse("2006-01-02", day)
+	if err != nil {
+		return ""
+	}
+	limit := t.AddDate(0, 0, earlyHintDays).Format("2006-01-02")
+	for _, d := range drivers {
+		if d.Expected != nil && (d.Scope == service || d.Scope == "*") && d.Start > day && d.Start <= limit {
+			return d.Label + " (announced from " + d.Start + ")"
+		}
+	}
+	return ""
 }
 
 // sameDayType keeps only the history that is the same kind of day as the one

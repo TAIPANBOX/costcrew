@@ -111,6 +111,9 @@ classes:
   - id: "driver.recurring"
     changes: "a registry entry that marks a rhythm expected, so the detector stops reporting it"
     owner: "supervisor"
+  - id: "driver.announced"
+    changes: "a decision that will move a service's cost from a day, with its direction and expected amount per day"
+    owner: "owner"
   - id: "commentary.variance"
     changes: "a written variance commentary for a team or desk"
     owner: "analyst"
@@ -245,8 +248,8 @@ roles:
     owes: "a ranked list: resource, current, proposed, saving per month, confidence, the risk (a monthly job looks idle to a fourteen-day window), and what a person would have to do; every row is an OPTION."
     decides_alone: ["recommendation.rightsizing"]
     decides_alone_text: "recommendation.rightsizing (writing it, ranking it)."
-    hands_up: ["infra.change"]
-    hands_up_text: "the whole list, because every item on it is an infra.change a person makes; anything that touches a commitment."
+    hands_up: ["infra.change", "driver.announced"]
+    hands_up_text: "every infra.change on the list, because each is a change a person makes; anything that touches a commitment; a driver.announced for a saving it proposes, which the owner confirms before it lands."
     quality_bar: "savings claimed are checked against the next month's charges once a person acted; the gap is reported on the card."
 
   # ---------------------------------------------------------- 2.4
@@ -305,8 +308,8 @@ roles:
     owes: "cost per agent and per model with the trend; a recommendation.commitment-shaped option list for model routing (which calls could move to a cheaper model and what it would cost in outcome); the guard's savings stated as a figure."
     decides_alone: ["commentary.variance"]
     decides_alone_text: "the analysis and the ranked options."
-    hands_up: ["infra.change"]
-    hands_up_text: "any option that changes a route (an infra.change in the gateway's terms, made by a person)."
+    hands_up: ["infra.change", "driver.announced"]
+    hands_up_text: "any option that changes a route (an infra.change in the gateway's terms, made by a person); a driver.announced for a model or route change it proposes, which the owner confirms before it lands."
     quality_bar: ""
 
   # ---------------------------------------------------------- 2.8
@@ -395,8 +398,8 @@ roles:
     owes: "the estate projection with its basis and the drivers that would move it; the commentary on last month's miss; the freeze proposal."
     decides_alone: ["forecast.project"]
     decides_alone_text: "forecast.project."
-    hands_up: ["forecast.freeze"]
-    hands_up_text: "forecast.freeze (the supervisor decides it, because a frozen number is shown to people and scored)."
+    hands_up: ["forecast.freeze", "driver.announced"]
+    hands_up_text: "forecast.freeze (the supervisor decides it, because a frozen number is shown to people and scored); a driver.announced for a dated decision the month's cost depends on, which the owner confirms before it lands."
     quality_bar: ""
 
   # ---------------------------------------------------------- 2.14
@@ -570,8 +573,8 @@ roles:
     owes: "a ranked list: resource, current, proposed, saving per month, confidence, the risk (a monthly job looks idle to a fourteen-day window), and what a person would have to do; every row is an OPTION."
     decides_alone: ["recommendation.rightsizing"]
     decides_alone_text: "recommendation.rightsizing (writing it, ranking it)."
-    hands_up: ["infra.change"]
-    hands_up_text: "the whole list, because every item on it is an infra.change a person makes; anything that touches a commitment."
+    hands_up: ["infra.change", "driver.announced"]
+    hands_up_text: "every infra.change on the list, because each is a change a person makes; anything that touches a commitment; a driver.announced for a saving it proposes, which the owner confirms before it lands."
     quality_bar: "savings claimed are checked against the next month's charges once a person acted; the gap is reported on the card."
     note: "Same description as 2.3, with the desk's inputs: depreciation schedules instead of rate cards, capacity instead of instance size."
 
@@ -605,8 +608,8 @@ roles:
     hands_up: []
     hands_up_text: ""
     quality_bar: ""
-    hands_to_owner: ["sprint.approve", "period.close", "period.reopen", "allocation.rule", "budget.set", "message.team", "agent.*", "kpi.define", "policy.exception"]
-    hands_to_owner_text: "sprint.approve; period.close and period.reopen; allocation.rule; budget.set; every option that is a purchase, an infra.change or a vendor.negotiate; message.team; the roster (agent.*); kpi.define; policy.exception; a data.halt that has lasted past T.stale_days; and any question two analysts answer differently on the same evidence."
+    hands_to_owner: ["sprint.approve", "period.close", "period.reopen", "allocation.rule", "budget.set", "driver.announced", "message.team", "agent.*", "kpi.define", "policy.exception"]
+    hands_to_owner_text: "sprint.approve; period.close and period.reopen; allocation.rule; budget.set; driver.announced, a decision that will move a service's cost, which only the owner confirms; every option that is a purchase, an infra.change or a vendor.negotiate; message.team; the roster (agent.*); kpi.define; policy.exception; a data.halt that has lasted past T.stale_days; and any question two analysts answer differently on the same evidence."
     hands_to_owner_conditions: ["a data.halt that has lasted past T.stale_days", "any question two analysts answer differently on the same evidence"]
     never_also: "never re-route a task past a reason a person recorded (task.block by an analyst on its own task is respected until the reason is addressed)."
     audience_note: "How it asks: one decision request per owner per week at most, unless a single item is over T.urgent; each item carries the question, the options with their figures, the supervisor's preference and why, and what happens if nobody answers by the date on it."

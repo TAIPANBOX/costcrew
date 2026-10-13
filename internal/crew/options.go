@@ -20,12 +20,18 @@ package crew
 // the task with the reason.
 
 import (
+	"bytes"
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/TAIPANBOX/costcrew/internal/estate"
+	"github.com/TAIPANBOX/costcrew/internal/money"
+	"github.com/TAIPANBOX/costcrew/internal/plainname"
 )
 
 // OptionState is where one option of a deliverable has got to.
@@ -352,6 +358,101 @@ func validateDriverTarget(class string, raw json.RawMessage, hasAnomaly bool) (r
 	return ""
 }
 
+// announcedTarget is driver.announced's own target (ANNOUNCED-DRIVER-SPEC.md
+// section 2): the service, the window, and the signed expected change of its
+// daily cost. Decoded strictly: a key it does not declare is refused.
+type announcedTarget struct {
+	Scope      string  `json:"scope"`
+	Start      string  `json:"start"`
+	End        string  `json:"end"`
+	DailyCents *int64  `json:"daily_cents"`
+	Team       *string `json:"team"`
+}
+
+// validateAnnouncedTarget is ANNOUNCED-DRIVER-SPEC.md section 2's save-time
+// gate for driver.announced, beside validateDriverTarget and following its
+// shape: absent, malformed, or a window the two existing classes already
+// refuse is refused with the reason, and the reason names the class. The
+// window is checked by validateDriverTarget itself, so the 366-day bound and
+// the date rules are the same rules, not a second copy of them.
+func validateAnnouncedTarget(raw json.RawMessage) (reason string) {
+	const class = "driver.announced"
+	if len(raw) == 0 {
+		return class + ` needs a target ("target": {"scope": "<service>", "start": "YYYY-MM-DD", "end": "YYYY-MM-DD", "daily_cents": <signed integer>}); none was given`
+	}
+	if len(raw) > targetMaxBytes {
+		return fmt.Sprintf("%s's target is %d bytes, over the %d byte limit", class, len(raw), targetMaxBytes)
+	}
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.DisallowUnknownFields()
+	var tgt announcedTarget
+	if err := dec.Decode(&tgt); err != nil {
+		return fmt.Sprintf("%s's target does not decode: %s", class, err.Error())
+	}
+	// One object and nothing after it: a second value or a stray byte is not a
+	// target this gate can vouch for, so it is refused rather than ignored.
+	if _, err := dec.Token(); err != io.EOF {
+		return class + "'s target carries data after its object"
+	}
+	if s := strings.TrimSpace(tgt.Scope); s == "" || s == "*" {
+		return class + "'s target.scope must name one service"
+	}
+	if tgt.DailyCents == nil || *tgt.DailyCents == 0 {
+		return class + "'s target.daily_cents must be a non-zero signed integer; a decision with no expected move is a driver.one-time"
+	}
+	// The team is optional: absent or null splits the step across the desk's
+	// teams; a name moves only that team (ANNOUNCED-DRIVER-SPEC.md section 11).
+	if tgt.Team != nil {
+		if strings.TrimSpace(*tgt.Team) == "" || strings.TrimSpace(*tgt.Team) != *tgt.Team {
+			return class + "'s target.team must name one team, with no padding; leave the key out to split the step"
+		}
+		if r := plainname.Check("target.team", *tgt.Team, plainname.UnitMaxBytes); r != "" {
+			return class + "'s " + r
+		}
+	}
+	window, _ := json.Marshal(map[string]string{"start": tgt.Start, "end": tgt.End})
+	if r := validateDriverTarget("driver.recurring", window, false); r != "" {
+		return strings.Replace(r, "driver.recurring", class, 1)
+	}
+	return ""
+}
+
+// announcedSavingRefusal is the bound on an announced saving, asked at save time
+// of the desk the artifact's own task is on: estate.SavingRefusal, the one
+// function apply time asks too. An empty reason means the saving is within the
+// bound, and an increase is never bounded.
+func announcedSavingRefusal(db *sql.DB, artifactID int, raw json.RawMessage) (string, error) {
+	var tgt struct {
+		Scope      string  `json:"scope"`
+		Start      string  `json:"start"`
+		DailyCents int64   `json:"daily_cents"`
+		Team       *string `json:"team"`
+	}
+	if err := json.Unmarshal(raw, &tgt); err != nil {
+		return "", fmt.Errorf("an announced target validated but does not decode: %w", err)
+	}
+	taskID, err := TaskOfArtifact(db, artifactID)
+	if err != nil {
+		return "", err
+	}
+	t, err := GetTask(db, taskID)
+	if err != nil {
+		return "", err
+	}
+	team := ""
+	if tgt.Team != nil {
+		team = *tgt.Team
+	}
+	return estate.SavingRefusal(db, t.Desk, strings.TrimSpace(tgt.Scope), team, tgt.Start, money.Cents(tgt.DailyCents))
+}
+
+// ValidateAnnouncedTarget is validateAnnouncedTarget for internal/finops,
+// which checks the target again at apply time for an option that reached
+// Apply by bypassing the save-time gate. One function, two callers.
+func ValidateAnnouncedTarget(raw json.RawMessage) (reason string) {
+	return validateAnnouncedTarget(raw)
+}
+
 // ValidClassesFor is the class vocabulary one role's deliverable may name:
 // the union of its decides_alone and hands_up lists. The same closed
 // vocabulary the prompt packet already shows the model
@@ -526,6 +627,25 @@ func ValidateAndSaveOptions(db *sql.DB, artifactID int, roleName, body string, r
 				hasAnomalyChecked = true
 			}
 			if reason := validateDriverTarget(o.Class, o.Target, hasAnomaly); reason != "" {
+				journalOptionRefused(rec, roleName, artifactID, reason)
+				return true, reason, nil
+			}
+		}
+		// driver.announced carries its own target, decoded strictly
+		// (ANNOUNCED-DRIVER-SPEC.md section 2): refused here, whole, the same
+		// way the two classes above are.
+		if o.Class == "driver.announced" {
+			if reason := validateAnnouncedTarget(o.Target); reason != "" {
+				journalOptionRefused(rec, roleName, artifactID, reason)
+				return true, reason, nil
+			}
+			// A saving may not exceed the spend it is a saving of (ANNOUNCED-DRIVER-SPEC.md
+			// section 11): asked of the desk the artifact's own task is on.
+			reason, err := announcedSavingRefusal(db, artifactID, o.Target)
+			if err != nil {
+				return false, "", err
+			}
+			if reason != "" {
 				journalOptionRefused(rec, roleName, artifactID, reason)
 				return true, reason, nil
 			}

@@ -84,9 +84,9 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 1529 tests, 31 packages
+go test ./...                        # 1579 tests, 31 packages (measured at this commit)
 ./scripts/gates-have-teeth.sh        # 526 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 555 scenarios, both directions
+./scripts/features-are-bound.sh      # 570 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
@@ -6018,6 +6018,97 @@ an absent invariant.
     row's `deepseek-chat` is OpenRouter's id, which DeepSeek's own price page
     of 2026-10-13 no longer names; and nothing re-reads a vendor page on a
     schedule, so a row stays true on its date and no other.
+
+97. **An announced decision is judged as a step, the owner alone closes
+    it, and no detection pass deletes a raised anomaly.** `@decided
+    2026-10-13`: the crew proposes a cost decision and the owner confirms it
+    before it lands; the crew does not apply it on its own. The class is
+    `driver.announced` in `internal/crew/roles.yaml`, owned by the owner, and
+    no role decides it alone. The supervisor's pass carries it to the owner,
+    and the apply path refuses a stamp from the supervisor
+    (`internal/finops/apply.go`, `applyAnnounced`). Its target,
+    `{scope, start, end, daily_cents}`, is decoded strictly and checked by one
+    function at save time and again at apply time, so a window the two
+    existing driver classes would refuse is refused too. The detector shifts
+    the history before the start by `daily_cents`, judges the day by the rule
+    it always used, and names the decision and the expected level in the
+    finding; a day inside the window that misses is still raised, and so is
+    a spike on the same service. A window nothing has landed in gets its own
+    forecast line of `daily_cents` times its days, and a frozen forecast's
+    basis names the amount. Once a month closes, `finops.AnnouncedEffects`
+    measures each announced driver, and the decisions page shows announced
+    against measured with the answer's date against the start. A detection
+    pass never deletes a raised anomaly.
+
+    Section 11 (after the first live run, `@decided 2026-10-13`) adds three
+    rules to the same invariant. A service-level step is split across the teams
+    on its desk in proportion to each team's median daily spend over the 28 days
+    before the start, in exact integer cents, the remainder going to the largest
+    share; each team's series is judged against its own share, never the whole
+    step. A decision that names a `team` takes the whole step on that team's
+    series alone, and is measured against that team's own spend. A saving (a
+    negative step) may not exceed the median daily spend of the service on the
+    desk, or of the named team, over the same window: it is refused when saved
+    and again when applied, and a saving with no spend to measure is refused.
+    An increase is never bounded. The decision page lists each team's share of
+    a service-level decision, and states the announced line once. The window
+    every one of these medians is drawn from is anchored on the earlier of the
+    decision's start and the day after the latest landed day of its service on
+    its desk, so a start beyond the data is measured against the newest days
+    there are, and a start before the data as before
+    (`TestAFutureSavingIsMeasuredAgainstTheLatestLandedDays`, the mutant that
+    anchors back on the start is M16). An owner's answer naming a team writes
+    that team into the drivers row, through `ApplyAs`, and the detector then
+    moves that team alone
+    (`TestAnOwnersAnswerNamingATeamWritesThatTeamAndMovesOnlyIt`; the mutant that
+    drops the team at apply is M17).
+    *(gate: `TestAnnouncedTargetRefusesEveryMalformedShape`,
+    `TestAnnouncedTargetSurvivesHostileBytesAcrossSeeds`,
+    `TestNoRoleDecidesAnAnnouncedDriverAlone`,
+    `TestAnAnnouncedSavingOverItsBoundIsRefusedWhenSaved`,
+    `TestAnAnnouncedSavingAtItsBoundIsSaved` in `internal/crew`;
+    `TestAnOwnersAnswerOnAnAnnouncedOptionWritesTheDriver`,
+    `TestAnAnnouncedOptionWithNoTargetWritesNothing`,
+    `TestAnAnnouncedOptionThatBypassedSaveIsRefusedAtApply`,
+    `TestTheSupervisorsPassNeverAppliesAnAnnouncedOption`,
+    `TestTheSupervisorStampCannotApplyAnAnnouncedOption`,
+    `TestAForecastFrozenBeforeTheStepCarriesTheStep`,
+    `TestOnceAWindowDayLandsTheMeasuredRateWins`,
+    `TestAnnouncedEffectsMeasuresTheStepAfterClose`,
+    `TestAMissedMonthNamesTheAnnouncedDriverFurthestFromItsAnnouncementFirst`,
+    `TestAMeasuredTeamDecisionReadsThatTeamsSpend`,
+    `TestApplyRefusesASavingOverItsBoundWithItsReason`,
+    `TestAnOwnersAnswerNamingATeamWritesThatTeamAndMovesOnlyIt`
+    in `internal/finops`; `TestAnAnnouncedSavingIsNotRaised`,
+    `TestTheSameSavingUnannouncedIsRaised`,
+    `TestASavingMuchSmallerThanAnnouncedIsRaisedNamingIt`,
+    `TestARealSpikeInsideTheWindowIsStillRaised`,
+    `TestAnEarlyFallKeepsItsFindingAndGainsTheHint`,
+    `TestTwoAnnouncementsOnOneServiceAddUp`,
+    `TestTheRuleStatesTheDayAndTheExpectedLevelOnly` in `internal/detect`;
+    `TestAnOldDatabaseGainsTheColumnAndItsDriversReadAsBefore`,
+    `TestAnAnnouncedDriverRoundTripsItsAmount`,
+    `TestARecurringDriverWritesNoAmount`,
+    `TestTheSplitSumsExactlyToTheStep`,
+    `TestTheSplitIsProportionalToEachTeamsSpend`,
+    `TestASplitAgainstNoSpendAttachesNothing`,
+    `TestAnAnnouncedDriverKeepsItsTeam`,
+    `TestASavingOverTheMedianSpendIsRefused`,
+    `TestASavingAtTheMedianSpendIsAccepted`,
+    `TestASavingWithNoSpendToMeasureIsRefused`,
+    `TestAnIncreaseIsNotBounded`,
+    `TestANamedTeamsSavingIsBoundedByThatTeamsSpend`,
+    `TestTheBoundIsTheMedianNotTheMean`,
+    `TestAFutureSavingIsMeasuredAgainstTheLatestLandedDays`,
+    `TestASavingBeforeTheDataIsStillRefusedForNoSpend` in `internal/estate`;
+    `TestTheDecisionPageSaysWhatAnAnnouncedDecisionMeasured`,
+    `TestTheDecisionPageStatesTheAnnouncedLineOnceAndShowsTheSplit` in
+    `internal/web`; `TestTheServiceLevelSavingThatLandsProportionallyRaisesNothing`
+    and `TestATeamNamedSavingMovesOnlyThatTeam` in `internal/anomaly`;
+    `TestNothingDeletesARaisedAnomaly` and
+    `TestTheDeleteGuardCatchesAPlantedDelete` in `internal/anomaly`;
+    `scripts/roles-are-bound.sh`, property 4, which holds the supervisor's
+    `hands_to_owner` to the owner-owned classes.)*
 
 ## Decisions that have no gate yet
 

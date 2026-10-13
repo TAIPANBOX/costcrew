@@ -120,6 +120,9 @@ func ProjectAsAt(db *sql.DB, period string, through int) (map[string]money.Cents
 type DriverLine struct {
 	Label, Kind, Start, End string
 	Effect                  money.Cents
+	// Daily is the announced change of the service's daily cost, set only for
+	// an announced driver (ANNOUNCED-DRIVER-SPEC.md section 5); nil otherwise.
+	Daily *money.Cents
 }
 
 // ProjectWithDrivers is Project, made driver-aware for one desk.
@@ -239,7 +242,7 @@ func projectWithDriversAsAt(db *sql.DB, desk, period string, through int) (money
 				wholeDeskExcluded[day] = true
 			}
 		} else {
-			ov.scoped, err = dayCents(db, desk, d.Scope, period, cut)
+			ov.scoped, err = decisionDayCents(db, d, period, cut)
 			if err != nil {
 				return 0, "", nil, err
 			}
@@ -307,11 +310,22 @@ func projectWithDriversAsAt(db *sql.DB, desk, period string, through int) (money
 			// is exactly the "round per driver before the total" mutant
 			// C3-SPEC.md section 4 names.
 			effect = money.Cents(int64(sofar) * int64(windowDays) / int64(landed))
+		} else if d.Kind == "announced" && d.Expected != nil {
+			// An announced window nothing has landed in yet: its own line is the announced
+			// step for each of its days (ANNOUNCED-DRIVER-SPEC.md section 5). The clean
+			// baseline already carries the service at its old level on those days, because
+			// nothing was excluded for them, so the step is added and nothing is counted twice.
+			effect = money.Cents(*d.Expected * int64(windowDays))
 		}
 		total += effect
-		lines = append(lines, DriverLine{
+		line := DriverLine{
 			Label: d.Label, Kind: d.Kind, Start: ov.start, End: ov.end, Effect: effect,
-		})
+		}
+		if d.Kind == "announced" && d.Expected != nil {
+			daily := money.Cents(*d.Expected)
+			line.Daily = &daily
+		}
+		lines = append(lines, line)
 	}
 	sort.Slice(lines, func(i, j int) bool {
 		if lines[i].Start != lines[j].Start {
@@ -322,6 +336,13 @@ func projectWithDriversAsAt(db *sql.DB, desk, period string, through int) (money
 	if len(lines) > 0 {
 		parts := make([]string, 0, len(lines))
 		for _, l := range lines {
+			if l.Daily != nil {
+				// The announced amount is named with the basis, so a frozen forecast
+				// remembers what it knew (invariant 41).
+				parts = append(parts, fmt.Sprintf("%s (announced, %s to %s, %s/day, effect %s)",
+					l.Label, l.Start, l.End, l.Daily.String(), l.Effect))
+				continue
+			}
 			parts = append(parts, fmt.Sprintf("%s (%s, %s to %s, %s)", l.Label, l.Kind, l.Start, l.End, l.Effect))
 		}
 		basis += "; drivers applied: " + strings.Join(parts, ", ")
@@ -683,6 +704,27 @@ func Missed(db *sql.DB, desk, period, basis string) ([]world.Driver, error) {
 		}
 		out = append(out, d)
 	}
+	// ANNOUNCED-DRIVER-SPEC.md section 5: the announced decision whose measured
+	// effect is furthest from its announcement is named first. Only the ones with
+	// a measured figure are ranked; everything else keeps its order behind them.
+	effects, err := AnnouncedEffects(db, period)
+	if err != nil {
+		return nil, err
+	}
+	rank := map[string]int{}
+	for i, e := range effects {
+		if e.Days == 0 {
+			continue
+		}
+		rank[e.Source+"\x00"+e.Label] = i
+	}
+	key := func(d world.Driver) int {
+		if r, ok := rank[d.Source+"\x00"+d.Label]; ok {
+			return r
+		}
+		return len(effects)
+	}
+	sort.SliceStable(out, func(i, j int) bool { return key(out[i]) < key(out[j]) })
 	return out, nil
 }
 
