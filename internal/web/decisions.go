@@ -84,10 +84,24 @@ func (s *Server) decisionPage(w http.ResponseWriter, r *http.Request) {
 	done := make([]answeredOptionView, 0, len(answered))
 	for _, o := range answered {
 		taskID, _ := crew.TaskOfArtifact(s.db, o.Artifact)
-		done = append(done, answeredOptionView{
+		row := answeredOptionView{
 			optionView{o, money.Cents(o.FigureCents), money.Cents(o.SavingCents), driverWindow(o)}, taskID,
-			o.DecidedBy == owner && o.OnBehalfOf == "",
-		})
+			o.DecidedBy == owner && o.OnBehalfOf == "", nil,
+		}
+		if o.Class == "driver.announced" {
+			t, err := crew.GetTask(s.db, taskID)
+			if err != nil {
+				http.Error(w, "store unavailable", http.StatusInternalServerError)
+				return
+			}
+			ann, err := announcedFor(s.db, o, t.Desk)
+			if err != nil {
+				http.Error(w, "store unavailable", http.StatusInternalServerError)
+				return
+			}
+			row.Announced = ann
+		}
+		done = append(done, row)
 	}
 
 	s.render(w, tplDecision, struct {
@@ -117,6 +131,47 @@ type answeredOptionView struct {
 	// themselves, so the card can say so rather than leave it to be inferred
 	// from a username.
 	ByOwner bool
+	// Announced is set only for an applied driver.announced decision: what it
+	// announced, what its month measured, and when the answer came against its
+	// start (ANNOUNCED-DRIVER-SPEC.md section 5). nil for every other class.
+	Announced *announcedView
+}
+
+// announcedView is the page's words for one announced decision. Each field is
+// already a sentence fragment, so the template never does arithmetic.
+type announcedView struct {
+	Announced string
+	Measured  string
+	Answered  string
+}
+
+// announcedFor reads the decision's own record through
+// finops.AnnouncedEffectOf, the one reader of announced against measured, and
+// words it for the page. It returns nil when no announced driver carries the
+// option's label on the desk.
+func announcedFor(db *sql.DB, o crew.Option, desk string) (*announcedView, error) {
+	e, found, err := finops.AnnouncedEffectOf(db, o.Summary, desk)
+	if err != nil || !found {
+		return nil, err
+	}
+	v := &announcedView{Announced: e.Announced.String() + "/day"}
+	if e.Days == 0 {
+		v.Measured = "not measured yet"
+	} else {
+		v.Measured = fmt.Sprintf("%s/day over %d covered days in %s",
+			e.Measured.String(), e.Days, e.Start[:len("2006-01")])
+	}
+	if e.Answered {
+		switch {
+		case e.AnsweredDaysBeforeStart > 0:
+			v.Answered = fmt.Sprintf("answered %d days before the start", e.AnsweredDaysBeforeStart)
+		case e.AnsweredDaysBeforeStart < 0:
+			v.Answered = fmt.Sprintf("answered %d days after the start", -e.AnsweredDaysBeforeStart)
+		default:
+			v.Answered = "answered on the start"
+		}
+	}
+	return v, nil
 }
 
 // optionAction is the owner's stamp: apply calls finops.Apply as the acting

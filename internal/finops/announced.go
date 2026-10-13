@@ -211,3 +211,46 @@ func medianCents(vals []money.Cents) money.Cents {
 	}
 	return (s[n/2-1] + s[n/2]) / 2
 }
+
+// AnnouncedEffectOf is the record of the announced driver with this label on
+// this desk. Its measured figure is the one for the month its window starts in,
+// the first month it can be measured. found is false when no announced driver
+// carries that label on that desk.
+func AnnouncedEffectOf(db *sql.DB, label, source string) (AnnouncedEffect, bool, error) {
+	all, err := estate.Drivers(db)
+	if err != nil {
+		return AnnouncedEffect{}, false, err
+	}
+	for _, d := range all {
+		if d.Kind != "announced" || d.Expected == nil || d.Label != label || d.Source != source {
+			continue
+		}
+		if len(d.Start) < len("2006-01") {
+			return AnnouncedEffect{}, false, nil
+		}
+		effects, err := AnnouncedEffects(db, d.Start[:len("2006-01")])
+		if err != nil {
+			return AnnouncedEffect{}, false, err
+		}
+		for _, e := range effects {
+			if e.Label == label && e.Source == source && e.Start == d.Start {
+				return e, true, nil
+			}
+		}
+		// Its window overlaps its own start month, so AnnouncedEffects counts it;
+		// this is reached only for a window that does not. The record still
+		// carries the answer, and no measured figure.
+		e := AnnouncedEffect{Label: label, Source: source, Scope: d.Scope, Start: d.Start, End: d.End,
+			Announced: money.Cents(*d.Expected)}
+		decided, answered, err := announcedAnswer(db, label)
+		if err != nil {
+			return AnnouncedEffect{}, false, err
+		}
+		if answered {
+			e.Answered = true
+			e.AnsweredDaysBeforeStart = signedDays(decided, d.Start)
+		}
+		return e, true, nil
+	}
+	return AnnouncedEffect{}, false, nil
+}
