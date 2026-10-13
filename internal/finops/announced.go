@@ -34,6 +34,19 @@ type AnnouncedEffect struct {
 	// AnsweredDaysBeforeStart is positive when the answer came that many days
 	// before Start, and negative when it came after.
 	AnsweredDaysBeforeStart int
+	// Split is how a decision that names no team divides its step across the
+	// teams on its desk; nil when it names one (ANNOUNCED-DRIVER-SPEC.md section 11).
+	Split []TeamShare
+}
+
+// TeamShare is one team's part of a decision that names no team: its median
+// daily spend over the window before the start, its share of the service's
+// total of those medians in percent, and the change a day its share takes.
+type TeamShare struct {
+	Team     string
+	Median   money.Cents
+	Percent  float64
+	Expected money.Cents
 }
 
 // AnnouncedEffects returns every announced driver with a covered day in the
@@ -88,6 +101,14 @@ func AnnouncedEffects(db *sql.DB, period string) ([]AnnouncedEffect, error) {
 				e.Days = n
 				e.Measured = money.Cents(int64(sum) / int64(n))
 			}
+		}
+
+		if d.Team == "" {
+			split, err := announcedSplit(db, d)
+			if err != nil {
+				return nil, err
+			}
+			e.Split = split
 		}
 
 		decided, answered, err := announcedAnswer(db, d.Label)
@@ -148,6 +169,35 @@ func teamDayCents(db *sql.DB, source, service, team, period, cut string) (map[st
 		out[day] = money.Cents(v)
 	}
 	return out, rows.Err()
+}
+
+// announcedSplit is how a decision that names no team divides its step: each
+// team on the desk with spend before the start takes its share in proportion to
+// its median (estate.SplitByMedian). Sorted by team name.
+func announcedSplit(db *sql.DB, d world.Driver) ([]TeamShare, error) {
+	medians, err := estate.TeamSpendMedians(db, d.Source, d.Scope, d.Start)
+	if err != nil {
+		return nil, err
+	}
+	expected := estate.SplitByMedian(money.Cents(*d.Expected), medians)
+	var total money.Cents
+	for _, m := range medians {
+		total += m
+	}
+	teams := make([]string, 0, len(medians))
+	for team := range medians {
+		teams = append(teams, team)
+	}
+	sort.Strings(teams)
+	out := make([]TeamShare, 0, len(teams))
+	for _, team := range teams {
+		s := TeamShare{Team: team, Median: medians[team], Expected: expected[team]}
+		if total > 0 {
+			s.Percent = float64(medians[team]) * 100 / float64(total)
+		}
+		out = append(out, s)
+	}
+	return out, nil
 }
 
 // effectGap is how far an effect's measured figure is from its announced one,

@@ -67,7 +67,7 @@
       <dt>Class</dt><dd>{{.Class}} <span class="chip {{if eq .State "applied"}}accepted{{else}}dismissed{{end}}">{{.State}}</span></dd>
       <dt>From</dt><dd><a href="/task/{{.TaskID}}">task {{.TaskID}}</a></dd>
       <dt>Summary</dt><dd>{{.Summary}}</dd>
-      {{if .Announced}}<dt>Announced</dt><dd>announced {{.Announced.Announced}}, measured {{.Announced.Measured}}{{if .Announced.Answered}}; {{.Announced.Answered}}{{end}}</dd>{{end}}
+      {{if .Announced}}<dt>Announced</dt><dd>{{.Announced.Announced}}, measured {{.Announced.Measured}}{{if .Announced.Answered}}; {{.Announced.Answered}}{{end}}{{if .Announced.Split}}<ul class="split">{{range .Announced.Split}}<li>{{.Team}}: {{.Share}} of the service's spend, expected {{.Expected}}</li>{{end}}</ul>{{end}}</dd>{{end}}
       {{if .Reason}}<dt>Refused because</dt><dd>{{.Reason}}</dd>{{end}}
       {{if .OnBehalfOf}}
       <dt>Answered</dt><dd>{{.DecidedBy}} answered on behalf of owner {{.OnBehalfOf}} · {{.DecidedAt}}</dd>

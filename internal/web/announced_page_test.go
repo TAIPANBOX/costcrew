@@ -119,12 +119,61 @@ func TestTheDecisionPageSaysWhatAnAnnouncedDecisionMeasured(t *testing.T) {
 	}
 	for _, want := range []string{
 		"swap A",
-		"announced -300.00/day",
-		"measured -120.00/day over 27 covered days in 2026-10",
+		"-300.00/day, measured -120.00/day over 27 covered days in 2026-10",
 		"answered 4 days before the start",
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("the decision page does not say %q", want)
+		}
+	}
+}
+
+// ANNOUNCED-DRIVER-SPEC.md section 11, findings (c) and F4: the answer line reads
+// once, with its label and no repeated word, and a decision that names no team
+// shows how its step splits across the teams on its desk, each team's share of
+// the spend and the expected amount a day.
+//
+// Red against the code before this step: the line says "announced" twice, and
+// no split is shown.
+func TestTheDecisionPageStatesTheAnnouncedLineOnceAndShowsTheSplit(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "boss", "boss-password-2026")
+	if _, err := h.au.Create("owner1", "owner1-password-2026", "operator"); err != nil {
+		t.Fatal(err)
+	}
+	db := h.st.DB()
+	// 28 days before the 5th of October, the window the split reads: data-eng
+	// spends 100.00 a day and product-web 300.00 a day, so the -300.00 a day
+	// decision splits 25% and 75%: -75.00 and -225.00 a day.
+	for i := 0; i < 28; i++ {
+		day := daysAfter(t, "2026-09-07", i)
+		for _, tc := range []struct {
+			team  string
+			cents int64
+		}{{"data-eng", 100_00}, {"product-web", 300_00}} {
+			if _, err := db.Exec(`INSERT INTO charges
+				(source, day, service, team, category, billed_cents) VALUES ('aws', ?, 'svc-test-a', ?, 'Usage', ?)`,
+				day, tc.team, tc.cents); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	sid := plantAppliedAnnounced(t, h, "owner1", "swap A")
+
+	boss := h.as(t, "boss", "boss-password-2026")
+	code, body, _ := boss.get(t, "/sprint/"+strconv.Itoa(sid)+"/decisions/owner1")
+	if code != 200 {
+		t.Fatalf("the decision page answered %d, want 200", code)
+	}
+	if strings.Contains(body, "<dd>announced ") {
+		t.Errorf("the announced line repeats the label's word at its start")
+	}
+	if !strings.Contains(body, "<dd>-300.00/day, measured ") {
+		t.Errorf("the announced line does not open with its figure once, under its label")
+	}
+	for _, want := range []string{"data-eng", "25.0%", "-75.00/day", "product-web", "75.0%", "-225.00/day"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the split does not show %q", want)
 		}
 	}
 }

@@ -143,6 +143,15 @@ type announcedView struct {
 	Announced string
 	Measured  string
 	Answered  string
+	// Split is the per-team division of a decision that names no team.
+	Split []teamSplitView
+}
+
+// teamSplitView is one team's line of that division, as the page words it.
+type teamSplitView struct {
+	Team     string
+	Share    string
+	Expected string
 }
 
 // announcedFor reads the decision's own record through
@@ -160,6 +169,13 @@ func announcedFor(db *sql.DB, o crew.Option, desk string) (*announcedView, error
 	} else {
 		v.Measured = fmt.Sprintf("%s/day over %d covered days in %s",
 			e.Measured.String(), e.Days, e.Start[:len("2006-01")])
+	}
+	for _, s := range e.Split {
+		v.Split = append(v.Split, teamSplitView{
+			Team:     s.Team,
+			Share:    fmt.Sprintf("%.1f%%", s.Percent),
+			Expected: s.Expected.String() + "/day",
+		})
 	}
 	if e.Answered {
 		switch {
