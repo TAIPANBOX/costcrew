@@ -81,7 +81,9 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -trimpath -ldflags="-
  && CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -trimpath -ldflags="-s -w" \
       -o /out/costcrew-idryxsource ./tools/idryxsource \
  && CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -trimpath -ldflags="-s -w" \
-      -o /out/costcrew-usage ./tools/usage
+      -o /out/costcrew-usage ./tools/usage \
+ && CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -trimpath -ldflags="-s -w" \
+      -o /out/costcrew-cloudability ./tools/cloudability
 
 # gcr.io/distroless/static-debian12:nonroot
 FROM gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab
@@ -94,6 +96,7 @@ COPY --from=build /out/costcrew-run /usr/local/bin/costcrew-run
 COPY --from=build /out/costcrew-enforce /usr/local/bin/costcrew-enforce
 COPY --from=build /out/costcrew-idryxsource /usr/local/bin/costcrew-idryxsource
 COPY --from=build /out/costcrew-usage /usr/local/bin/costcrew-usage
+COPY --from=build /out/costcrew-cloudability /usr/local/bin/costcrew-cloudability
 # 65532 is distroless's `nonroot` uid. Numeric on purpose: a kubelet running
 # with runAsNonRoot cannot verify a NAME and refuses the container outright.
 USER 65532:65532

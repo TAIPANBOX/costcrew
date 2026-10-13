@@ -217,16 +217,74 @@ const replaceGeneratedRefusal = "this store still holds the generated estate (ro
 // tokenFuseFocusReader is registered in the readers map literal in
 // connectors.go under "tokenfuse-focus".
 func tokenFuseFocusReader(db *sql.DB, cfg map[string]string, opt ImportOptions) (string, error) {
-	if err := EnsureFocusSchema(db); err != nil {
+	sum, err := readTokenFuseFocus(db, cfg, opt)
+	if err != nil {
 		return "", err
+	}
+	return sum.Sentence(opt.DryRun), nil
+}
+
+// TokenFuseLoad is what LoadTokenFuseFocus read, as numbers: the figures the
+// tokenfuse-focus connector's own sentence states, for a caller that has to
+// decide on them rather than print them.
+type TokenFuseLoad struct {
+	// Sentence is the connector's own sentence, word for word.
+	Sentence  string
+	FilesRead int
+	// Calls is the rows ai_calls holds for the files read, a call that sat in
+	// two exports counted once (invariant 89).
+	Calls int
+	// RefusedRows is every row refused, counted whole; FilesNotRead every
+	// file refused whole and every entry passed over as a link or not a
+	// regular file.
+	RefusedRows  int
+	FilesNotRead int
+	// Unfiled is the gateway's refusals that name no agent and no key, which
+	// are not imported (errUnfiledRefusal).
+	Unfiled    int
+	Superseded int
+	// CommitmentRows is ChargeCategory=Purchase rows, which go to commitments
+	// and never to ai_calls.
+	CommitmentRows int
+}
+
+// LoadTokenFuseFocus reads a folder of TokenFuse FOCUS exports into db with
+// the tokenfuse-focus connector's own reader, exactly as Import does: the same
+// columns, the same refusals, the same bounds, the same supersede of a call
+// exported twice, the same exact micros. It exists for costcrew-cloudability,
+// which builds a Cloudability drop from what this reader keeps and must not
+// carry a second parser of the same export beside it. db is the caller's own
+// store; the generated-estate refusal applies to it as to any other.
+func LoadTokenFuseFocus(db *sql.DB, dir string) (TokenFuseLoad, error) {
+	sum, err := readTokenFuseFocus(db, map[string]string{"path": dir}, ImportOptions{})
+	if err != nil {
+		return TokenFuseLoad{}, err
+	}
+	unfiled := 0
+	for _, n := range sum.Unfiled {
+		unfiled += n
+	}
+	return TokenFuseLoad{
+		Sentence:  sum.Sentence(false),
+		FilesRead: sum.FilesRead, Calls: sum.RowsAccepted,
+		RefusedRows: sum.RefusedRows, FilesNotRead: len(sum.FileRefusals),
+		Unfiled: unfiled, Superseded: sum.Superseded, CommitmentRows: sum.CommitmentRows,
+	}, nil
+}
+
+// readTokenFuseFocus is the reader itself, returning its summary rather than
+// its sentence so LoadTokenFuseFocus can hand the figures on.
+func readTokenFuseFocus(db *sql.DB, cfg map[string]string, opt ImportOptions) (*focusSummary, error) {
+	if err := EnsureFocusSchema(db); err != nil {
+		return nil, err
 	}
 	path := strings.TrimSpace(cfg["path"])
 	if path == "" {
-		return "", fmt.Errorf("no folder is configured; set the path and save before importing")
+		return nil, fmt.Errorf("no folder is configured; set the path and save before importing")
 	}
 	files, skipped, err := csvFolder(path)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	// Refusal 1: a generated estate is not mixed with real money. Checked
@@ -237,17 +295,17 @@ func tokenFuseFocusReader(db *sql.DB, cfg map[string]string, opt ImportOptions) 
 	if !opt.DryRun {
 		mixed, err := hasGeneratedCharges(db)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 		if mixed && !opt.ReplaceGenerated {
-			return "", errors.New(replaceGeneratedRefusal)
+			return nil, errors.New(replaceGeneratedRefusal)
 		}
 		wipe = mixed
 	}
 
 	tx, err := db.Begin()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	// Rolled back unless explicitly committed below. For DryRun this is the
 	// second guarantee, beside DryRun itself, that nothing it does can
@@ -256,7 +314,7 @@ func tokenFuseFocusReader(db *sql.DB, cfg map[string]string, opt ImportOptions) 
 
 	if wipe {
 		if err := replaceGeneratedEstate(tx); err != nil {
-			return "", err
+			return nil, err
 		}
 	}
 
@@ -276,7 +334,7 @@ func tokenFuseFocusReader(db *sql.DB, cfg map[string]string, opt ImportOptions) 
 			  outcome=excluded.outcome, tool_calls=excluded.tool_calls, invoice_id=excluded.invoice_id,
 			  key_id=excluded.key_id, block_reason=excluded.block_reason`)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 		defer ins.Close()
 	}
@@ -291,7 +349,7 @@ func tokenFuseFocusReader(db *sql.DB, cfg map[string]string, opt ImportOptions) 
 			  unit=excluded.unit, source=excluded.source, date_start=excluded.date_start,
 			  date_end=excluded.date_end, monthly_cents=excluded.monthly_cents`)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 		defer cins.Close()
 	}
@@ -316,7 +374,7 @@ func tokenFuseFocusReader(db *sql.DB, cfg map[string]string, opt ImportOptions) 
 		sp := fmt.Sprintf("focus_file_%d", i)
 		if !opt.DryRun {
 			if _, err := tx.Exec("SAVEPOINT " + sp); err != nil {
-				return "", err
+				return nil, err
 			}
 		}
 		local, ferr := processFocusFile(f, ins, cins)
@@ -325,7 +383,7 @@ func tokenFuseFocusReader(db *sql.DB, cfg map[string]string, opt ImportOptions) 
 				fmt.Sprintf("%s: %v", filepath.Base(f), ferr))
 			if !opt.DryRun {
 				if _, err := tx.Exec("ROLLBACK TO " + sp); err != nil {
-					return "", err
+					return nil, err
 				}
 			}
 			continue
@@ -338,7 +396,7 @@ func tokenFuseFocusReader(db *sql.DB, cfg map[string]string, opt ImportOptions) 
 		if !opt.DryRun {
 			keys, days, err := supersede(tx, local.sha, local.newColumns)
 			if err != nil {
-				return "", fmt.Errorf("%s: replacing an earlier export of the same calls: %w",
+				return nil, fmt.Errorf("%s: replacing an earlier export of the same calls: %w",
 					filepath.Base(f), err)
 			}
 			for _, k := range keys {
@@ -349,7 +407,7 @@ func tokenFuseFocusReader(db *sql.DB, cfg map[string]string, opt ImportOptions) 
 			}
 			processed = append(processed, local.sha)
 			if _, err := tx.Exec("RELEASE " + sp); err != nil {
-				return "", err
+				return nil, err
 			}
 		}
 	}
@@ -360,16 +418,16 @@ func tokenFuseFocusReader(db *sql.DB, cfg map[string]string, opt ImportOptions) 
 		// what the store now holds for these files rather than adding the
 		// same call up twice.
 		if err := sum.recount(tx, processed); err != nil {
-			return "", err
+			return nil, err
 		}
 	}
 
 	if !opt.DryRun {
 		if err := deriveCharges(tx, daysTouched); err != nil {
-			return "", err
+			return nil, err
 		}
 		if err := deriveAttribution(tx, daysTouched); err != nil {
-			return "", err
+			return nil, err
 		}
 		if wipe && opt.Rec != nil {
 			// "info", never "": the shared envelope's severity is a closed
@@ -386,15 +444,15 @@ func tokenFuseFocusReader(db *sql.DB, cfg map[string]string, opt ImportOptions) 
 				"connector": "tokenfuse-focus",
 				"tables":    "charges (provenance IS NULL)," + strings.Join(generatedTables, ","),
 			}, nil); err != nil {
-				return "", fmt.Errorf("journaling the generated estate's replacement: %w", err)
+				return nil, fmt.Errorf("journaling the generated estate's replacement: %w", err)
 			}
 		}
 		if err := tx.Commit(); err != nil {
-			return "", err
+			return nil, err
 		}
 	}
 
-	return sum.Sentence(opt.DryRun), nil
+	return sum, nil
 }
 
 func hasGeneratedCharges(db *sql.DB) (bool, error) {

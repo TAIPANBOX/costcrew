@@ -5140,6 +5140,177 @@ run_case $'connectors: the /ai link\'s words are not the property' \
 	$'View the imported AI spend, by agent and by the gateway\'s reason for each block' \
 	$'See the imported AI spend, by agent and by the gateway\'s reason for each block'
 
+# Invariant 96: a Cloudability drop (tools/cloudability). Each fault is one a
+# drop could carry into Cloudability without anybody seeing it there: the
+# bucket's name inside a report key, the wrong FOCUS version, a mandatory
+# column gone, money rounded, a call counted twice, a drop written into or
+# behind another, a row of nothing consumed, a cell a spreadsheet runs.
+run_case $'cloudability: the bucket\'s name left inside all_report_keys' \
+	fail \
+	./tools/cloudability \
+	$'TestTheManifestIsWhatCloudabilityReads' \
+	$'keys exclude root_dir' \
+	tools/cloudability/drop.go \
+	$'\tkeyParts := append(append([]string{}, rel...), epoch, dataName)' \
+	$'\tkeyParts := append(append([]string{l.rootDir}, rel...), epoch, dataName)'
+run_case $'cloudability: the manifest names FOCUS 1.0' \
+	fail \
+	./tools/cloudability \
+	$'TestTheManifestIsWhatCloudabilityReads' \
+	$'focus_version = "1.0", want "1.1"' \
+	tools/cloudability/focus.go \
+	$'const focusVersion = "1.1"' \
+	$'const focusVersion = "1.0"'
+run_case $'cloudability: a mandatory column dropped from the table' \
+	fail \
+	./tools/cloudability \
+	$'TestEveryMandatoryFocus11ColumnIsFilledHonestly' \
+	$'ListCost is missing' \
+	tools/cloudability/focus.go \
+	$'\t{id: "ListCost", level: mandatory, kind: decimal, fill: func(r *row) string { return r.cost }},\n' \
+	$''
+run_case $'cloudability: a mandatory column dropped from the table and the validator\'s list' \
+	fail \
+	./tools/cloudability \
+	$'TestEveryMandatoryFocus11ColumnIsFilledHonestly' \
+	$'the drop has no ListCost column' \
+	tools/cloudability/focus.go \
+	$'\t{id: "ListCost", level: mandatory, kind: decimal, fill: func(r *row) string { return r.cost }},\n' \
+	$'' \
+	tools/cloudability/focus.go \
+	$'\t"EffectiveCost", "InvoiceIssuerName", "ListCost", "PricingQuantity", "PricingUnit",' \
+	$'\t"EffectiveCost", "InvoiceIssuerName", "PricingQuantity", "PricingUnit",'
+run_case $'cloudability: each call rounded to a cent before the sum' \
+	fail \
+	./tools/cloudability \
+	$'TestManySubCentCallsAreSummedExactly' \
+	$'sum to 0.000000' \
+	tools/cloudability/drop.go \
+	$'\t\t\tSUM(CASE WHEN blocked=0 THEN billed_microusd ELSE 0 END),' \
+	$'\t\t\tSUM(CASE WHEN blocked=0 THEN ((billed_microusd+5000)/10000)*10000 ELSE 0 END),'
+run_case $'cloudability: each row rounded to a cent' \
+	fail \
+	./tools/cloudability \
+	$'TestManySubCentCallsAreSummedExactly' \
+	$'sum to 0.040000' \
+	tools/cloudability/drop.go \
+	$'\treturn fmt.Sprintf("%d.%06d", int64(m)/1_000_000, int64(m)%1_000_000)' \
+	$'\treturn fmt.Sprintf("%d.%02d0000", int64(m.Cents())/100, int64(m.Cents())%100)'
+run_case $'cloudability: a call exported twice is in the drop twice' \
+	fail \
+	./tools/cloudability \
+	$'TestACallExportedTwiceIsInTheDropOnce' \
+	$'the same calls exported twice' \
+	internal/connectors/tokenfusefocus.go \
+	$'keys, days, err := supersede(tx, local.sha, local.newColumns)' \
+	$'keys, days, err := []string(nil), []string(nil), error(nil)'
+run_case $'cloudability: a drop written into an epoch folder that exists' \
+	fail \
+	./tools/cloudability \
+	$'TestASecondDropSupersedesAndNeverAppends' \
+	$'already exists was not refused' \
+	tools/cloudability/drop.go \
+	$'\t\tif n == now.Unix() {' \
+	$'\t\tif false && n == now.Unix() {' \
+	tools/cloudability/drop.go \
+	$'\tif err := os.Mkdir(w.epochDir, 0o700); err != nil {' \
+	$'\tif err := os.MkdirAll(w.epochDir, 0o700); err != nil {'
+run_case $'cloudability: a drop written behind a later one' \
+	fail \
+	./tools/cloudability \
+	$'TestASecondDropSupersedesAndNeverAppends' \
+	$'behind a later one was not refused' \
+	tools/cloudability/drop.go \
+	$'\t\tif n > now.Unix() {' \
+	$'\t\tif false && n > now.Unix() {'
+run_case $'cloudability: the rows come out in no fixed order' \
+	fail \
+	./tools/cloudability \
+	$'TestADropIsTheSameBytesEveryTime' \
+	$'differ in their data file' \
+	tools/cloudability/drop.go \
+	$'\t\tORDER BY 1, 2, 3, 4, 5, 6`, from, to)' \
+	$'\t\tORDER BY random()`, from, to)'
+run_case $'cloudability: the first of next month taken into the month' \
+	fail \
+	./tools/cloudability \
+	$'TestADropHoldsTheWholeMonthToDate' \
+	$'want every day from 2026-10-01 to 2026-10-13' \
+	tools/cloudability/drop.go \
+	$'\t\tFROM ai_calls WHERE date(ts) >= ?1 AND date(ts) < ?2' \
+	$'\t\tFROM ai_calls WHERE date(ts) >= ?1 AND date(ts) <= ?2'
+run_case $'cloudability: a call filed on the date its text carries, not its UTC day' \
+	fail \
+	./tools/cloudability \
+	$'TestADropHoldsTheWholeMonthToDate' \
+	$'want every day from 2026-10-01 to 2026-10-13' \
+	tools/cloudability/drop.go \
+	$'\trows, err := db.Query(`SELECT date(ts), COALESCE(team,\'\'), agent, model, COALESCE(key_id,\'\'),' \
+	$'\trows, err := db.Query(`SELECT day, COALESCE(team,\'\'), agent, model, COALESCE(key_id,\'\'),' \
+	tools/cloudability/drop.go \
+	$'\t\tFROM ai_calls WHERE date(ts) >= ?1 AND date(ts) < ?2' \
+	$'\t\tFROM ai_calls WHERE day >= ?1 AND day < ?2'
+run_case $'cloudability: a group of only blocked calls given a row' \
+	fail \
+	./tools/cloudability \
+	$'TestBlockedCallsAreCountedNotCharged' \
+	$'ConsumedQuantity is 0' \
+	tools/cloudability/drop.go \
+	$'\t\tif r.calls == 0 {' \
+	$'\t\tif false && r.calls == 0 {'
+run_case $'cloudability: a refused row let through into a drop' \
+	fail \
+	./tools/cloudability \
+	$'TestHostileInputMakesNoDrop' \
+	$'a drop was written from a ragged row' \
+	tools/cloudability/main.go \
+	$'\tif load.RefusedRows > 0 || load.FilesNotRead > 0 {' \
+	$'\tif false {'
+run_case $'cloudability: a formula cell through both checks' \
+	fail \
+	./tools/cloudability \
+	$'TestHostileInputMakesNoDrop' \
+	$'a drop was written from an agent that opens as a formula' \
+	tools/cloudability/drop.go \
+	$'\t\tif reason := plainname.Check(f.label, f.v, f.max); reason != "" {' \
+	$'\t\tif reason := plainname.Check(f.label, f.v, f.max); false && reason != "" {' \
+	tools/cloudability/focus.go \
+	$'\t\tif reason := plainname.Check(c.id, v, textMaxBytes); reason != "" {' \
+	$'\t\tif reason := plainname.Check(c.id, v, textMaxBytes); false && reason != "" {'
+run_case $'cloudability: the export check alone removed, the validator still stops a formula' \
+	pass \
+	./tools/cloudability \
+	$'TestHostileInputMakesNoDrop' \
+	$'' \
+	tools/cloudability/drop.go \
+	$'\t\tif reason := plainname.Check(f.label, f.v, f.max); reason != "" {' \
+	$'\t\tif reason := plainname.Check(f.label, f.v, f.max); false && reason != "" {'
+run_case $'cloudability: LoadTokenFuseFocus reports no refused rows' \
+	fail \
+	./internal/connectors \
+	$'TestLoadTokenFuseFocusIsTheConnectorsOwnReader' \
+	$'1 refused row' \
+	internal/connectors/tokenfusefocus.go \
+	$'\t\tRefusedRows: sum.RefusedRows, FilesNotRead: len(sum.FileRefusals),' \
+	$'\t\tRefusedRows: 0, FilesNotRead: len(sum.FileRefusals),'
+run_case $'cloudability: a reworded charge description is not a fault' \
+	pass \
+	./tools/cloudability \
+	$'TestEveryMandatoryFocus11ColumnIsFilledHonestly' \
+	$'' \
+	tools/cloudability/focus.go \
+	$'return "Calls to " + r.model + " through the TokenFuse gateway"' \
+	$'return "Model calls to " + r.model + " through the TokenFuse gateway"'
+# Invariant 97: an amount too large for 64 bits is refused, never wrapped.
+run_case $'money: an amount past 64 bits of micro-units wraps again' \
+	fail \
+	./internal/money \
+	$'TestAnAmountTooLargeToHoldIsRefusedNotWrapped' \
+	$'came back wrapped' \
+	internal/money/money.go \
+	$'\tif whole < 0 || part < 0 || whole > (math.MaxInt64-part)/unit {' \
+	$'\tif whole < 0 || part < 0 {'
+
 echo
 if [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'

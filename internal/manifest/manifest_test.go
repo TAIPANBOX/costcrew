@@ -78,7 +78,7 @@ func load(t *testing.T) (manifest, string) {
 }
 
 // A binary this repository builds and does not declare is invisible from
-// outside by construction. Seven here, and six of them are tools no deployment
+// outside by construction. Ten here, and four of them are tools no deployment
 // installs, which is exactly why the estate's own registry cannot be the place
 // this is written down.
 func TestEveryBinaryThisRepositoryBuildsIsDeclaredAndTheReverse(t *testing.T) {

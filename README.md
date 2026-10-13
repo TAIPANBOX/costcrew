@@ -278,13 +278,15 @@ commercial one.
 
 ### The other binaries in the image
 
-The image holds five binaries, all static and run as the same non-root user:
+The image holds six binaries, all static and run as the same non-root user:
 `costcrew` (the console, the entrypoint), `costcrew-run` (the crew's runner),
-`costcrew-enforce`, `costcrew-idryxsource` and `costcrew-usage`. The last
-three are not services. Each runs once, prints, and exits, so a compose file
-runs them as separate containers from the same image with the entrypoint
-replaced, mounting the console's data directory. Images up to `v0.3.0` carry
-only the first two; `v0.4.0` is the first to carry all five.
+`costcrew-enforce`, `costcrew-idryxsource`, `costcrew-usage` and
+`costcrew-cloudability`. The last four are not services. Each runs once,
+prints, and exits, so a compose file runs them as separate containers from the
+same image with the entrypoint replaced, mounting the console's data
+directory. Images up to `v0.3.0` carry only the first two; `v0.4.0` is the
+first to carry five; `costcrew-cloudability` is in no released image yet
+(`v0.5.0` and earlier do not carry it).
 
 `costcrew-enforce` shows what the console's budgets would set on a TokenFuse
 control plane and sends nothing unless told to. It is the one binary here that
@@ -316,6 +318,67 @@ call. Neither provider's documentation names a charge for these reports.
 | `-dry-run` | fetch and check, print what would be written, write nothing |
 | `-base-url URL` | replace the provider's origin, for a proxy; `https` only, except a loopback address |
 | `ANTHROPIC_ADMIN_KEY`, `OPENAI_ADMIN_KEY` (environment) | an admin key for the chosen provider, read from the environment and never written or printed; an ordinary API key is refused by the provider, and the refusal is reported as a key that may lack admin scope |
+
+`costcrew-cloudability` puts agent spend into Apptio Cloudability. It turns
+the gateway's FOCUS exports into a drop for Cloudability's Custom Data FOCUS
+ingress, so a FinOps team sees AI spend there beside the cloud bill, by agent,
+by the gateway's unit, by model and by credential. It reads the folder the
+`tokenfuse-focus` connector reads, with that connector's own reader, and
+writes FOCUS 1.1 (a gzipped CSV and its manifest) into a local folder laid out
+the way the ingress reads a bucket:
+
+```
+<out>/<sub dirs>/<vendor>/<YYYYMMDD-YYYYMMDD>/<epoch>/<prefix>-00001.csv.gz
+<out>/<sub dirs>/<vendor>/<YYYYMMDD-YYYYMMDD>/<epoch>/<prefix>-Manifest.json
+```
+
+| Flag | Meaning |
+|---|---|
+| `-in DIR` | the folder of `tokenfuse focus-export` files, the one the connector reads; required |
+| `-out DIR` | the local folder that stands for the bucket's root; required |
+| `-root-dir NAME` | the bucket or container name, written into the manifest as `root_dir`; required |
+| `-billing-account-id ID` | FOCUS `BillingAccountId`, which the gateway has none of its own to give; required |
+| `-billing-account-name NAME` | FOCUS `BillingAccountName`; left empty when not given |
+| `-month YYYY-MM` | the month, in UTC; the default is the current one |
+| `-sub-dir A/B` | folders between the bucket's root and the vendor folder |
+| `-vendor NAME` | the vendor folder (default `TokenFuse`) |
+| `-prefix NAME` | the file prefix (default `costcrew`) |
+
+Each run writes the whole month so far into a new epoch folder, because the
+ingress reads the latest one; it never writes into a folder that exists or
+behind a later one. A row is one UTC day, unit, agent, model and credential.
+Its costs are the gateway's exact sums in micro-dollars, never rounded, and
+its `Tags` carry `tokenfuse/agent`, `tokenfuse/unit`, `tokenfuse/model` and
+`tokenfuse/key_id`. A call exported twice is counted once, as on the console.
+Blocked calls cost nothing and are counted in `x_BlockedCalls`. A drop is all
+or nothing: if the reader refuses a row, cannot read a file, or meets a value
+that would open as a spreadsheet formula, no folder is written and the tool
+says why (exit 1).
+
+The tool makes no network call. Copying the folder to the bucket is a
+separate step, run after the tool has exited:
+
+```sh
+costcrew-cloudability -in /var/lib/tokenfuse/focus -out /var/lib/cloudability \
+    -root-dir byod-input-prod -billing-account-id acme-tokenfuse-gateway \
+  && aws s3 sync /var/lib/cloudability s3://byod-input-prod/
+# Google Cloud Storage: gsutil -m rsync -r /var/lib/cloudability gs://byod-input-prod
+# Azure Blob storage:   az storage blob sync -s /var/lib/cloudability -c byod-input-prod --account-name <account>
+```
+
+Without a delete option the earlier epoch folders stay in the bucket, and
+Cloudability reads the latest one of each month. Run it once more after a
+month ends, with `-month` set to that month, so its last drop holds the whole
+month. The files are private to the account that writes them (0600, folders
+0700), so run the sync as the same account.
+
+What a drop does not know. `BilledCost` is the gateway's own settlement at its
+price book, not the vendor's invoice; the console's `/reconciliation` page sets
+the two side by side. List, contracted and effective cost are the same figure,
+because the gateway knows of no discount. The provider is the gateway's own
+inference from the model name. A group of calls that were all blocked has no
+row, since FOCUS has no usage row for nothing consumed. No drop has been
+accepted by a real Cloudability tenant yet.
 
 `costcrew-idryxsource` writes the roster as the `agents` source idryx asks for,
 so this console's crew appears in the identity graph:
