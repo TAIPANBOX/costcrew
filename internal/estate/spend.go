@@ -18,22 +18,62 @@ import (
 // drawn from (ANNOUNCED-DRIVER-SPEC.md sections 5 and 11).
 const PreStartDays = 28
 
-// PreStartWindow is the window a decision's medians are drawn from: the
-// PreStartDays days ending the day before start, both ends inclusive, as
-// YYYY-MM-DD strings.
-func PreStartWindow(start string) (from, to string) {
-	t, err := time.Parse("2006-01-02", start)
+// DecisionWindow is the window a decision's medians are drawn from: the
+// PreStartDays days that end the day before its anchor, both ends inclusive, as
+// YYYY-MM-DD strings. The anchor is the earlier of the decision's start and the
+// day after the latest landed day of its service on its desk (ANNOUNCED-DRIVER-SPEC.md
+// section 11). A start that lies beyond the data is therefore measured against
+// the newest days there are, as if it started the day after them; a start before
+// the data is measured against the days before it, as before.
+func DecisionWindow(db *sql.DB, source, service, start string) (from, to string, err error) {
+	anchor := start
+	var latest sql.NullString
+	if err := db.QueryRow(`SELECT MAX(day) FROM charges WHERE source=? AND service=?`,
+		source, service).Scan(&latest); err != nil {
+		return "", "", err
+	}
+	if latest.Valid && len(latest.String) >= len("2006-01-02") {
+		if next := shiftDay(latest.String[:len("2006-01-02")], 1); next < anchor {
+			anchor = next
+		}
+	}
+	from, to = windowBefore(anchor)
+	return from, to, nil
+}
+
+// windowBefore is the PreStartDays days that end the day before anchor, as
+// YYYY-MM-DD strings, both ends inclusive.
+func windowBefore(anchor string) (from, to string) {
+	t, err := time.Parse("2006-01-02", anchor)
 	if err != nil {
-		return start, start
+		return anchor, anchor
 	}
 	return t.AddDate(0, 0, -PreStartDays).Format("2006-01-02"), t.AddDate(0, 0, -1).Format("2006-01-02")
+}
+
+// shiftDay is day moved by n days, as the same YYYY-MM-DD string. A day that
+// does not parse is returned unchanged.
+func shiftDay(day string, n int) string {
+	t, err := time.Parse("2006-01-02", day)
+	if err != nil {
+		return day
+	}
+	return t.AddDate(0, 0, n).Format("2006-01-02")
 }
 
 // SpendMedian is the median daily spend of one desk's service over the window
 // before start, on the days that have a charge. A team of "" means every team
 // on the desk. ok is false when no day in the window has spend.
 func SpendMedian(db *sql.DB, source, service, team, start string) (money.Cents, bool, error) {
-	from, to := PreStartWindow(start)
+	from, to, err := DecisionWindow(db, source, service, start)
+	if err != nil {
+		return 0, false, err
+	}
+	return spendMedianIn(db, source, service, team, from, to)
+}
+
+// spendMedianIn is SpendMedian over a window already worked out.
+func spendMedianIn(db *sql.DB, source, service, team, from, to string) (money.Cents, bool, error) {
 	q := `SELECT day, SUM(billed_cents) FROM charges
 		WHERE source=? AND service=? AND day>=? AND day<=?`
 	args := []any{source, service, from, to}
@@ -69,7 +109,10 @@ func SpendMedian(db *sql.DB, source, service, team, start string) (money.Cents, 
 // in the window before start, with that team's median daily spend. A team with
 // no such spend is absent from the map.
 func TeamSpendMedians(db *sql.DB, source, service, start string) (map[string]money.Cents, error) {
-	from, to := PreStartWindow(start)
+	from, to, err := DecisionWindow(db, source, service, start)
+	if err != nil {
+		return nil, err
+	}
 	rows, err := db.Query(`SELECT team, day, SUM(billed_cents) FROM charges
 		WHERE source=? AND service=? AND team IS NOT NULL AND team<>'' AND day>=? AND day<=?
 		GROUP BY team, day`, source, service, from, to)

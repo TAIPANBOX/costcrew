@@ -20,16 +20,20 @@ func SavingRefusal(db *sql.DB, desk, service, team, start string, daily money.Ce
 	if daily >= 0 {
 		return "", nil
 	}
-	median, ok, err := SpendMedian(db, desk, service, team, start)
+	from, to, err := DecisionWindow(db, desk, service, start)
 	if err != nil {
 		return "", err
 	}
-	from, to := PreStartWindow(start)
+	median, ok, err := spendMedianIn(db, desk, service, team, from, to)
+	if err != nil {
+		return "", err
+	}
 	what := "the service " + service
 	if team != "" {
 		what = "team " + team + " on the service " + service
 	}
-	where := fmt.Sprintf("%s on %s over the %d days before %s (%s to %s)", what, desk, PreStartDays, start, from, to)
+	where := fmt.Sprintf("%s on %s over the %d days from %s to %s, measured from the start or the newest landed day, whichever is earlier",
+		what, desk, PreStartDays, from, to)
 	if !ok {
 		return fmt.Sprintf("a saving of %s a day has no spend to measure against: %s has no charge in that window",
 			daily.String(), where), nil
