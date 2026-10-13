@@ -19,7 +19,8 @@ CREATE TABLE IF NOT EXISTS charges(
   invoice_id TEXT,          -- NULL unless a reader carried FOCUS InvoiceId (C2-SPEC.md section 2)
   provenance TEXT);         -- NULL means generated; set by a connector's reader
 CREATE TABLE IF NOT EXISTS drivers(
-  date_start TEXT, date_end TEXT, scope TEXT, label TEXT, kind TEXT, source TEXT);
+  date_start TEXT, date_end TEXT, scope TEXT, label TEXT, kind TEXT, source TEXT,
+  expected_daily_cents INTEGER);  -- NULL unless kind is announced (ANNOUNCED-DRIVER-SPEC.md section 3)
 CREATE TABLE IF NOT EXISTS attribution(
   source TEXT, team TEXT, service TEXT, day_start TEXT, day_end TEXT,
   agent TEXT, confidence TEXT);
@@ -34,6 +35,9 @@ CREATE INDEX IF NOT EXISTS charges_day ON charges(source, day);
 // whatever was recorded against those numbers.
 func Seed(db *sql.DB) (int, error) {
 	if _, err := db.Exec(SeedSchema); err != nil {
+		return 0, err
+	}
+	if err := EnsureDriverExpectedColumn(db); err != nil {
 		return 0, err
 	}
 	var have int

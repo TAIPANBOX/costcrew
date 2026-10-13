@@ -337,6 +337,12 @@ func isMonthEnd(d time.Time) bool {
 // expected rather than merely explained.
 type Driver struct {
 	Start, End, Scope, Label, Kind, Source string
+
+	// Expected is the announced change of the service's daily cost, in cents,
+	// signed (negative is a saving). Set only for kind "announced"; nil for
+	// the one-time and recurring kinds, and for a row written before the
+	// column existed (ANNOUNCED-DRIVER-SPEC.md section 3).
+	Expected *int64
 }
 
 func Drivers() []Driver {
@@ -360,7 +366,7 @@ func Drivers() []Driver {
 		// this service and desk" section was empty for every seeded anomaly
 		// in every live run. Found by reading the code; two tests in
 		// tools/run/fixture_drivers_test.go hold it now.
-		out = append(out, Driver{start, end, e.Service, e.Driver, kind, e.Source})
+		out = append(out, Driver{Start: start, End: end, Scope: e.Service, Label: e.Driver, Kind: kind, Source: e.Source})
 	}
 	return out
 }

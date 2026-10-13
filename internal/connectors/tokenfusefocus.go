@@ -121,6 +121,9 @@ func EnsureFocusSchema(db *sql.DB) error {
 	if _, err := db.Exec(estate.SeedSchema); err != nil {
 		return fmt.Errorf("ensuring the estate schema exists: %w", err)
 	}
+	if err := estate.EnsureDriverExpectedColumn(db); err != nil {
+		return fmt.Errorf("ensuring drivers.expected_daily_cents: %w", err)
+	}
 	if _, err := db.Exec(`ALTER TABLE charges ADD COLUMN provenance TEXT`); err != nil &&
 		!strings.Contains(err.Error(), "duplicate column name") {
 		return fmt.Errorf("adding charges.provenance: %w", err)
