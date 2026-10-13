@@ -128,8 +128,16 @@ func Run(db *sql.DB, now time.Time, cfg detect.Config, rec Recorder) (found, add
 	}
 	var dd []detect.Driver
 	for _, d := range drivers {
+		// The announced amount crosses over as a pointer so that nil stays
+		// nil: only an announced driver judges its days against a step.
+		var expected *money.Cents
+		if d.Expected != nil {
+			c := money.Cents(*d.Expected)
+			expected = &c
+		}
 		dd = append(dd, detect.Driver{
 			Start: d.Start, End: d.End, Scope: d.Scope, Label: d.Label, Kind: d.Kind,
+			Expected: expected,
 		})
 	}
 
