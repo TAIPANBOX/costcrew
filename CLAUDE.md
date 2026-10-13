@@ -6006,7 +6006,17 @@ an absent invariant.
     desk, or of the named team, over the same window: it is refused when saved
     and again when applied, and a saving with no spend to measure is refused.
     An increase is never bounded. The decision page lists each team's share of
-    a service-level decision, and states the announced line once.
+    a service-level decision, and states the announced line once. The window
+    every one of these medians is drawn from is anchored on the earlier of the
+    decision's start and the day after the latest landed day of its service on
+    its desk, so a start beyond the data is measured against the newest days
+    there are, and a start before the data as before
+    (`TestAFutureSavingIsMeasuredAgainstTheLatestLandedDays`, the mutant that
+    anchors back on the start is M16). An owner's answer naming a team writes
+    that team into the drivers row, through `ApplyAs`, and the detector then
+    moves that team alone
+    (`TestAnOwnersAnswerNamingATeamWritesThatTeamAndMovesOnlyIt`; the mutant that
+    drops the team at apply is M17).
     *(gate: `TestAnnouncedTargetRefusesEveryMalformedShape`,
     `TestAnnouncedTargetSurvivesHostileBytesAcrossSeeds`,
     `TestNoRoleDecidesAnAnnouncedDriverAlone`,
@@ -6022,7 +6032,8 @@ an absent invariant.
     `TestAnnouncedEffectsMeasuresTheStepAfterClose`,
     `TestAMissedMonthNamesTheAnnouncedDriverFurthestFromItsAnnouncementFirst`,
     `TestAMeasuredTeamDecisionReadsThatTeamsSpend`,
-    `TestApplyRefusesASavingOverItsBoundWithItsReason`
+    `TestApplyRefusesASavingOverItsBoundWithItsReason`,
+    `TestAnOwnersAnswerNamingATeamWritesThatTeamAndMovesOnlyIt`
     in `internal/finops`; `TestAnAnnouncedSavingIsNotRaised`,
     `TestTheSameSavingUnannouncedIsRaised`,
     `TestASavingMuchSmallerThanAnnouncedIsRaisedNamingIt`,
@@ -6042,7 +6053,9 @@ an absent invariant.
     `TestASavingWithNoSpendToMeasureIsRefused`,
     `TestAnIncreaseIsNotBounded`,
     `TestANamedTeamsSavingIsBoundedByThatTeamsSpend`,
-    `TestTheBoundIsTheMedianNotTheMean` in `internal/estate`;
+    `TestTheBoundIsTheMedianNotTheMean`,
+    `TestAFutureSavingIsMeasuredAgainstTheLatestLandedDays`,
+    `TestASavingBeforeTheDataIsStillRefusedForNoSpend` in `internal/estate`;
     `TestTheDecisionPageSaysWhatAnAnnouncedDecisionMeasured`,
     `TestTheDecisionPageStatesTheAnnouncedLineOnceAndShowsTheSplit` in
     `internal/web`; `TestTheServiceLevelSavingThatLandsProportionallyRaisesNothing`
