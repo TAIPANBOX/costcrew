@@ -614,7 +614,7 @@ estate-gates repository's own PROVEN record:
 ## Gates
 
 ```sh
-go test ./...                        # 1527 tests, 31 packages
+go test ./...                        # 1555 tests, 31 packages (measured at this commit)
 ./scripts/features-are-bound.sh      # every scenario bound to a named test, both ways
 ./scripts/gates-have-teeth.sh        # 522 cases: each gate is made to fail on purpose
 gofmt -l . && go vet ./...
