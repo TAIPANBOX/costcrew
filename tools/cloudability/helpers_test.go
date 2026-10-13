@@ -188,6 +188,13 @@ func readDropAt(t *testing.T, out, subDir, vendor, period, prefix string, when t
 	if len(d.manifest.AllReportKeys) != 1 {
 		t.Fatalf("all_report_keys = %q, want exactly one data file", d.manifest.AllReportKeys)
 	}
+	// Checked before the key is followed: Cloudability resolves a key inside
+	// root_dir, so a key that names the bucket again points at nothing there.
+	for _, k := range d.manifest.AllReportKeys {
+		if strings.HasPrefix(k, "/") || strings.HasPrefix(k, d.manifest.RootDir+"/") {
+			t.Fatalf("report key %q carries the root directory or a leading slash; Cloudability's keys exclude root_dir", k)
+		}
+	}
 	d.data, err = os.ReadFile(filepath.Join(out, filepath.FromSlash(d.manifest.AllReportKeys[0])))
 	if err != nil {
 		t.Fatalf("the manifest's key %q names no file under the drop folder: %v", d.manifest.AllReportKeys[0], err)
