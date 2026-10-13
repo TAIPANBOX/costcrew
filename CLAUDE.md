@@ -84,9 +84,9 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 1547 tests, 32 packages
+go test ./...                        # 1597 tests, 32 packages
 ./scripts/gates-have-teeth.sh        # 546 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 565 scenarios, both directions
+./scripts/features-are-bound.sh      # 580 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
@@ -94,18 +94,18 @@ govulncheck ./...                    # CI runs it, pinned at v1.8.0; reports onl
 staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refused PR #19 on two findings the list above never asked for; a staticcheck built for an older Go cannot read this module, so on such a machine CI is the only place it runs
 ```
 
-Invariants 97 and 98 (a Cloudability drop is the whole month to date, exact,
+Invariants 98 and 99 (a Cloudability drop is the whole month to date, exact,
 in FOCUS 1.1 and laid out the way the ingress reads it, or it is not written;
 an amount too large for 64 bits is refused, never wrapped) added 18 tests
 (`tools/cloudability`, 16, a new package; `internal/connectors/tokenfusefocus_load_test.go`,
 1; `internal/money/money_test.go`, 1), 20 `gates-have-teeth.sh` cases (18
 `fail`, 2 `pass`), 10 scenarios (`features/cloudability-drop.feature`, new),
 one binary in the image (`costcrew-cloudability`, declared in
-`components.json`) and no route: 1529 -> 1547 tests, 31 -> 32 packages,
-526 -> 546 cases, 555 -> 565 scenarios, re-measured after merging
-`origin/main` at `1366248` (#125, invariant 96) with the three commands this
-block already names. Written as 96 and 97 and renumbered when #125 took 96
-first.
+`components.json`) and no route: 1579 -> 1597 tests, 31 -> 32 packages,
+526 -> 546 cases, 570 -> 580 scenarios, re-measured after merging
+`origin/main` at `f761264` (#127, invariant 97) with the three commands this
+block already names. Written as 96 and 97; renumbered to 97 and 98 when #125
+took 96, and to 98 and 99 when #127 took 97.
 
 Invariant 96 (the two Anthropic price rows are the vendor's list rates and
 no row is marked as never checked) added 2 tests
@@ -6032,7 +6032,98 @@ an absent invariant.
     of 2026-10-13 no longer names; and nothing re-reads a vendor page on a
     schedule, so a row stays true on its date and no other.
 
-97. **A Cloudability drop is the whole month to date, exact, in FOCUS 1.1 and
+97. **An announced decision is judged as a step, the owner alone closes
+    it, and no detection pass deletes a raised anomaly.** `@decided
+    2026-10-13`: the crew proposes a cost decision and the owner confirms it
+    before it lands; the crew does not apply it on its own. The class is
+    `driver.announced` in `internal/crew/roles.yaml`, owned by the owner, and
+    no role decides it alone. The supervisor's pass carries it to the owner,
+    and the apply path refuses a stamp from the supervisor
+    (`internal/finops/apply.go`, `applyAnnounced`). Its target,
+    `{scope, start, end, daily_cents}`, is decoded strictly and checked by one
+    function at save time and again at apply time, so a window the two
+    existing driver classes would refuse is refused too. The detector shifts
+    the history before the start by `daily_cents`, judges the day by the rule
+    it always used, and names the decision and the expected level in the
+    finding; a day inside the window that misses is still raised, and so is
+    a spike on the same service. A window nothing has landed in gets its own
+    forecast line of `daily_cents` times its days, and a frozen forecast's
+    basis names the amount. Once a month closes, `finops.AnnouncedEffects`
+    measures each announced driver, and the decisions page shows announced
+    against measured with the answer's date against the start. A detection
+    pass never deletes a raised anomaly.
+
+    Section 11 (after the first live run, `@decided 2026-10-13`) adds three
+    rules to the same invariant. A service-level step is split across the teams
+    on its desk in proportion to each team's median daily spend over the 28 days
+    before the start, in exact integer cents, the remainder going to the largest
+    share; each team's series is judged against its own share, never the whole
+    step. A decision that names a `team` takes the whole step on that team's
+    series alone, and is measured against that team's own spend. A saving (a
+    negative step) may not exceed the median daily spend of the service on the
+    desk, or of the named team, over the same window: it is refused when saved
+    and again when applied, and a saving with no spend to measure is refused.
+    An increase is never bounded. The decision page lists each team's share of
+    a service-level decision, and states the announced line once. The window
+    every one of these medians is drawn from is anchored on the earlier of the
+    decision's start and the day after the latest landed day of its service on
+    its desk, so a start beyond the data is measured against the newest days
+    there are, and a start before the data as before
+    (`TestAFutureSavingIsMeasuredAgainstTheLatestLandedDays`, the mutant that
+    anchors back on the start is M16). An owner's answer naming a team writes
+    that team into the drivers row, through `ApplyAs`, and the detector then
+    moves that team alone
+    (`TestAnOwnersAnswerNamingATeamWritesThatTeamAndMovesOnlyIt`; the mutant that
+    drops the team at apply is M17).
+    *(gate: `TestAnnouncedTargetRefusesEveryMalformedShape`,
+    `TestAnnouncedTargetSurvivesHostileBytesAcrossSeeds`,
+    `TestNoRoleDecidesAnAnnouncedDriverAlone`,
+    `TestAnAnnouncedSavingOverItsBoundIsRefusedWhenSaved`,
+    `TestAnAnnouncedSavingAtItsBoundIsSaved` in `internal/crew`;
+    `TestAnOwnersAnswerOnAnAnnouncedOptionWritesTheDriver`,
+    `TestAnAnnouncedOptionWithNoTargetWritesNothing`,
+    `TestAnAnnouncedOptionThatBypassedSaveIsRefusedAtApply`,
+    `TestTheSupervisorsPassNeverAppliesAnAnnouncedOption`,
+    `TestTheSupervisorStampCannotApplyAnAnnouncedOption`,
+    `TestAForecastFrozenBeforeTheStepCarriesTheStep`,
+    `TestOnceAWindowDayLandsTheMeasuredRateWins`,
+    `TestAnnouncedEffectsMeasuresTheStepAfterClose`,
+    `TestAMissedMonthNamesTheAnnouncedDriverFurthestFromItsAnnouncementFirst`,
+    `TestAMeasuredTeamDecisionReadsThatTeamsSpend`,
+    `TestApplyRefusesASavingOverItsBoundWithItsReason`,
+    `TestAnOwnersAnswerNamingATeamWritesThatTeamAndMovesOnlyIt`
+    in `internal/finops`; `TestAnAnnouncedSavingIsNotRaised`,
+    `TestTheSameSavingUnannouncedIsRaised`,
+    `TestASavingMuchSmallerThanAnnouncedIsRaisedNamingIt`,
+    `TestARealSpikeInsideTheWindowIsStillRaised`,
+    `TestAnEarlyFallKeepsItsFindingAndGainsTheHint`,
+    `TestTwoAnnouncementsOnOneServiceAddUp`,
+    `TestTheRuleStatesTheDayAndTheExpectedLevelOnly` in `internal/detect`;
+    `TestAnOldDatabaseGainsTheColumnAndItsDriversReadAsBefore`,
+    `TestAnAnnouncedDriverRoundTripsItsAmount`,
+    `TestARecurringDriverWritesNoAmount`,
+    `TestTheSplitSumsExactlyToTheStep`,
+    `TestTheSplitIsProportionalToEachTeamsSpend`,
+    `TestASplitAgainstNoSpendAttachesNothing`,
+    `TestAnAnnouncedDriverKeepsItsTeam`,
+    `TestASavingOverTheMedianSpendIsRefused`,
+    `TestASavingAtTheMedianSpendIsAccepted`,
+    `TestASavingWithNoSpendToMeasureIsRefused`,
+    `TestAnIncreaseIsNotBounded`,
+    `TestANamedTeamsSavingIsBoundedByThatTeamsSpend`,
+    `TestTheBoundIsTheMedianNotTheMean`,
+    `TestAFutureSavingIsMeasuredAgainstTheLatestLandedDays`,
+    `TestASavingBeforeTheDataIsStillRefusedForNoSpend` in `internal/estate`;
+    `TestTheDecisionPageSaysWhatAnAnnouncedDecisionMeasured`,
+    `TestTheDecisionPageStatesTheAnnouncedLineOnceAndShowsTheSplit` in
+    `internal/web`; `TestTheServiceLevelSavingThatLandsProportionallyRaisesNothing`
+    and `TestATeamNamedSavingMovesOnlyThatTeam` in `internal/anomaly`;
+    `TestNothingDeletesARaisedAnomaly` and
+    `TestTheDeleteGuardCatchesAPlantedDelete` in `internal/anomaly`;
+    `scripts/roles-are-bound.sh`, property 4, which holds the supervisor's
+    `hands_to_owner` to the owner-owned classes.)*
+
+98. **A Cloudability drop is the whole month to date, exact, in FOCUS 1.1 and
     laid out the way the ingress reads it, or it is not written.** Until this,
     nothing carried the gateway's agent spend into Apptio Cloudability in
     either direction. `costcrew-cloudability` (`tools/cloudability`, in the
@@ -6165,7 +6256,7 @@ an absent invariant.
     drop that Cloudability takes as the month. One data file per drop,
     however large the month.
 
-98. **An amount too large for 64 bits is refused, never wrapped.**
+99. **An amount too large for 64 bits is refused, never wrapped.**
     `money.Parse` and `money.ParseMicros` read the whole part with
     `strconv.ParseInt`, which refuses a value past an int64, and then
     MULTIPLIED it by the scale, which wrapped without a word: measured

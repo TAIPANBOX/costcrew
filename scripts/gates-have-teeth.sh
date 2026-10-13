@@ -5175,7 +5175,7 @@ run_case $'prices: a new reading date alone moves no rate' \
 	$'Recorded: "2026-10-13",' \
 	$'Recorded: "2026-10-14",'
 
-# Invariant 97: a Cloudability drop (tools/cloudability). Each fault is one a
+# Invariant 98: a Cloudability drop (tools/cloudability). Each fault is one a
 # drop could carry into Cloudability without anybody seeing it there: the
 # bucket's name inside a report key, the wrong FOCUS version, a mandatory
 # column gone, money rounded, a call counted twice, a drop written into or
@@ -5344,7 +5344,7 @@ run_case $'cloudability: a reworded charge description is not a fault' \
 	tools/cloudability/focus.go \
 	$'return "Calls to " + r.model + " through the TokenFuse gateway"' \
 	$'return "Model calls to " + r.model + " through the TokenFuse gateway"'
-# Invariant 98: an amount too large for 64 bits is refused, never wrapped.
+# Invariant 99: an amount too large for 64 bits is refused, never wrapped.
 run_case $'money: an amount past 64 bits of micro-units wraps again' \
 	fail \
 	./internal/money \

@@ -126,12 +126,7 @@ func Run(db *sql.DB, now time.Time, cfg detect.Config, rec Recorder) (found, add
 	if err != nil {
 		return 0, 0, err
 	}
-	var dd []detect.Driver
-	for _, d := range drivers {
-		dd = append(dd, detect.Driver{
-			Start: d.Start, End: d.End, Scope: d.Scope, Label: d.Label, Kind: d.Kind,
-		})
-	}
+	splits := splitCache{}
 
 	series, err := estate.AllSeries(db)
 	if err != nil {
@@ -147,6 +142,10 @@ func Run(db *sql.DB, now time.Time, cfg detect.Config, rec Recorder) (found, add
 		pts := make([]detect.Point, len(days))
 		for i := range days {
 			pts[i] = detect.Point{Day: days[i], Amount: vals[i]}
+		}
+		dd, err := seriesDrivers(db, k, drivers, splits)
+		if err != nil {
+			return found, added, err
 		}
 		for _, f := range detect.Find(pts, k.Service, dd, cfg) {
 			found++

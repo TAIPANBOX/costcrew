@@ -169,6 +169,8 @@ func applySideEffect(db *sql.DB, opt crew.Option, t crew.Task, actor string, rec
 		return applyDriver(db, opt, t, "one-time")
 	case "driver.recurring": // class:driver.recurring
 		return applyDriver(db, opt, t, "recurring")
+	case "driver.announced": // class:driver.announced
+		return applyAnnounced(db, opt, t, actor)
 	case "forecast.freeze": // class:forecast.freeze
 		period, err := OpenPeriod(db)
 		if err != nil || period == "" {
@@ -425,6 +427,62 @@ func applyDriver(db *sql.DB, opt crew.Option, t crew.Task, kind string) error {
 
 	return estate.InsertDriver(db, world.Driver{
 		Start: start, End: end, Scope: scope, Label: opt.Summary, Kind: kind, Source: source,
+	})
+}
+
+// applyAnnounced writes the drivers row an answer on a driver.announced option
+// stands for (ANNOUNCED-DRIVER-SPEC.md sections 2 and 6). The class is the
+// owner's alone: roles.yaml gives it to no link but the owner, so the stamp is
+// checked against MayDecide here, on the apply path, and not only by the
+// supervisor's own pass. The window, the scope and the amount come only from
+// the target, which is checked again by the save-time function; nothing is read
+// from the clock and nothing is defaulted.
+func applyAnnounced(db *sql.DB, opt crew.Option, t crew.Task, actor string) error {
+	link := "owner"
+	if actor == "supervisor" {
+		link = "supervisor"
+	}
+	if may, why := crew.MayDecide(link, opt.Class); !may {
+		return fmt.Errorf("driver.announced is closed by the owner alone, and was stamped by %s: %s", actor, why)
+	}
+	source := t.Desk
+	if t.Anomaly != "" {
+		if an, err := anomaly.Get(db, t.Anomaly); err == nil {
+			source = an.Source
+		}
+	}
+	if source == "" {
+		return fmt.Errorf("driver.announced was applied on a task with no desk to write it against")
+	}
+	if reason := crew.ValidateAnnouncedTarget(opt.Target); reason != "" {
+		return fmt.Errorf("driver.announced's target is refused, recorded only, no drivers row written "+
+			"(option %d on artifact %d): %s", opt.Ordinal, opt.Artifact, reason)
+	}
+	var tgt struct {
+		Scope      string `json:"scope"`
+		Start      string `json:"start"`
+		End        string `json:"end"`
+		DailyCents int64  `json:"daily_cents"`
+		Team       string `json:"team"`
+	}
+	if err := json.Unmarshal(opt.Target, &tgt); err != nil {
+		return fmt.Errorf("driver.announced's target does not decode after it was checked: %w", err)
+	}
+	// The saving may not exceed the spend it is a saving of, checked again here
+	// for an option that bypassed the save-time gate (ANNOUNCED-DRIVER-SPEC.md
+	// section 11). The same function answers both.
+	refusal, err := estate.SavingRefusal(db, source, strings.TrimSpace(tgt.Scope), tgt.Team, tgt.Start, money.Cents(tgt.DailyCents))
+	if err != nil {
+		return err
+	}
+	if refusal != "" {
+		return fmt.Errorf("driver.announced's saving is refused, recorded only, no drivers row written "+
+			"(option %d on artifact %d): %s", opt.Ordinal, opt.Artifact, refusal)
+	}
+	expected := tgt.DailyCents
+	return estate.InsertDriver(db, world.Driver{
+		Start: tgt.Start, End: tgt.End, Scope: strings.TrimSpace(tgt.Scope), Label: opt.Summary,
+		Kind: "announced", Source: source, Expected: &expected, Team: tgt.Team,
 	})
 }
 

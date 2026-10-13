@@ -48,7 +48,8 @@ func TestThePacketCoversEverySection(t *testing.T) {
 	}
 
 	// A driver on this exact service and desk, covering the anomaly day.
-	if _, err := db.Exec(`INSERT INTO drivers VALUES (?,?,?,?,?,?)`,
+	if _, err := db.Exec(`INSERT INTO drivers (date_start, date_end, scope, label, kind, source)
+		VALUES (?,?,?,?,?,?)`,
 		"2026-07-10", "2026-07-16", an.Service, "a planned rollout", "one-time", an.Source); err != nil {
 		t.Fatal(err)
 	}
@@ -171,7 +172,8 @@ func TestEveryRemainingCatalogueToolRuns(t *testing.T) {
 	if err := finops.SeedRules(db); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(`INSERT INTO drivers VALUES ('2026-07-01','2026-07-31','Amazon EC2','a driver row','recurring','aws')`); err != nil {
+	if _, err := db.Exec(`INSERT INTO drivers (date_start, date_end, scope, label, kind, source)
+		VALUES ('2026-07-01','2026-07-31','Amazon EC2','a driver row','recurring','aws')`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := db.Exec(`INSERT INTO charges
