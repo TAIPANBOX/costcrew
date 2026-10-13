@@ -242,7 +242,7 @@ openrouter engine, from `v0.3.0` onward; sign-in through an identity provider
 `-max-run-tokens`, with `-local-parallel` from `v0.5.0` onward. The `v0.2.0` image has neither
 `-gateway` nor `-behind-tls`: passing `-gateway` to that image exits with
 `flag provided but not defined`. The `costcrew-run` binary in `v0.2.0` already
-accepts its separate `-gateway` flag. Pin `ghcr.io/taipanbox/costcrew:v0.5.0`
+accepts its separate `-gateway` flag. Pin `ghcr.io/taipanbox/costcrew:v0.6.0`
 for the console flags and complete release assets.
 
 Inside the stack, `./up.sh --with-finops` from
