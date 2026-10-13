@@ -50,4 +50,8 @@ func TestLoadTokenFuseFocusIsTheConnectorsOwnReader(t *testing.T) {
 	if a != 2 || a != b {
 		t.Errorf("ai_calls holds %d rows after LoadTokenFuseFocus and %d after Import, want 2 both ways", a, b)
 	}
+	// A folder the reader refuses outright is an error, never an empty load.
+	if got, err := LoadTokenFuseFocus(loaded, filepath.Join(dir, "missing")); err == nil {
+		t.Errorf("a missing folder loaded as %+v with no error", got)
+	}
 }
