@@ -227,3 +227,68 @@ func TestAMissedMonthNamesTheAnnouncedDriverFurthestFromItsAnnouncementFirst(t *
 			missed[0].Label, missed[1].Label, missed[2].Label)
 	}
 }
+
+// AnnouncedEffectOf is the one reader the decision page uses. It finds the
+// decision by its label and its desk, measures it in the month its window
+// starts in, and finds nothing for another desk or another label.
+func TestAnnouncedEffectOfReadsTheDecisionOnItsDesk(t *testing.T) {
+	db := annFixture(t)
+	if _, err := db.Exec(crew.Schema); err != nil {
+		t.Fatal(err)
+	}
+	annSpend(t, db, "aws", "svc-test-a", "2026-09-07", 24, 1000_00)
+	annSpend(t, db, "aws", "svc-test-a", "2026-10-01", 4, 1000_00)
+	annSpend(t, db, "aws", "svc-test-a", "2026-10-05", 27, 880_00)
+	annDriver(t, db, "aws", "svc-test-a", "2026-10-05", "2026-10-31", -300_00, "swap A")
+	if _, err := db.Exec(`INSERT INTO artifact_options
+		(artifact, ordinal, class, summary, figure_cents, saving_cents, risk, needs, evidence, state, decided_by, decided_at)
+		VALUES (1, 1, 'driver.announced', 'swap A', 0, 0, 'low', 'nothing', '[]', 'applied', 'owner', '2026-10-01T09:00:00Z')`); err != nil {
+		t.Fatal(err)
+	}
+
+	e, found, err := finops.AnnouncedEffectOf(db, "swap A", "aws")
+	if err != nil || !found {
+		t.Fatalf("the decision on its own desk: found %v, err %v", found, err)
+	}
+	if e.Measured != -120_00 || e.Days != 27 || e.Announced != -300_00 {
+		t.Errorf("measured %s over %d days, announced %s; want -120.00 over 27 days, announced -300.00",
+			e.Measured, e.Days, e.Announced)
+	}
+	if !e.Answered || e.AnsweredDaysBeforeStart != 4 {
+		t.Errorf("answered %v, %d days before start; want answered 4 days before", e.Answered, e.AnsweredDaysBeforeStart)
+	}
+	if _, found, _ := finops.AnnouncedEffectOf(db, "swap A", "onprem"); found {
+		t.Errorf("a decision registered on aws was found on onprem")
+	}
+	if _, found, _ := finops.AnnouncedEffectOf(db, "no such decision", "aws"); found {
+		t.Errorf("a label nobody registered was found")
+	}
+}
+
+// A decision whose service has no spend before its start and none in its window
+// has no measured figure: it says so, and it ranks after every measured one.
+func TestAnUnmeasuredDecisionSaysSoAndRanksLast(t *testing.T) {
+	db := annFixture(t)
+	if _, err := db.Exec(crew.Schema); err != nil {
+		t.Fatal(err)
+	}
+	annSpend(t, db, "aws", "svc-test-a", "2026-09-07", 24, 1000_00)
+	annSpend(t, db, "aws", "svc-test-a", "2026-10-05", 27, 880_00)
+	annDriver(t, db, "aws", "svc-test-quiet", "2026-10-05", "2026-10-31", -50_00, "quiet one")
+	annDriver(t, db, "aws", "svc-test-a", "2026-10-05", "2026-10-31", -300_00, "measured one")
+
+	effects, err := finops.AnnouncedEffects(db, "2026-10")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(effects) != 2 || effects[0].Label != "measured one" || effects[1].Label != "quiet one" {
+		t.Fatalf("order = %+v, want the measured decision first and the unmeasured one last", effects)
+	}
+	if q := effects[1]; q.Days != 0 || q.Measured != 0 {
+		t.Errorf("the unmeasured decision reads %d days and %s, want no measured figure", q.Days, q.Measured)
+	}
+	e, found, err := finops.AnnouncedEffectOf(db, "quiet one", "aws")
+	if err != nil || !found || e.Days != 0 {
+		t.Errorf("AnnouncedEffectOf on the unmeasured decision: found %v, days %d, err %v", found, e.Days, err)
+	}
+}

@@ -237,20 +237,10 @@ func AnnouncedEffectOf(db *sql.DB, label, source string) (AnnouncedEffect, bool,
 				return e, true, nil
 			}
 		}
-		// Its window overlaps its own start month, so AnnouncedEffects counts it;
-		// this is reached only for a window that does not. The record still
-		// carries the answer, and no measured figure.
-		e := AnnouncedEffect{Label: label, Source: source, Scope: d.Scope, Start: d.Start, End: d.End,
-			Announced: money.Cents(*d.Expected)}
-		decided, answered, err := announcedAnswer(db, label)
-		if err != nil {
-			return AnnouncedEffect{}, false, err
-		}
-		if answered {
-			e.Answered = true
-			e.AnsweredDaysBeforeStart = signedDays(decided, d.Start)
-		}
-		return e, true, nil
+		// A window with a valid start is always counted in its own start month,
+		// so this is unreachable for a row the console wrote; it is an error,
+		// not a silent empty record, if the store ever holds one that is not.
+		return AnnouncedEffect{}, false, fmt.Errorf("announced decision %q on %s is registered for %s but is not counted in that month", label, source, d.Start)
 	}
 	return AnnouncedEffect{}, false, nil
 }
