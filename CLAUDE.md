@@ -84,9 +84,9 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 1545 tests, 32 packages
-./scripts/gates-have-teeth.sh        # 542 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 563 scenarios, both directions
+go test ./...                        # 1547 tests, 32 packages
+./scripts/gates-have-teeth.sh        # 546 cases; needs a clean tree
+./scripts/features-are-bound.sh      # 565 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
@@ -94,17 +94,27 @@ govulncheck ./...                    # CI runs it, pinned at v1.8.0; reports onl
 staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refused PR #19 on two findings the list above never asked for; a staticcheck built for an older Go cannot read this module, so on such a machine CI is the only place it runs
 ```
 
-Invariants 96 and 97 (a Cloudability drop is the whole month to date, exact,
+Invariants 97 and 98 (a Cloudability drop is the whole month to date, exact,
 in FOCUS 1.1 and laid out the way the ingress reads it, or it is not written;
 an amount too large for 64 bits is refused, never wrapped) added 18 tests
 (`tools/cloudability`, 16, a new package; `internal/connectors/tokenfusefocus_load_test.go`,
 1; `internal/money/money_test.go`, 1), 20 `gates-have-teeth.sh` cases (18
 `fail`, 2 `pass`), 10 scenarios (`features/cloudability-drop.feature`, new),
 one binary in the image (`costcrew-cloudability`, declared in
-`components.json`) and no route: 1527 -> 1545 tests, 31 -> 32 packages,
-522 -> 542 cases, 553 -> 563 scenarios, measured on this branch and on a
-detached `origin/main` worktree at `e51de87` with the three commands this
-block already names.
+`components.json`) and no route: 1529 -> 1547 tests, 31 -> 32 packages,
+526 -> 546 cases, 555 -> 565 scenarios, re-measured after merging
+`origin/main` at `1366248` (#125, invariant 96) with the three commands this
+block already names. Written as 96 and 97 and renumbered when #125 took 96
+first.
+
+Invariant 96 (the two Anthropic price rows are the vendor's list rates and
+no row is marked as never checked) added 2 tests
+(`internal/engines/prices_test.go`, new), 4 `gates-have-teeth.sh` cases (3
+`fail`, 1 `pass`) and 2 scenarios
+(`features/anthropic-prices-are-the-vendors.feature`, new), and no route:
+1527 -> 1529 tests, 31 packages unchanged, 522 -> 526 cases, 553 -> 555
+scenarios, re-measured on this branch with the three commands this block
+already names.
 
 Invariant 95 (the reconciliation page states its exact-model-name limit; the
 usage connectors are listed as folders; the TokenFuse connector asks for a
@@ -5986,7 +5996,43 @@ an absent invariant.
     reconciliation still does not join an alias to its dated id; it says that
     it does not.
 
-96. **A Cloudability drop is the whole month to date, exact, in FOCUS 1.1 and
+96. **The Anthropic prices the console reserves with are the vendor's list
+    rates, and no price row is left marked as never checked.**
+    `internal/engines/prices.go` held `anthropic/claude-sonnet-5` at 3.00 /
+    15.00 and `anthropic/claude-opus-5` at 15.00 / 75.00 USD per million
+    tokens since 2026-08-24, both with the source "@claude, unverified
+    against the vendor". Anthropic's own price list says 2 / 10 for Sonnet 5
+    (its launch price became the standard price and the rise to 3 / 15
+    scheduled for 2026-09-01 did not happen) and 5 / 25 for Opus 5. Both
+    guesses were high, the safe direction for a bound, but a worst case two
+    to three times the real one refuses tasks a ceiling would have admitted,
+    and every figure the runner prints before a live run is read by a person
+    as a price.
+
+    The two rows are now 2.00 / 10.00 and 5.00 / 25.00, `Recorded`
+    2026-10-13, with the source @measured by `curl -sL
+    https://platform.claude.com/docs/en/about-claude/pricing.md | grep -E
+    '^\| Claude (Sonnet 5|Opus 5) '` (the "Model pricing" rows; the API lists
+    models and not prices, so the page is the source). They are the Claude
+    API's global list rates; a regional endpoint or `inference_geo` costs 10
+    percent more and is not modelled here. `tools/run/settlement_test.go`
+    keeps its literal 3.00 / 15.00: it replays the 2026-09-18 incident with
+    the row as it stood that day, and its comment now says so.
+    *(gate: `TestTheAnthropicRowsAreTheVendorsListRates` and
+    `TestNoPriceRowIsLeftUnverified` in `internal/engines`, expectations
+    written by hand from the page. @measured 2026-10-13 against the unfixed
+    table: both red, "anthropic/claude-sonnet-5 is priced 3.00 / 15.00 per
+    million, the vendor lists 2.00 / 10.00", the same for Opus 5 at 15.00 /
+    75.00 against 5.00 / 25.00, and "anthropic/claude-sonnet-5 is still
+    marked \"@claude, unverified against the vendor\"". Three `fail` cases
+    and one `pass` case in `gates-have-teeth.sh`.)* What this does not do:
+    the three OpenRouter rows and the three Bedrock rows were not re-read
+    (they are @measured 2026-08-24 and 2026-09-01 and say so); the DeepSeek
+    row's `deepseek-chat` is OpenRouter's id, which DeepSeek's own price page
+    of 2026-10-13 no longer names; and nothing re-reads a vendor page on a
+    schedule, so a row stays true on its date and no other.
+
+97. **A Cloudability drop is the whole month to date, exact, in FOCUS 1.1 and
     laid out the way the ingress reads it, or it is not written.** Until this,
     nothing carried the gateway's agent spend into Apptio Cloudability in
     either direction. `costcrew-cloudability` (`tools/cloudability`, in the
@@ -6119,7 +6165,7 @@ an absent invariant.
     drop that Cloudability takes as the month. One data file per drop,
     however large the month.
 
-97. **An amount too large for 64 bits is refused, never wrapped.**
+98. **An amount too large for 64 bits is refused, never wrapped.**
     `money.Parse` and `money.ParseMicros` read the whole part with
     `strconv.ParseInt`, which refuses a value past an int64, and then
     MULTIPLIED it by the scale, which wrapped without a word: measured

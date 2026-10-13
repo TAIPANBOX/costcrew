@@ -5140,7 +5140,42 @@ run_case $'connectors: the /ai link\'s words are not the property' \
 	$'View the imported AI spend, by agent and by the gateway\'s reason for each block' \
 	$'See the imported AI spend, by agent and by the gateway\'s reason for each block'
 
-# Invariant 96: a Cloudability drop (tools/cloudability). Each fault is one a
+# Invariant 96: the Anthropic rows are the vendor's list rates, and no row is
+# left marked as never checked.
+run_case $'prices: Sonnet 5 back at the unverified 3 / 15' \
+	fail \
+	./internal/engines \
+	$'TestTheAnthropicRowsAreTheVendorsListRates' \
+	$'the vendor lists 2.00 / 10.00' \
+	internal/engines/prices.go \
+	$'\t\tInPerM: 2.00, OutPerM: 10.00,' \
+	$'\t\tInPerM: 3.00, OutPerM: 15.00,'
+run_case $'prices: Opus 5 back at the unverified 15 / 75' \
+	fail \
+	./internal/engines \
+	$'TestTheAnthropicRowsAreTheVendorsListRates' \
+	$'the vendor lists 5.00 / 25.00' \
+	internal/engines/prices.go \
+	$'\t\tInPerM: 5.00, OutPerM: 25.00,' \
+	$'\t\tInPerM: 15.00, OutPerM: 75.00,'
+run_case $'prices: a row marked unverified again' \
+	fail \
+	./internal/engines \
+	$'TestNoPriceRowIsLeftUnverified' \
+	$'is still marked' \
+	internal/engines/prices.go \
+	$'Source:   "@measured, platform.claude.com/docs/en/about-claude/pricing.md, Model pricing",' \
+	$'Source:   "@claude, unverified against the vendor",'
+run_case $'prices: a new reading date alone moves no rate' \
+	pass \
+	./internal/engines \
+	$'TestTheAnthropicRowsAreTheVendorsListRates' \
+	$'' \
+	internal/engines/prices.go \
+	$'Recorded: "2026-10-13",' \
+	$'Recorded: "2026-10-14",'
+
+# Invariant 97: a Cloudability drop (tools/cloudability). Each fault is one a
 # drop could carry into Cloudability without anybody seeing it there: the
 # bucket's name inside a report key, the wrong FOCUS version, a mandatory
 # column gone, money rounded, a call counted twice, a drop written into or
@@ -5309,7 +5344,7 @@ run_case $'cloudability: a reworded charge description is not a fault' \
 	tools/cloudability/focus.go \
 	$'return "Calls to " + r.model + " through the TokenFuse gateway"' \
 	$'return "Model calls to " + r.model + " through the TokenFuse gateway"'
-# Invariant 97: an amount too large for 64 bits is refused, never wrapped.
+# Invariant 98: an amount too large for 64 bits is refused, never wrapped.
 run_case $'money: an amount past 64 bits of micro-units wraps again' \
 	fail \
 	./internal/money \
