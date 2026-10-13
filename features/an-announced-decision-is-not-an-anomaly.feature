@@ -87,3 +87,69 @@ Feature: An announced decision is judged as a step, not raised as an anomaly
     Given an announced decision, which no role in the crew decides alone
     When the supervisor's own stamp is applied to it
     Then the stamp is refused, and the decision waits for the owner
+
+  @decided 2026-10-13
+  Two defects the first live run found are settled here. A service-level saving
+  is split across the teams on its desk in proportion to what each spends, so
+  no team is charged with the whole of it, and a team the decision names takes
+  the whole of its own. A saving may not be larger than the spend it saves: it
+  is refused when it is saved and again when it is applied. An increase is not
+  bounded, because a model swap can multiply the spend it replaces.
+
+  @test:TestTheServiceLevelSavingThatLandsProportionallyRaisesNothing
+  @test:TestTheSplitIsProportionalToEachTeamsSpend
+  @test:TestTheSplitSumsExactlyToTheStep
+  Scenario: A service-level saving is split across the teams in proportion to their spend
+    Given a saving announced for a service on a desk, naming no team, and four
+      teams that spend on that service
+    When the detector judges each team's own series
+    Then each team takes its share in proportion to its median daily spend in
+      the 28 days before the start, the shares sum to the saving exactly, and a
+      saving that lands in proportion raises no finding
+
+  @test:TestATeamNamedSavingMovesOnlyThatTeam
+  @test:TestAMeasuredTeamDecisionReadsThatTeamsSpend
+  @test:TestAnAnnouncedDriverKeepsItsTeam
+  Scenario: A saving that names a team moves that team alone and is measured against its spend
+    Given a saving announced for one team on a service
+    When the detector judges the teams on that service, and the month is measured
+    Then only the named team's series takes the step, and the measured figure
+      is the named team's own spend against its own baseline
+
+  @test:TestASavingOverTheMedianSpendIsRefused
+  @test:TestAnAnnouncedSavingOverItsBoundIsRefusedWhenSaved
+  @test:TestApplyRefusesASavingOverItsBoundWithItsReason
+  Scenario: A saving larger than the spend it saves is refused when saved and when applied
+    Given a saving of 300.00 a day on a service that spent 260.00 a day in the
+      28 days before its start
+    When the option is saved, or when an owner applies an option that was never saved
+    Then it is refused with the reason, which names the saving, the median and
+      the window, and no drivers row is written
+
+  @test:TestASavingAtTheMedianSpendIsAccepted
+  @test:TestAnAnnouncedSavingAtItsBoundIsSaved
+  @test:TestAnIncreaseIsNotBounded
+  Scenario: A saving equal to the spend is accepted, and an increase is never bounded
+    Given a saving equal to the median daily spend, and an increase twenty
+      times the spend
+    When each is saved
+    Then the saving equal to the median is accepted, and the increase is accepted
+
+  @test:TestASavingWithNoSpendToMeasureIsRefused
+  @test:TestANamedTeamsSavingIsBoundedByThatTeamsSpend
+  @test:TestTheBoundIsTheMedianNotTheMean
+  Scenario: A saving with no spend to measure is refused, and a named team's saving is bounded by its own spend
+    Given a saving on a service with no spend in the 28 days before its start,
+      a saving named to a team larger than that team's spend, and a service whose
+      median is far below its mean
+    When each is saved
+    Then the first is refused as having nothing to measure against, the second
+      is refused against the team's own spend, and the third is judged by the
+      median, so a saving over the median is refused even when it is under the mean
+
+  @test:TestTheDecisionPageStatesTheAnnouncedLineOnceAndShowsTheSplit
+  Scenario: The decision page states the announced line once and shows each team's share
+    Given an applied decision that names no team, on a desk with two teams
+    When the owner reads the decision page
+    Then the line opens with the announced amount under its label, and the page
+      lists each team with its share of the spend and the change a day its share takes

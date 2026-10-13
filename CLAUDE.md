@@ -5994,9 +5994,24 @@ an absent invariant.
     measures each announced driver, and the decisions page shows announced
     against measured with the answer's date against the start. A detection
     pass never deletes a raised anomaly.
+
+    Section 11 (after the first live run, `@decided 2026-10-13`) adds three
+    rules to the same invariant. A service-level step is split across the teams
+    on its desk in proportion to each team's median daily spend over the 28 days
+    before the start, in exact integer cents, the remainder going to the largest
+    share; each team's series is judged against its own share, never the whole
+    step. A decision that names a `team` takes the whole step on that team's
+    series alone, and is measured against that team's own spend. A saving (a
+    negative step) may not exceed the median daily spend of the service on the
+    desk, or of the named team, over the same window: it is refused when saved
+    and again when applied, and a saving with no spend to measure is refused.
+    An increase is never bounded. The decision page lists each team's share of
+    a service-level decision, and states the announced line once.
     *(gate: `TestAnnouncedTargetRefusesEveryMalformedShape`,
     `TestAnnouncedTargetSurvivesHostileBytesAcrossSeeds`,
-    `TestNoRoleDecidesAnAnnouncedDriverAlone` in `internal/crew`;
+    `TestNoRoleDecidesAnAnnouncedDriverAlone`,
+    `TestAnAnnouncedSavingOverItsBoundIsRefusedWhenSaved`,
+    `TestAnAnnouncedSavingAtItsBoundIsSaved` in `internal/crew`;
     `TestAnOwnersAnswerOnAnAnnouncedOptionWritesTheDriver`,
     `TestAnAnnouncedOptionWithNoTargetWritesNothing`,
     `TestAnAnnouncedOptionThatBypassedSaveIsRefusedAtApply`,
@@ -6005,7 +6020,9 @@ an absent invariant.
     `TestAForecastFrozenBeforeTheStepCarriesTheStep`,
     `TestOnceAWindowDayLandsTheMeasuredRateWins`,
     `TestAnnouncedEffectsMeasuresTheStepAfterClose`,
-    `TestAMissedMonthNamesTheAnnouncedDriverFurthestFromItsAnnouncementFirst`
+    `TestAMissedMonthNamesTheAnnouncedDriverFurthestFromItsAnnouncementFirst`,
+    `TestAMeasuredTeamDecisionReadsThatTeamsSpend`,
+    `TestApplyRefusesASavingOverItsBoundWithItsReason`
     in `internal/finops`; `TestAnAnnouncedSavingIsNotRaised`,
     `TestTheSameSavingUnannouncedIsRaised`,
     `TestASavingMuchSmallerThanAnnouncedIsRaisedNamingIt`,
@@ -6015,9 +6032,22 @@ an absent invariant.
     `TestTheRuleStatesTheDayAndTheExpectedLevelOnly` in `internal/detect`;
     `TestAnOldDatabaseGainsTheColumnAndItsDriversReadAsBefore`,
     `TestAnAnnouncedDriverRoundTripsItsAmount`,
-    `TestARecurringDriverWritesNoAmount` in `internal/estate`;
-    `TestTheDecisionPageSaysWhatAnAnnouncedDecisionMeasured` in
-    `internal/web`; `TestNothingDeletesARaisedAnomaly` and
+    `TestARecurringDriverWritesNoAmount`,
+    `TestTheSplitSumsExactlyToTheStep`,
+    `TestTheSplitIsProportionalToEachTeamsSpend`,
+    `TestASplitAgainstNoSpendAttachesNothing`,
+    `TestAnAnnouncedDriverKeepsItsTeam`,
+    `TestASavingOverTheMedianSpendIsRefused`,
+    `TestASavingAtTheMedianSpendIsAccepted`,
+    `TestASavingWithNoSpendToMeasureIsRefused`,
+    `TestAnIncreaseIsNotBounded`,
+    `TestANamedTeamsSavingIsBoundedByThatTeamsSpend`,
+    `TestTheBoundIsTheMedianNotTheMean` in `internal/estate`;
+    `TestTheDecisionPageSaysWhatAnAnnouncedDecisionMeasured`,
+    `TestTheDecisionPageStatesTheAnnouncedLineOnceAndShowsTheSplit` in
+    `internal/web`; `TestTheServiceLevelSavingThatLandsProportionallyRaisesNothing`
+    and `TestATeamNamedSavingMovesOnlyThatTeam` in `internal/anomaly`;
+    `TestNothingDeletesARaisedAnomaly` and
     `TestTheDeleteGuardCatchesAPlantedDelete` in `internal/anomaly`;
     `scripts/roles-are-bound.sh`, property 4, which holds the supervisor's
     `hands_to_owner` to the owner-owned classes.)*
