@@ -56,8 +56,8 @@ reason for being here rather than in estate-gates: the only thing that knows
 which binaries a repository builds is the repository, so a component that was
 FORGOTTEN is invisible from outside by construction.
 
-Seven binaries. Four of them are in the published image (`checked.image` in
-`components.json`, held to the Dockerfile by invariant 60) and three are tools
+Ten binaries. Six of them are in the published image (`checked.image` in
+`components.json`, held to the Dockerfile by invariant 60) and four are tools
 run from source; a binary built and not declared is invisible from outside,
 which is exactly why the estate's own registry could not be the place this is
 written.
@@ -84,15 +84,28 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 1579 tests, 31 packages (measured at this commit)
-./scripts/gates-have-teeth.sh        # 526 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 570 scenarios, both directions
+go test ./...                        # 1597 tests, 32 packages
+./scripts/gates-have-teeth.sh        # 546 cases; needs a clean tree
+./scripts/features-are-bound.sh      # 580 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 govulncheck ./...                    # CI runs it, pinned at v1.8.0; reports only vulnerabilities the code can reach
 staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refused PR #19 on two findings the list above never asked for; a staticcheck built for an older Go cannot read this module, so on such a machine CI is the only place it runs
 ```
+
+Invariants 98 and 99 (a Cloudability drop is the whole month to date, exact,
+in FOCUS 1.1 and laid out the way the ingress reads it, or it is not written;
+an amount too large for 64 bits is refused, never wrapped) added 18 tests
+(`tools/cloudability`, 16, a new package; `internal/connectors/tokenfusefocus_load_test.go`,
+1; `internal/money/money_test.go`, 1), 20 `gates-have-teeth.sh` cases (18
+`fail`, 2 `pass`), 10 scenarios (`features/cloudability-drop.feature`, new),
+one binary in the image (`costcrew-cloudability`, declared in
+`components.json`) and no route: 1579 -> 1597 tests, 31 -> 32 packages,
+526 -> 546 cases, 570 -> 580 scenarios, re-measured after merging
+`origin/main` at `f761264` (#127, invariant 97) with the three commands this
+block already names. Written as 96 and 97; renumbered to 97 and 98 when #125
+took 96, and to 98 and 99 when #127 took 97.
 
 Invariant 96 (the two Anthropic price rows are the vendor's list rates and
 no row is marked as never checked) added 2 tests
@@ -6109,6 +6122,162 @@ an absent invariant.
     `TestTheDeleteGuardCatchesAPlantedDelete` in `internal/anomaly`;
     `scripts/roles-are-bound.sh`, property 4, which holds the supervisor's
     `hands_to_owner` to the owner-owned classes.)*
+
+98. **A Cloudability drop is the whole month to date, exact, in FOCUS 1.1 and
+    laid out the way the ingress reads it, or it is not written.** Until this,
+    nothing carried the gateway's agent spend into Apptio Cloudability in
+    either direction. `costcrew-cloudability` (`tools/cloudability`, in the
+    image) reads the folder the `tokenfuse-focus` connector reads through that
+    connector's own reader, `connectors.LoadTokenFuseFocus`, into a scratch
+    store removed on exit, so the columns, the refusals and bounds, the exact
+    micros (invariant 25) and a call exported twice counted once (invariant 89)
+    are the console's, not a second parser's. It writes
+    `<out>/<sub dirs>/<vendor>/<YYYYMMDD-YYYYMMDD>/<epoch>/<prefix>-00001.csv.gz`
+    and, last, `<prefix>-Manifest.json`, whose `focus_version` is `1.1`,
+    `content_type` `CSV`, `compression` `GZIP`, `root_dir` the bucket, and
+    `all_report_keys` the data file's path inside the bucket WITHOUT the
+    bucket's name (IBM's Custom Data FOCUS ingress documentation, read
+    2026-10-13: 1.0 or 1.1, matched exactly; gzipped CSV or Parquet; every
+    drop the entire month to date; the epoch folder marks the latest drop).
+    Each run writes the whole month again into a new epoch folder. An epoch
+    folder that exists, or an epoch at or behind one already there for the
+    month, is refused, so a drop never appends to another and never sits where
+    Cloudability would not read it; a drop that fails part way removes the
+    folder it made.
+
+    The drop is checked before it is written against one table of FOCUS 1.1
+    columns (`tools/cloudability/focus.go`, read from tag v1.1 of the FOCUS
+    specification's own column and attribute pages): every Mandatory column
+    present, held a second time against a separate list so a table that loses
+    a row cannot agree with itself; no null where 1.1 forbids one on a Usage
+    row; every restricted value in its list; every number, date and key-value
+    cell in its format; custom columns last and prefixed `x_`; and no text cell
+    that begins as a spreadsheet formula. It is all or nothing: a row the
+    reader refused, a file or link it did not read, a Purchase row, a value
+    that is not a plain name, a sum that overflows, or a month with no call
+    that went through, and no folder is written (exit 1, saying why); a flag
+    that would put the drop outside `-out` (a `..`, an absolute or hidden
+    segment, a slash in a name, a symbolic link on the drop's path) is refused
+    (exit 2, or 1 for the link). It makes no network call and carries no cloud
+    SDK; syncing the folder to the bucket is the operator's step, in README.md.
+
+    Decisions, `@claude` 2026-10-13, each a reading of the specification and
+    of the gateway's export rather than a measurement:
+    - One row per UTC day, gateway unit, agent, model, credential and
+      provider. Per-call rows would be millions a month.
+    - Money is summed in SQL as exact integer micro-dollars and written as
+      that sum to six decimals, so nothing is rounded at all, not even once
+      per row: a cent per row would lose up to half a cent on each of a
+      month's rows, and six decimals are the gateway's own export precision.
+      `BilledCost`, `EffectiveCost`, `ListCost` and `ContractedCost` are the
+      same figure, the gateway's settlement at its price book, because it
+      knows of no discount. No unit price is claimed: input and output tokens
+      are priced differently and the export carries one amount per call.
+    - `PricingQuantity` is tokens in plus out (what the gateway priced),
+      `PricingUnit` `Tokens`. `ConsumedQuantity` is the calls that went
+      through, `ConsumedUnit` `Requests`: 1.1 requires a positive consumed
+      quantity on a Usage row, and a call settled at the gateway's fallback
+      price (`x_cost_basis` `estimated`) parses no tokens.
+    - A blocked call costs nothing and consumes nothing. It is counted in
+      `x_BlockedCalls` on its group's row; a group of only blocked calls has
+      no row, since FOCUS has no Usage row for nothing consumed, and the
+      tool's own output counts those calls.
+    - The agent is `ResourceId`, with no `ResourceName` (1.1 forbids a name
+      that only repeats an id nobody named interactively). The gateway's unit
+      is `SubAccountId` and `SubAccountName`, null when no unit matched.
+      `Tags` carry `tokenfuse/agent`, `tokenfuse/model` and, when the gateway
+      named them, `tokenfuse/unit` and `tokenfuse/key_id` (1.1 requires a
+      provider prefix on a provider-defined tag); the same values are in
+      `x_AgentId`, `x_Unit`, `x_Model` and `x_KeyId`, beside `x_Calls`,
+      `x_BlockedCalls`, `x_EstimatedCalls`, `x_TokensIn` and `x_TokensOut`.
+    - Provider, publisher and invoice issuer are the vendor as the gateway
+      names it, which TokenFuse infers from the model name. `ServiceName` is
+      `<provider> API`, the console's own name for the same money
+      (`deriveCharges`); `ServiceCategory` `AI and Machine Learning`,
+      `ServiceSubcategory` `Generative AI`, `ChargeCategory` `Usage`,
+      `ChargeClass` null, `ChargeFrequency` `Usage-Based`.
+    - `BillingAccountId` has no truthful value in the export, so it is a
+      required flag; `BillingAccountName` is null unless given.
+    - A value that begins as a formula stops the drop instead of being
+      prefixed with an apostrophe the way the console's CSV downloads are
+      (invariant 78): 1.1 requires a string to keep its provider's spelling,
+      and an agent id altered in Cloudability is worse than no drop.
+    - A call's day is the UTC date of its settle instant (`date(ts)`), not
+      `ai_calls.day`, which is the date its text carries; TokenFuse writes
+      UTC, so the two agree on every export it writes.
+    - In the image (invariant 60): a deployment runs it on a schedule beside
+      the gateway, on a machine with no Go toolchain.
+    - The scratch store and the drop's folders and files are private (0700
+      and 0600), like the console's own files (invariant 63).
+    *(gate: `TestADropCarriesEachAgentsSpendByUnitTaggedForGrouping`,
+    `TestADropHoldsTheWholeMonthToDate`, `TestASecondDropSupersedesAndNeverAppends`,
+    `TestADropIsTheSameBytesEveryTime`, `TestTheManifestIsWhatCloudabilityReads`,
+    `TestTheReportPeriodRunsMonthToMonthAcrossYearsAndLeapFebruary`,
+    `TestEveryMandatoryFocus11ColumnIsFilledHonestly`,
+    `TestTheDropValidatorRefusesEachViolation` (21 shapes),
+    `TestManySubCentCallsAreSummedExactly`, `TestACallExportedTwiceIsInTheDropOnce`,
+    `TestAnOlderExportWithoutTheNewColumnsStillMakesADrop`,
+    `TestBlockedCallsAreCountedNotCharged`, `TestHostileInputMakesNoDrop` (16
+    shapes), `TestFlagsThatWouldWriteOutsideTheFolderAreRefused` (24 shapes),
+    `TestAWriteThatFailsPartWayLeavesNoFolder` (a manifest write made to fail
+    through the `createFile` seam) and
+    `TestBuildRefusesAnInstantItCannotDateAndATotalThatOverflows` in
+    `tools/cloudability`; `TestLoadTokenFuseFocusIsTheConnectorsOwnReader` in
+    `internal/connectors`. @measured `go test ./tools/cloudability -count=1`
+    2026-10-13 against a stub `run` that wrote nothing, on `origin/main`: the
+    first fourteen red, every drop test with "the tool refused to write a drop"
+    and the period test with `reportPeriod(2023-02) = "", want
+    "20230201-20230301"`; the last two were written after the code they hold
+    and were red against it with the cleanup, the undated-call check and the
+    total's overflow check each removed by hand ("a drop that failed part way
+    left [...costcrew-00001.csv.gz] behind", "a call SQLite cannot date was not
+    refused", "a month whose total overflows was not refused"). Seventeen
+    `fail` cases and two `pass` cases in `gates-have-teeth.sh`: the bucket's name in
+    a report key; `focus_version` 1.0; a mandatory column dropped from the
+    table, and from the table and the validator's list; each call, and each
+    row, rounded to a cent; a call exported twice counted twice (supersede
+    skipped); a drop written into an epoch folder that exists, and behind a
+    later one; a drop that fails part way leaving its folder; rows in no
+    fixed order; the first of next month taken in; a
+    call filed on the date its text carries; a row for a group of only blocked
+    calls; a refused row let through; a formula through both checks;
+    `LoadTokenFuseFocus` reporting no refused rows. The `pass` cases: the
+    export's own name check removed while the validator still stops a formula,
+    and a reworded charge description.)*
+    What this does not cover: no Cloudability tenant has accepted a drop;
+    IBM's documentation does not say whether a report key starts with a slash
+    (these do not), how Cloudability groups by a tag key carrying a `/`, or
+    whether it reads anything but the newest epoch, so all three are readings.
+    `BilledCost` is the gateway's settlement, not the vendor's invoice that
+    1.1 defines it against; the console's `/reconciliation` sets the two side
+    by side. No FOCUS validator was run: the FOCUS project's own is a Python
+    package, and nothing was installed for it. The tool does not compare a
+    drop with the one before it, so a folder that lost exports makes a smaller
+    drop that Cloudability takes as the month. One data file per drop,
+    however large the month.
+
+99. **An amount too large for 64 bits is refused, never wrapped.**
+    `money.Parse` and `money.ParseMicros` read the whole part with
+    `strconv.ParseInt`, which refuses a value past an int64, and then
+    MULTIPLIED it by the scale, which wrapped without a word: measured
+    2026-10-13 while writing the drop's hostile-input tests,
+    `ParseMicros("18446744073710")` returned 448,384, because 18,446,744,073,710
+    million micro-units is 2^64 plus 448,384, so a TokenFuse export carrying
+    that `BilledCost` was imported by the console's own `tokenfuse-focus`
+    reader as a call worth $0.448384, and `Parse("184467440737095517")` came
+    back as 84 cents. Both now go through `scaled`, which refuses a product
+    that does not fit, with the bound on the magnitude, so the most negative
+    int64 is refused too and every negation downstream of a parsed amount stays
+    in range. The cloud FOCUS readers already refused a row over a billion
+    before parsing it (invariant 67); the gateway reader and every other
+    caller had no such bound.
+    *(gate: `TestAnAmountTooLargeToHoldIsRefusedNotWrapped` in
+    `internal/money` (five micro-unit and three cent shapes, and the largest
+    value of each scale still read), red on `origin/main` with
+    `ParseMicros("18446744073710") = 448384 (0.45), want a refusal` among
+    eight; the drop's `TestHostileInputMakesNoDrop` carries the same amount
+    through the gateway reader. One `fail` case in `gates-have-teeth.sh`: the
+    bound removed.)*
 
 ## Decisions that have no gate yet
 

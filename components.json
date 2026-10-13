@@ -523,6 +523,61 @@
           "why": "neither provider's documentation names a charge for these reports (read 2026-10-07); that is a reading of their documents, not a measured bill"
         }
       }
+    },
+    {
+      "name": "costcrew-cloudability",
+      "class": "tool",
+      "checked": {
+        "package": "github.com/TAIPANBOX/costcrew/tools/cloudability",
+        "image": true,
+        "flags": {
+          "billing-account-id": {
+            "required": true
+          },
+          "billing-account-name": {
+            "required": false
+          },
+          "in": {
+            "required": true
+          },
+          "month": {
+            "required": false
+          },
+          "out": {
+            "required": true
+          },
+          "prefix": {
+            "required": false
+          },
+          "root-dir": {
+            "required": true
+          },
+          "sub-dir": {
+            "required": false
+          },
+          "vendor": {
+            "required": false
+          }
+        }
+      },
+      "declared": {
+        "role": {
+          "value": "turns the TokenFuse gateway's FOCUS exports into a month-to-date FOCUS 1.1 drop (gzipped CSV and its manifest) for Apptio Cloudability's Custom Data FOCUS ingress, written into a local folder laid out the way the ingress reads a bucket",
+          "why": "as above; the folder it reads is the one the console's tokenfuse-focus connector reads, through that connector's own reader (connectors.LoadTokenFuseFocus)"
+        },
+        "makes_no_network_call": {
+          "value": true,
+          "why": "copying the folder to S3, Google Cloud Storage or Azure Blob storage is the operator's step (README.md); this binary carries no cloud SDK and reads no credential, so it can neither reach a bucket nor spend anything"
+        },
+        "focus_version": {
+          "value": "1.1",
+          "why": "Cloudability's ingress accepts FOCUS 1.0 and 1.1 and requires the manifest's focus_version to match exactly (IBM's documentation, read 2026-10-13); every column rule in tools/cloudability/focus.go was read from tag v1.1 of the FOCUS specification"
+        },
+        "the_console_never_runs_it": {
+          "value": true,
+          "why": "it is a separate binary run on a schedule beside the gateway, the way costcrew-usage is; nothing the console imports imports it"
+        }
+      }
     }
   ]
 }

@@ -314,3 +314,48 @@ func TestMicrosStringShowsFourDecimalsUnderACent(t *testing.T) {
 		}
 	}
 }
+
+// TestAnAmountTooLargeToHoldIsRefusedNotWrapped: the whole part is read with
+// ParseInt, which refuses anything past an int64, but it is then MULTIPLIED by
+// the scale, and that multiply wrapped. Measured 2026-10-13 before the fix:
+// ParseMicros("18446744073710") returned 448384, forty-five cents, with no
+// error, because 18,446,744,073,710 million micro-units is 2^64 plus 448,384.
+// A gateway export carrying that amount was read as a call worth $0.448384.
+// The largest value each scale holds still parses; one unit past it is
+// refused, both signs.
+func TestAnAmountTooLargeToHoldIsRefusedNotWrapped(t *testing.T) {
+	for _, s := range []string{
+		"18446744073710",       // 2^64 micro-units plus 448,384: wrapped to 0.448384
+		"9223372036855",        // wrapped to a large negative
+		"92233720368547.758",   // wrapped to -80 micro-units
+		"9223372036854.775808", // one micro-unit past the largest
+		// The bound is on the magnitude, so it is the same both ways: the most
+		// negative int64 is refused too, since its magnitude does not fit and
+		// every negation of it (Cents, String) would wrap again.
+		"-9223372036854.775808",
+	} {
+		if v, err := ParseMicros(s); err == nil {
+			t.Errorf("ParseMicros(%q) = %d (%s), want a refusal: the amount does not fit in "+
+				"64 bits of micro-units and came back wrapped", s, int64(v), v)
+		}
+	}
+	for _, s := range []string{
+		"92233720368547758.08", // one cent past the largest
+		"184467440737095517",   // wraps to a small positive number of cents
+		"-92233720368547758.08",
+	} {
+		if v, err := Parse(s); err == nil {
+			t.Errorf("Parse(%q) = %d (%s), want a refusal: the amount does not fit in "+
+				"64 bits of cents and came back wrapped", s, int64(v), v)
+		}
+	}
+	if v, err := ParseMicros("9223372036854.775807"); err != nil || int64(v) != 9223372036854775807 {
+		t.Errorf("ParseMicros of the largest value = %d, %v; it fits and must be read", int64(v), err)
+	}
+	if v, err := ParseMicros("-9223372036854.775807"); err != nil || int64(v) != -9223372036854775807 {
+		t.Errorf("ParseMicros of the most negative value = %d, %v; it fits and must be read", int64(v), err)
+	}
+	if v, err := Parse("92233720368547758.07"); err != nil || int64(v) != 9223372036854775807 {
+		t.Errorf("Parse of the largest value = %d, %v; it fits and must be read", int64(v), err)
+	}
+}
