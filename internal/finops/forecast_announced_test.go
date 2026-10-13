@@ -265,8 +265,9 @@ func TestAnnouncedEffectOfReadsTheDecisionOnItsDesk(t *testing.T) {
 	}
 }
 
-// A decision whose service has no spend before its start and none in its window
-// has no measured figure: it says so, and it ranks after every measured one.
+// A decision whose service has spend in its window but none before its start
+// has no clean baseline, so it has no measured figure: it says so, and it ranks
+// after every measured one.
 func TestAnUnmeasuredDecisionSaysSoAndRanksLast(t *testing.T) {
 	db := annFixture(t)
 	if _, err := db.Exec(crew.Schema); err != nil {
@@ -274,6 +275,7 @@ func TestAnUnmeasuredDecisionSaysSoAndRanksLast(t *testing.T) {
 	}
 	annSpend(t, db, "aws", "svc-test-a", "2026-09-07", 24, 1000_00)
 	annSpend(t, db, "aws", "svc-test-a", "2026-10-05", 27, 880_00)
+	annSpend(t, db, "aws", "svc-test-quiet", "2026-10-05", 27, 900_00)
 	annDriver(t, db, "aws", "svc-test-quiet", "2026-10-05", "2026-10-31", -50_00, "quiet one")
 	annDriver(t, db, "aws", "svc-test-a", "2026-10-05", "2026-10-31", -300_00, "measured one")
 
