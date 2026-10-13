@@ -15,11 +15,6 @@ import (
 	"github.com/TAIPANBOX/costcrew/internal/world"
 )
 
-// announcedBaselineDays is how far back of an announced driver's start its
-// clean baseline is drawn: the median of the scope's daily spend over the up to
-// 28 days before Start (section 5).
-const announcedBaselineDays = 28
-
 // AnnouncedEffect is one announced driver's record for one month. Announced is
 // the amount the owner's decision said the service's daily cost would move by.
 // Measured is the mean, over the covered days of the month that have spend, of
