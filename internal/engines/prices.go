@@ -29,8 +29,16 @@ import (
 //     0.27/1.10 against a real 0.2574/1.0287, and 0.60/2.50 against 0.57/2.30.
 //     High is the safe direction for a bound, and being close is not the same
 //     as being right.
-//   - The Anthropic direct entries are still @claude. That API lists its
-//     models and not their prices, so nothing here has measured them.
+//   - The two Anthropic direct entries are @measured 2026-10-13 from the
+//     vendor's own price list, `curl -sL
+//     https://platform.claude.com/docs/en/about-claude/pricing.md | grep -E
+//     '^\| Claude (Sonnet 5|Opus 5) '`, its "Model pricing" rows (the API
+//     lists models and not prices, so the page is the source). They were
+//     @claude estimates from 2026-08-24 first, and both were HIGH: Sonnet 5
+//     3/15 against a real 2/10 (its launch price became the standard price;
+//     the rise to 3/15 scheduled for 2026-09-01 did not happen), Opus 5 15/75
+//     against a real 5/25. These are the Claude API's global list rates; a
+//     regional endpoint or `inference_geo` costs 10 percent more.
 //
 // So treat these as a floor for a DRY estimate and re-check them against the
 // vendor before a single live call. Where a model is missing entirely, the
@@ -52,12 +60,14 @@ var prices = map[string]Price{
 		Source:   "@measured, GET openrouter.ai/api/v1/models",
 	},
 	"anthropic/claude-sonnet-5": {
-		InPerM: 3.00, OutPerM: 15.00,
-		Recorded: "2026-08-24", Source: "@claude, unverified against the vendor",
+		InPerM: 2.00, OutPerM: 10.00,
+		Recorded: "2026-10-13",
+		Source:   "@measured, platform.claude.com/docs/en/about-claude/pricing.md, Model pricing",
 	},
 	"anthropic/claude-opus-5": {
-		InPerM: 15.00, OutPerM: 75.00,
-		Recorded: "2026-08-24", Source: "@claude, unverified against the vendor",
+		InPerM: 5.00, OutPerM: 25.00,
+		Recorded: "2026-10-13",
+		Source:   "@measured, platform.claude.com/docs/en/about-claude/pricing.md, Model pricing",
 	},
 	"openrouter/deepseek/deepseek-chat": {
 		InPerM: 0.2574, OutPerM: 1.0287,
