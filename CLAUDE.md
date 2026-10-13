@@ -84,8 +84,8 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 1543 tests, 32 packages
-./scripts/gates-have-teeth.sh        # 541 cases; needs a clean tree
+go test ./...                        # 1545 tests, 32 packages
+./scripts/gates-have-teeth.sh        # 542 cases; needs a clean tree
 ./scripts/features-are-bound.sh      # 563 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
@@ -96,13 +96,13 @@ staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refus
 
 Invariants 96 and 97 (a Cloudability drop is the whole month to date, exact,
 in FOCUS 1.1 and laid out the way the ingress reads it, or it is not written;
-an amount too large for 64 bits is refused, never wrapped) added 16 tests
-(`tools/cloudability`, 14, a new package; `internal/connectors/tokenfusefocus_load_test.go`,
-1; `internal/money/money_test.go`, 1), 19 `gates-have-teeth.sh` cases (17
+an amount too large for 64 bits is refused, never wrapped) added 18 tests
+(`tools/cloudability`, 16, a new package; `internal/connectors/tokenfusefocus_load_test.go`,
+1; `internal/money/money_test.go`, 1), 20 `gates-have-teeth.sh` cases (18
 `fail`, 2 `pass`), 10 scenarios (`features/cloudability-drop.feature`, new),
 one binary in the image (`costcrew-cloudability`, declared in
-`components.json`) and no route: 1527 -> 1543 tests, 31 -> 32 packages,
-522 -> 541 cases, 553 -> 563 scenarios, measured on this branch and on a
+`components.json`) and no route: 1527 -> 1545 tests, 31 -> 32 packages,
+522 -> 542 cases, 553 -> 563 scenarios, measured on this branch and on a
 detached `origin/main` worktree at `e51de87` with the three commands this
 block already names.
 
@@ -6081,18 +6081,27 @@ an absent invariant.
     `TestManySubCentCallsAreSummedExactly`, `TestACallExportedTwiceIsInTheDropOnce`,
     `TestAnOlderExportWithoutTheNewColumnsStillMakesADrop`,
     `TestBlockedCallsAreCountedNotCharged`, `TestHostileInputMakesNoDrop` (16
-    shapes), `TestFlagsThatWouldWriteOutsideTheFolderAreRefused` (23 shapes)
-    in `tools/cloudability`; `TestLoadTokenFuseFocusIsTheConnectorsOwnReader`
-    in `internal/connectors`. @measured `go test ./tools/cloudability -count=1`
-    2026-10-13 against a stub `run` that wrote nothing: all fourteen red, every
-    drop test with "the tool refused to write a drop" and the period test with
-    `reportPeriod(2023-02) = "", want "20230201-20230301"`. Sixteen `fail`
-    cases and two `pass` cases in `gates-have-teeth.sh`: the bucket's name in
+    shapes), `TestFlagsThatWouldWriteOutsideTheFolderAreRefused` (24 shapes),
+    `TestAWriteThatFailsPartWayLeavesNoFolder` (a manifest write made to fail
+    through the `createFile` seam) and
+    `TestBuildRefusesAnInstantItCannotDateAndATotalThatOverflows` in
+    `tools/cloudability`; `TestLoadTokenFuseFocusIsTheConnectorsOwnReader` in
+    `internal/connectors`. @measured `go test ./tools/cloudability -count=1`
+    2026-10-13 against a stub `run` that wrote nothing, on `origin/main`: the
+    first fourteen red, every drop test with "the tool refused to write a drop"
+    and the period test with `reportPeriod(2023-02) = "", want
+    "20230201-20230301"`; the last two were written after the code they hold
+    and were red against it with the cleanup, the undated-call check and the
+    total's overflow check each removed by hand ("a drop that failed part way
+    left [...costcrew-00001.csv.gz] behind", "a call SQLite cannot date was not
+    refused", "a month whose total overflows was not refused"). Seventeen
+    `fail` cases and two `pass` cases in `gates-have-teeth.sh`: the bucket's name in
     a report key; `focus_version` 1.0; a mandatory column dropped from the
     table, and from the table and the validator's list; each call, and each
     row, rounded to a cent; a call exported twice counted twice (supersede
     skipped); a drop written into an epoch folder that exists, and behind a
-    later one; rows in no fixed order; the first of next month taken in; a
+    later one; a drop that fails part way leaving its folder; rows in no
+    fixed order; the first of next month taken in; a
     call filed on the date its text carries; a row for a group of only blocked
     calls; a refused row let through; a formula through both checks;
     `LoadTokenFuseFocus` reporting no refused rows. The `pass` cases: the

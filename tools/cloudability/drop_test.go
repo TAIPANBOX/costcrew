@@ -766,6 +766,15 @@ func TestFlagsThatWouldWriteOutsideTheFolderAreRefused(t *testing.T) {
 		})
 	}
 
+	t.Run("a file where a folder of the drop goes", func(t *testing.T) {
+		out := t.TempDir()
+		writeRaw(t, out, "TokenFuse", "not a folder")
+		r := runTool(t, at, baseFlags(in, out)...)
+		if r.code == 0 || !strings.Contains(r.stderr, "not a folder") {
+			t.Errorf("a file on the drop's path was not refused by name (exit %d): %s", r.code, r.stderr)
+		}
+	})
+
 	// A link where the drop's own folders go would carry the drop wherever
 	// it points.
 	t.Run("a symbolic link on the drop's path", func(t *testing.T) {

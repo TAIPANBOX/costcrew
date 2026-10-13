@@ -5223,6 +5223,14 @@ run_case $'cloudability: a drop written behind a later one' \
 	tools/cloudability/drop.go \
 	$'\t\tif n > now.Unix() {' \
 	$'\t\tif false && n > now.Unix() {'
+run_case $'cloudability: a drop that fails part way leaves its folder behind' \
+	fail \
+	./tools/cloudability \
+	$'TestAWriteThatFailsPartWayLeavesNoFolder' \
+	$'left' \
+	tools/cloudability/drop.go \
+	$'\t\t\tos.RemoveAll(w.epochDir) // this call made it a moment ago, and it is incomplete' \
+	$'\t\t\t_ = w.epochDir'
 run_case $'cloudability: the rows come out in no fixed order' \
 	fail \
 	./tools/cloudability \

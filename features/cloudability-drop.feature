@@ -29,12 +29,14 @@ Feature: Agent spend from the gateway reaches Cloudability
 
   # @test:TestASecondDropSupersedesAndNeverAppends
   # @test:TestADropIsTheSameBytesEveryTime
+  # @test:TestAWriteThatFailsPartWayLeavesNoFolder
   Scenario: A later drop replaces the month, it never adds to it
     Given a drop for this month already in the folder
     When the drop is made again later from the same exports
     Then a new epoch folder holds the whole month again, the data byte for byte the same
     And the earlier folder is left as it was
     And a drop is never written into a folder that already exists, nor behind a later one
+    And a drop that fails part way leaves no folder behind
 
   # @test:TestTheManifestIsWhatCloudabilityReads
   # @test:TestTheReportPeriodRunsMonthToMonthAcrossYearsAndLeapFebruary
@@ -80,6 +82,7 @@ Feature: Agent spend from the gateway reaches Cloudability
     And a group of only blocked calls has no row, and the tool says how many calls that was
 
   # @test:TestHostileInputMakesNoDrop
+  # @test:TestBuildRefusesAnInstantItCannotDateAndATotalThatOverflows
   # @test:TestAnAmountTooLargeToHoldIsRefusedNotWrapped
   # @test:TestFlagsThatWouldWriteOutsideTheFolderAreRefused
   Scenario: Input the tool cannot vouch for makes no drop at all

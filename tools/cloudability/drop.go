@@ -255,7 +255,7 @@ func write(l layout, month, now time.Time, records [][]string) (written, error) 
 		}
 		if n > now.Unix() {
 			return w, fmt.Errorf("a drop for %s already exists at epoch %d, later than this run's %s; Cloudability "+
-				"reads the latest epoch folder, so this drop would never be the one it reads. Is the clock behind?",
+				"reads the latest epoch folder, so this drop would never be the one it reads (is this machine's clock behind?)",
 				month.Format("2006-01"), n, epoch)
 		}
 	}
@@ -280,7 +280,7 @@ func write(l layout, month, now time.Time, records [][]string) (written, error) 
 	}
 	dataName := l.prefix + "-00001.csv.gz"
 	w.dataPath = filepath.Join(w.epochDir, dataName)
-	if err := writeNew(w.dataPath, data); err != nil {
+	if err := createFile(w.dataPath, data); err != nil {
 		return w, err
 	}
 	// The keys are paths inside the bucket WITHOUT the bucket's own name:
@@ -306,7 +306,7 @@ func write(l layout, month, now time.Time, records [][]string) (written, error) 
 	body = append(body, '\n')
 	w.manifestPath = filepath.Join(w.epochDir, l.prefix+"-Manifest.json")
 	tmp := filepath.Join(w.epochDir, "."+l.prefix+"-Manifest.json.partial")
-	if err := writeNew(tmp, body); err != nil {
+	if err := createFile(tmp, body); err != nil {
 		return w, err
 	}
 	if err := os.Rename(tmp, w.manifestPath); err != nil {
@@ -366,6 +366,10 @@ func gzipCSV(hdr []string, records [][]string) ([]byte, error) {
 	}
 	return buf.Bytes(), nil
 }
+
+// createFile is how write puts a file down: writeNew, except in a test that
+// makes a write fail part way to show the folder is not left behind.
+var createFile = writeNew
 
 // writeNew writes a file that must not exist yet, private to this account,
 // and flushes it to disk before returning.

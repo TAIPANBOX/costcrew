@@ -97,7 +97,7 @@ func run(args []string, stdout, stderr io.Writer, now func() time.Time) int {
 		return 2
 	}
 	if err := makeDrop(cfg, t, stdout); err != nil {
-		fmt.Fprintf(stderr, "No drop was written for %s. %v\n", cfg.month.Format("2006-01"), err)
+		fmt.Fprintf(stderr, "No drop was written for %s: %v.\n", cfg.month.Format("2006-01"), err)
 		return 1
 	}
 	return 0
@@ -174,16 +174,16 @@ func makeDrop(cfg config, now time.Time, stdout io.Writer) error {
 
 	load, err := connectors.LoadTokenFuseFocus(st.DB(), cfg.in)
 	if err != nil {
-		return fmt.Errorf("The tokenfuse-focus reader refused the folder: %w", err)
+		return fmt.Errorf("the tokenfuse-focus reader refused the folder: %w", err)
 	}
 	if load.RefusedRows > 0 || load.FilesNotRead > 0 {
-		return fmt.Errorf("The reader refused %d row%s and did not read %d file%s or link%s, and a drop that leaves "+
-			"out money it was given reads in Cloudability as the whole month. Fix or move them and run again. "+
+		return fmt.Errorf("the reader refused %d row%s and did not read %d file%s or link%s, and a drop that leaves "+
+			"out money it was given reads in Cloudability as the whole month; fix or move them and run again. "+
 			"The reader said: %s", load.RefusedRows, plural(int64(load.RefusedRows)), load.FilesNotRead,
 			plural(int64(load.FilesNotRead)), plural(int64(load.FilesNotRead)), load.Sentence)
 	}
 	if load.CommitmentRows > 0 {
-		return fmt.Errorf("The folder holds %d ChargeCategory Purchase row%s, which TokenFuse does not write and this "+
+		return fmt.Errorf("the folder holds %d ChargeCategory Purchase row%s, which TokenFuse does not write and this "+
 			"drop has no place for. The reader said: %s", load.CommitmentRows, plural(int64(load.CommitmentRows)), load.Sentence)
 	}
 
@@ -192,12 +192,12 @@ func makeDrop(cfg config, now time.Time, stdout io.Writer) error {
 		return err
 	}
 	if len(c.records) == 0 {
-		return fmt.Errorf("There is no call in the folder that went through in %s to drop (%d outside it, %d blocked). "+
-			"A drop holds the whole month, so an empty one would replace the month in Cloudability with nothing.",
+		return fmt.Errorf("there is no call in the folder that went through in %s to drop (%d outside it, %d blocked), "+
+			"and a drop holds the whole month, so an empty one would replace the month in Cloudability with nothing",
 			cfg.month.Format("2006-01"), c.outside, c.blocked)
 	}
 	if err := validateDrop(header(), c.records); err != nil {
-		return fmt.Errorf("The drop would not be FOCUS 1.1: %w", err)
+		return fmt.Errorf("the drop would not be FOCUS 1.1: %w", err)
 	}
 	w, err := write(cfg.l, cfg.month, now, c.records)
 	if err != nil {
