@@ -177,11 +177,31 @@ func Parse(s string) (Cents, error) {
 		}
 	}
 
-	total := whole*100 + cents
+	total, ok := scaled(whole, cents, 100)
+	if !ok {
+		return 0, fmt.Errorf("%w: %q does not fit in 64 bits of cents", errShape, s)
+	}
 	if neg {
 		total = -total
 	}
 	return Cents(total), nil
+}
+
+// scaled is whole*unit + part, or false when that does not fit in an int64.
+//
+// ParseInt refuses a whole part past an int64, and that is not enough: the
+// whole part is then multiplied by the scale, and the multiply wrapped without
+// a word. Measured 2026-10-13: ParseMicros("18446744073710") returned 448384,
+// because 18,446,744,073,710 million micro-units is 2^64 plus 448,384, so a
+// gateway export carrying that amount was read as a call worth $0.448384. The
+// bound is on the magnitude (whole and part are both non-negative here), so the
+// most negative int64 is refused as well, and every negation downstream of a
+// parsed amount stays in range.
+func scaled(whole, part, unit int64) (int64, bool) {
+	if whole < 0 || part < 0 || whole > (math.MaxInt64-part)/unit {
+		return 0, false
+	}
+	return whole*unit + part, true
 }
 
 // MustParse is for literals in seeded data, where a bad string is a bug in the
@@ -264,7 +284,10 @@ func ParseMicros(s string) (Micros, error) {
 		}
 	}
 
-	total := whole*1_000_000 + micros
+	total, ok := scaled(whole, micros, 1_000_000)
+	if !ok {
+		return 0, fmt.Errorf("%w: %q does not fit in 64 bits of micro-units", errShape, s)
+	}
 	if neg {
 		total = -total
 	}
