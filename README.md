@@ -152,6 +152,28 @@ A Sunday is judged against Sundays. And findings are ranked by **money**, becaus
 a four sigma deviation worth three dollars is real, true, and not worth anybody's
 morning.
 
+## An announced decision is not an anomaly
+
+When the crew recommends a saving and the owner confirms it before it lands,
+the saving is recorded as a dated decision: the service, the window, and the
+expected change in that service's daily cost. The detector then judges the
+days of the window against a baseline already moved by that amount, so the
+saving does not come back as an anomaly on the day it lands. A day that
+misses the announced step is still raised, and the finding names the decision
+and states the day's amount against the expected level. A spike on the same
+service inside the window is raised as well.
+
+The forecast carries the step for each day of the window that has not landed,
+so a forecast frozen after the announcement already includes it. Once a month
+closes, each announced decision shows the amount it announced beside the
+amount its days measured, and whether the answer came before its start or
+after it.
+
+Only the owner closes an announcement. The crew can propose one and the
+supervisor carries it to the owner; no role applies it alone. An announcement
+made after its start stops new findings only, because a raised anomaly is
+never deleted.
+
 ## A typed hint from typryx, optional
 
 Before an analyst works an anomaly, the console can ask

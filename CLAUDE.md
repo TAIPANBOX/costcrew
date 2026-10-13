@@ -5974,6 +5974,54 @@ an absent invariant.
     reconciliation still does not join an alias to its dated id; it says that
     it does not.
 
+96. **An announced decision is judged as a step, the owner alone closes
+    it, and no detection pass deletes a raised anomaly.** `@decided
+    2026-10-13`: the crew proposes a cost decision and the owner confirms it
+    before it lands; the crew does not apply it on its own. The class is
+    `driver.announced` in `internal/crew/roles.yaml`, owned by the owner, and
+    no role decides it alone. The supervisor's pass carries it to the owner,
+    and the apply path refuses a stamp from the supervisor
+    (`internal/finops/apply.go`, `applyAnnounced`). Its target,
+    `{scope, start, end, daily_cents}`, is decoded strictly and checked by one
+    function at save time and again at apply time, so a window the two
+    existing driver classes would refuse is refused too. The detector shifts
+    the history before the start by `daily_cents`, judges the day by the rule
+    it always used, and names the decision and the expected level in the
+    finding; a day inside the window that misses is still raised, and so is
+    a spike on the same service. A window nothing has landed in gets its own
+    forecast line of `daily_cents` times its days, and a frozen forecast's
+    basis names the amount. Once a month closes, `finops.AnnouncedEffects`
+    measures each announced driver, and the decisions page shows announced
+    against measured with the answer's date against the start. A detection
+    pass never deletes a raised anomaly.
+    *(gate: `TestAnnouncedTargetRefusesEveryMalformedShape`,
+    `TestAnnouncedTargetSurvivesHostileBytesAcrossSeeds`,
+    `TestNoRoleDecidesAnAnnouncedDriverAlone` in `internal/crew`;
+    `TestAnOwnersAnswerOnAnAnnouncedOptionWritesTheDriver`,
+    `TestAnAnnouncedOptionWithNoTargetWritesNothing`,
+    `TestAnAnnouncedOptionThatBypassedSaveIsRefusedAtApply`,
+    `TestTheSupervisorsPassNeverAppliesAnAnnouncedOption`,
+    `TestTheSupervisorStampCannotApplyAnAnnouncedOption`,
+    `TestAForecastFrozenBeforeTheStepCarriesTheStep`,
+    `TestOnceAWindowDayLandsTheMeasuredRateWins`,
+    `TestAnnouncedEffectsMeasuresTheStepAfterClose`,
+    `TestAMissedMonthNamesTheAnnouncedDriverFurthestFromItsAnnouncementFirst`
+    in `internal/finops`; `TestAnAnnouncedSavingIsNotRaised`,
+    `TestTheSameSavingUnannouncedIsRaised`,
+    `TestASavingMuchSmallerThanAnnouncedIsRaisedNamingIt`,
+    `TestARealSpikeInsideTheWindowIsStillRaised`,
+    `TestAnEarlyFallKeepsItsFindingAndGainsTheHint`,
+    `TestTwoAnnouncementsOnOneServiceAddUp`,
+    `TestTheRuleStatesTheDayAndTheExpectedLevelOnly` in `internal/detect`;
+    `TestAnOldDatabaseGainsTheColumnAndItsDriversReadAsBefore`,
+    `TestAnAnnouncedDriverRoundTripsItsAmount`,
+    `TestARecurringDriverWritesNoAmount` in `internal/estate`;
+    `TestTheDecisionPageSaysWhatAnAnnouncedDecisionMeasured` in
+    `internal/web`; `TestNothingDeletesARaisedAnomaly` and
+    `TestTheDeleteGuardCatchesAPlantedDelete` in `internal/anomaly`;
+    `scripts/roles-are-bound.sh`, property 4, which holds the supervisor's
+    `hands_to_owner` to the owner-owned classes.)*
+
 ## Decisions that have no gate yet
 
 Written here so that "it holds" and "something holds it" stay different
