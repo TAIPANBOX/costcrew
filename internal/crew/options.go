@@ -402,6 +402,13 @@ func validateAnnouncedTarget(raw json.RawMessage) (reason string) {
 	return ""
 }
 
+// ValidateAnnouncedTarget is validateAnnouncedTarget for internal/finops,
+// which checks the target again at apply time for an option that reached
+// Apply by bypassing the save-time gate. One function, two callers.
+func ValidateAnnouncedTarget(raw json.RawMessage) (reason string) {
+	return validateAnnouncedTarget(raw)
+}
+
 // ValidClassesFor is the class vocabulary one role's deliverable may name:
 // the union of its decides_alone and hands_up lists. The same closed
 // vocabulary the prompt packet already shows the model
