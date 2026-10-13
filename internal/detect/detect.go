@@ -159,7 +159,7 @@ func Find(points []Point, service string, drivers []Driver, cfg Config) []Findin
 		// amount, so the baseline is at the new level from the first day it
 		// lands (ANNOUNCED-DRIVER-SPEC.md section 4). The day is then judged by
 		// the same rule as every other day.
-		window, step, names := shiftForAnnounced(points[lo:i], service, points[i].Day, drivers)
+		window, step, names, earliest := shiftForAnnounced(points[lo:i], service, points[i].Day, drivers)
 		hist := sameDayType(window, days[lo:i], days[i])
 		if len(hist) < 5 {
 			// Not enough of the same kind of day yet, so fall back to the
@@ -206,12 +206,14 @@ func Find(points []Point, service string, drivers []Driver, cfg Config) []Findin
 		}
 		rule := ruleText(cfg)
 		if step != 0 {
-			// The clean baseline is the shifted median less the step, so the
-			// announced amount and the observed move are both measured from it.
-			plain := med - step
+			// The facts the detector has: the announced step and where it
+			// starts, the day's amount, and the expected level, which is the
+			// shifted median on every day (a window already past the start is
+			// not shifted, and its median is the new level already). No move is
+			// derived from a level the step is then taken away from again.
 			rule = "differs from announced decision " + names +
-				": expected " + step.String() + "/day against its baseline, observed " +
-				(amt - plain).String() + "/day"
+				" (expected " + step.String() + "/day from " + earliest + "): " +
+				amt.String() + " against an expected " + med.String()
 		}
 		found = append(found, Finding{
 			Day: points[i].Day, Direction: dir, Amount: amt, Baseline: med,
@@ -255,13 +257,14 @@ func explain(drivers []Driver, service, day string) (label string, expected bool
 // shiftForAnnounced returns the history with every day before an announced
 // driver's start moved by that driver's amount, for each announced driver that
 // covers day on service (ANNOUNCED-DRIVER-SPEC.md section 4), the summed step,
-// and the labels of those drivers. Two decisions on one service in one window
-// add up: the step is their sum, not the largest of them. The input is not
-// modified.
-func shiftForAnnounced(hist []Point, service, day string, drivers []Driver) ([]Point, money.Cents, string) {
+// the labels of those drivers, and the earliest of their starts. Two decisions
+// on one service in one window add up: the step is their sum, not the largest
+// of them. The input is not modified.
+func shiftForAnnounced(hist []Point, service, day string, drivers []Driver) ([]Point, money.Cents, string, string) {
 	out := append([]Point(nil), hist...)
 	var step money.Cents
 	var labels []string
+	earliest := ""
 	for _, d := range drivers {
 		if d.Expected == nil {
 			continue
@@ -271,13 +274,16 @@ func shiftForAnnounced(hist []Point, service, day string, drivers []Driver) ([]P
 		}
 		step += *d.Expected
 		labels = append(labels, d.Label)
+		if earliest == "" || d.Start < earliest {
+			earliest = d.Start
+		}
 		for k := range out {
 			if out[k].Day < d.Start {
 				out[k].Amount += *d.Expected
 			}
 		}
 	}
-	return out, step, strings.Join(labels, ", ")
+	return out, step, strings.Join(labels, ", "), earliest
 }
 
 // earlyHintDays is how far before an announced driver's start a finding still
