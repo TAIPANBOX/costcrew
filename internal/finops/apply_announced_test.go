@@ -30,6 +30,9 @@ func announcedCount(t *testing.T, db *sql.DB) int {
 
 func TestAnOwnersAnswerOnAnAnnouncedOptionWritesTheDriver(t *testing.T) {
 	db := applyTestDB(t)
+	// The saving is bounded by the spend before its start (section 11): 400.00 a
+	// day over the 28 days before 1 November, against a saving of 300.00 a day.
+	annSpend(t, db, "aws", "svc-a", "2026-10-04", 28, 400_00)
 	target := `{"scope":"svc-a","start":"2026-11-01","end":"2026-11-30","daily_cents":-30000}`
 	opt := plantOptionWithTarget(t, db, "aws", "", "driver.announced", "swap to the smaller model", target)
 

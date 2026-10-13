@@ -468,6 +468,17 @@ func applyAnnounced(db *sql.DB, opt crew.Option, t crew.Task, actor string) erro
 	if err := json.Unmarshal(opt.Target, &tgt); err != nil {
 		return fmt.Errorf("driver.announced's target does not decode after it was checked: %w", err)
 	}
+	// The saving may not exceed the spend it is a saving of, checked again here
+	// for an option that bypassed the save-time gate (ANNOUNCED-DRIVER-SPEC.md
+	// section 11). The same function answers both.
+	refusal, err := estate.SavingRefusal(db, source, strings.TrimSpace(tgt.Scope), tgt.Team, tgt.Start, money.Cents(tgt.DailyCents))
+	if err != nil {
+		return err
+	}
+	if refusal != "" {
+		return fmt.Errorf("driver.announced's saving is refused, recorded only, no drivers row written "+
+			"(option %d on artifact %d): %s", opt.Ordinal, opt.Artifact, refusal)
+	}
 	expected := tgt.DailyCents
 	return estate.InsertDriver(db, world.Driver{
 		Start: tgt.Start, End: tgt.End, Scope: strings.TrimSpace(tgt.Scope), Label: opt.Summary,

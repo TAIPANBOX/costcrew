@@ -29,6 +29,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/TAIPANBOX/costcrew/internal/estate"
+	"github.com/TAIPANBOX/costcrew/internal/money"
 	"github.com/TAIPANBOX/costcrew/internal/plainname"
 )
 
@@ -415,6 +417,35 @@ func validateAnnouncedTarget(raw json.RawMessage) (reason string) {
 	return ""
 }
 
+// announcedSavingRefusal is the bound on an announced saving, asked at save time
+// of the desk the artifact's own task is on: estate.SavingRefusal, the one
+// function apply time asks too. An empty reason means the saving is within the
+// bound, and an increase is never bounded.
+func announcedSavingRefusal(db *sql.DB, artifactID int, raw json.RawMessage) (string, error) {
+	var tgt struct {
+		Scope      string  `json:"scope"`
+		Start      string  `json:"start"`
+		DailyCents int64   `json:"daily_cents"`
+		Team       *string `json:"team"`
+	}
+	if err := json.Unmarshal(raw, &tgt); err != nil {
+		return "", fmt.Errorf("an announced target validated but does not decode: %w", err)
+	}
+	taskID, err := TaskOfArtifact(db, artifactID)
+	if err != nil {
+		return "", err
+	}
+	t, err := GetTask(db, taskID)
+	if err != nil {
+		return "", err
+	}
+	team := ""
+	if tgt.Team != nil {
+		team = *tgt.Team
+	}
+	return estate.SavingRefusal(db, t.Desk, strings.TrimSpace(tgt.Scope), team, tgt.Start, money.Cents(tgt.DailyCents))
+}
+
 // ValidateAnnouncedTarget is validateAnnouncedTarget for internal/finops,
 // which checks the target again at apply time for an option that reached
 // Apply by bypassing the save-time gate. One function, two callers.
@@ -605,6 +636,16 @@ func ValidateAndSaveOptions(db *sql.DB, artifactID int, roleName, body string, r
 		// way the two classes above are.
 		if o.Class == "driver.announced" {
 			if reason := validateAnnouncedTarget(o.Target); reason != "" {
+				journalOptionRefused(rec, roleName, artifactID, reason)
+				return true, reason, nil
+			}
+			// A saving may not exceed the spend it is a saving of (ANNOUNCED-DRIVER-SPEC.md
+			// section 11): asked of the desk the artifact's own task is on.
+			reason, err := announcedSavingRefusal(db, artifactID, o.Target)
+			if err != nil {
+				return false, "", err
+			}
+			if reason != "" {
 				journalOptionRefused(rec, roleName, artifactID, reason)
 				return true, reason, nil
 			}
