@@ -143,6 +143,21 @@ func main() {
 		"how much billing data a model may be sent: full (as it always was), masked (every "+
 			"name replaced by a stable token, free text withheld) or aggregates (totals only). "+
 			"Anything else refuses to start. Falls back to COSTCREW_PROMPT_DATA.")
+	// Invariant 104: the gateway's export folders, set by the launcher rather
+	// than only on the connector's page, and read at start and then every
+	// -focus-every. Off unless -focus-dir is given.
+	focusDir := flag.String("focus-dir", connectors.FocusDirEnvDefault(),
+		"the folder the main gateway's `tokenfuse focus-export` writes to; read at start and every "+
+			"-focus-every into the AI pages. Empty (the default) leaves the connector to its page. "+
+			"Falls back to "+connectors.FocusDirEnv+".")
+	focusDirOpenAI := flag.String("focus-dir-openai", connectors.FocusDirOpenAIEnvDefault(),
+		"the folder the OpenAI-wire gateway door's export writes to; needs -focus-dir. Falls back to "+
+			connectors.FocusDirOpenAIEnv+".")
+	focusEvery := flag.Duration("focus-every", connectors.DefaultFocusEvery,
+		"with -focus-dir, how often the folders are read again; 0 reads them once, at start")
+	focusReplace := flag.Bool("focus-replace-generated", false,
+		"with -focus-dir, let the first import that finds real calls replace the generated estate "+
+			"this console starts with; without it nothing is imported while that estate is there")
 	setPw := flag.String("set-password", "", "create or reset an account as NAME:PASSWORD, then exit")
 	setRole := flag.String("set-role", "admin", "the role a new -set-password account gets")
 	weak := flag.Bool("allow-weak-password", false, "let -set-password set a password below the minimum, for a local demo account")
@@ -203,7 +218,13 @@ func main() {
 		log.Fatalf("costcrew: -typryx-max-asks must be zero or more, got %d", *typryxMax)
 	}
 	tx := typryx.New(typryxBase, typryx.KeyFromEnv(), typryx.DefaultTimeout)
-	if err := run(*addr, *dir, cfg, gatewayURL, gatewayOpenAIURL, *behindTLS, oidcCfg, tx, *typryxMax); err != nil {
+	focus, err := connectors.CheckFocusInput(connectors.FocusInput{
+		Main: *focusDir, OpenAI: *focusDirOpenAI, Every: *focusEvery, ReplaceGenerated: *focusReplace,
+	})
+	if err != nil {
+		log.Fatalf("costcrew: %v", err)
+	}
+	if err := run(*addr, *dir, cfg, gatewayURL, gatewayOpenAIURL, *behindTLS, oidcCfg, tx, *typryxMax, focus); err != nil {
 		log.Fatalf("costcrew: %v", err)
 	}
 }
@@ -310,7 +331,7 @@ func reportStoreWarnings(st *store.Store) {
 }
 
 func run(addr, dir string, scfg stack.Config, gatewayURL, gatewayOpenAIURL string, behindTLS bool, oidcCfg *sso.Config,
-	tx *typryx.Client, typryxMax int) error {
+	tx *typryx.Client, typryxMax int, focus connectors.FocusInput) error {
 	st, err := store.Open(dir)
 	if err != nil {
 		return fmt.Errorf("opening the store in %s: %w", dir, err)
@@ -596,6 +617,23 @@ func run(addr, dir string, scfg stack.Config, gatewayURL, gatewayOpenAIURL strin
 	if gatewayURL == "" && gatewayOpenAIURL == "" {
 		log.Print("CostCrew: no -gateway configured; the supervisor's plan-ask cannot spend " +
 			"and will refuse every ask with one sentence")
+	}
+
+	// Invariant 104: the gateway's export, read beside the listener so a
+	// large folder never holds the start.
+	focusCtx, stopFocus := context.WithCancel(context.Background())
+	defer stopFocus()
+	if focus.On() {
+		if err := connectors.ApplyFocusInput(st.DB(), focus); err != nil {
+			return fmt.Errorf("saving -focus-dir on the connector: %w", err)
+		}
+		log.Printf("CostCrew: reading the gateway's export from %s%s, %s", focus.Main,
+			map[bool]string{true: " and the OpenAI-wire door's from " + focus.OpenAI, false: ""}[focus.OpenAI != ""],
+			map[bool]string{true: "once, at start", false: "at start and every " + focus.Every.String()}[focus.Every == 0])
+		go connectors.WatchFocus(focusCtx, st.DB(), focus, rec, log.Printf)
+	} else {
+		log.Print("CostCrew: no -focus-dir; the AI pages read the gateway only when a person imports " +
+			"its export on the TokenFuse FOCUS export connector")
 	}
 
 	// Invariant 49: said out loud, the same way the gateway posture above is,

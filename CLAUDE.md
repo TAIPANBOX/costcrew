@@ -84,15 +84,25 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 1642 tests, 32 packages
-./scripts/gates-have-teeth.sh        # 593 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 606 scenarios, both directions
+go test ./...                        # 1649 tests, 32 packages
+./scripts/gates-have-teeth.sh        # 601 cases; needs a clean tree
+./scripts/features-are-bound.sh      # 611 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 govulncheck ./...                    # CI runs it, pinned at v1.8.0; reports only vulnerabilities the code can reach
 staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refused PR #19 on two findings the list above never asked for; a staticcheck built for an older Go cannot read this module, so on such a machine CI is the only place it runs
 ```
+
+Invariant 104 (the gateway's export folders are an input a launcher sets on
+the command line, read at start and on an interval) added 7 tests
+(`internal/connectors/focusinput_test.go`, 4; `cmd/costcrew/focus_test.go`,
+3), 8 `gates-have-teeth.sh` cases (7 `fail`, 1 `pass`), 5 scenarios
+(`features/a-launcher-sets-the-gateways-export.feature`, new), four console
+flags and two environment variables (declared in `components.json`) and no
+route: 1642 -> 1649 tests, 32 packages unchanged, 593 -> 601 cases, 606 ->
+611 scenarios, measured on this branch with the three commands this block
+already names.
 
 Invariant 103 (a fallback-priced amount is shown apart from spend, and
 personal data let through is named by kind and count) added 15 tests
@@ -6581,6 +6591,59 @@ an absent invariant.
     findings are what the gateway's scanner reports (card, email and phone
     numbers, its documented scope), never more; and the warn-mode figures of
     invariant 100 count a call's billed amount whatever its basis.
+
+104. **The gateway's export folders are an input a launcher sets on the
+    command line, read at start and on an interval, and every automatic
+    import says what it read or why it read nothing.** The `tokenfuse-focus`
+    connector was configured only on its page and read only when a person
+    clicked Import, so a launcher could not wire it: on forge 2026-10-14 the
+    console ran beside two gateways for a day of agent runs and its AI pages
+    never saw a call (stack-single mounts no export into it, and nothing
+    could have told it where to look). `-focus-dir` (`COSTCREW_FOCUS_DIR`)
+    names the main gateway's export folder and `-focus-dir-openai`
+    (`COSTCREW_FOCUS_DIR_OPENAI`) the OpenAI-wire door's (invariant 102);
+    `-focus-every` (default 15m, 0 reads once) how often they are read again;
+    `-focus-replace-generated` is the launcher's yes to replacing the
+    generated estate on the first import that finds real calls.
+    `connectors.CheckFocusInput` refuses, before the store opens, a second
+    door with no main folder, a folder that is not there or not a folder, one
+    folder as both doors, and an interval under a minute (every import reads
+    the whole folder). At start the console saves the folders on the
+    connector, in place of what its page held (`ApplyFocusInput`), and
+    `WatchFocus` imports beside the listener at once and on the interval,
+    each outcome in the log; `ImportFocus` records a refused import on the
+    connector too ("Not imported (costcrew -focus-dir): ..."), so its page
+    says why an automatic import read nothing. Without the launcher's yes an
+    installation that still holds the generated estate imports nothing,
+    which is invariant 24's refusal kept; with it the replacement is
+    journaled under the actor `costcrew -focus-dir`. Without `-focus-dir`
+    nothing changes, and the start says the connector is left to its page.
+    *(gate: `TestCheckFocusInputRefusesAMisconfiguredLauncher`,
+    `TestTheLaunchersFoldersAreReadAndRecordedOnTheConnector`,
+    `TestAnAutomaticImportOnTheGeneratedEstateSaysWhyItReadNothing`,
+    `TestWatchFocusReadsTheFolderAgainOnItsInterval` in `internal/connectors`;
+    `TestTheConsoleReadsTheGatewaysExportFromFocusDir`,
+    `TestTheConsoleWithoutFocusDirSaysTheConnectorIsLeftToItsPage`,
+    `TestAMisconfiguredFocusDirRefusesToStart` in `cmd/costcrew` (the built
+    binary); the four flags and two variables declared in `components.json`
+    (`TestEveryFlagEveryBinaryDefinesIsDeclaredAndTheReverse`). Red first on
+    the branch below it: the connector tests by compile (`FocusInput`
+    undefined), the console's with "flag provided but not defined:
+    -focus-dir". Seven `fail` cases and one `pass` case in
+    `gates-have-teeth.sh`: the second door's folder not saved; a refused
+    import not recorded; the launcher's yes not passed; the interval never
+    reading again; one folder as both doors accepted; an interval of seconds
+    accepted; the console never starting the reader; and the interval flag's
+    help reworded, which must stay green. Scenarios:
+    `features/a-launcher-sets-the-gateways-export.feature`, five, each
+    bound.)* What this does not do: detection and the board run at start, so
+    calls an automatic import reads after the start reach the AI pages and
+    the runs at once and the anomaly desk at the next start; every import
+    reads the whole folder, so a launcher that writes a full export every
+    window grows the work with the folder (writing each window with
+    `--from` and `--to`, or one rolling file, keeps it flat); and the
+    console mounts nothing itself: a launcher that does not give it the
+    folder still gets a console that reads nothing.
 
 ## Decisions that have no gate yet
 
