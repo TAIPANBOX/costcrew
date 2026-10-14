@@ -38,13 +38,13 @@ func TestHoldsFindsAWholeWordAndNotAPartOfALongerOne(t *testing.T) {
 }
 
 // The boundary test must look at the rune before and after the identifier,
-// not at a byte: the last byte of a Cyrillic letter is not an ASCII letter, so
-// a byte-based check would call "Бalpha" a whole word.
+// not at a byte: the last byte of a two-byte Cyrillic letter is not an ASCII
+// letter, so a byte-based check would call the identifier a whole word after it.
 func TestHoldsReadsARuneNotAByte(t *testing.T) {
-	if Holds("Бalpha", "alpha") {
+	if Holds("\u0411alpha", "alpha") {
 		t.Error("a Cyrillic letter before the identifier should make it part of a longer word")
 	}
-	if !Holds("Б alpha", "alpha") {
+	if !Holds("\u0411 alpha", "alpha") {
 		t.Error("a Cyrillic word, then a space, then the identifier should be a whole-word hit")
 	}
 }
