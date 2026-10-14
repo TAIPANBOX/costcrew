@@ -4747,7 +4747,7 @@ run_case $'re-export: the supersede step skipped' \
 	$'TestAReExportOfTheSameCallsReplacesTheEarlierRows' \
 	$'counted twice' \
 	internal/connectors/tokenfusefocus.go \
-	$'keys, days, err := supersede(tx, local.sha, local.generation)' \
+	$'keys, days, err := supersede(tx, local.sha, local.generation, local.door)' \
 	$'keys, days, err := []string(nil), []string(nil), error(nil)'
 run_case $'re-export: the agent in the call\'s identity' \
 	fail \
@@ -4766,8 +4766,8 @@ run_case $'re-export: the last file read wins' \
 	$'\t\tAND ` + exportGenerationSQL + ` <= ?2`' \
 	$'\t\tAND ` + exportGenerationSQL + ` <= 1`' \
 	internal/connectors/tokenfusefocus.go \
-	$'WHERE file_sha256 != ?1 AND ` + exportGenerationSQL + ` > ?2)`' \
-	$'WHERE file_sha256 != ?1 AND ` + exportGenerationSQL + ` > 1)`'
+	$'` > ?2 AND COALESCE(door,\'`' \
+	$'` > 1 AND COALESCE(door,\'`'
 run_case $'re-export: the import counts a call twice in its own sentence' \
 	fail \
 	./internal/connectors \
@@ -5237,7 +5237,7 @@ run_case $'cloudability: a call exported twice is in the drop twice' \
 	$'TestACallExportedTwiceIsInTheDropOnce' \
 	$'the same calls exported twice' \
 	internal/connectors/tokenfusefocus.go \
-	$'keys, days, err := supersede(tx, local.sha, local.generation)' \
+	$'keys, days, err := supersede(tx, local.sha, local.generation, local.door)' \
 	$'keys, days, err := []string(nil), []string(nil), error(nil)'
 run_case $'cloudability: a drop written into an epoch folder that exists' \
 	fail \
