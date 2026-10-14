@@ -5814,6 +5814,87 @@ run_case $'focus input: the interval flag\'s help reworded is not a fault' \
 	$'"with -focus-dir, how often the folders are read again; 0 reads them once, at start")' \
 	$'"with -focus-dir, how often the folders are read once more; 0 reads them once, at start")'
 
+run_case $'connectors: Test no longer names the missing input' \
+	fail \
+	./internal/connectors \
+	$'TestTheConnectorTestSaysWhatStateTheConnectorIsIn' \
+	$'an unconfigured reader' \
+	internal/connectors/connectors.go \
+	$'result = "Not configured yet. Still needed: " + strings.Join(missing, ", ") + "."' \
+	$'result = "Not configured yet."'
+run_case $'connectors: a secret input saved' \
+	fail \
+	./internal/connectors \
+	$'TestASecretIsNeverSavedAndAnUnknownConnectorIsRefused' \
+	$'a secret input reached the store' \
+	internal/connectors/connectors.go \
+	$'\t\tif !secret[k] {' \
+	$'\t\tif true {'
+run_case $'connectors: an unrecorded refusal not said' \
+	fail \
+	./internal/connectors \
+	$'TestAStoreThatCannotBeReadIsReportedByEveryEntryPoint' \
+	$'does not say so' \
+	internal/connectors/focusinput.go \
+	$'return msg, fmt.Errorf("%w; and recording that failed: %v", err, werr)' \
+	$'return msg, err'
+run_case $'connectors: the folder variable not trimmed' \
+	fail \
+	./internal/connectors \
+	$'TestTheFocusFolderEnvironmentDefaultsAreTrimmed' \
+	$'FocusDirEnvDefault:' \
+	internal/connectors/focusinput.go \
+	$'return strings.TrimSpace(os.Getenv(FocusDirEnv))' \
+	$'return os.Getenv(FocusDirEnv)'
+run_case $'connectors: every passed-over name printed' \
+	fail \
+	./internal/connectors \
+	$'TestAFolderOfOnlyLinksNamesTheFirstTwentyAndCountsTheRest' \
+	$'a folder of 23 links' \
+	internal/connectors/csvfolder.go \
+	$'\tif len(names) <= focusRefusalsShown {' \
+	$'\tif true {'
+run_case $'connectors: a folder named like an export taken for one' \
+	fail \
+	./internal/connectors \
+	$'TestTheFocusReaderPassesOverWhatIsNotAnExportAndNamesABadGzip' \
+	$'is named as one' \
+	internal/connectors/tokenfusefocus.go \
+	$'\t\tif e.IsDir() {' \
+	$'\t\tif false && e.IsDir() {'
+run_case $'connectors: a file swapped for a link after the listing read' \
+	fail \
+	./internal/connectors \
+	$'TestAFileTheFolderListedButIsNoLongerAFileIsRefused' \
+	$'swapped for a link' \
+	internal/connectors/tokenfusefocus.go \
+	$'\t} else if !fi.Mode().IsRegular() {' \
+	$'\t} else if !fi.Mode().IsRegular() && false {'
+run_case $'connectors: a bad commitment quantity not named' \
+	fail \
+	./internal/connectors \
+	$'TestBadTokenToolAndCommitmentFieldsAreRefusedByName' \
+	$'CommitmentDiscountQuantity \\"lots\\" is not a number' \
+	internal/connectors/tokenfusefocus.go \
+	$'"CommitmentDiscountQuantity %q is not a number", qtyStr)' \
+	$'"CommitmentDiscountQuantity %q is wrong", qtyStr)'
+run_case $'connectors: refusals with nobody to file under not counted' \
+	fail \
+	./internal/connectors \
+	$'TestAGatewayRefusalWithNobodyToFileItUnderReadsAsTheGateways' \
+	$'LoadTokenFuseFocus: 0 unfiled' \
+	internal/connectors/tokenfusefocus.go \
+	$'\t\tunfiled += n' \
+	$'\t\tunfiled += 0 * n'
+run_case $'connectors: findings over the bound refused for another reason' \
+	fail \
+	./internal/connectors \
+	$'TestFindingsOverTheirByteBoundAreRefusedByTheirSize' \
+	$'findings over the bound' \
+	internal/connectors/tokenfusefocus.go \
+	$'\tif len(v) > xPIIFindingsMaxBytes {' \
+	$'\tif false && len(v) > xPIIFindingsMaxBytes {'
+
 echo
 if [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'
