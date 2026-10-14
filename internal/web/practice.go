@@ -322,8 +322,13 @@ func (s *Server) aiRuns(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var runs []finops.RunRow
+	var doors []finops.DoorSpend
 	if real {
 		if runs, err = finops.AIRuns(s.db, month); err != nil {
+			http.Error(w, "store unavailable", http.StatusInternalServerError)
+			return
+		}
+		if doors, err = finops.AIDoors(s.db, month); err != nil {
 			http.Error(w, "store unavailable", http.StatusInternalServerError)
 			return
 		}
@@ -346,7 +351,8 @@ func (s *Server) aiRuns(w http.ResponseWriter, r *http.Request) {
 		Sum      finops.RunsSummary
 		Rest     int
 		RestCost money.Micros
-	}{s.shellFor(r, "Runs", "ai"), month, real, runs, sum, rest, restCost})
+		Doors    []finops.DoorSpend
+	}{s.shellFor(r, "Runs", "ai"), month, real, runs, sum, rest, restCost, doors})
 }
 
 // thousands groups a large count so a reader can tell a million from ten.

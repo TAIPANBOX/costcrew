@@ -83,7 +83,14 @@ type RunRow struct {
 	// warn mode (invariant 100).
 	WarnedCalls int
 	WarnedCost  money.Micros
+	// Doors is the gateway doors the run's calls were read through, main
+	// first (invariant 102). Two of them is one run spending against two
+	// ledgers: each door keeps its own budget for it.
+	Doors []DoorSpend
 }
+
+// CrossedDoors is true when the run's calls came through more than one door.
+func (r RunRow) CrossedDoors() bool { return len(r.Doors) > 1 }
 
 // Switched is true when the run called more than one model.
 func (r RunRow) Switched() bool { return len(r.Models) > 1 }
@@ -124,7 +131,8 @@ func AIRuns(db *sql.DB, month string) ([]RunRow, error) {
 	rows, err := db.Query(`SELECT COALESCE(run_id,''), ts, agent, COALESCE(team,''), model,
 			tokens_in+tokens_out, billed_microusd, blocked,
 			block_reason IS NOT NULL, COALESCE(block_reason,''),
-			CASE WHEN `+connectors.IdentityWarnedSQL+` THEN 1 ELSE 0 END
+			CASE WHEN `+connectors.IdentityWarnedSQL+` THEN 1 ELSE 0 END,
+			COALESCE(door,'`+connectors.DoorMain+`')
 		FROM ai_calls WHERE day LIKE ?
 		ORDER BY 1, ts, rowid`, month+"%")
 	if err != nil {
@@ -138,21 +146,23 @@ func AIRuns(db *sql.DB, month string) ([]RunRow, error) {
 		teams   map[string]bool
 		models  map[string]int // index into row.Models
 		reasons map[ReasonCount]int
+		doors   map[string]*DoorSpend
 	}
 	byRun := map[string]*acc{}
 	var order []string
 	for rows.Next() {
-		var run, ts, agent, team, model, reason string
+		var run, ts, agent, team, model, reason, door string
 		var tokens, micros int64
 		var blocked, known, warned bool
 		if err := rows.Scan(&run, &ts, &agent, &team, &model, &tokens, &micros,
-			&blocked, &known, &reason, &warned); err != nil {
+			&blocked, &known, &reason, &warned, &door); err != nil {
 			return nil, err
 		}
 		a := byRun[run]
 		if a == nil {
 			a = &acc{row: RunRow{RunID: run, First: ts}, agents: map[string]bool{},
-				teams: map[string]bool{}, models: map[string]int{}, reasons: map[ReasonCount]int{}}
+				teams: map[string]bool{}, models: map[string]int{}, reasons: map[ReasonCount]int{},
+				doors: map[string]*DoorSpend{}}
 			byRun[run] = a
 			order = append(order, run)
 		}
@@ -189,6 +199,13 @@ func AIRuns(db *sql.DB, month string) ([]RunRow, error) {
 			r.WarnedCalls++
 			r.WarnedCost += money.Micros(micros)
 		}
+		d := a.doors[door]
+		if d == nil {
+			d = &DoorSpend{Door: door}
+			a.doors[door] = d
+		}
+		d.Calls++
+		d.Cost += money.Micros(micros)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -213,6 +230,10 @@ func AIRuns(db *sql.DB, month string) ([]RunRow, error) {
 				r.Models[i].share = int64(r.Models[i].Cost) * 1000 / int64(r.Cost)
 			}
 		}
+		for _, d := range a.doors {
+			r.Doors = append(r.Doors, *d)
+		}
+		sortDoors(r.Doors)
 		for rc, n := range a.reasons {
 			rc.Calls = n
 			r.Blocked = append(r.Blocked, rc)
@@ -242,11 +263,13 @@ func AIRuns(db *sql.DB, month string) ([]RunRow, error) {
 // gateway stopped on their last call.
 type RunsSummary struct {
 	Runs, Switched, Killed, Stopped int
+	// Crossed is how many runs came through more than one gateway door.
+	Crossed int
 }
 
 // SummarizeRuns counts rows the way the runs page's header states them.
 func SummarizeRuns(rows []RunRow) RunsSummary {
-	s := RunsSummary{Runs: len(rows)}
+	s := RunsSummary{Runs: len(rows), Crossed: crossedDoors(rows)}
 	for _, r := range rows {
 		if r.Switched() {
 			s.Switched++
@@ -258,4 +281,79 @@ func SummarizeRuns(rows []RunRow) RunsSummary {
 		}
 	}
 	return s
+}
+
+// DoorSpend is the calls and spend read through one gateway door.
+type DoorSpend struct {
+	Door  string
+	Calls int
+	Cost  money.Micros
+}
+
+// Label is the door as a person reads it.
+func (d DoorSpend) Label() string { return DoorLabel(d.Door) }
+
+// DoorLabel names a door: the connector's main folder is the main gateway,
+// its second folder the OpenAI-wire door, and anything else is printed as
+// stored.
+func DoorLabel(door string) string {
+	switch door {
+	case connectors.DoorMain:
+		return "main gateway"
+	case connectors.DoorOpenAI:
+		return "OpenAI-wire door"
+	}
+	return door
+}
+
+// sortDoors puts the main gateway first and the rest by name, so a page lists
+// doors the same way every time (invariant 7).
+func sortDoors(ds []DoorSpend) {
+	sort.Slice(ds, func(i, j int) bool {
+		mi, mj := ds[i].Door == connectors.DoorMain, ds[j].Door == connectors.DoorMain
+		if mi != mj {
+			return mi
+		}
+		return ds[i].Door < ds[j].Door
+	})
+}
+
+// AIDoors is the month's calls and spend by the door they were read through
+// (invariant 102). One entry means the month's spend is read from one source:
+// the export does not say which door a call came through, and only one folder
+// supplied it.
+func AIDoors(db *sql.DB, month string) ([]DoorSpend, error) {
+	rows, err := db.Query(`SELECT COALESCE(door,'`+connectors.DoorMain+`'), COUNT(*),
+			COALESCE(SUM(billed_microusd),0)
+		FROM ai_calls WHERE day LIKE ? GROUP BY 1`, month+"%")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []DoorSpend
+	for rows.Next() {
+		var d DoorSpend
+		var micros int64
+		if err := rows.Scan(&d.Door, &d.Calls, &micros); err != nil {
+			return nil, err
+		}
+		d.Cost = money.Micros(micros)
+		out = append(out, d)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	sortDoors(out)
+	return out, nil
+}
+
+// RunsSummary's door count: how many runs crossed doors.
+func crossedDoors(rows []RunRow) int {
+	n := 0
+	for _, r := range rows {
+		if r.CrossedDoors() {
+			n++
+		}
+	}
+	return n
 }

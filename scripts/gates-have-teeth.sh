@@ -4782,8 +4782,8 @@ run_case $'re-export: the credential column not written' \
 	$'TestTheKeyAndTheBlockReasonAreKeptWhenTheExportCarriesThem' \
 	$'the two honest calls with their key' \
 	internal/connectors/tokenfusefocus.go \
-	$'\t\t\trow.KeyID, row.BlockReason, row.IdentityReason); err != nil {' \
-	$'\t\t\tnil, row.BlockReason, row.IdentityReason); err != nil {'
+	$'\t\t\trow.KeyID, row.BlockReason, row.IdentityReason, door); err != nil {' \
+	$'\t\t\tnil, row.BlockReason, row.IdentityReason, door); err != nil {'
 run_case $'re-export: a refusal with client keys off reported as bad data' \
 	fail \
 	./internal/connectors \
@@ -5121,8 +5121,8 @@ run_case $'connectors: the drop-a-folder hint back' \
 	$'TestTheFocusConnectorPageOffersNoDropAndLinksToTheAIPage' \
 	$'offers to take a dropped folder' \
 	internal/connectors/connectors.go \
-	$'Hint: "the local path on the machine this console runs on"}},' \
-	$'Hint: "the local path, or drop the folder on this page"}},'
+	$'Hint: "the local path on the machine this console runs on; the main gateway\'s export"},' \
+	$'Hint: "the local path, or drop the folder on this page; the main gateway\'s export"},'
 run_case $'connectors: the TokenFuse page loses its link to /ai' \
 	fail \
 	./internal/web \
@@ -5362,8 +5362,8 @@ run_case $'identity warn: the finding is not written' \
 	$'TestTheIdentityReasonIsKeptWhenTheExportCarriesIt' \
 	$'stored with no identity_reason' \
 	internal/connectors/tokenfusefocus.go \
-	$'\t\t\trow.KeyID, row.BlockReason, row.IdentityReason); err != nil {' \
-	$'\t\t\trow.KeyID, row.BlockReason, nil); err != nil {'
+	$'row.BlockReason, row.IdentityReason' \
+	$'row.BlockReason, nil'
 run_case $'identity warn: a refusal is counted as a forwarded call' \
 	fail \
 	./internal/finops \
@@ -5501,7 +5501,7 @@ run_case $'runs page: the door sentence dropped' \
 	$'TestTheRunsPageShowsEveryModelARunUsedWithItsShare' \
 	$'does not contain "is not in the FOCUS export"' \
 	internal/web/templates/ai_runs.html \
-	$'is not in the FOCUS export, and this console reads one folder of it, so every run here is read from one source.' \
+	$'is not in the FOCUS export, and this month\'s calls were all read from one folder of it, so every run here is read from one source.' \
 	$'is shown per run.'
 run_case $'runs page: the intro reworded is not a fault' \
 	pass \
@@ -5543,6 +5543,89 @@ run_case $'deliver: an agent id with a space rides in the header' \
 	internal/deliver/call.go \
 	$'\tif strings.ContainsAny(agent, ", \\t\\r\\n") {' \
 	$'\tif false {'
+
+# Invariant 102: each gateway door is named as its own source when the input
+# tells them apart, and "one source" is said when it does not.
+run_case $'doors: the second folder\'s rows named as the main gateway\'s' \
+	fail \
+	./internal/connectors \
+	$'TestASecondDoorsFolderIsReadAsThatDoors' \
+	$'named as the OpenAI-wire door\'s, want its folder\'s 3' \
+	internal/connectors/tokenfusefocus.go \
+	$'\t\t\tdoorOf[f] = DoorOpenAI' \
+	$'\t\t\tdoorOf[f] = DoorMain'
+run_case $'doors: one folder set as both doors is read' \
+	fail \
+	./internal/connectors \
+	$'TestOneFolderSetAsBothDoorsIsRefused' \
+	$'one folder set as both doors was read' \
+	internal/connectors/tokenfusefocus.go \
+	$'\t\tif sameFolder(path, openai) {' \
+	$'\t\tif false && sameFolder(path, openai) {'
+run_case $'doors: the same folder reached another way is not seen' \
+	fail \
+	./internal/connectors \
+	$'TestOneFolderSetAsBothDoorsIsRefused' \
+	$'one folder set as both doors was read' \
+	internal/connectors/tokenfusefocus.go \
+	$'\treturn errA == nil && errB == nil && os.SameFile(fa, fb)' \
+	$'\treturn errA == nil && errB == nil && false && os.SameFile(fa, fb)'
+run_case $'doors: a run\'s doors not counted' \
+	fail \
+	./internal/finops \
+	$'TestARunThroughTwoDoorsNamesBoth' \
+	$'w2-b12-A\'s doors' \
+	internal/finops/runs.go \
+	$'\t\td.Calls++\n\t\td.Cost += money.Micros(micros)' \
+	$'\t\td.Cost += money.Micros(micros)'
+run_case $'doors: a row from before the column read as no door' \
+	fail \
+	./internal/finops \
+	$'TestARowFromBeforeTheDoorColumnIsReadAsTheMainFolders' \
+	$'rows with no door read as' \
+	internal/finops/runs.go \
+	$'\trows, err := db.Query(`SELECT COALESCE(door,\'`+connectors.DoorMain+`\'), COUNT(*),' \
+	$'\trows, err := db.Query(`SELECT COALESCE(door,\'\'), COUNT(*),'
+run_case $'runs page: the door column dropped' \
+	fail \
+	./internal/web \
+	$'TestTheRunsPageNamesTheDoorsWhenTheInputTellsThemApart' \
+	$'does not contain "<th>Door</th>"' \
+	internal/web/templates/ai_runs.html \
+	$'<th>How it ended</th>{{if gt (len $.Doors) 1}}<th>Door</th>{{end}}' \
+	$'<th>How it ended</th>{{if false}}<th>Door</th>{{end}}'
+run_case $'engines: an engine listed under the door that does not front it' \
+	fail \
+	./internal/web \
+	$'TestTheEnginesPageNamesEachGatewayDoorThisConsoleCallsThrough' \
+	$'the OpenAI-wire door\'s row does not contain "OpenRouter"' \
+	internal/web/ops.go \
+	$'\t\tcase url != "" && url == s.gateway:' \
+	$'\t\tcase url != "":'
+run_case $'engines: the whole gateway URL printed' \
+	fail \
+	./internal/web \
+	$'TestTheEnginesPageNamesEachGatewayDoorThisConsoleCallsThrough' \
+	$'prints a gateway URL\'s path or query' \
+	internal/web/ops.go \
+	$'\treturn u.Host\n' \
+	$'\treturn u.String()\n'
+run_case $'engines: one source not said' \
+	fail \
+	./internal/web \
+	$'TestTheEnginesPageSaysOneSourceWhenTheInputDoesNotTellDoorsApart' \
+	$'does not contain "One source."' \
+	internal/web/templates/engines.html \
+	$'<p>One source. The FOCUS export' \
+	$'<p>The FOCUS export'
+run_case $'engines: the doors panel\'s note reworded is not a fault' \
+	pass \
+	./internal/web \
+	$'TestTheEnginesPageNamesEachGatewayDoorThisConsoleCallsThrough' \
+	$'' \
+	internal/web/templates/engines.html \
+	$'so a second wire is a second door with its own address' \
+	$'so another wire is another door with its own address'
 
 echo
 if [ -n "$(git status --porcelain)" ]; then

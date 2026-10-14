@@ -505,6 +505,9 @@ var Classes = map[string]Class{
 	// Invariant 100: TokenFuse 1.8.0's x_identity_reason, one of the identity
 	// check's five words (agent_id_not_allowed and four more), never a name.
 	"ai_calls.identity_reason": Plain,
+	// Invariant 102: which configured folder a row was read from, one of two
+	// fixed words.
+	"ai_calls.door": Plain,
 
 	"allocation_rules.source": ID, "allocation_rules.category": Plain,
 	"allocation_rules.method": Plain, "allocation_rules.note": Free,

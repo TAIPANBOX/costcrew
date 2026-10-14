@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/TAIPANBOX/costcrew/actions/workflows/ci.yml/badge.svg)](https://github.com/TAIPANBOX/costcrew/actions/workflows/ci.yml)
 ![Go](https://img.shields.io/badge/go-1.27-00ADD8.svg)
-![tests](https://img.shields.io/badge/tests-1622-brightgreen.svg)
+![tests](https://img.shields.io/badge/tests-1631-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)
 ![Status](https://img.shields.io/badge/enforces-nothing%20by%20design-success.svg)
 
@@ -264,7 +264,23 @@ also says how each run ended as far as the gateway's rows show (killed,
 stopped by its budget or another refusal on its last call, refused once and
 went on, or ran) and which of its calls were forwarded under identity warn
 mode. The gateway's export does not say which door a call came through, and
-the page says so.
+the page says so, unless each door's export is read from its own folder (see
+below).
+
+### Gateway doors
+
+**Which gateway door each call came through, or a plain "one source" when
+the input cannot tell.** A TokenFuse gateway speaks one wire, so the OpenAI
+wire is a second gateway, a second door, with its own trace, export and
+budgets. Give the TokenFuse FOCUS export connector the main gateway's export
+folder and, optionally, the OpenAI-wire door's (`path_openai`), and every call
+is named by the folder it came from: `/ai/runs` adds a Door column and marks a
+run that came through both, because such a run spent against two ledgers.
+`/engines` names the doors this console's own calls go through (`-gateway`
+for the Anthropic wire, `-gateway-openai` for the OpenAI wire), with the host
+each points at and the engines that go through it, and says where the
+imported spend came through: per door, or "one source" when one folder
+supplied it.
 
 ## Run it
 
@@ -728,9 +744,9 @@ estate-gates repository's own PROVEN record:
 ## Gates
 
 ```sh
-go test ./...                        # 1622 tests, 32 packages
+go test ./...                        # 1631 tests, 32 packages
 ./scripts/features-are-bound.sh      # every scenario bound to a named test, both ways
-./scripts/gates-have-teeth.sh        # 569 cases: each gate is made to fail on purpose
+./scripts/gates-have-teeth.sh        # 579 cases: each gate is made to fail on purpose
 gofmt -l . && go vet ./...
 ```
 
