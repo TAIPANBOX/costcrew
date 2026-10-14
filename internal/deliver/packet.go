@@ -25,6 +25,7 @@ import (
 	"database/sql"
 	"fmt"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -936,6 +937,10 @@ func aiSpendSection(db *sql.DB) string {
 	if err != nil {
 		return ""
 	}
+	warn, err := finops.IdentityWarnings(db, month)
+	if err != nil {
+		return ""
+	}
 
 	var calls, blockedCalls int
 	var total money.Micros
@@ -972,6 +977,25 @@ func aiSpendSection(db *sql.DB) string {
 		}
 	}
 
+	// Invariant 100: a call forwarded under identity warn mode is real spend
+	// filed under an agent id nobody proved, and an analyst who reads it as
+	// that agent's overspend blames the wrong agent. A desk-wide count, so it
+	// stays under aggregates; the findings are the identity check's own
+	// closed vocabulary, never a name.
+	if warn.Calls > 0 {
+		var reasons []string
+		for _, g := range warn.ByTeam {
+			for _, r := range g.Reasons {
+				reasons = append(reasons, r.Reason)
+			}
+		}
+		sort.Strings(reasons)
+		reasons = slices.Compact(reasons)
+		fmt.Fprintf(&b, "forwarded under identity warn mode: %d calls, %s (%s); the gateway's identity "+
+			"check failed on each, it let them through anyway, and their spend is counted under the "+
+			"agent id each claimed, which nobody proved\n", warn.Calls, warn.Cost, strings.Join(reasons, ", "))
+	}
+
 	// Aggregates stop at the desk's totals: per agent and per model are rows.
 	if ActivePolicy().Aggregates() {
 		return b.String()
@@ -989,6 +1013,10 @@ func aiSpendSection(db *sql.DB) string {
 		}
 		if r.Credential {
 			note += " [a credential, not an agent]"
+		}
+		if r.WarnedCalls > 0 {
+			note += fmt.Sprintf(" [%d forwarded under identity warn, %s: the agent id is claimed, not proved]",
+				r.WarnedCalls, r.WarnedCost)
 		}
 		fmt.Fprintf(&b, "  %-56s %8s  %d calls, %d blocked%s\n", r.Agent, r.Cost, r.Calls, r.BlockedCalls, note)
 		shown++

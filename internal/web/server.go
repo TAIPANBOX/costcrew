@@ -235,6 +235,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /utilisation", s.utilisation)
 	s.mux.HandleFunc("GET /saas", s.saas)
 	s.mux.HandleFunc("GET /ai", s.ai)
+	s.mux.HandleFunc("GET /ai/runs", s.aiRuns)
 	s.mux.HandleFunc("GET /export/results.html", s.exportResultsHTML)
 
 	s.mux.HandleFunc("GET /teams", s.teams)
