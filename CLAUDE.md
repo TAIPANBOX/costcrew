@@ -84,9 +84,9 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 1597 tests, 32 packages
-./scripts/gates-have-teeth.sh        # 546 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 580 scenarios, both directions
+go test ./...                        # 1601 tests, 32 packages
+./scripts/gates-have-teeth.sh        # 550 cases; needs a clean tree
+./scripts/features-are-bound.sh      # 581 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
@@ -6278,6 +6278,28 @@ an absent invariant.
     eight; the drop's `TestHostileInputMakesNoDrop` carries the same amount
     through the gateway reader. One `fail` case in `gates-have-teeth.sh`: the
     bound removed.)*
+
+105. **A call's cost, real or worst case, is its tokens at their rates rounded
+    to the nearest micro-unit, never truncated.** `deliver.ActualMicros` (what
+    a call cost: the runner's tool loop and the bench) and
+    `deliver.WorstCaseMicros` (what a call reserves: the runner, the bench and
+    the console's plan preview) computed `(tokens / 1e6 * P + ...) * 1e6` in
+    floating point and truncated it, so a float a hair under the exact figure
+    lost a micro-unit: 1,000 tokens in at 3 per million and 500 out at 15 is
+    exactly 10,500 micro-units and came back as 10,499. Both now go through
+    `tokensAtRates`, the product with no division, rounded once with
+    `math.Round`; the reservation and the preview still use the one function,
+    so invariant 44 holds unchanged. *(gate: `TestACallsCostIsRoundedNeverTruncated`
+    in `internal/deliver`, red on the old formula with "ActualMicros: 1000 in,
+    500 out at 3/15: 10499 micros, want 10500", and the same for
+    `WorstCaseMicros`; one `fail` case in `gates-have-teeth.sh`, the old formula
+    back; scenario `features/a-calls-cost-is-rounded.feature`, bound. Three more
+    `fail` cases in the same package pin the task guard, the missing caller and
+    the agent id in the header, the tests `coverage_paths_test.go` holds.)*
+    What this does not do: a figure is still a float product before the
+    rounding, exact for the token counts and the per-million prices this
+    console holds; and a settled charge is the gateway's own figure (invariant
+    51), which this does not touch.
 
 ## Decisions that have no gate yet
 

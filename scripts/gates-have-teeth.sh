@@ -5354,6 +5354,39 @@ run_case $'money: an amount past 64 bits of micro-units wraps again' \
 	$'\tif whole < 0 || part < 0 || whole > (math.MaxInt64-part)/unit {' \
 	$'\tif whole < 0 || part < 0 {'
 
+run_case $'pricing: the truncating formula back' \
+	fail \
+	./internal/deliver \
+	$'TestACallsCostIsRoundedNeverTruncated' \
+	$'10499 micros, want 10500' \
+	internal/deliver/estimate.go \
+	$'\treturn int64(math.Round(float64(in)*p.InPerM + float64(out)*p.OutPerM))' \
+	$'\treturn int64(math.Trunc((float64(in)/1e6*p.InPerM + float64(out)/1e6*p.OutPerM) * 1e6))'
+run_case $'deliver: a wider task guard loosens the run' \
+	fail \
+	./internal/deliver \
+	$'TestTheGatewayBudgetIsTheTighterOfTheRunAndTheTask' \
+	$'GatewayBudgetUSD(500, 700)' \
+	internal/deliver/call.go \
+	$'\tif taskGuard > 0 && taskGuard < b {' \
+	$'\tif taskGuard > 0 {'
+run_case $'deliver: an engine with no caller answers nothing' \
+	fail \
+	./internal/deliver \
+	$'TestACallThatCannotBeMadeSaysWhyBeforeSendingAnything' \
+	$'claude-cli' \
+	internal/deliver/call.go \
+	$'\treturn Result{}, fmt.Errorf("no caller is written for engine %q", engine)' \
+	$'\treturn Result{}, nil'
+run_case $'deliver: an agent id with a space rides in the header' \
+	fail \
+	./internal/deliver \
+	$'TestAnAgentIDThatCannotRideInTheHeaderIsRefused' \
+	$'an analyst whose id holds a space' \
+	internal/deliver/call.go \
+	$'\tif strings.ContainsAny(agent, ", \\t\\r\\n") {' \
+	$'\tif false {'
+
 echo
 if [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'
