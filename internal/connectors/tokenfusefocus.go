@@ -151,7 +151,9 @@ func EnsureFocusSchema(db *sql.DB) error {
 	// and the supersede rule below and the /ai page's note read it.
 	// TokenFuse 1.8.0 appended a third, x_identity_reason (its invariant 87),
 	// stored the same way: NULL when the file's header did not carry it.
-	for _, c := range []string{"key_id", "block_reason", "identity_reason"} {
+	// door is which configured folder a row was read from (invariant 102):
+	// NULL for a row imported before the column, read as the main folder's.
+	for _, c := range []string{"key_id", "block_reason", "identity_reason", "door"} {
 		if _, err := db.Exec(`ALTER TABLE ai_calls ADD COLUMN ` + c + ` TEXT`); err != nil &&
 			!strings.Contains(err.Error(), "duplicate column name") {
 			return fmt.Errorf("adding ai_calls.%s: %w", c, err)
@@ -291,6 +293,30 @@ func readTokenFuseFocus(db *sql.DB, cfg map[string]string, opt ImportOptions) (*
 	if err != nil {
 		return nil, err
 	}
+	// A second gateway door (invariant 102): the OpenAI-wire gateway writes
+	// its own trace and its own export, and the export does not say which door
+	// a call came through, so the folder it was read from does.
+	doorOf := map[string]string{}
+	for _, f := range files {
+		doorOf[f] = DoorMain
+	}
+	twoDoors := false
+	if openai := strings.TrimSpace(cfg[OpenAIPathInput]); openai != "" {
+		if sameFolder(path, openai) {
+			return nil, fmt.Errorf("the OpenAI-wire door's folder is the main folder (%s); each door "+
+				"writes its own export, and one folder read as both would name every call twice", openai)
+		}
+		more, moreSkipped, err := csvFolder(openai)
+		if err != nil {
+			return nil, fmt.Errorf("the OpenAI-wire door's folder: %w", err)
+		}
+		for _, f := range more {
+			doorOf[f] = DoorOpenAI
+		}
+		files = append(files, more...)
+		skipped = append(skipped, moreSkipped...)
+		twoDoors = true
+	}
 
 	// Refusal 1: a generated estate is not mixed with real money. Checked
 	// before anything is read, and before the transaction that would do the
@@ -328,8 +354,8 @@ func readTokenFuseFocus(db *sql.DB, cfg map[string]string, opt ImportOptions) (*
 		ins, err = tx.Prepare(`INSERT INTO ai_calls
 			(file_sha256, row_no, ts, day, team, agent, run_id, parent_run_id,
 			 provider, model, tokens_in, tokens_out, billed_microusd, blocked, basis,
-			 outcome, tool_calls, invoice_id, key_id, block_reason, identity_reason)
-			VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+			 outcome, tool_calls, invoice_id, key_id, block_reason, identity_reason, door)
+			VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 			ON CONFLICT(file_sha256, row_no) DO UPDATE SET
 			  ts=excluded.ts, day=excluded.day, team=excluded.team, agent=excluded.agent,
 			  run_id=excluded.run_id, parent_run_id=excluded.parent_run_id,
@@ -338,7 +364,7 @@ func readTokenFuseFocus(db *sql.DB, cfg map[string]string, opt ImportOptions) (*
 			  billed_microusd=excluded.billed_microusd, blocked=excluded.blocked, basis=excluded.basis,
 			  outcome=excluded.outcome, tool_calls=excluded.tool_calls, invoice_id=excluded.invoice_id,
 			  key_id=excluded.key_id, block_reason=excluded.block_reason,
-			  identity_reason=excluded.identity_reason`)
+			  identity_reason=excluded.identity_reason, door=excluded.door`)
 		if err != nil {
 			return nil, err
 		}
@@ -361,6 +387,7 @@ func readTokenFuseFocus(db *sql.DB, cfg map[string]string, opt ImportOptions) (*
 	}
 
 	sum := newFocusSummary()
+	sum.twoDoors = twoDoors
 	for _, name := range skipped {
 		sum.FileRefusals = append(sum.FileRefusals, skippedNote(name))
 	}
@@ -383,7 +410,7 @@ func readTokenFuseFocus(db *sql.DB, cfg map[string]string, opt ImportOptions) (*
 				return nil, err
 			}
 		}
-		local, ferr := processFocusFile(f, ins, cins)
+		local, ferr := processFocusFile(f, doorOf[f], ins, cins)
 		if ferr != nil {
 			sum.FileRefusals = append(sum.FileRefusals,
 				fmt.Sprintf("%s: %v", filepath.Base(f), ferr))
@@ -566,8 +593,9 @@ func focusFolder(dir string) (files, skipped []string, err error) {
 // gzip that will not open, a byte stream the CSV parser cannot make sense
 // of) returns an error, and the caller rolls back this file's savepoint so
 // nothing it inserted survives either.
-func processFocusFile(path string, ins, cins *sql.Stmt) (*focusSummary, error) {
+func processFocusFile(path, door string, ins, cins *sql.Stmt) (*focusSummary, error) {
 	sum := newFocusSummary()
+	sum.door = door
 
 	// focusFolder already passed over anything that is not a regular file;
 	// this asks again at the moment of reading, because the folder can change
@@ -724,7 +752,7 @@ func processFocusFile(path string, ins, cins *sql.Stmt) (*focusSummary, error) {
 			nullIfEmpty(row.RunID), nullIfEmpty(row.ParentRunID), nullIfEmpty(row.Provider),
 			row.Model, row.TokensIn, row.TokensOut, int64(row.BilledMicros), blockedInt,
 			row.Basis, nullIfEmpty(row.Outcome), toolCalls, nullIfEmpty(row.InvoiceID),
-			row.KeyID, row.BlockReason, row.IdentityReason); err != nil {
+			row.KeyID, row.BlockReason, row.IdentityReason, door); err != nil {
 			return nil, fmt.Errorf("row %d: writing to ai_calls: %w", rowNo, err)
 		}
 	}
@@ -1117,6 +1145,11 @@ type focusSummary struct {
 	// under the agent id each one claimed.
 	Warned       int
 	WarnedMicros money.Micros
+	// Doors counts accepted rows by the door they were read through, and
+	// twoDoors says the OpenAI-wire door's folder was configured, which is when
+	// the sentence names them (invariant 102).
+	Doors    map[string]int
+	twoDoors bool
 	// agentsCounted replaces len(Agents) once recount has read the store.
 	agentsCounted int
 
@@ -1125,15 +1158,17 @@ type focusSummary struct {
 	// x_identity_reason as well).
 	sha        string
 	generation int
+	door       string
 }
 
 func newFocusSummary() *focusSummary {
 	return &focusSummary{Agents: map[string]bool{}, Days: map[string]bool{},
-		Unfiled: map[string]int{}, agentsCounted: -1}
+		Unfiled: map[string]int{}, Doors: map[string]int{}, agentsCounted: -1}
 }
 
 func (s *focusSummary) accept(row focusRow) {
 	s.RowsAccepted++
+	s.Doors[s.door]++
 	s.Agents[row.Agent] = true
 	s.Days[row.Day] = true
 	s.TotalMicros += row.BilledMicros
@@ -1194,6 +1229,9 @@ func (s *focusSummary) merge(o *focusSummary) {
 	s.CommitmentFlagged += o.CommitmentFlagged
 	s.Warned += o.Warned
 	s.WarnedMicros += o.WarnedMicros
+	for d, n := range o.Doors {
+		s.Doors[d] += n
+	}
 	for r, n := range o.Unfiled {
 		s.Unfiled[r] += n
 	}
@@ -1225,6 +1263,24 @@ func (s *focusSummary) recount(tx *sql.Tx, shas []string) error {
 		return fmt.Errorf("counting what the store holds for this import: %w", err)
 	}
 	s.Warned, s.WarnedMicros = warned, money.Micros(warnedMicros)
+	drows, err := tx.Query(`SELECT COALESCE(door,'`+DoorMain+`'), COUNT(*) FROM ai_calls
+		WHERE file_sha256 IN (`+in+`) GROUP BY 1`, args...)
+	if err != nil {
+		return fmt.Errorf("counting what the store holds for this import, by door: %w", err)
+	}
+	defer drows.Close()
+	s.Doors = map[string]int{}
+	for drows.Next() {
+		var d string
+		var n int
+		if err := drows.Scan(&d, &n); err != nil {
+			return err
+		}
+		s.Doors[d] = n
+	}
+	if err := drows.Err(); err != nil {
+		return err
+	}
 	s.RowsAccepted, s.agentsCounted, s.TotalMicros = rows, agents, money.Micros(micros)
 	s.FirstTS, s.LastTS = first.String, last.String
 	return nil
@@ -1271,6 +1327,32 @@ func supersede(tx *sql.Tx, sha string, gen int) (keys, days []string, err error)
 	return keys, days, nil
 }
 
+// The doors a row can be read through (invariant 102). The FOCUS export does
+// not say which gateway door a call came through; the folder it was read from
+// does, because each door writes its own trace and its own export.
+const (
+	// DoorMain is the connector's own folder (the path input): the main
+	// gateway, which in the shipped stacks fronts the Anthropic wire.
+	DoorMain = "main"
+	// DoorOpenAI is the second folder (OpenAIPathInput): the gateway whose
+	// TOKENFUSE_WIRE is openai.
+	DoorOpenAI = "openai-wire"
+	// OpenAIPathInput is the connector input naming the OpenAI-wire door's
+	// export folder; optional.
+	OpenAIPathInput = "path_openai"
+)
+
+// sameFolder is true when two configured folders are one: the same path once
+// cleaned, or the same directory reached two ways.
+func sameFolder(a, b string) bool {
+	if filepath.Clean(a) == filepath.Clean(b) {
+		return true
+	}
+	fa, errA := os.Stat(a)
+	fb, errB := os.Stat(b)
+	return errA == nil && errB == nil && os.SameFile(fa, fb)
+}
+
 // exportGenerationSQL is a row's export generation as supersede compares it,
 // the same count processFocusFile makes from the header: a column the header
 // carried is text on every row ("" or a value), a column it lacked is NULL.
@@ -1313,6 +1395,10 @@ func (s *focusSummary) Sentence(dryRun bool) string {
 		fmt.Fprintf(&b, " %d call%s appeared in more than one export of the same trace and %s "+
 			"counted once; the copy kept is the one from TokenFuse 1.7.0 or later, which names the "+
 			"credential, when there is one.", n, plural(n), wasWere(n))
+	}
+	if s.twoDoors {
+		fmt.Fprintf(&b, " By door: %d row%s through the main gateway, %d through the OpenAI-wire door.",
+			s.Doors[DoorMain], plural(s.Doors[DoorMain]), s.Doors[DoorOpenAI])
 	}
 	if n := s.Warned; n > 0 {
 		fmt.Fprintf(&b, " %d call%s (%s) %s forwarded under identity warn mode: the gateway's "+

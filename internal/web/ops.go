@@ -5,13 +5,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"sort"
 	"strings"
 
 	"github.com/TAIPANBOX/costcrew/internal/auth"
 	"github.com/TAIPANBOX/costcrew/internal/connectors"
+	"github.com/TAIPANBOX/costcrew/internal/deliver"
 	"github.com/TAIPANBOX/costcrew/internal/engines"
+	"github.com/TAIPANBOX/costcrew/internal/finops"
 	"github.com/TAIPANBOX/costcrew/internal/world"
 )
 
@@ -161,10 +164,78 @@ type engineGroup struct {
 	Engines []engines.Availability
 }
 
+// gatewayDoor is one gateway door this console's own calls can go through
+// (invariant 102): the flag that sets it, the wire it speaks, the host it
+// points at (never the whole URL), and the engines Gateway.RouteFor sends
+// through it.
+type gatewayDoor struct {
+	Name, Flag, Wire string
+	Host             string
+	Engines          []string
+}
+
+// gatewayDoors reads the two doors off this console's own configuration,
+// and the engines that a configured gateway refuses rather than sends direct.
+// It asks deliver.Gateway.RouteFor, the one place that decides where a call
+// goes, rather than restating its rules.
+func (s *Server) gatewayDoors() (doors []gatewayDoor, refused []string, on bool) {
+	gw := deliver.Gateway{URL: s.gateway, OpenAIURL: s.gatewayOpenAI}
+	doors = []gatewayDoor{
+		{Name: "Anthropic-wire gateway", Flag: "-gateway", Wire: "Anthropic Messages", Host: hostOf(s.gateway)},
+		{Name: "OpenAI-wire door", Flag: "-gateway-openai", Wire: "OpenAI chat completions", Host: hostOf(s.gatewayOpenAI)},
+	}
+	for _, e := range engines.Catalogue {
+		url, err := gw.RouteFor(e.ID)
+		switch {
+		case err != nil:
+			refused = append(refused, e.Name)
+		case url != "" && url == s.gateway:
+			doors[0].Engines = append(doors[0].Engines, e.Name)
+		case url != "" && url == s.gatewayOpenAI:
+			doors[1].Engines = append(doors[1].Engines, e.Name)
+		}
+	}
+	return doors, refused, gw.On()
+}
+
+// hostOf is a gateway URL's host, which is all a page needs to name the door:
+// a path or a query can carry what nobody should read off a page.
+func hostOf(raw string) string {
+	if raw == "" {
+		return ""
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return ""
+	}
+	return u.Host
+}
+
 func (s *Server) engines(w http.ResponseWriter, r *http.Request) {
 	if s.guard(w, r) == nil {
 		return
 	}
+	doors, refused, gwOn := s.gatewayDoors()
+	// Where the imported AI spend came through: the gateway's own export,
+	// read per configured folder (invariant 102).
+	var imported []finops.DoorSpend
+	month, real, err := finops.LatestRealAIMonth(s.db)
+	if err != nil {
+		http.Error(w, "store unavailable", http.StatusInternalServerError)
+		return
+	}
+	if real {
+		if imported, err = finops.AIDoors(s.db, month); err != nil {
+			http.Error(w, "store unavailable", http.StatusInternalServerError)
+			return
+		}
+	}
+	conn, err := connectors.Load(s.db, "tokenfuse-focus")
+	if err != nil {
+		http.Error(w, "store unavailable", http.StatusInternalServerError)
+		return
+	}
+	secondFolder := strings.TrimSpace(conn.Config[connectors.OpenAIPathInput]) != ""
 	av := engines.Check(nil, nil)
 	var groups []engineGroup
 	// Every family the catalogue holds, in the catalogue's own order. A fixed
@@ -188,13 +259,19 @@ func (s *Server) engines(w http.ResponseWriter, r *http.Request) {
 	}
 	s.render(w, tplEngines, struct {
 		shell
-		Groups      []engineGroup
-		Dry         bool
-		Prompt      promptDataView
-		Families    int
-		EngineCount int
+		Groups       []engineGroup
+		Dry          bool
+		Prompt       promptDataView
+		Families     int
+		EngineCount  int
+		Doors        []gatewayDoor
+		Refused      []string
+		GatewayOn    bool
+		Imported     []finops.DoorSpend
+		ImportMonth  string
+		SecondFolder bool
 	}{s.shellFor(r, "Engines", "engines"), groups, engines.Dry(av), currentPromptData(),
-		engines.FamilyCount(), engines.EngineCount()})
+		engines.FamilyCount(), engines.EngineCount(), doors, refused, gwOn, imported, month, secondFolder})
 }
 
 // ---------------------------------------------------------------- accounts

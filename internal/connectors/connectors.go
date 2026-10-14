@@ -264,7 +264,10 @@ var Catalogue = []Connector{
 			"when blocked, why. USD only in this step.",
 		Doc: "https://focus.finops.org/",
 		Inputs: []Input{{Name: "path", Label: "Folder tokenfuse focus-export wrote to",
-			Hint: "the local path on the machine this console runs on"}},
+			Hint: "the local path on the machine this console runs on; the main gateway's export"},
+			{Name: OpenAIPathInput, Label: "Folder the OpenAI-wire gateway's focus-export wrote to",
+				Hint: "optional: a second gateway door (TOKENFUSE_WIRE=openai) writes its own export; " +
+					"its calls are then named as that door's", Optional: true}},
 		Cannot: "It cannot tell you what the call was for: an outcome is what the calling " +
 			"agent tagged, or nothing.",
 	},

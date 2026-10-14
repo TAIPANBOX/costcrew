@@ -84,15 +84,25 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 1618 tests, 32 packages
-./scripts/gates-have-teeth.sh        # 565 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 593 scenarios, both directions
+go test ./...                        # 1627 tests, 32 packages
+./scripts/gates-have-teeth.sh        # 575 cases; needs a clean tree
+./scripts/features-are-bound.sh      # 598 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 govulncheck ./...                    # CI runs it, pinned at v1.8.0; reports only vulnerabilities the code can reach
 staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refused PR #19 on two findings the list above never asked for; a staticcheck built for an older Go cannot read this module, so on such a machine CI is the only place it runs
 ```
+
+Invariant 102 (each gateway door is named as its own source when the input
+tells them apart, and "one source" is said when it does not) added 9 tests
+(`internal/connectors/tokenfusefocus_doors_test.go`, 4;
+`internal/finops/doors_test.go`, 2; `internal/web/gateway_doors_page_test.go`,
+3), 10 `gates-have-teeth.sh` cases (9 `fail`, 1 `pass`), 5 scenarios
+(`features/each-gateway-door-is-its-own-source.feature`, new), one optional
+connector input and no route: 1618 -> 1627 tests, 32 packages unchanged, 565
+-> 575 cases, 593 -> 598 scenarios, measured on this branch with the three
+commands this block already names.
 
 Invariant 101 (a run names every model it used, each one's share of its
 spend, and how it ended) added 6 tests (`internal/finops/runs_test.go`, 3;
@@ -6425,6 +6435,67 @@ an absent invariant.
     that month's calls; and the order of models is by each one's first call,
     so a run that went back to a model it had left shows that model once,
     where it first appeared.
+
+102. **Each gateway door is named as its own source when the input tells
+    them apart, and "one source" is said when it does not.** A TokenFuse
+    gateway speaks one wire (`TOKENFUSE_WIRE`), so the OpenAI wire is a
+    second gateway with its own address, trace, export and budgets. Measured
+    on forge 2026-10-14: a run budget and a unit cap set centrally were each
+    spent once per door (1.72x and 1.87x), because two doors are two ledgers.
+    The FOCUS export does not say which door a call came through, and
+    `/engines` named no door at all, although this console's own calls go
+    through `-gateway` or `-gateway-openai` (invariant 54).
+
+    The `tokenfuse-focus` connector takes a second, optional folder,
+    `path_openai` (`connectors.OpenAIPathInput`), the OpenAI-wire door's
+    export. Every row is stored with the folder it was read from
+    (`ai_calls.door`: `main` or `openai-wire`, `connectors.DoorMain` and
+    `DoorOpenAI`; NULL on a row imported before the column, read as `main`),
+    the import's sentence counts the rows through each door once the second
+    folder is set, and one folder set as both doors, by the same path or a
+    link to it (`sameFolder`, `os.SameFile`), is refused before anything is
+    read, because every call would be named twice. `finops.AIDoors` is the
+    month's calls and spend per door; `RunRow.Doors` is each run's, main
+    first. `/ai/runs` adds a Door column, a `two doors` mark on a run that
+    came through both and a tile counting such runs, and says that such a
+    run spent against two ledgers, whenever the month holds more than one
+    door; otherwise it says the month was read from one folder, so every run
+    is read from one source. `/engines` gains a "Gateway doors" panel
+    (`#gateway-doors`): each door this console's own calls can go through,
+    with its flag, wire, the HOST it points at (never the path or query,
+    `hostOf`) and the engines `deliver.Gateway.RouteFor` sends through it,
+    the engines a configured gateway refuses, or that no door is set; and
+    where the imported spend came through, per door when the input tells
+    them apart, "One source." with the folder it was read from when it does
+    not, or that nothing has been imported.
+    *(gate: `TestASecondDoorsFolderIsReadAsThatDoors`,
+    `TestOneFolderNamesNoSecondDoor`, `TestOneFolderSetAsBothDoorsIsRefused`
+    (the same path, uncleaned, and a link), `TestAnUnreadableSecondFolderIsNamedAsTheDoors`
+    in `internal/connectors`; `TestARunThroughTwoDoorsNamesBoth`,
+    `TestARowFromBeforeTheDoorColumnIsReadAsTheMainFolders` in
+    `internal/finops`; `TestTheRunsPageNamesTheDoorsWhenTheInputTellsThemApart`,
+    `TestTheEnginesPageNamesEachGatewayDoorThisConsoleCallsThrough`,
+    `TestTheEnginesPageSaysOneSourceWhenTheInputDoesNotTellDoorsApart` in
+    `internal/web`. Red first on the branch below it: the connector tests
+    with "no such column: door" or the second folder ignored, the finops
+    tests by compile (`AIDoors`, `RunRow.Doors` undefined), the page tests by
+    the missing panel and column. Nine `fail` cases and one `pass` case in
+    `gates-have-teeth.sh`: the second folder's rows named as the main
+    gateway's; one folder set as both doors read; the same folder reached
+    another way not seen; a run's doors not counted; a row from before the
+    column read as no door; the runs page's door column dropped; an engine
+    listed under a door that does not front it; the whole gateway URL
+    printed; "One source." not said; and the doors panel's note reworded,
+    which must stay green. Scenarios:
+    `features/each-gateway-door-is-its-own-source.feature`, five, each
+    bound.)* What this does not do: the door is the folder's, as the
+    operator set it, never read from the call itself, so an export put in
+    the wrong folder is named as the wrong door; a third door has no folder;
+    the identity of a call across two exports (invariant 89) still leaves
+    the door out, so two calls on two doors identical in run, instant,
+    model, tokens and amount would be read as one; and the doors this
+    console's own calls go through are read from its own flags, never from
+    the gateways themselves (invariant 64).
 
 ## Decisions that have no gate yet
 
