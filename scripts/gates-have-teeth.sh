@@ -4747,7 +4747,7 @@ run_case $'re-export: the supersede step skipped' \
 	$'TestAReExportOfTheSameCallsReplacesTheEarlierRows' \
 	$'counted twice' \
 	internal/connectors/tokenfusefocus.go \
-	$'keys, days, err := supersede(tx, local.sha, local.newColumns)' \
+	$'keys, days, err := supersede(tx, local.sha, local.generation)' \
 	$'keys, days, err := []string(nil), []string(nil), error(nil)'
 run_case $'re-export: the agent in the call\'s identity' \
 	fail \
@@ -4763,11 +4763,11 @@ run_case $'re-export: the last file read wins' \
 	$'TestAnOlderExportNeverDisplacesANewerOne' \
 	$'displaced the newer one' \
 	internal/connectors/tokenfusefocus.go \
-	$'\t\tAND (key_id IS NOT NULL) <= ?2`' \
-	$'\t\tAND (key_id IS NOT NULL) <= 1`' \
+	$'\t\tAND ` + exportGenerationSQL + ` <= ?2`' \
+	$'\t\tAND ` + exportGenerationSQL + ` <= 1`' \
 	internal/connectors/tokenfusefocus.go \
-	$'WHERE file_sha256 != ?1 AND (key_id IS NOT NULL) > ?2)`' \
-	$'WHERE file_sha256 != ?1 AND (key_id IS NOT NULL) > 1)`'
+	$'WHERE file_sha256 != ?1 AND ` + exportGenerationSQL + ` > ?2)`' \
+	$'WHERE file_sha256 != ?1 AND ` + exportGenerationSQL + ` > 1)`'
 run_case $'re-export: the import counts a call twice in its own sentence' \
 	fail \
 	./internal/connectors \
@@ -4782,8 +4782,8 @@ run_case $'re-export: the credential column not written' \
 	$'TestTheKeyAndTheBlockReasonAreKeptWhenTheExportCarriesThem' \
 	$'the two honest calls with their key' \
 	internal/connectors/tokenfusefocus.go \
-	$'\t\t\trow.KeyID, row.BlockReason); err != nil {' \
-	$'\t\t\tnil, row.BlockReason); err != nil {'
+	$'\t\t\trow.KeyID, row.BlockReason, row.IdentityReason); err != nil {' \
+	$'\t\t\tnil, row.BlockReason, row.IdentityReason); err != nil {'
 run_case $'re-export: a refusal with client keys off reported as bad data' \
 	fail \
 	./internal/connectors \
@@ -5121,8 +5121,8 @@ run_case $'connectors: the drop-a-folder hint back' \
 	$'TestTheFocusConnectorPageOffersNoDropAndLinksToTheAIPage' \
 	$'offers to take a dropped folder' \
 	internal/connectors/connectors.go \
-	$'Hint: "the local path on the machine this console runs on"}},' \
-	$'Hint: "the local path, or drop the folder on this page"}},'
+	$'Hint: "the local path on the machine this console runs on; the main gateway\'s export"},' \
+	$'Hint: "the local path, or drop the folder on this page; the main gateway\'s export"},'
 run_case $'connectors: the TokenFuse page loses its link to /ai' \
 	fail \
 	./internal/web \
@@ -5237,7 +5237,7 @@ run_case $'cloudability: a call exported twice is in the drop twice' \
 	$'TestACallExportedTwiceIsInTheDropOnce' \
 	$'the same calls exported twice' \
 	internal/connectors/tokenfusefocus.go \
-	$'keys, days, err := supersede(tx, local.sha, local.newColumns)' \
+	$'keys, days, err := supersede(tx, local.sha, local.generation)' \
 	$'keys, days, err := []string(nil), []string(nil), error(nil)'
 run_case $'cloudability: a drop written into an epoch folder that exists' \
 	fail \
