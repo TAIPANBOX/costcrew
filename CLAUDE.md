@@ -84,8 +84,8 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 1732 tests, 32 packages
-./scripts/gates-have-teeth.sh        # 606 cases; needs a clean tree; TEETH_SHARD=i/N runs one of N shards
+go test ./...                        # 1733 tests, 32 packages
+./scripts/gates-have-teeth.sh        # 610 cases; needs a clean tree; TEETH_SHARD=i/N runs one of N shards
 ./scripts/teeth-shards-cover-every-case.sh  # the shards partition the cases: none missing, none twice
 ./scripts/features-are-bound.sh      # 613 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
