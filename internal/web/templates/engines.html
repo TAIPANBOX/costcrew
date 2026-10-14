@@ -13,6 +13,38 @@
   </div>
 </div>
 
+<div class="panel" id="gateway-doors">
+  <h2>Gateway doors</h2>
+  <div class="body">
+    <p class="note">A TokenFuse gateway speaks one wire, so a second wire is a second door with its own address, its own trace and its own budgets. This console's own model calls (the supervisor's plan, and the crew through <code>costcrew-run</code> with the same flags) go through the door that fronts their engine's wire, or are refused; they never go direct once any door is set.</p>
+  </div>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Door</th><th>Flag</th><th>Wire</th><th>Points at</th><th>Engines through it</th></tr></thead>
+    <tbody>
+    {{range .Doors}}
+      <tr>
+        <td>{{.Name}}</td>
+        <td><code>{{.Flag}}</code></td>
+        <td>{{.Wire}}</td>
+        <td>{{if .Host}}<code>{{.Host}}</code>{{else}}<span class="note">not set</span>{{end}}</td>
+        <td>{{if .Engines}}{{range $i, $e := .Engines}}{{if $i}}, {{end}}{{$e}}{{end}}{{else}}<span class="note">none</span>{{end}}</td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+  <div class="body">
+    {{if .GatewayOn}}{{if .Refused}}<p class="note">Refused while a door is set, because no door fronts their wire: {{range $i, $e := .Refused}}{{if $i}}, {{end}}{{$e}}{{end}}.</p>{{end}}
+    {{else}}<p>No door is set: the crew's calls go straight to each vendor, and the supervisor's plan-ask cannot spend at all.</p>{{end}}
+    <h3>Where the imported AI spend came through</h3>
+    {{if gt (len .Imported) 1}}<p>{{.ImportMonth}}, read per door from the gateways' own exports:</p>
+    <ul>{{range .Imported}}<li>{{.Label}}: {{.Calls}} {{plural .Calls "call" "calls"}}, {{.Cost}}</li>{{end}}</ul>
+    {{else if .Imported}}{{with index .Imported 0}}<p>One source. The FOCUS export does not say which door a call came through, and {{$.ImportMonth}}'s {{.Calls}} {{plural .Calls "call" "calls"}} ({{.Cost}}) were all read from one folder, the {{.Label}}'s.{{if $.SecondFolder}} The other door's folder is set and holds no calls for that month.{{else}} A second door's export is read as its own source once its folder is set on the <a href="/connectors/tokenfuse-focus">connector</a>.{{end}}</p>{{end}}
+    {{else}}<p>Nothing imported yet: point the <a href="/connectors/tokenfuse-focus">TokenFuse FOCUS export</a> connector at each door's export folder, and the spend through each is named here.</p>{{end}}
+  </div>
+</div>
+
 {{if .Dry}}
 <p class="msg">Nothing is configured, so the crew is in dry mode: every figure the engine computes is real and the analysts simply do not write. The console is not broken.</p>
 {{end}}

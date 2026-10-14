@@ -2,7 +2,8 @@
 <header class="page">
   <h1>Runs</h1>
   <p>One row per run the gateway's rows name, for {{.Month}}: what it spent, every model it called and each model's share of that spend, in the order it first called them, and how it ended as far as the gateway's own rows show. A run that started on one model and finished on another is one run with two models in it; naming it by its last model names it by the model that may have done the least of its work.</p>
-  <p class="note">Which gateway door a call came through is not in the FOCUS export, and this console reads one folder of it, so every run here is read from one source.</p>
+  {{if gt (len .Doors) 1}}<p class="note">Each gateway door writes its own export, and the connector reads each door's folder as that door's: {{range $i, $d := .Doors}}{{if $i}}, {{end}}{{$d.Label}} {{$d.Calls}} {{plural $d.Calls "call" "calls"}} ({{$d.Cost}}){{end}}. A run that came through two doors spent against two ledgers: each door keeps its own budget for it.</p>
+  {{else}}<p class="note">Which gateway door a call came through is not in the FOCUS export, and this month's calls were all read from one folder of it, so every run here is read from one source. A second door's export is read as its own source once its folder is set on the <a href="/connectors/tokenfuse-focus">connector</a>.</p>{{end}}
   <p><a href="/ai">AI spend</a></p>
 </header>
 
@@ -12,6 +13,7 @@
   <div class="tile"><div class="k">Switched model</div><div class="v">{{.Sum.Switched}}</div><div class="s">called more than one model</div></div>
   <div class="tile"><div class="k">Killed</div><div class="v">{{.Sum.Killed}}</div><div class="s">a call ran into the kill</div></div>
   <div class="tile"><div class="k">Stopped</div><div class="v">{{.Sum.Stopped}}</div><div class="s">the last call was refused</div></div>
+  {{if gt (len .Doors) 1}}<div class="tile"><div class="k">Two doors</div><div class="v {{if .Sum.Crossed}}up{{end}}">{{.Sum.Crossed}}</div><div class="s">runs that spent through both</div></div>{{end}}
 </div>
 
 <div class="panel">
@@ -21,7 +23,7 @@
   </div>
   <div class="scroll">
   <table>
-    <thead><tr><th>Run</th><th class="num">Spend</th><th class="num">Calls</th><th>Models, in the order called</th><th>How it ended</th><th>Agents</th><th>Team</th></tr></thead>
+    <thead><tr><th>Run</th><th class="num">Spend</th><th class="num">Calls</th><th>Models, in the order called</th><th>How it ended</th>{{if gt (len $.Doors) 1}}<th>Door</th>{{end}}<th>Agents</th><th>Team</th></tr></thead>
     <tbody>
     {{range .Runs}}
       <tr>
@@ -30,6 +32,7 @@
         <td class="num">{{.Calls}}{{if .BlockedCalls}}<span class="sub">{{.BlockedCalls}} blocked: {{.BlockedText}}</span>{{end}}</td>
         <td>{{if .Switched}}<span class="chip triaged">model switch</span> {{end}}{{range $i, $m := .Models}}{{if $i}} then {{end}}<code>{{$m.Model}}</code> {{$m.Share}}<span class="sub">{{$m.Calls}} {{plural $m.Calls "call" "calls"}}, {{$m.Cost}}</span>{{end}}{{if .Switched}}<span class="sub">last call on <code>{{.LastModel}}</code></span>{{end}}</td>
         <td>{{if .Killed}}<span class="chip open">killed</span>{{else if .LastBlocked}}<span class="chip open">stopped</span><span class="sub">{{.State}}</span>{{else}}{{.State}}{{end}}{{if .WarnedCalls}}<span class="sub"><span class="chip triaged">identity warn</span> {{.WarnedCalls}} {{plural .WarnedCalls "call" "calls"}} ({{.WarnedCost}}) forwarded although the identity check failed</span>{{end}}</td>
+        {{if gt (len $.Doors) 1}}<td>{{if .CrossedDoors}}<span class="chip open">two doors</span> {{end}}{{range $i, $d := .Doors}}{{if $i}}, {{end}}{{$d.Label}}<span class="sub">{{$d.Calls}} {{plural $d.Calls "call" "calls"}}, {{$d.Cost}}</span>{{end}}</td>{{end}}
         <td>{{range $i, $a := .Agents}}{{if $i}}, {{end}}{{$a}}{{end}}</td>
         <td>{{range $i, $t := .Teams}}{{if $i}}, {{end}}{{$t}}{{else}}<span class="note">none on the row</span>{{end}}</td>
       </tr>
