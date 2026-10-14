@@ -5354,6 +5354,89 @@ run_case $'money: an amount past 64 bits of micro-units wraps again' \
 	$'\tif whole < 0 || part < 0 || whole > (math.MaxInt64-part)/unit {' \
 	$'\tif whole < 0 || part < 0 {'
 
+# Invariant 100: a call the gateway forwarded under identity warn mode is
+# marked, with its spend, per agent, per team and per run.
+run_case $'identity warn: the finding is not written' \
+	fail \
+	./internal/connectors \
+	$'TestTheIdentityReasonIsKeptWhenTheExportCarriesIt' \
+	$'stored with no identity_reason' \
+	internal/connectors/tokenfusefocus.go \
+	$'\t\t\trow.KeyID, row.BlockReason, row.IdentityReason); err != nil {' \
+	$'\t\t\trow.KeyID, row.BlockReason, nil); err != nil {'
+run_case $'identity warn: a refusal is counted as a forwarded call' \
+	fail \
+	./internal/finops \
+	$'TestAForwardedUnderWarnCallIsMarkedPerTeamAndPerRun' \
+	$'a refusal and a Breaker block spent nothing' \
+	internal/connectors/tokenfusefocus.go \
+	$'const IdentityWarnedSQL = `(blocked = 0 AND COALESCE(identity_reason,\'\') <> \'\')`' \
+	$'const IdentityWarnedSQL = `(COALESCE(identity_reason,\'\') <> \'\')`'
+run_case $'identity warn: supersede ignores the 1.8.0 column' \
+	fail \
+	./internal/connectors \
+	$'TestAWarnMarkedExportIsKeptOverAnOlderCopyOfTheSameCalls' \
+	$'the marker was lost' \
+	internal/connectors/tokenfusefocus.go \
+	$'const exportGenerationSQL = `((key_id IS NOT NULL) + (identity_reason IS NOT NULL))`' \
+	$'const exportGenerationSQL = `((key_id IS NOT NULL) + 0)`'
+run_case $'identity warn: the 64-byte bound lifted' \
+	fail \
+	./internal/connectors \
+	$'TestHostileIdentityReasonIsRefusedByName' \
+	$'is over 64 bytes was imported' \
+	internal/connectors/tokenfusefocus.go \
+	$'identityReason, err := optionalPlain(rec, col, "x_identity_reason", xIdentityReasonMaxBytes)' \
+	$'identityReason, err := optionalPlain(rec, col, "x_identity_reason", xIdentityReasonMaxBytes*4)'
+run_case $'identity warn: the per-run table emptied' \
+	fail \
+	./internal/web \
+	$'TestTheAIPageMarksCallsForwardedUnderIdentityWarn' \
+	$'does not contain "<code>run-7</code>"' \
+	internal/web/templates/ai.html \
+	$'{{range .Warn.ByRun}}' \
+	$'{{range slice .Warn.ByRun 0 0}}'
+run_case $'identity warn: the agent row carries no mark' \
+	fail \
+	./internal/web \
+	$'TestTheAIPageMarksCallsForwardedUnderIdentityWarn' \
+	$'does not mark its two forwarded calls' \
+	internal/web/templates/ai.html \
+	$'{{if .WarnedCalls}} <span class="chip triaged">identity warn</span>' \
+	$'{{if false}} <span class="chip triaged">identity warn</span>'
+run_case $'identity warn: the team rows carry no flag' \
+	fail \
+	./internal/web \
+	$'TestTheAIPageMarksCallsForwardedUnderIdentityWarn' \
+	$'carry no identity warn flag' \
+	internal/web/templates/ai.html \
+	$'{{with index $.Warn.TeamCalls .Team}}' \
+	$'{{with 0}}'
+run_case $'identity warn: the agent row\'s forwarded spend zeroed' \
+	fail \
+	./internal/finops \
+	$'TestTheAgentRowCountsItsForwardedCallsInsideItsSpend' \
+	$'flint\'s forwarded calls' \
+	internal/finops/ai.go \
+	$'\t\tr.WarnedCost = money.Micros(warnedMicros)' \
+	$'\t\tr.WarnedCost = money.Micros(warnedMicros) * 0'
+run_case $'identity warn: the packet\'s line dropped' \
+	fail \
+	./internal/deliver \
+	$'TestAISpendSectionNamesTheCallsForwardedUnderIdentityWarn' \
+	$'does not carry "forwarded under identity warn mode: 3 calls' \
+	internal/deliver/packet.go \
+	$'\tif warn.Calls > 0 {' \
+	$'\tif warn.Calls > 1000 {'
+run_case $'identity warn: the panel\'s note reworded is not a fault' \
+	pass \
+	./internal/web \
+	$'TestTheAIPageMarksCallsForwardedUnderIdentityWarn' \
+	$'' \
+	internal/web/templates/ai.html \
+	$'but nobody proved which agent made it.' \
+	$'but nobody proved which agent sent it.'
+
 echo
 if [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'
