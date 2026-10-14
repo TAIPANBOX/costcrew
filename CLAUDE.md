@@ -84,9 +84,9 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 1627 tests, 32 packages
-./scripts/gates-have-teeth.sh        # 575 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 598 scenarios, both directions
+go test ./...                        # 1628 tests, 32 packages
+./scripts/gates-have-teeth.sh        # 576 cases; needs a clean tree
+./scripts/features-are-bound.sh      # 599 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
@@ -6496,6 +6496,21 @@ an absent invariant.
     model, tokens and amount would be read as one; and the doors this
     console's own calls go through are read from its own flags, never from
     the gateways themselves (invariant 64).
+
+106. **Two doors are two traces: a call_key match across the main folder and the
+    OpenAI-wire folder is two calls, not one re-export, so `supersede` removes a
+    row only when it was read through the same door as the file being imported.**
+    `supersede` matched on `call_key` alone, so the same blocked call exported by
+    both gateways (same run, instant, model, tokens, amount and block) deleted one
+    door's row when the other door's file was read second, and the door counts
+    read 1 and 0. Now both WHERE clauses carry `COALESCE(door,'main') = ?3`, the
+    importing file's door. *(gate: `TestOneBlockedCallOnEachDoorIsTwoCalls` in
+    `internal/connectors`, red on `origin/main` 732b265 with "1 row(s) for one
+    blocked call on each door, want 2" in both read orders; one `fail` case in
+    `gates-have-teeth.sh` drops the door condition from both clauses; scenario
+    `features/two-doors-are-two-traces.feature`, bound.)* What this does not do:
+    it does not change the call_key itself, which still excludes the agent (so a
+    1.7.0 identity refusal still supersedes its pre-1.7.0 copy within one door).
 
 ## Decisions that have no gate yet
 

@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/TAIPANBOX/costcrew/actions/workflows/ci.yml/badge.svg)](https://github.com/TAIPANBOX/costcrew/actions/workflows/ci.yml)
 ![Go](https://img.shields.io/badge/go-1.27-00ADD8.svg)
-![tests](https://img.shields.io/badge/tests-1627-brightgreen.svg)
+![tests](https://img.shields.io/badge/tests-1628-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)
 ![Status](https://img.shields.io/badge/enforces-nothing%20by%20design-success.svg)
 
@@ -744,9 +744,9 @@ estate-gates repository's own PROVEN record:
 ## Gates
 
 ```sh
-go test ./...                        # 1627 tests, 32 packages
+go test ./...                        # 1628 tests, 32 packages
 ./scripts/features-are-bound.sh      # every scenario bound to a named test, both ways
-./scripts/gates-have-teeth.sh        # 575 cases: each gate is made to fail on purpose
+./scripts/gates-have-teeth.sh        # 576 cases: each gate is made to fail on purpose
 gofmt -l . && go vet ./...
 ```
 
