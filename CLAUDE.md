@@ -84,15 +84,26 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 1597 tests, 32 packages
-./scripts/gates-have-teeth.sh        # 546 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 580 scenarios, both directions
+go test ./...                        # 1612 tests, 32 packages
+./scripts/gates-have-teeth.sh        # 556 cases; needs a clean tree
+./scripts/features-are-bound.sh      # 587 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 govulncheck ./...                    # CI runs it, pinned at v1.8.0; reports only vulnerabilities the code can reach
 staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refused PR #19 on two findings the list above never asked for; a staticcheck built for an older Go cannot read this module, so on such a machine CI is the only place it runs
 ```
+
+Invariant 100 (a call the gateway forwarded under identity warn mode is
+marked, with its spend, per agent, per team and per run) added 15 tests
+(`internal/connectors/tokenfusefocus_identity_test.go`, 5;
+`internal/finops/ai_identity_warn_test.go`, 6;
+`internal/deliver/ai_desk_identity_warn_test.go`, 1;
+`internal/web/ai_identity_warn_page_test.go`, 3), 10 `gates-have-teeth.sh`
+cases (9 `fail`, 1 `pass`), 7 scenarios
+(`features/identity-warn-is-marked.feature`, new) and no route: 1597 -> 1612
+tests, 32 packages unchanged, 546 -> 556 cases, 580 -> 587 scenarios,
+measured on this branch with the three commands this block already names.
 
 Invariants 98 and 99 (a Cloudability drop is the whole month to date, exact,
 in FOCUS 1.1 and laid out the way the ingress reads it, or it is not written;
@@ -6278,6 +6289,82 @@ an absent invariant.
     eight; the drop's `TestHostileInputMakesNoDrop` carries the same amount
     through the gateway reader. One `fail` case in `gates-have-teeth.sh`: the
     bound removed.)*
+
+100. **A call the gateway forwarded under identity warn mode is marked, with
+    its spend, per agent, per team and per run.** With
+    `TOKENFUSE_IDENTITY_STRICT=warn` TokenFuse lets a call through when the
+    agent id it carries does not belong to the credential that sent it, and
+    files the call and its spend under the id it claimed: an admitted, spent
+    row like any other. TokenFuse 1.8.0 (its invariant 87) appended
+    `x_identity_reason` to the FOCUS export, the identity check's own word
+    (`agent_id_not_allowed`, `agent_id_missing`, `unit_chosen_by_agent_id`,
+    `key_has_no_unit_binding`, `agent_id_contradicts_proven_chain`), set on
+    every row of such a call and on a refusal for identity. Nothing here read
+    it, so `/ai` showed a forwarded call exactly as an honest one, under an
+    agent nobody proved made it.
+
+    The reader stores it (`ai_calls.identity_reason`, added by
+    `EnsureFocusSchema`; NULL when the file's header lacks the column, "" or
+    the word when it has it), held to `plainname.Check` at 64 bytes like
+    `x_block_reason`; the prompt-data fixture classifies it as plain. A call
+    counts as forwarded under warn when it was admitted (`blocked = 0`) and
+    carries a finding (`connectors.IdentityWarnedSQL`, the one formula, and
+    `focusRow.Warned` beside it), which is what TokenFuse Cloud counts as
+    `identity_warned` on a run: a refusal for identity carries the finding
+    too and spent nothing, and so does a warned call the Breaker then
+    blocked. The supersede rule of invariant 89 counts one more generation: a
+    row whose export carried `x_identity_reason` is newer than one whose
+    export carried only `x_key_id` (`exportGenerationSQL`), so a 1.7.0 copy of
+    the same calls never displaces the 1.8.0 copy and its mark, whichever
+    file the folder lists last. The import's sentence counts the forwarded
+    calls and what they cost.
+
+    `/ai` says above its tables how many calls and how much spend warn mode
+    forwarded this month; the By agent row carries an `identity warn` mark
+    and how much of its spend it was; each team row of the price and volume
+    table carries the team's count; and a panel, "Forwarded under identity
+    warn mode" (`#identity-warn`), lists them by team and by run, largest
+    spend first, with the agent ids claimed and the findings
+    (`finops.IdentityWarnings`). Forwarded spend stays inside every total:
+    it is real spend, marked, never moved. When a month holds calls from an
+    export written before 1.8.0 the panel says how many, and that they read as
+    honest whether or not they were; it says "no call was forwarded" only for
+    calls whose export reports it. The ai-spend packet carries the desk-wide
+    count, spend and findings (kept under `-prompt-data aggregates`, a
+    desk-wide figure in a closed vocabulary) and each agent line's share.
+    *(gate: `TestTheIdentityReasonIsKeptWhenTheExportCarriesIt`,
+    `TestAnExportWithoutTheColumnStoresNoIdentityReason`,
+    `TestAWarnMarkedExportIsKeptOverAnOlderCopyOfTheSameCalls`,
+    `TestHostileIdentityReasonIsRefusedByName` (15 shapes and the inclusive
+    bound), `TestTheIdentityReasonColumnIsAddedToAStoreThatPredatesIt` in
+    `internal/connectors`; `TestAForwardedUnderWarnCallIsMarkedPerTeamAndPerRun`,
+    `TestTheAgentRowCountsItsForwardedCallsInsideItsSpend`,
+    `TestAnOlderExportIsCountedAsNotReportingIdentityWarn`,
+    `TestWarnGroupsAreOrderedTheSameEveryCall`,
+    `TestWarnGroupsBreakTiesOnCallsAndThenTheKey`,
+    `TestIdentityWarningsReportsAStoreThatCannotBeRead` in `internal/finops`;
+    `TestAISpendSectionNamesTheCallsForwardedUnderIdentityWarn` in
+    `internal/deliver`; `TestTheAIPageMarksCallsForwardedUnderIdentityWarn`,
+    `TestTheAIPageSaysAnOlderExportCannotTellAWarnedCall`,
+    `TestTheAIPageSaysNothingWasForwardedWhenTheExportSaysSo` in
+    `internal/web`. Red first on `origin/main` (`f3dee1c`) with the product
+    files reverted: the connector tests with "6 row(s) of a 1.8.0 export were
+    stored with no identity_reason" (the column did not exist), the rest by
+    compile (`IdentityWarnedSQL`, `IdentityWarnings`, `WarnedCalls` undefined)
+    or, for the page and the packet, by the missing marks. Nine `fail` cases
+    and one `pass` case in `gates-have-teeth.sh`: the finding not written; a
+    refusal counted as forwarded; the supersede generation ignoring the
+    column; the 64-byte bound lifted; the per-run table emptied; the agent's
+    mark dropped; the team flag dropped; the agent row's spend share zeroed;
+    the packet's line dropped; and the panel's note reworded, which must stay
+    green. Scenarios: `features/identity-warn-is-marked.feature`, seven,
+    each bound.)* What this does not do: a reason word TokenFuse adds later is
+    stored and shown as written, not explained; a pre-1.8.0 export cannot be
+    told to hold a warned call, and the page says so rather than guessing; the
+    team is the gateway's `x_unit`, so a call whose unit the identity map did
+    not resolve is listed under "no team on the row"; and the Cloud's own
+    run counters (`identity_warned`) are not read, because this console reads
+    the FOCUS export and makes no call to the Cloud (invariant 64).
 
 ## Decisions that have no gate yet
 

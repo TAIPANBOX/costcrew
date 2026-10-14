@@ -233,7 +233,12 @@ func (s *Server) ai(w http.ResponseWriter, r *http.Request) {
 	var agentRows []finops.AgentAIRow
 	var mixedNote, exportNote string
 	var blockedBy []finops.ReasonCount
+	var warn finops.IdentityWarn
 	if real {
+		if warn, err = finops.IdentityWarnings(s.db, month); err != nil {
+			http.Error(w, "store unavailable", http.StatusInternalServerError)
+			return
+		}
 		if agentRows, err = finops.AIByAgent(s.db, month); err != nil {
 			http.Error(w, "store unavailable", http.StatusInternalServerError)
 			return
@@ -294,8 +299,9 @@ func (s *Server) ai(w http.ResponseWriter, r *http.Request) {
 		MixedNote   string
 		ExportNote  string
 		BlockedBy   []finops.ReasonCount
+		Warn        finops.IdentityWarn
 	}{s.shellFor(r, "AI spend", "ai"), rows, total, thousands(tokens), len(list), sp,
-		crewCost, crewTasks, month, real, hasOutcomes, agentRows, mixedNote, exportNote, blockedBy})
+		crewCost, crewTasks, month, real, hasOutcomes, agentRows, mixedNote, exportNote, blockedBy, warn})
 }
 
 // thousands groups a large count so a reader can tell a million from ten.
