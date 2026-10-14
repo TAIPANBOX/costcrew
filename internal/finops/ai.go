@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/TAIPANBOX/costcrew/internal/connectors"
@@ -24,6 +25,19 @@ func LatestRealAIMonth(db *sql.DB) (month string, ok bool, err error) {
 		WHERE source='ai' AND unit='tokens' AND provenance IS NOT NULL`).Scan(&day)
 	if err != nil {
 		return "", false, err
+	}
+	// A month whose every call was priced at the gateway's fallback rate has
+	// no charges row (invariant 103), and is still a month of real calls.
+	if has, err := aiCallsTableExists(db); err != nil {
+		return "", false, err
+	} else if has {
+		var calls sql.NullString
+		if err := db.QueryRow(`SELECT MAX(day) FROM ai_calls`).Scan(&calls); err != nil {
+			return "", false, err
+		}
+		if calls.Valid && (!day.Valid || calls.String > day.String) {
+			day = calls
+		}
 	}
 	if !day.Valid || len(day.String) < 7 {
 		return "", false, nil
@@ -172,6 +186,11 @@ type AgentAIRow struct {
 	// spend, filed under the agent id each claimed (invariant 100).
 	WarnedCalls int
 	WarnedCost  money.Micros
+	// FallbackCalls and FallbackCost are the row's calls the gateway priced at
+	// a basis other than its book: an estimate, kept out of Cost (invariant
+	// 103).
+	FallbackCalls int
+	FallbackCost  money.Micros
 }
 
 // CredentialPrefix is how TokenFuse 1.7.0 files a call refused for identity:
@@ -292,10 +311,12 @@ func ExportMixNote(before, from170 int) string {
 // for that would be inventing one; the count is what is actually known.
 func AIByAgent(db *sql.DB, month string) ([]AgentAIRow, error) {
 	rows, err := db.Query(`SELECT agent, COUNT(*),
-			COALESCE(SUM(tokens_in+tokens_out),0), COALESCE(SUM(billed_microusd),0),
+			COALESCE(SUM(tokens_in+tokens_out),0), `+spendMicrosSQL+`,
 			SUM(CASE WHEN blocked=1 THEN 1 ELSE 0 END),
 			SUM(CASE WHEN `+connectors.IdentityWarnedSQL+` THEN 1 ELSE 0 END),
-			COALESCE(SUM(CASE WHEN `+connectors.IdentityWarnedSQL+` THEN billed_microusd ELSE 0 END),0)
+			COALESCE(SUM(CASE WHEN `+connectors.IdentityWarnedSQL+` THEN billed_microusd ELSE 0 END),0),
+			SUM(CASE WHEN `+connectors.FallbackPricedSQL+` THEN 1 ELSE 0 END),
+			COALESCE(SUM(CASE WHEN `+connectors.FallbackPricedSQL+` THEN billed_microusd ELSE 0 END),0)
 		FROM ai_calls WHERE day LIKE ?
 		GROUP BY agent ORDER BY 4 DESC, agent ASC`, month+"%")
 	if err != nil {
@@ -306,13 +327,14 @@ func AIByAgent(db *sql.DB, month string) ([]AgentAIRow, error) {
 	idx := map[string]int{}
 	for rows.Next() {
 		var r AgentAIRow
-		var micros, warnedMicros int64
+		var micros, warnedMicros, fallbackMicros int64
 		if err := rows.Scan(&r.Agent, &r.Calls, &r.Tokens, &micros, &r.BlockedCalls,
-			&r.WarnedCalls, &warnedMicros); err != nil {
+			&r.WarnedCalls, &warnedMicros, &r.FallbackCalls, &fallbackMicros); err != nil {
 			return nil, err
 		}
 		r.Cost = money.Micros(micros)
 		r.WarnedCost = money.Micros(warnedMicros)
+		r.FallbackCost = money.Micros(fallbackMicros)
 		r.Credential = IsCredential(r.Agent)
 		idx[r.Agent] = len(out)
 		out = append(out, r)
@@ -593,6 +615,9 @@ type ModelAIRow struct {
 	Tokens       int64
 	Cost         money.Micros
 	BlockedCalls int
+	// FallbackCalls and FallbackCost: as AgentAIRow's, kept out of Cost.
+	FallbackCalls int
+	FallbackCost  money.Micros
 }
 
 // AIByModel is AIByAgent's own query, grouped by model rather than agent,
@@ -600,8 +625,10 @@ type ModelAIRow struct {
 // BlockedCalls is a count, never an amount).
 func AIByModel(db *sql.DB, month string) ([]ModelAIRow, error) {
 	rows, err := db.Query(`SELECT model, COUNT(*),
-			COALESCE(SUM(tokens_in+tokens_out),0), COALESCE(SUM(billed_microusd),0),
-			SUM(CASE WHEN blocked=1 THEN 1 ELSE 0 END)
+			COALESCE(SUM(tokens_in+tokens_out),0), `+spendMicrosSQL+`,
+			SUM(CASE WHEN blocked=1 THEN 1 ELSE 0 END),
+			SUM(CASE WHEN `+connectors.FallbackPricedSQL+` THEN 1 ELSE 0 END),
+			COALESCE(SUM(CASE WHEN `+connectors.FallbackPricedSQL+` THEN billed_microusd ELSE 0 END),0)
 		FROM ai_calls WHERE day LIKE ?
 		GROUP BY model ORDER BY 4 DESC, model ASC`, month+"%")
 	if err != nil {
@@ -611,11 +638,13 @@ func AIByModel(db *sql.DB, month string) ([]ModelAIRow, error) {
 	var out []ModelAIRow
 	for rows.Next() {
 		var r ModelAIRow
-		var micros int64
-		if err := rows.Scan(&r.Model, &r.Calls, &r.Tokens, &micros, &r.BlockedCalls); err != nil {
+		var micros, fallbackMicros int64
+		if err := rows.Scan(&r.Model, &r.Calls, &r.Tokens, &micros, &r.BlockedCalls,
+			&r.FallbackCalls, &fallbackMicros); err != nil {
 			return nil, err
 		}
 		r.Cost = money.Micros(micros)
+		r.FallbackCost = money.Micros(fallbackMicros)
 		out = append(out, r)
 	}
 	return out, rows.Err()
@@ -719,4 +748,194 @@ func CostPerOutcome(db *sql.DB, month string) (perOutcome money.Micros, hasVal b
 		return 0, false, agentsWithNone, agentsTotal, nil
 	}
 	return money.Micros(int64(totalCost) / int64(totalOutcomes)), true, agentsWithNone, agentsTotal, nil
+}
+
+// spendMicrosSQL is a group's spend: what it was billed, less every call the
+// gateway priced at a basis other than its book (invariant 103). The daily
+// ledger leaves those calls out the same way (deriveCharges), so a per-agent
+// or per-model figure and the ledger agree.
+const spendMicrosSQL = `COALESCE(SUM(CASE WHEN ` + connectors.FallbackPricedSQL +
+	` THEN 0 ELSE billed_microusd END),0)`
+
+// BasisGroup is the calls one price basis covers for one model.
+type BasisGroup struct {
+	Basis, Model string
+	Calls        int
+	Cost         money.Micros
+}
+
+// PriceBasis is the month's admitted calls by the price the gateway settled
+// them at (invariant 103). Book is spend. Fallback is every call priced at a
+// basis other than the book, the gateway's estimate, kept out of spend and
+// listed by basis and model. Unreported is calls whose export carried no
+// x_price_basis at all, and Unstated calls whose export carried the column
+// and left it empty: both are spend, as they always were, and the page says
+// their basis was not reported.
+type PriceBasis struct {
+	BookCalls, FallbackCalls, UnreportedCalls, UnstatedCalls int
+	BookCost, FallbackCost, UnreportedCost, UnstatedCost     money.Micros
+	Fallback                                                 []BasisGroup
+}
+
+// Calls is every admitted call the month holds.
+func (p PriceBasis) Calls() int {
+	return p.BookCalls + p.FallbackCalls + p.UnreportedCalls + p.UnstatedCalls
+}
+
+// PriceBases reads the month's admitted calls by price basis.
+func PriceBases(db *sql.DB, month string) (PriceBasis, error) {
+	var p PriceBasis
+	if has, err := aiCallsTableExists(db); err != nil || !has {
+		return p, err
+	}
+	rows, err := db.Query(`SELECT price_basis IS NOT NULL, COALESCE(price_basis,''), model,
+			COUNT(*), COALESCE(SUM(billed_microusd),0)
+		FROM ai_calls WHERE day LIKE ? AND blocked=0
+		GROUP BY 1, 2, 3 ORDER BY 5 DESC, 2, 3`, month+"%")
+	if err != nil {
+		return p, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var reported bool
+		var basis, model string
+		var n int
+		var micros int64
+		if err := rows.Scan(&reported, &basis, &model, &n, &micros); err != nil {
+			return p, err
+		}
+		cost := money.Micros(micros)
+		switch {
+		case !reported:
+			p.UnreportedCalls += n
+			p.UnreportedCost += cost
+		case basis == "":
+			p.UnstatedCalls += n
+			p.UnstatedCost += cost
+		case basis == connectors.PriceBook || basis == connectors.PriceKnown:
+			p.BookCalls += n
+			p.BookCost += cost
+		default:
+			p.FallbackCalls += n
+			p.FallbackCost += cost
+			p.Fallback = append(p.Fallback, BasisGroup{Basis: basis, Model: model, Calls: n, Cost: cost})
+		}
+	}
+	return p, rows.Err()
+}
+
+// PIIKind is one kind of personal data and how many times the gateway's
+// scanner found it and let it through.
+type PIIKind struct {
+	Kind  string
+	Found int
+}
+
+// PIIAgent is one agent's calls that carried personal data the scanner let
+// through, and what it found in them.
+type PIIAgent struct {
+	Agent string
+	Calls int
+	Kinds []PIIKind
+}
+
+// KindsText is "1 pii_card, 2 pii_email", the order the kinds are held in.
+func KindsText(kinds []PIIKind) string {
+	parts := make([]string, 0, len(kinds))
+	for _, k := range kinds {
+		parts = append(parts, fmt.Sprintf("%d %s", k.Found, k.Kind))
+	}
+	return strings.Join(parts, ", ")
+}
+
+// PIILetThrough is the month's admitted calls in which the gateway's scanner
+// found personal data and let the call through (TOKENFUSE_DLP_PII=shadow),
+// read from x_pii_findings: kinds and counts, never the values (invariant
+// 103). Reported and Unreported count the month's admitted calls by whether
+// their export carried the column at all.
+type PIILetThrough struct {
+	Calls                int
+	Kinds                []PIIKind
+	ByAgent              []PIIAgent
+	Reported, Unreported int
+}
+
+// addPII adds one x_pii_findings value ("pii_card=1,pii_email=2", checked at
+// import) into counts.
+func addPII(counts map[string]int, v string) {
+	for _, pair := range strings.Split(v, ",") {
+		k, n, ok := strings.Cut(pair, "=")
+		if !ok {
+			continue
+		}
+		if c, err := strconv.Atoi(n); err == nil {
+			counts[k] += c
+		}
+	}
+}
+
+// piiKinds orders counts largest first, ties on the kind (invariant 7).
+func piiKinds(counts map[string]int) []PIIKind {
+	out := make([]PIIKind, 0, len(counts))
+	for k, n := range counts {
+		out = append(out, PIIKind{Kind: k, Found: n})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Found != out[j].Found {
+			return out[i].Found > out[j].Found
+		}
+		return out[i].Kind < out[j].Kind
+	})
+	return out
+}
+
+// PIIFindings reads the month's personal data let through, by kind and by
+// agent.
+func PIIFindings(db *sql.DB, month string) (PIILetThrough, error) {
+	var p PIILetThrough
+	if has, err := aiCallsTableExists(db); err != nil || !has {
+		return p, err
+	}
+	if err := db.QueryRow(`SELECT
+			COALESCE(SUM(CASE WHEN pii_findings IS NOT NULL THEN 1 ELSE 0 END),0),
+			COALESCE(SUM(CASE WHEN pii_findings IS NULL THEN 1 ELSE 0 END),0)
+		FROM ai_calls WHERE day LIKE ? AND blocked=0`, month+"%").Scan(&p.Reported, &p.Unreported); err != nil {
+		return p, err
+	}
+	rows, err := db.Query(`SELECT agent, pii_findings FROM ai_calls
+		WHERE day LIKE ? AND `+connectors.PIILetThroughSQL, month+"%")
+	if err != nil {
+		return p, err
+	}
+	defer rows.Close()
+	total := map[string]int{}
+	byAgent := map[string]map[string]int{}
+	calls := map[string]int{}
+	for rows.Next() {
+		var agent, v string
+		if err := rows.Scan(&agent, &v); err != nil {
+			return p, err
+		}
+		p.Calls++
+		calls[agent]++
+		if byAgent[agent] == nil {
+			byAgent[agent] = map[string]int{}
+		}
+		addPII(total, v)
+		addPII(byAgent[agent], v)
+	}
+	if err := rows.Err(); err != nil {
+		return p, err
+	}
+	p.Kinds = piiKinds(total)
+	for a, m := range byAgent {
+		p.ByAgent = append(p.ByAgent, PIIAgent{Agent: a, Calls: calls[a], Kinds: piiKinds(m)})
+	}
+	sort.Slice(p.ByAgent, func(i, j int) bool {
+		if p.ByAgent[i].Calls != p.ByAgent[j].Calls {
+			return p.ByAgent[i].Calls > p.ByAgent[j].Calls
+		}
+		return p.ByAgent[i].Agent < p.ByAgent[j].Agent
+	})
+	return p, nil
 }

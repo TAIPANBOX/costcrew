@@ -80,6 +80,10 @@ type ReconRow struct {
 	// gateway's definition, not the provider's.
 	ProviderIn, ProviderOut, GatewayIn, GatewayOut int64
 	UsageCovered                                   bool
+	// GatewayFallbackMicros is the part of GatewayMicros the gateway priced at
+	// its fallback rate (invariant 103): its estimate, not a bill, and the
+	// likely reason for a gateway over on that day and model.
+	GatewayFallbackMicros int64
 }
 
 // Reconciliation is one connector over one window.
@@ -260,7 +264,8 @@ func Reconcile(db *sql.DB, id, from, to string) (Reconciliation, error) {
 		// Blocked calls cost nothing and the gateway's own export already
 		// writes them as zero; excluded anyway, so a blocked row with a
 		// reserved estimate in it can never count as spend.
-		q, err := db.Query(`SELECT day, model, SUM(billed_microusd), SUM(tokens_in), SUM(tokens_out)
+		q, err := db.Query(`SELECT day, model, SUM(billed_microusd), SUM(tokens_in), SUM(tokens_out),
+				SUM(CASE WHEN `+FallbackPricedSQL+` THEN billed_microusd ELSE 0 END)
 			FROM ai_calls WHERE blocked=0 AND lower(COALESCE(provider,''))=lower(?) AND day BETWEEN ? AND ?
 			GROUP BY day, model`, spec.gatewayProvider, from, to)
 		if err != nil {
@@ -268,13 +273,14 @@ func Reconcile(db *sql.DB, id, from, to string) (Reconciliation, error) {
 		}
 		for q.Next() {
 			var day, model string
-			var micros, in, out int64
-			if err := q.Scan(&day, &model, &micros, &in, &out); err != nil {
+			var micros, in, out, fallback int64
+			if err := q.Scan(&day, &model, &micros, &in, &out, &fallback); err != nil {
 				q.Close()
 				return rec, err
 			}
 			r := get(day, model)
 			r.GatewayMicros += micros
+			r.GatewayFallbackMicros += fallback
 			r.GatewayIn += in
 			r.GatewayOut += out
 		}

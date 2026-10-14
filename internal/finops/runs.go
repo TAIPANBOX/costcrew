@@ -28,6 +28,9 @@ type RunModel struct {
 	// First is when the run first called this model, which is what orders a
 	// run's models: the order of a switch, not the size of each share.
 	First string
+	// FallbackCost is what the gateway estimated for this model's calls it
+	// priced off its book, kept out of Cost (invariant 103).
+	FallbackCost money.Micros
 	// share is Cost against the run's own spend, in tenths of a percent;
 	// -1 when the run spent nothing.
 	share int64
@@ -38,6 +41,10 @@ type RunModel struct {
 // the run spent nothing (every call blocked).
 func (m RunModel) Share() string {
 	switch {
+	case m.Cost == 0 && m.FallbackCost > 0:
+		// Every call on this model was priced at the gateway's fallback
+		// rate: an estimate, which takes no share of spend (invariant 103).
+		return "fallback estimate only"
 	case m.share < 0:
 		return "no spend"
 	case m.share == 0 && m.Cost > 0:
@@ -83,6 +90,16 @@ type RunRow struct {
 	// warn mode (invariant 100).
 	WarnedCalls int
 	WarnedCost  money.Micros
+	// FallbackCalls and FallbackCost are the run's calls the gateway priced
+	// at a basis other than its book: an estimate, kept out of Cost and out of
+	// every model's share (invariant 103).
+	FallbackCalls int
+	FallbackCost  money.Micros
+	// PIICalls and PII are the run's admitted calls in which the gateway's
+	// scanner found personal data and let the call through, and what it found:
+	// kinds and counts, never values (invariant 103).
+	PIICalls int
+	PII      []PIIKind
 	// Doors is the gateway doors the run's calls were read through, main
 	// first (invariant 102). Two of them is one run spending against two
 	// ledgers: each door keeps its own budget for it.
@@ -132,7 +149,9 @@ func AIRuns(db *sql.DB, month string) ([]RunRow, error) {
 			tokens_in+tokens_out, billed_microusd, blocked,
 			block_reason IS NOT NULL, COALESCE(block_reason,''),
 			CASE WHEN `+connectors.IdentityWarnedSQL+` THEN 1 ELSE 0 END,
-			COALESCE(door,'`+connectors.DoorMain+`')
+			COALESCE(door,'`+connectors.DoorMain+`'),
+			CASE WHEN `+connectors.FallbackPricedSQL+` THEN 1 ELSE 0 END,
+			CASE WHEN `+connectors.PIILetThroughSQL+` THEN pii_findings ELSE '' END
 		FROM ai_calls WHERE day LIKE ?
 		ORDER BY 1, ts, rowid`, month+"%")
 	if err != nil {
@@ -147,29 +166,36 @@ func AIRuns(db *sql.DB, month string) ([]RunRow, error) {
 		models  map[string]int // index into row.Models
 		reasons map[ReasonCount]int
 		doors   map[string]*DoorSpend
+		pii     map[string]int
 	}
 	byRun := map[string]*acc{}
 	var order []string
 	for rows.Next() {
-		var run, ts, agent, team, model, reason, door string
+		var run, ts, agent, team, model, reason, door, pii string
 		var tokens, micros int64
-		var blocked, known, warned bool
+		var blocked, known, warned, fallback bool
 		if err := rows.Scan(&run, &ts, &agent, &team, &model, &tokens, &micros,
-			&blocked, &known, &reason, &warned, &door); err != nil {
+			&blocked, &known, &reason, &warned, &door, &fallback, &pii); err != nil {
 			return nil, err
+		}
+		// A call priced off the gateway's book is the gateway's estimate: it
+		// is counted, and its amount is kept apart from the run's spend.
+		spend := money.Micros(micros)
+		if fallback {
+			spend = 0
 		}
 		a := byRun[run]
 		if a == nil {
 			a = &acc{row: RunRow{RunID: run, First: ts}, agents: map[string]bool{},
 				teams: map[string]bool{}, models: map[string]int{}, reasons: map[ReasonCount]int{},
-				doors: map[string]*DoorSpend{}}
+				doors: map[string]*DoorSpend{}, pii: map[string]int{}}
 			byRun[run] = a
 			order = append(order, run)
 		}
 		r := &a.row
 		r.Calls++
 		r.Tokens += tokens
-		r.Cost += money.Micros(micros)
+		r.Cost += spend
 		a.agents[agent] = true
 		if team != "" {
 			a.teams[team] = true
@@ -181,7 +207,12 @@ func AIRuns(db *sql.DB, month string) ([]RunRow, error) {
 			r.Models = append(r.Models, RunModel{Model: model, First: ts})
 		}
 		r.Models[i].Calls++
-		r.Models[i].Cost += money.Micros(micros)
+		r.Models[i].Cost += spend
+		if fallback {
+			r.FallbackCalls++
+			r.FallbackCost += money.Micros(micros)
+			r.Models[i].FallbackCost += money.Micros(micros)
+		}
 		// Rows arrive in time order within a run, so the last one read is the
 		// run's last call; a tie on the instant keeps the file's own order.
 		r.Last, r.LastModel = ts, model
@@ -199,13 +230,17 @@ func AIRuns(db *sql.DB, month string) ([]RunRow, error) {
 			r.WarnedCalls++
 			r.WarnedCost += money.Micros(micros)
 		}
+		if pii != "" {
+			r.PIICalls++
+			addPII(a.pii, pii)
+		}
 		d := a.doors[door]
 		if d == nil {
 			d = &DoorSpend{Door: door}
 			a.doors[door] = d
 		}
 		d.Calls++
-		d.Cost += money.Micros(micros)
+		d.Cost += spend
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -232,6 +267,9 @@ func AIRuns(db *sql.DB, month string) ([]RunRow, error) {
 		}
 		for _, d := range a.doors {
 			r.Doors = append(r.Doors, *d)
+		}
+		if len(a.pii) > 0 {
+			r.PII = piiKinds(a.pii)
 		}
 		sortDoors(r.Doors)
 		for rc, n := range a.reasons {
@@ -324,7 +362,7 @@ func sortDoors(ds []DoorSpend) {
 // supplied it.
 func AIDoors(db *sql.DB, month string) ([]DoorSpend, error) {
 	rows, err := db.Query(`SELECT COALESCE(door,'`+connectors.DoorMain+`'), COUNT(*),
-			COALESCE(SUM(billed_microusd),0)
+			`+spendMicrosSQL+`
 		FROM ai_calls WHERE day LIKE ? GROUP BY 1`, month+"%")
 	if err != nil {
 		return nil, err

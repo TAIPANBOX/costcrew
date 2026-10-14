@@ -4782,8 +4782,8 @@ run_case $'re-export: the credential column not written' \
 	$'TestTheKeyAndTheBlockReasonAreKeptWhenTheExportCarriesThem' \
 	$'the two honest calls with their key' \
 	internal/connectors/tokenfusefocus.go \
-	$'\t\t\trow.KeyID, row.BlockReason, row.IdentityReason, door); err != nil {' \
-	$'\t\t\tnil, row.BlockReason, row.IdentityReason, door); err != nil {'
+	$'\t\t\trow.KeyID, row.BlockReason, row.IdentityReason, door, row.PriceBasis, row.PIIFindings); err != nil {' \
+	$'\t\t\tnil, row.BlockReason, row.IdentityReason, door, row.PriceBasis, row.PIIFindings); err != nil {'
 run_case $'re-export: a refusal with client keys off reported as bad data' \
 	fail \
 	./internal/connectors \
@@ -5378,8 +5378,8 @@ run_case $'identity warn: supersede ignores the 1.8.0 column' \
 	$'TestAWarnMarkedExportIsKeptOverAnOlderCopyOfTheSameCalls' \
 	$'the marker was lost' \
 	internal/connectors/tokenfusefocus.go \
-	$'const exportGenerationSQL = `((key_id IS NOT NULL) + (identity_reason IS NOT NULL))`' \
-	$'const exportGenerationSQL = `((key_id IS NOT NULL) + 0)`'
+	$'const exportGenerationSQL = `((key_id IS NOT NULL) + (identity_reason IS NOT NULL) + (price_basis IS NOT NULL) + `' \
+	$'const exportGenerationSQL = `((key_id IS NOT NULL) + 0 + (price_basis IS NOT NULL) + `'
 run_case $'identity warn: the 64-byte bound lifted' \
 	fail \
 	./internal/connectors \
@@ -5544,8 +5544,8 @@ run_case $'doors: a run\'s doors not counted' \
 	$'TestARunThroughTwoDoorsNamesBoth' \
 	$'w2-b12-A\'s doors' \
 	internal/finops/runs.go \
-	$'\t\td.Calls++\n\t\td.Cost += money.Micros(micros)' \
-	$'\t\td.Cost += money.Micros(micros)'
+	$'\t\td.Calls++\n\t\td.Cost += spend' \
+	$'\t\td.Cost += spend'
 run_case $'doors: a row from before the column read as no door' \
 	fail \
 	./internal/finops \
@@ -5594,6 +5594,157 @@ run_case $'engines: the doors panel\'s note reworded is not a fault' \
 	internal/web/templates/engines.html \
 	$'so a second wire is a second door with its own address' \
 	$'so another wire is another door with its own address'
+
+# Invariant 103: a fallback-priced amount is the gateway's estimate, kept out
+# of spend and shown apart; the personal data let through is named by kind and
+# count, never by value; a column the export does not carry is said so.
+run_case $'price basis: the basis is not written' \
+	fail \
+	./internal/connectors \
+	$'TestThePriceBasisIsKeptAndAFallbackIsLeftOutOfTheLedger' \
+	$'with price_basis "known", want 3' \
+	internal/connectors/tokenfusefocus.go \
+	$'row.IdentityReason, door, row.PriceBasis, row.PIIFindings); err != nil {' \
+	$'row.IdentityReason, door, nil, row.PIIFindings); err != nil {'
+run_case $'price basis: a fallback estimate reaches the ledger' \
+	fail \
+	./internal/connectors \
+	$'TestThePriceBasisIsKeptAndAFallbackIsLeftOutOfTheLedger' \
+	$'a fallback estimate reached it' \
+	internal/connectors/tokenfusefocus.go \
+	$'\t\t\tFROM ai_calls WHERE day=? AND blocked=0 AND NOT `+FallbackPricedSQL+`\n\t\t\tGROUP BY COALESCE(team' \
+	$'\t\t\tFROM ai_calls WHERE day=? AND blocked=0\n\t\t\tGROUP BY COALESCE(team'
+run_case $'price basis: an empty basis read as a fallback' \
+	fail \
+	./internal/connectors \
+	$'TestThePriceBasisIsKeptAndAFallbackIsLeftOutOfTheLedger' \
+	$'FallbackPricedSQL counts' \
+	internal/connectors/tokenfusefocus.go \
+	$'NOT IN (\'\', \'` + PriceBook + `\', \'` + PriceKnown + `\'))`' \
+	$'NOT IN (\'` + PriceBook + `\', \'` + PriceKnown + `\'))`'
+run_case $'price basis: an older copy displaces the one with the basis' \
+	fail \
+	./internal/connectors \
+	$'TestAPriceBasisExportIsKeptOverAnOlderCopyOfTheSameCalls' \
+	$'the older copy displaced the one that says so' \
+	internal/connectors/tokenfusefocus.go \
+	$'(price_basis IS NOT NULL) + `' \
+	$'0 + `' \
+	internal/connectors/tokenfusefocus.go \
+	$'`(pii_findings IS NOT NULL))`' \
+	$'`0)`'
+run_case $'price basis: a fallback estimate in an agent\'s cost' \
+	fail \
+	./internal/finops \
+	$'TestAFallbackEstimateIsNeverInAnAgentsOrAModelsCost' \
+	$'want 0.056 and 2 calls of 0.00236 apart' \
+	internal/finops/ai.go \
+	$'` THEN 0 ELSE billed_microusd END),0)`' \
+	$'` THEN billed_microusd ELSE billed_microusd END),0)`'
+run_case $'price basis: a fallback estimate in a run\'s spend' \
+	fail \
+	./internal/finops \
+	$'TestARunsFallbackEstimateIsKeptOutOfItsSpendAndItsShares' \
+	$'run-p1: spend' \
+	internal/finops/runs.go \
+	$'\t\tif fallback {\n\t\t\tspend = 0\n\t\t}' \
+	$'\t\tif false && fallback {\n\t\t\tspend = 0\n\t\t}'
+run_case $'price basis: a month of fallback calls only reads as no month' \
+	fail \
+	./internal/finops \
+	$'TestAMonthOfOnlyFallbackPricedCallsIsStillAMonthOfRealCalls' \
+	$'a month of fallback-priced calls only' \
+	internal/finops/ai.go \
+	$'\t\tif calls.Valid && (!day.Valid || calls.String > day.String) {' \
+	$'\t\tif false && calls.Valid && (!day.Valid || calls.String > day.String) {'
+run_case $'ai page: the fallback tile dropped' \
+	fail \
+	./internal/web \
+	$'TestTheAIPageShowsFallbackPricedSpendApart' \
+	$'Fallback-priced</div>' \
+	internal/web/templates/ai.html \
+	$'{{if .Basis.FallbackCalls}}<div class="tile">' \
+	$'{{if false}}<div class="tile">'
+run_case $'ai page: "not reported" not said' \
+	fail \
+	./internal/web \
+	$'TestTheAIPageSaysThePriceBasisIsNotReportedByAnOlderGateway' \
+	$'does not say the price basis is not reported' \
+	internal/web/templates/ai.html \
+	$'{{if .Basis.UnreportedCalls}}<p class="note">Price basis not reported' \
+	$'{{if false}}<p class="note">Price basis not reported'
+run_case $'reconciliation: the fallback part not marked' \
+	fail \
+	./internal/web \
+	$'TestTheAIPageShowsFallbackPricedSpendApart' \
+	$'does not mark the fallback-priced part' \
+	internal/web/reconciliation.go \
+	$'\t\t\tFallback: fallbackPart(x.GatewayFallbackMicros),' \
+	$'\t\t\tFallback: fallbackPart(0),'
+run_case $'packet: the fallback line dropped' \
+	fail \
+	./internal/deliver \
+	$'TestAISpendSectionKeepsAFallbackEstimateOutOfTheTotalAndNamesPII' \
+	$'does not carry "priced at the gateway\'s fallback rate' \
+	internal/deliver/packet.go \
+	$'\tif basis.FallbackCalls > 0 {' \
+	$'\tif basis.FallbackCalls > 1000 {'
+run_case $'pii: the findings not written' \
+	fail \
+	./internal/connectors \
+	$'TestThePIIFindingsAreKeptWhenTheExportCarriesThem' \
+	$'stored as not reporting it' \
+	internal/connectors/tokenfusefocus.go \
+	$'row.IdentityReason, door, row.PriceBasis, row.PIIFindings); err != nil {' \
+	$'row.IdentityReason, door, row.PriceBasis, nil); err != nil {'
+run_case $'pii: a kind that is not a scanner word let in' \
+	fail \
+	./internal/connectors \
+	$'TestHostilePriceBasisAndPIIFindingsAreRefusedByName' \
+	$'was imported, or not refused by name' \
+	internal/connectors/tokenfusefocus.go \
+	$'\t\tif !ok || !piiKind(kind) || seen[kind] {' \
+	$'\t\tif !ok || seen[kind] {'
+run_case $'pii: a refusal quotes the value it refused' \
+	fail \
+	./internal/connectors \
+	$'TestHostilePriceBasisAndPIIFindingsAreRefusedByName' \
+	$'prints the value it refused' \
+	internal/connectors/tokenfusefocus.go \
+	$'\t\t\treturn errors.New("x_pii_findings is not kind=count pairs, each kind once (value not shown)")' \
+	$'\t\t\treturn fmt.Errorf("x_pii_findings %q is not kind=count pairs", v)'
+run_case $'pii: a run\'s findings not read' \
+	fail \
+	./internal/finops \
+	$'TestPersonalDataLetThroughIsCountedByKindAgentAndRun' \
+	$'run-p1\'s findings' \
+	internal/finops/runs.go \
+	$'\t\tif pii != "" {\n\t\t\tr.PIICalls++' \
+	$'\t\tif false && pii != "" {\n\t\t\tr.PIICalls++'
+run_case $'ai page: the PII panel\'s agents dropped' \
+	fail \
+	./internal/web \
+	$'TestTheAIPageNamesThePersonalDataLetThrough' \
+	$'the PII panel does not contain' \
+	internal/web/templates/ai.html \
+	$'{{if .PII.ByAgent}}' \
+	$'{{if false}}'
+run_case $'packet: the PII line dropped' \
+	fail \
+	./internal/deliver \
+	$'TestAISpendSectionKeepsAFallbackEstimateOutOfTheTotalAndNamesPII' \
+	$'found and let through: 2 calls' \
+	internal/deliver/packet.go \
+	$'\tif pii.Calls > 0 {' \
+	$'\tif pii.Calls > 1000 {'
+run_case $'price basis: the panel\'s note reworded is not a fault' \
+	pass \
+	./internal/web \
+	$'TestTheAIPageShowsFallbackPricedSpendApart' \
+	$'' \
+	internal/web/templates/ai.html \
+	$'which can be many times the real price.' \
+	$'which can be far above the real price.'
 
 echo
 if [ -n "$(git status --porcelain)" ]; then

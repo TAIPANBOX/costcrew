@@ -941,6 +941,14 @@ func aiSpendSection(db *sql.DB) string {
 	if err != nil {
 		return ""
 	}
+	basis, err := finops.PriceBases(db, month)
+	if err != nil {
+		return ""
+	}
+	pii, err := finops.PIIFindings(db, month)
+	if err != nil {
+		return ""
+	}
 
 	var calls, blockedCalls int
 	var total money.Micros
@@ -996,6 +1004,23 @@ func aiSpendSection(db *sql.DB) string {
 			"agent id each claimed, which nobody proved\n", warn.Calls, warn.Cost, strings.Join(reasons, ", "))
 	}
 
+	// Invariant 103: a call the gateway priced off its book carries the
+	// gateway's estimate, not a bill; the total above leaves it out, and the
+	// analyst is told how much was left out, desk-wide, so it never reads the
+	// gap as a saving or the estimate as spend.
+	if basis.FallbackCalls > 0 {
+		fmt.Fprintf(&b, "priced at the gateway's fallback rate (its price book had no price for the "+
+			"model): %d calls, %s, an estimate and not a bill, left out of the total above\n",
+			basis.FallbackCalls, basis.FallbackCost)
+	}
+
+	// Invariant 103: personal data the gateway's scanner found and let through,
+	// as kinds and counts only, desk-wide, so it stays under aggregates.
+	if pii.Calls > 0 {
+		fmt.Fprintf(&b, "personal data the gateway's scanner found and let through: %d calls; %s "+
+			"(kinds and counts only, never the values)\n", pii.Calls, finops.KindsText(pii.Kinds))
+	}
+
 	// Aggregates stop at the desk's totals: per agent and per model are rows.
 	if ActivePolicy().Aggregates() {
 		return b.String()
@@ -1018,6 +1043,10 @@ func aiSpendSection(db *sql.DB) string {
 			note += fmt.Sprintf(" [%d forwarded under identity warn, %s: the agent id is claimed, not proved]",
 				r.WarnedCalls, r.WarnedCost)
 		}
+		if r.FallbackCalls > 0 {
+			note += fmt.Sprintf(" [+%s fallback-priced over %d calls, an estimate left out of the cost]",
+				r.FallbackCost, r.FallbackCalls)
+		}
 		fmt.Fprintf(&b, "  %-56s %8s  %d calls, %d blocked%s\n", r.Agent, r.Cost, r.Calls, r.BlockedCalls, note)
 		shown++
 	}
@@ -1031,7 +1060,11 @@ func aiSpendSection(db *sql.DB) string {
 		if shown >= aiSpendSectionCap {
 			break
 		}
-		fmt.Fprintf(&b, "  %-24s %8s  %d calls, %d blocked\n", r.Model, r.Cost, r.Calls, r.BlockedCalls)
+		note := ""
+		if r.FallbackCalls > 0 {
+			note = fmt.Sprintf(" [+%s fallback-priced, an estimate left out of the cost]", r.FallbackCost)
+		}
+		fmt.Fprintf(&b, "  %-24s %8s  %d calls, %d blocked%s\n", r.Model, r.Cost, r.Calls, r.BlockedCalls, note)
 		shown++
 	}
 	if len(byModel) > shown {
