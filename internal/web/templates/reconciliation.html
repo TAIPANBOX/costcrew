@@ -33,7 +33,7 @@
         <td class="tight">{{.Day}}</td>
         <td>{{.Model}}</td>
         <td class="num">{{.Provider}}</td>
-        <td class="num">{{.Gateway}}</td>
+        <td class="num">{{.Gateway}}{{if .Fallback}}<span class="sub">of which {{.Fallback}} priced at the gateway's fallback rate: an estimate, not a bill</span>{{end}}</td>
         <td class="num">{{.Gap}}</td>
         <td class="tight"><span class="chip {{.Chip}}">{{.Status}}</span></td>
         <td class="num">{{if .ProviderIn}}{{.ProviderIn}}{{else}}<span class="note">not read</span>{{end}} / {{.GatewayIn}}</td>

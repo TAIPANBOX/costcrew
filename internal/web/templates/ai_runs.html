@@ -19,7 +19,7 @@
 <div class="panel">
   <h2>By run</h2>
   <div class="body">
-    <p class="note">Largest spend first. A model's share is its part of the run's spend. "Killed" means the gateway refused a call because the run had been killed; a kill that no later call ran into is not in the export. A blocked call costs nothing.</p>
+    <p class="note">Largest spend first. A model's share is its part of the run's spend; a call the gateway priced at its fallback rate is an estimate, kept out of spend and of every share, and shown apart. "Killed" means the gateway refused a call because the run had been killed; a kill that no later call ran into is not in the export. A blocked call costs nothing.</p>
   </div>
   <div class="scroll">
   <table>
@@ -28,10 +28,10 @@
     {{range .Runs}}
       <tr>
         <td>{{if .RunID}}<code>{{.RunID}}</code>{{else}}<span class="note">no run id on the row</span>{{end}}<span class="sub">{{.First}} to {{.Last}}</span></td>
-        <td class="num">{{.Cost}}</td>
+        <td class="num">{{.Cost}}{{if .FallbackCalls}}<span class="sub">+ {{.FallbackCost}} fallback-priced, not in spend</span>{{end}}</td>
         <td class="num">{{.Calls}}{{if .BlockedCalls}}<span class="sub">{{.BlockedCalls}} blocked: {{.BlockedText}}</span>{{end}}</td>
-        <td>{{if .Switched}}<span class="chip triaged">model switch</span> {{end}}{{range $i, $m := .Models}}{{if $i}} then {{end}}<code>{{$m.Model}}</code> {{$m.Share}}<span class="sub">{{$m.Calls}} {{plural $m.Calls "call" "calls"}}, {{$m.Cost}}</span>{{end}}{{if .Switched}}<span class="sub">last call on <code>{{.LastModel}}</code></span>{{end}}</td>
-        <td>{{if .Killed}}<span class="chip open">killed</span>{{else if .LastBlocked}}<span class="chip open">stopped</span><span class="sub">{{.State}}</span>{{else}}{{.State}}{{end}}{{if .WarnedCalls}}<span class="sub"><span class="chip triaged">identity warn</span> {{.WarnedCalls}} {{plural .WarnedCalls "call" "calls"}} ({{.WarnedCost}}) forwarded although the identity check failed</span>{{end}}</td>
+        <td>{{if .Switched}}<span class="chip triaged">model switch</span> {{end}}{{range $i, $m := .Models}}{{if $i}} then {{end}}<code>{{$m.Model}}</code> {{$m.Share}}<span class="sub">{{$m.Calls}} {{plural $m.Calls "call" "calls"}}, {{$m.Cost}}{{if $m.FallbackCost}}, + {{$m.FallbackCost}} fallback-priced{{end}}</span>{{end}}{{if .Switched}}<span class="sub">last call on <code>{{.LastModel}}</code></span>{{end}}</td>
+        <td>{{if .Killed}}<span class="chip open">killed</span>{{else if .LastBlocked}}<span class="chip open">stopped</span><span class="sub">{{.State}}</span>{{else}}{{.State}}{{end}}{{if .PIICalls}}<span class="sub"><span class="chip triaged">PII let through</span> {{.PIICalls}} {{plural .PIICalls "call" "calls"}}: {{range $i, $k := .PII}}{{if $i}}, {{end}}{{$k.Found}} {{$k.Kind}}{{end}}</span>{{end}}{{if .WarnedCalls}}<span class="sub"><span class="chip triaged">identity warn</span> {{.WarnedCalls}} {{plural .WarnedCalls "call" "calls"}} ({{.WarnedCost}}) forwarded although the identity check failed</span>{{end}}</td>
         {{if gt (len $.Doors) 1}}<td>{{if .CrossedDoors}}<span class="chip open">two doors</span> {{end}}{{range $i, $d := .Doors}}{{if $i}}, {{end}}{{$d.Label}}<span class="sub">{{$d.Calls}} {{plural $d.Calls "call" "calls"}}, {{$d.Cost}}</span>{{end}}</td>{{end}}
         <td>{{range $i, $a := .Agents}}{{if $i}}, {{end}}{{$a}}{{end}}</td>
         <td>{{range $i, $t := .Teams}}{{if $i}}, {{end}}{{$t}}{{else}}<span class="note">none on the row</span>{{end}}</td>
