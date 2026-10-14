@@ -5595,6 +5595,18 @@ run_case $'engines: the doors panel\'s note reworded is not a fault' \
 	$'so a second wire is a second door with its own address' \
 	$'so another wire is another door with its own address'
 
+run_case $'supersede: a call_key match across doors removes a row (invariant 106)' \
+	fail \
+	./internal/connectors \
+	$'TestOneBlockedCallOnEachDoorIsTwoCalls' \
+	$'row(s) for one blocked call on each door' \
+	internal/connectors/tokenfusefocus.go \
+	$'<= ?2 AND COALESCE(door,\'` + DoorMain + `\') = ?3' \
+	$'<= ?2 AND ?3 IS NOT NULL' \
+	internal/connectors/tokenfusefocus.go \
+	$'> ?2 AND COALESCE(door,\'` + DoorMain + `\') = ?3)' \
+	$'> ?2 AND ?3 IS NOT NULL)'
+
 echo
 if [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'
