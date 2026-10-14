@@ -5121,8 +5121,8 @@ run_case $'connectors: the drop-a-folder hint back' \
 	$'TestTheFocusConnectorPageOffersNoDropAndLinksToTheAIPage' \
 	$'offers to take a dropped folder' \
 	internal/connectors/connectors.go \
-	$'Hint: "the local path on the machine this console runs on"}},' \
-	$'Hint: "the local path, or drop the folder on this page"}},'
+	$'Hint: "the local path on the machine this console runs on; the main gateway\'s export"},' \
+	$'Hint: "the local path, or drop the folder on this page; the main gateway\'s export"},'
 run_case $'connectors: the TokenFuse page loses its link to /ai' \
 	fail \
 	./internal/web \
