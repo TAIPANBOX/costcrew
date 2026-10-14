@@ -6666,6 +6666,21 @@ an absent invariant.
     console mounts nothing itself: a launcher that does not give it the
     folder still gets a console that reads nothing.
 
+106. **Two doors are two traces: a call_key match across the main folder and the
+    OpenAI-wire folder is two calls, not one re-export, so `supersede` removes a
+    row only when it was read through the same door as the file being imported.**
+    `supersede` matched on `call_key` alone, so the same blocked call exported by
+    both gateways (same run, instant, model, tokens, amount and block) deleted one
+    door's row when the other door's file was read second, and the door counts
+    read 1 and 0. Now both WHERE clauses carry `COALESCE(door,'main') = ?3`, the
+    importing file's door. *(gate: `TestOneBlockedCallOnEachDoorIsTwoCalls` in
+    `internal/connectors`, red on `origin/main` 732b265 with "1 row(s) for one
+    blocked call on each door, want 2" in both read orders; one `fail` case in
+    `gates-have-teeth.sh` drops the door condition from both clauses; scenario
+    `features/two-doors-are-two-traces.feature`, bound.)* What this does not do:
+    it does not change the call_key itself, which still excludes the agent (so a
+    1.7.0 identity refusal still supersedes its pre-1.7.0 copy within one door).
+
 ## Decisions that have no gate yet
 
 Written here so that "it holds" and "something holds it" stay different

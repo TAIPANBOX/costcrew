@@ -5845,6 +5845,17 @@ run_case $'focus input: the interval flag\'s help reworded is not a fault' \
 	cmd/costcrew/main.go \
 	$'"with -focus-dir, how often the folders are read again; 0 reads them once, at start")' \
 	$'"with -focus-dir, how often the folders are read once more; 0 reads them once, at start")'
+run_case $'supersede: a call_key match across doors removes a row (invariant 106)' \
+	fail \
+	./internal/connectors \
+	$'TestOneBlockedCallOnEachDoorIsTwoCalls' \
+	$'row(s) for one blocked call on each door' \
+	internal/connectors/tokenfusefocus.go \
+	$'<= ?2 AND COALESCE(door,\'` + DoorMain + `\') = ?3' \
+	$'<= ?2 AND ?3 IS NOT NULL' \
+	internal/connectors/tokenfusefocus.go \
+	$'> ?2 AND COALESCE(door,\'` + DoorMain + `\') = ?3)' \
+	$'> ?2 AND ?3 IS NOT NULL)'
 
 echo
 if [ -n "$(git status --porcelain)" ]; then

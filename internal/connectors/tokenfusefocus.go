@@ -433,7 +433,7 @@ func readTokenFuseFocus(db *sql.DB, cfg map[string]string, opt ImportOptions) (*
 			daysTouched[d] = true
 		}
 		if !opt.DryRun {
-			keys, days, err := supersede(tx, local.sha, local.generation)
+			keys, days, err := supersede(tx, local.sha, local.generation, local.door)
 			if err != nil {
 				return nil, fmt.Errorf("%s: replacing an earlier export of the same calls: %w",
 					filepath.Base(f), err)
@@ -1416,7 +1416,10 @@ func (s *focusSummary) recount(tx *sql.Tx, shas []string) error {
 	return nil
 }
 
-// supersede makes a call that two exports carry count once. Rows of other
+// supersede makes a call that two exports carry count once, when both exports
+// were read through the same door (invariant 106): two doors are two traces, so
+// a call_key match between the main folder and the OpenAI-wire folder is two
+// calls. Rows of other
 // files with the same call_key as a row of this file are removed when they
 // came from an export no newer than this one; this file's own rows are removed
 // when another file's copy came from a newer export. "Newer" is the export's
@@ -1431,13 +1434,13 @@ func (s *focusSummary) recount(tx *sql.Tx, shas []string) error {
 // kept: an export from before 1.7.0 never displaces one from 1.7.0, whichever
 // file name sorts first. It returns the rows removed and the days they were
 // on, so the caller re-derives those days' charges.
-func supersede(tx *sql.Tx, sha string, gen int) (keys, days []string, err error) {
+func supersede(tx *sql.Tx, sha string, gen int, door string) (keys, days []string, err error) {
 	const others = `file_sha256 != ?1 AND call_key IN (SELECT call_key FROM ai_calls WHERE file_sha256 = ?1)
-		AND ` + exportGenerationSQL + ` <= ?2`
+		AND ` + exportGenerationSQL + ` <= ?2 AND COALESCE(door,'` + DoorMain + `') = ?3`
 	const mine = `file_sha256 = ?1 AND call_key IN (SELECT call_key FROM ai_calls
-		WHERE file_sha256 != ?1 AND ` + exportGenerationSQL + ` > ?2)`
+		WHERE file_sha256 != ?1 AND ` + exportGenerationSQL + ` > ?2 AND COALESCE(door,'` + DoorMain + `') = ?3)`
 	for _, where := range []string{others, mine} {
-		rows, err := tx.Query(`SELECT DISTINCT call_key, day FROM ai_calls WHERE `+where, sha, gen)
+		rows, err := tx.Query(`SELECT DISTINCT call_key, day FROM ai_calls WHERE `+where, sha, gen, door)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -1450,7 +1453,7 @@ func supersede(tx *sql.Tx, sha string, gen int) (keys, days []string, err error)
 			keys, days = append(keys, k), append(days, d)
 		}
 		rows.Close()
-		if _, err := tx.Exec(`DELETE FROM ai_calls WHERE `+where, sha, gen); err != nil {
+		if _, err := tx.Exec(`DELETE FROM ai_calls WHERE `+where, sha, gen, door); err != nil {
 			return nil, nil, err
 		}
 	}
