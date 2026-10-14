@@ -5437,6 +5437,81 @@ run_case $'identity warn: the panel\'s note reworded is not a fault' \
 	$'but nobody proved which agent made it.' \
 	$'but nobody proved which agent sent it.'
 
+# Invariant 101: a run names every model it used, each one's share of its
+# spend, and how it ended.
+run_case $'runs: only the last model kept' \
+	fail \
+	./internal/finops \
+	$'TestARunThatSwitchedModelsListsEveryModelWithItsShare' \
+	$'called two models and reads as 1' \
+	internal/finops/runs.go \
+	$'\t\tout = append(out, r)\n\t}\n\tsort.SliceStable' \
+	$'\t\tr.Models = r.Models[len(r.Models)-1:]\n\t\tout = append(out, r)\n\t}\n\tsort.SliceStable'
+run_case $'runs: a share counted by calls, not spend' \
+	fail \
+	./internal/finops \
+	$'TestARunThatSwitchedModelsListsEveryModelWithItsShare' \
+	$'w2-b12-A\'s models, in the order called' \
+	internal/finops/runs.go \
+	$'r.Models[i].share = int64(r.Models[i].Cost) * 1000 / int64(r.Cost)' \
+	$'r.Models[i].share = int64(r.Models[i].Calls) * 1000 / int64(r.Calls)'
+run_case $'runs: a kill is not read' \
+	fail \
+	./internal/finops \
+	$'TestARunSaysHowItEndedAsTheGatewaysRowsShow' \
+	$'run "run-killed"' \
+	internal/finops/runs.go \
+	$'\t\t\tif known && reason == KilledReason {' \
+	$'\t\t\tif false && known && reason == KilledReason {'
+run_case $'runs: the last call\'s refusal ignored' \
+	fail \
+	./internal/finops \
+	$'TestARunSaysHowItEndedAsTheGatewaysRowsShow' \
+	$'stopped by the gateway: budget_exceeded' \
+	internal/finops/runs.go \
+	$'\t\tr.LastBlocked = blocked' \
+	$'\t\tr.LastBlocked = false && blocked'
+run_case $'runs: listed by run id, not by spend' \
+	fail \
+	./internal/finops \
+	$'TestRunsAreListedLargestSpendFirstTheSameEveryCall' \
+	$'runs in order' \
+	internal/finops/runs.go \
+	$'\t\tif out[i].Cost != out[j].Cost {' \
+	$'\t\tif false && out[i].Cost != out[j].Cost {'
+run_case $'runs: a sliver read as nothing' \
+	fail \
+	./internal/finops \
+	$'TestTheShareOfASliverIsNeverReadAsNothing' \
+	$'want "<0.1%"' \
+	internal/finops/runs.go \
+	$'\tcase m.share == 0 && m.Cost > 0:' \
+	$'\tcase false && m.share == 0 && m.Cost > 0:'
+run_case $'runs page: the first model dropped' \
+	fail \
+	./internal/web \
+	$'TestTheRunsPageShowsEveryModelARunUsedWithItsShare' \
+	$'does not show "<code>claude-opus-5-5</code> 96%"' \
+	internal/web/templates/ai_runs.html \
+	$'{{range $i, $m := .Models}}' \
+	$'{{range $i, $m := slice .Models 1}}'
+run_case $'runs page: the door sentence dropped' \
+	fail \
+	./internal/web \
+	$'TestTheRunsPageShowsEveryModelARunUsedWithItsShare' \
+	$'does not contain "is not in the FOCUS export"' \
+	internal/web/templates/ai_runs.html \
+	$'is not in the FOCUS export, and this console reads one folder of it, so every run here is read from one source.' \
+	$'is shown per run.'
+run_case $'runs page: the intro reworded is not a fault' \
+	pass \
+	./internal/web \
+	$'TestTheRunsPageShowsEveryModelARunUsedWithItsShare' \
+	$'' \
+	internal/web/templates/ai_runs.html \
+	$'One row per run the gateway\'s rows name' \
+	$'A row for each run the gateway\'s rows name'
+
 echo
 if [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'

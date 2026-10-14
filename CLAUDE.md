@@ -84,15 +84,24 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 1612 tests, 32 packages
-./scripts/gates-have-teeth.sh        # 556 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 587 scenarios, both directions
+go test ./...                        # 1618 tests, 32 packages
+./scripts/gates-have-teeth.sh        # 565 cases; needs a clean tree
+./scripts/features-are-bound.sh      # 593 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 govulncheck ./...                    # CI runs it, pinned at v1.8.0; reports only vulnerabilities the code can reach
 staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refused PR #19 on two findings the list above never asked for; a staticcheck built for an older Go cannot read this module, so on such a machine CI is the only place it runs
 ```
+
+Invariant 101 (a run names every model it used, each one's share of its
+spend, and how it ended) added 6 tests (`internal/finops/runs_test.go`, 3;
+`internal/finops/runs_share_test.go`, 1; `internal/web/ai_runs_page_test.go`,
+2), 9 `gates-have-teeth.sh` cases (8 `fail`, 1 `pass`), 6 scenarios
+(`features/a-run-names-every-model-it-used.feature`, new) and one read-only
+route, `GET /ai/runs`: 1612 -> 1618 tests, 32 packages unchanged, 556 -> 565
+cases, 587 -> 593 scenarios, measured on this branch with the three commands
+this block already names.
 
 Invariant 100 (a call the gateway forwarded under identity warn mode is
 marked, with its spend, per agent, per team and per run) added 15 tests
@@ -6365,6 +6374,57 @@ an absent invariant.
     not resolve is listed under "no team on the row"; and the Cloud's own
     run counters (`identity_warned`) are not read, because this console reads
     the FOCUS export and makes no call to the Cloud (invariant 64).
+
+101. **A run names every model it used, each one's share of its spend, and
+    how it ended.** An agent can change model in the middle of a run, and
+    TokenFuse prices each call at its own model (measured on forge
+    2026-10-14: Haiku, then Sonnet, then Opus in one run, each priced right).
+    The Cloud's runs view, the console that reads it and its copilot name a
+    run by its LAST model, and on forge an Opus then Haiku run with 96% of
+    its spend on Opus read as a Haiku run. This console had no run grain at
+    all: `/ai` grouped by team and model and by agent, never by run.
+
+    `GET /ai/runs` (`Server.aiRuns`, `finops.AIRuns`) lists every run the
+    gateway's rows name for the month `/ai` shows, largest spend first, ties
+    on the latest call and then the run id (invariant 7): its spend, calls
+    and tokens, its first and last call, every model it called in the order
+    it first called each, with each model's calls, spend and share of the
+    run's spend (`RunModel.Share`: rounded down, so only a model that did all
+    the spending reads 100%; one decimal below ten; "<0.1%" for a sliver,
+    never 0%; "no spend" when the run spent nothing), a `model switch` mark
+    when there is more than one and the last call's model named apart, its
+    agents and teams, and how it ended as the gateway's rows show it
+    (`RunRow.State`): `killed` when a call was refused with the Breaker's
+    `killed`, "stopped by the gateway: <reason>" when its last call was
+    refused, "N calls refused, then went on", or "ran"; and its calls
+    forwarded under identity warn mode (invariant 100). The header counts
+    the runs, those that switched model, those killed and those stopped. The
+    page says that the door a call came through is not in the FOCUS export,
+    so every run is read from one source. It lists 200 runs and counts the
+    rest with their spend; before an import it says there are no runs and
+    points at the connector. `/ai` links to it.
+    *(gate: `TestARunThatSwitchedModelsListsEveryModelWithItsShare`,
+    `TestARunSaysHowItEndedAsTheGatewaysRowsShow`,
+    `TestRunsAreListedLargestSpendFirstTheSameEveryCall` (twenty reads of
+    the same month), `TestTheShareOfASliverIsNeverReadAsNothing` in
+    `internal/finops`; `TestTheRunsPageShowsEveryModelARunUsedWithItsShare`,
+    `TestTheRunsPageSaysThereAreNoRunsBeforeAnImport` in `internal/web`, and
+    `/ai/runs` on `TestPagesRenderTheSameTwice`'s list. Red first on the
+    branch below it: the finops tests by compile (`finops.AIRuns`
+    undefined), the page tests with "GET /ai/runs: 404". Eight `fail` cases
+    and one `pass` case in `gates-have-teeth.sh`: only the last model kept; a
+    share counted by calls rather than spend; a kill not read; the last
+    call's refusal ignored; runs listed by id rather than spend; a sliver read
+    as nothing; the page's first model dropped; the door sentence dropped;
+    and the page's intro reworded, which must stay green. Scenarios:
+    `features/a-run-names-every-model-it-used.feature`, six, each bound.)*
+    What this does not do: a kill that no later call ran into is not in the
+    export and is not shown (the Cloud holds it, and this console does not
+    call the Cloud, invariant 64); a run is grouped by its id within one
+    month, so a run that crossed a month boundary shows in each month with
+    that month's calls; and the order of models is by each one's first call,
+    so a run that went back to a model it had left shows that model once,
+    where it first appeared.
 
 ## Decisions that have no gate yet
 
