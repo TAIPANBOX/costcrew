@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/TAIPANBOX/costcrew/internal/connectors"
 	"github.com/TAIPANBOX/costcrew/internal/money"
 	"github.com/TAIPANBOX/costcrew/internal/world"
 )
@@ -165,6 +166,12 @@ type AgentAIRow struct {
 	// first; a reason of "" with Known false is a blocked row from an export
 	// written before TokenFuse 1.7.0, which carried no reason at all.
 	Blocked []ReasonCount
+	// WarnedCalls is how many of the row's calls the gateway forwarded
+	// although its identity check failed (TOKENFUSE_IDENTITY_STRICT=warn),
+	// and WarnedCost what they cost. They are in Calls and Cost too: real
+	// spend, filed under the agent id each claimed (invariant 100).
+	WarnedCalls int
+	WarnedCost  money.Micros
 }
 
 // CredentialPrefix is how TokenFuse 1.7.0 files a call refused for identity:
@@ -286,7 +293,9 @@ func ExportMixNote(before, from170 int) string {
 func AIByAgent(db *sql.DB, month string) ([]AgentAIRow, error) {
 	rows, err := db.Query(`SELECT agent, COUNT(*),
 			COALESCE(SUM(tokens_in+tokens_out),0), COALESCE(SUM(billed_microusd),0),
-			SUM(CASE WHEN blocked=1 THEN 1 ELSE 0 END)
+			SUM(CASE WHEN blocked=1 THEN 1 ELSE 0 END),
+			SUM(CASE WHEN `+connectors.IdentityWarnedSQL+` THEN 1 ELSE 0 END),
+			COALESCE(SUM(CASE WHEN `+connectors.IdentityWarnedSQL+` THEN billed_microusd ELSE 0 END),0)
 		FROM ai_calls WHERE day LIKE ?
 		GROUP BY agent ORDER BY 4 DESC, agent ASC`, month+"%")
 	if err != nil {
@@ -297,11 +306,13 @@ func AIByAgent(db *sql.DB, month string) ([]AgentAIRow, error) {
 	idx := map[string]int{}
 	for rows.Next() {
 		var r AgentAIRow
-		var micros int64
-		if err := rows.Scan(&r.Agent, &r.Calls, &r.Tokens, &micros, &r.BlockedCalls); err != nil {
+		var micros, warnedMicros int64
+		if err := rows.Scan(&r.Agent, &r.Calls, &r.Tokens, &micros, &r.BlockedCalls,
+			&r.WarnedCalls, &warnedMicros); err != nil {
 			return nil, err
 		}
 		r.Cost = money.Micros(micros)
+		r.WarnedCost = money.Micros(warnedMicros)
 		r.Credential = IsCredential(r.Agent)
 		idx[r.Agent] = len(out)
 		out = append(out, r)
@@ -330,6 +341,144 @@ func AIByAgent(db *sql.DB, month string) ([]AgentAIRow, error) {
 		}
 	}
 	return out, br.Err()
+}
+
+// WarnGroup is the calls one team, or one run, sent that the gateway
+// forwarded under identity warn mode: how many, what they cost, and which of
+// the identity check's findings each carried.
+type WarnGroup struct {
+	// Key is the team (the gateway's x_unit, "" when it resolved none) or
+	// the run id ("" when the call named none).
+	Key string
+	// Agents is every agent id the group's warned calls claimed, sorted.
+	Agents []string
+	Calls  int
+	Cost   money.Micros
+	// Reasons is the identity check's findings, largest first.
+	Reasons []ReasonCount
+}
+
+// ReasonText is the group's findings, "2 agent_id_not_allowed, 1
+// unit_chosen_by_agent_id".
+func (g WarnGroup) ReasonText() string {
+	parts := make([]string, 0, len(g.Reasons))
+	for _, r := range g.Reasons {
+		parts = append(parts, fmt.Sprintf("%d %s", r.Calls, r.Reason))
+	}
+	return strings.Join(parts, ", ")
+}
+
+// IdentityWarn is the month's calls the gateway forwarded although its
+// identity check failed. TOKENFUSE_IDENTITY_STRICT=warn lets such a call
+// through and files it, and its spend, under the agent id it claimed, so
+// without TokenFuse 1.8.0's x_identity_reason it reads exactly like an honest
+// call. Calls and Cost are inside every spend figure on the AI page; this is
+// how the page marks them (invariant 100).
+type IdentityWarn struct {
+	Calls int
+	Cost  money.Micros
+	// ByTeam and ByRun are the same calls cut two ways, largest cost first.
+	ByTeam, ByRun []WarnGroup
+	// TeamCalls is ByTeam as a lookup, for the flag on the team rows.
+	TeamCalls map[string]int
+	// Reported and Unreported count the month's calls by whether their export
+	// carried x_identity_reason at all: one written before TokenFuse 1.8.0
+	// did not, and a warned call in it cannot be told from an honest one.
+	Reported, Unreported int
+}
+
+// IdentityWarnings reads the month's forwarded-under-warn calls, grouped by
+// team and by run.
+func IdentityWarnings(db *sql.DB, month string) (IdentityWarn, error) {
+	w := IdentityWarn{TeamCalls: map[string]int{}}
+	if err := db.QueryRow(`SELECT
+			COALESCE(SUM(CASE WHEN identity_reason IS NOT NULL THEN 1 ELSE 0 END),0),
+			COALESCE(SUM(CASE WHEN identity_reason IS NULL THEN 1 ELSE 0 END),0)
+		FROM ai_calls WHERE day LIKE ?`, month+"%").Scan(&w.Reported, &w.Unreported); err != nil {
+		return IdentityWarn{}, err
+	}
+	rows, err := db.Query(`SELECT COALESCE(team,''), COALESCE(run_id,''), agent, identity_reason,
+			COUNT(*), COALESCE(SUM(billed_microusd),0)
+		FROM ai_calls WHERE day LIKE ? AND `+connectors.IdentityWarnedSQL+`
+		GROUP BY 1, 2, 3, 4`, month+"%")
+	if err != nil {
+		return IdentityWarn{}, err
+	}
+	defer rows.Close()
+	byTeam, byRun := map[string]*warnAcc{}, map[string]*warnAcc{}
+	for rows.Next() {
+		var team, run, agent, reason string
+		var n int
+		var micros int64
+		if err := rows.Scan(&team, &run, &agent, &reason, &n, &micros); err != nil {
+			return IdentityWarn{}, err
+		}
+		w.Calls += n
+		w.Cost += money.Micros(micros)
+		for _, g := range []struct {
+			m   map[string]*warnAcc
+			key string
+		}{{byTeam, team}, {byRun, run}} {
+			a := g.m[g.key]
+			if a == nil {
+				a = &warnAcc{agents: map[string]bool{}, reasons: map[string]int{}}
+				g.m[g.key] = a
+			}
+			a.calls += n
+			a.cost += money.Micros(micros)
+			a.agents[agent] = true
+			a.reasons[reason] += n
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return IdentityWarn{}, err
+	}
+	w.ByTeam, w.ByRun = warnGroups(byTeam), warnGroups(byRun)
+	for _, g := range w.ByTeam {
+		w.TeamCalls[g.Key] = g.Calls
+	}
+	return w, nil
+}
+
+type warnAcc struct {
+	calls   int
+	cost    money.Micros
+	agents  map[string]bool
+	reasons map[string]int
+}
+
+// warnGroups orders the groups by cost, then calls, then key, and each
+// group's findings by count, then name, so the page renders the same every
+// time (invariant 7).
+func warnGroups(m map[string]*warnAcc) []WarnGroup {
+	out := make([]WarnGroup, 0, len(m))
+	for k, a := range m {
+		g := WarnGroup{Key: k, Calls: a.calls, Cost: a.cost}
+		for ag := range a.agents {
+			g.Agents = append(g.Agents, ag)
+		}
+		sort.Strings(g.Agents)
+		for r, n := range a.reasons {
+			g.Reasons = append(g.Reasons, ReasonCount{Reason: r, Known: true, Calls: n})
+		}
+		sort.Slice(g.Reasons, func(i, j int) bool {
+			if g.Reasons[i].Calls != g.Reasons[j].Calls {
+				return g.Reasons[i].Calls > g.Reasons[j].Calls
+			}
+			return g.Reasons[i].Reason < g.Reasons[j].Reason
+		})
+		out = append(out, g)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Cost != out[j].Cost {
+			return out[i].Cost > out[j].Cost
+		}
+		if out[i].Calls != out[j].Calls {
+			return out[i].Calls > out[j].Calls
+		}
+		return out[i].Key < out[j].Key
+	})
+	return out
 }
 
 // OnlyIdentityRefusals is true when every blocked call on the row was refused

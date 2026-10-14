@@ -4747,7 +4747,7 @@ run_case $'re-export: the supersede step skipped' \
 	$'TestAReExportOfTheSameCallsReplacesTheEarlierRows' \
 	$'counted twice' \
 	internal/connectors/tokenfusefocus.go \
-	$'keys, days, err := supersede(tx, local.sha, local.newColumns)' \
+	$'keys, days, err := supersede(tx, local.sha, local.generation)' \
 	$'keys, days, err := []string(nil), []string(nil), error(nil)'
 run_case $'re-export: the agent in the call\'s identity' \
 	fail \
@@ -4763,11 +4763,11 @@ run_case $'re-export: the last file read wins' \
 	$'TestAnOlderExportNeverDisplacesANewerOne' \
 	$'displaced the newer one' \
 	internal/connectors/tokenfusefocus.go \
-	$'\t\tAND (key_id IS NOT NULL) <= ?2`' \
-	$'\t\tAND (key_id IS NOT NULL) <= 1`' \
+	$'\t\tAND ` + exportGenerationSQL + ` <= ?2`' \
+	$'\t\tAND ` + exportGenerationSQL + ` <= 1`' \
 	internal/connectors/tokenfusefocus.go \
-	$'WHERE file_sha256 != ?1 AND (key_id IS NOT NULL) > ?2)`' \
-	$'WHERE file_sha256 != ?1 AND (key_id IS NOT NULL) > 1)`'
+	$'WHERE file_sha256 != ?1 AND ` + exportGenerationSQL + ` > ?2)`' \
+	$'WHERE file_sha256 != ?1 AND ` + exportGenerationSQL + ` > 1)`'
 run_case $'re-export: the import counts a call twice in its own sentence' \
 	fail \
 	./internal/connectors \
@@ -4782,8 +4782,8 @@ run_case $'re-export: the credential column not written' \
 	$'TestTheKeyAndTheBlockReasonAreKeptWhenTheExportCarriesThem' \
 	$'the two honest calls with their key' \
 	internal/connectors/tokenfusefocus.go \
-	$'\t\t\trow.KeyID, row.BlockReason); err != nil {' \
-	$'\t\t\tnil, row.BlockReason); err != nil {'
+	$'\t\t\trow.KeyID, row.BlockReason, row.IdentityReason); err != nil {' \
+	$'\t\t\tnil, row.BlockReason, row.IdentityReason); err != nil {'
 run_case $'re-export: a refusal with client keys off reported as bad data' \
 	fail \
 	./internal/connectors \
@@ -5237,7 +5237,7 @@ run_case $'cloudability: a call exported twice is in the drop twice' \
 	$'TestACallExportedTwiceIsInTheDropOnce' \
 	$'the same calls exported twice' \
 	internal/connectors/tokenfusefocus.go \
-	$'keys, days, err := supersede(tx, local.sha, local.newColumns)' \
+	$'keys, days, err := supersede(tx, local.sha, local.generation)' \
 	$'keys, days, err := []string(nil), []string(nil), error(nil)'
 run_case $'cloudability: a drop written into an epoch folder that exists' \
 	fail \
@@ -5354,6 +5354,163 @@ run_case $'money: an amount past 64 bits of micro-units wraps again' \
 	$'\tif whole < 0 || part < 0 || whole > (math.MaxInt64-part)/unit {' \
 	$'\tif whole < 0 || part < 0 {'
 
+# Invariant 100: a call the gateway forwarded under identity warn mode is
+# marked, with its spend, per agent, per team and per run.
+run_case $'identity warn: the finding is not written' \
+	fail \
+	./internal/connectors \
+	$'TestTheIdentityReasonIsKeptWhenTheExportCarriesIt' \
+	$'stored with no identity_reason' \
+	internal/connectors/tokenfusefocus.go \
+	$'\t\t\trow.KeyID, row.BlockReason, row.IdentityReason); err != nil {' \
+	$'\t\t\trow.KeyID, row.BlockReason, nil); err != nil {'
+run_case $'identity warn: a refusal is counted as a forwarded call' \
+	fail \
+	./internal/finops \
+	$'TestAForwardedUnderWarnCallIsMarkedPerTeamAndPerRun' \
+	$'a refusal and a Breaker block spent nothing' \
+	internal/connectors/tokenfusefocus.go \
+	$'const IdentityWarnedSQL = `(blocked = 0 AND COALESCE(identity_reason,\'\') <> \'\')`' \
+	$'const IdentityWarnedSQL = `(COALESCE(identity_reason,\'\') <> \'\')`'
+run_case $'identity warn: supersede ignores the 1.8.0 column' \
+	fail \
+	./internal/connectors \
+	$'TestAWarnMarkedExportIsKeptOverAnOlderCopyOfTheSameCalls' \
+	$'the marker was lost' \
+	internal/connectors/tokenfusefocus.go \
+	$'const exportGenerationSQL = `((key_id IS NOT NULL) + (identity_reason IS NOT NULL))`' \
+	$'const exportGenerationSQL = `((key_id IS NOT NULL) + 0)`'
+run_case $'identity warn: the 64-byte bound lifted' \
+	fail \
+	./internal/connectors \
+	$'TestHostileIdentityReasonIsRefusedByName' \
+	$'is over 64 bytes was imported' \
+	internal/connectors/tokenfusefocus.go \
+	$'identityReason, err := optionalPlain(rec, col, "x_identity_reason", xIdentityReasonMaxBytes)' \
+	$'identityReason, err := optionalPlain(rec, col, "x_identity_reason", xIdentityReasonMaxBytes*4)'
+run_case $'identity warn: the per-run table emptied' \
+	fail \
+	./internal/web \
+	$'TestTheAIPageMarksCallsForwardedUnderIdentityWarn' \
+	$'does not contain "<code>run-7</code>"' \
+	internal/web/templates/ai.html \
+	$'{{range .Warn.ByRun}}' \
+	$'{{range slice .Warn.ByRun 0 0}}'
+run_case $'identity warn: the agent row carries no mark' \
+	fail \
+	./internal/web \
+	$'TestTheAIPageMarksCallsForwardedUnderIdentityWarn' \
+	$'does not mark its two forwarded calls' \
+	internal/web/templates/ai.html \
+	$'{{if .WarnedCalls}} <span class="chip triaged">identity warn</span>' \
+	$'{{if false}} <span class="chip triaged">identity warn</span>'
+run_case $'identity warn: the team rows carry no flag' \
+	fail \
+	./internal/web \
+	$'TestTheAIPageMarksCallsForwardedUnderIdentityWarn' \
+	$'carry no identity warn flag' \
+	internal/web/templates/ai.html \
+	$'{{with index $.Warn.TeamCalls .Team}}' \
+	$'{{with 0}}'
+run_case $'identity warn: the agent row\'s forwarded spend zeroed' \
+	fail \
+	./internal/finops \
+	$'TestTheAgentRowCountsItsForwardedCallsInsideItsSpend' \
+	$'flint\'s forwarded calls' \
+	internal/finops/ai.go \
+	$'\t\tr.WarnedCost = money.Micros(warnedMicros)' \
+	$'\t\tr.WarnedCost = money.Micros(warnedMicros) * 0'
+run_case $'identity warn: the packet\'s line dropped' \
+	fail \
+	./internal/deliver \
+	$'TestAISpendSectionNamesTheCallsForwardedUnderIdentityWarn' \
+	$'does not carry "forwarded under identity warn mode: 3 calls' \
+	internal/deliver/packet.go \
+	$'\tif warn.Calls > 0 {' \
+	$'\tif warn.Calls > 1000 {'
+run_case $'identity warn: the panel\'s note reworded is not a fault' \
+	pass \
+	./internal/web \
+	$'TestTheAIPageMarksCallsForwardedUnderIdentityWarn' \
+	$'' \
+	internal/web/templates/ai.html \
+	$'but nobody proved which agent made it.' \
+	$'but nobody proved which agent sent it.'
+
+# Invariant 101: a run names every model it used, each one's share of its
+# spend, and how it ended.
+run_case $'runs: only the last model kept' \
+	fail \
+	./internal/finops \
+	$'TestARunThatSwitchedModelsListsEveryModelWithItsShare' \
+	$'called two models and reads as 1' \
+	internal/finops/runs.go \
+	$'\t\tout = append(out, r)\n\t}\n\tsort.SliceStable' \
+	$'\t\tr.Models = r.Models[len(r.Models)-1:]\n\t\tout = append(out, r)\n\t}\n\tsort.SliceStable'
+run_case $'runs: a share counted by calls, not spend' \
+	fail \
+	./internal/finops \
+	$'TestARunThatSwitchedModelsListsEveryModelWithItsShare' \
+	$'w2-b12-A\'s models, in the order called' \
+	internal/finops/runs.go \
+	$'r.Models[i].share = int64(r.Models[i].Cost) * 1000 / int64(r.Cost)' \
+	$'r.Models[i].share = int64(r.Models[i].Calls) * 1000 / int64(r.Calls)'
+run_case $'runs: a kill is not read' \
+	fail \
+	./internal/finops \
+	$'TestARunSaysHowItEndedAsTheGatewaysRowsShow' \
+	$'run "run-killed"' \
+	internal/finops/runs.go \
+	$'\t\t\tif known && reason == KilledReason {' \
+	$'\t\t\tif false && known && reason == KilledReason {'
+run_case $'runs: the last call\'s refusal ignored' \
+	fail \
+	./internal/finops \
+	$'TestARunSaysHowItEndedAsTheGatewaysRowsShow' \
+	$'stopped by the gateway: budget_exceeded' \
+	internal/finops/runs.go \
+	$'\t\tr.LastBlocked = blocked' \
+	$'\t\tr.LastBlocked = false && blocked'
+run_case $'runs: listed by run id, not by spend' \
+	fail \
+	./internal/finops \
+	$'TestRunsAreListedLargestSpendFirstTheSameEveryCall' \
+	$'runs in order' \
+	internal/finops/runs.go \
+	$'\t\tif out[i].Cost != out[j].Cost {' \
+	$'\t\tif false && out[i].Cost != out[j].Cost {'
+run_case $'runs: a sliver read as nothing' \
+	fail \
+	./internal/finops \
+	$'TestTheShareOfASliverIsNeverReadAsNothing' \
+	$'want "<0.1%"' \
+	internal/finops/runs.go \
+	$'\tcase m.share == 0 && m.Cost > 0:' \
+	$'\tcase false && m.share == 0 && m.Cost > 0:'
+run_case $'runs page: the first model dropped' \
+	fail \
+	./internal/web \
+	$'TestTheRunsPageShowsEveryModelARunUsedWithItsShare' \
+	$'does not show "<code>claude-opus-5-5</code> 96%"' \
+	internal/web/templates/ai_runs.html \
+	$'{{range $i, $m := .Models}}' \
+	$'{{range $i, $m := slice .Models 1}}'
+run_case $'runs page: the door sentence dropped' \
+	fail \
+	./internal/web \
+	$'TestTheRunsPageShowsEveryModelARunUsedWithItsShare' \
+	$'does not contain "is not in the FOCUS export"' \
+	internal/web/templates/ai_runs.html \
+	$'is not in the FOCUS export, and this console reads one folder of it, so every run here is read from one source.' \
+	$'is shown per run.'
+run_case $'runs page: the intro reworded is not a fault' \
+	pass \
+	./internal/web \
+	$'TestTheRunsPageShowsEveryModelARunUsedWithItsShare' \
+	$'' \
+	internal/web/templates/ai_runs.html \
+	$'One row per run the gateway\'s rows name' \
+	$'A row for each run the gateway\'s rows name'
 run_case $'pricing: the truncating formula back' \
 	fail \
 	./internal/deliver \

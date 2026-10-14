@@ -502,6 +502,9 @@ var Classes = map[string]Class{
 	// operator gave a credential; a block reason is one of the Breaker's
 	// closed set of wire strings.
 	"ai_calls.key_id": ID, "ai_calls.block_reason": Plain,
+	// Invariant 100: TokenFuse 1.8.0's x_identity_reason, one of the identity
+	// check's five words (agent_id_not_allowed and four more), never a name.
+	"ai_calls.identity_reason": Plain,
 
 	"allocation_rules.source": ID, "allocation_rules.category": Plain,
 	"allocation_rules.method": Plain, "allocation_rules.note": Free,
