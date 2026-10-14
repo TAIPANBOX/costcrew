@@ -4782,8 +4782,8 @@ run_case $'re-export: the credential column not written' \
 	$'TestTheKeyAndTheBlockReasonAreKeptWhenTheExportCarriesThem' \
 	$'the two honest calls with their key' \
 	internal/connectors/tokenfusefocus.go \
-	$'\t\t\trow.KeyID, row.BlockReason, row.IdentityReason); err != nil {' \
-	$'\t\t\tnil, row.BlockReason, row.IdentityReason); err != nil {'
+	$'\t\t\trow.KeyID, row.BlockReason, row.IdentityReason, door, row.PriceBasis, row.PIIFindings); err != nil {' \
+	$'\t\t\tnil, row.BlockReason, row.IdentityReason, door, row.PriceBasis, row.PIIFindings); err != nil {'
 run_case $'re-export: a refusal with client keys off reported as bad data' \
 	fail \
 	./internal/connectors \
