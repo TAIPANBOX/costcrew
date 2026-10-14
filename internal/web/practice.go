@@ -21,6 +21,7 @@ var (
 	tplUtilisation = page("utilisation.html")
 	tplSaaS        = page("saas.html")
 	tplAI          = page("ai.html")
+	tplAIRuns      = page("ai_runs.html")
 )
 
 func (s *Server) kpis(w http.ResponseWriter, r *http.Request) {
@@ -233,7 +234,12 @@ func (s *Server) ai(w http.ResponseWriter, r *http.Request) {
 	var agentRows []finops.AgentAIRow
 	var mixedNote, exportNote string
 	var blockedBy []finops.ReasonCount
+	var warn finops.IdentityWarn
 	if real {
+		if warn, err = finops.IdentityWarnings(s.db, month); err != nil {
+			http.Error(w, "store unavailable", http.StatusInternalServerError)
+			return
+		}
 		if agentRows, err = finops.AIByAgent(s.db, month); err != nil {
 			http.Error(w, "store unavailable", http.StatusInternalServerError)
 			return
@@ -294,8 +300,53 @@ func (s *Server) ai(w http.ResponseWriter, r *http.Request) {
 		MixedNote   string
 		ExportNote  string
 		BlockedBy   []finops.ReasonCount
+		Warn        finops.IdentityWarn
 	}{s.shellFor(r, "AI spend", "ai"), rows, total, thousands(tokens), len(list), sp,
-		crewCost, crewTasks, month, real, hasOutcomes, agentRows, mixedNote, exportNote, blockedBy})
+		crewCost, crewTasks, month, real, hasOutcomes, agentRows, mixedNote, exportNote, blockedBy, warn})
+}
+
+// runsShown is how many runs /ai/runs lists, largest spend first; the rest are
+// counted, with their spend, in one line.
+const runsShown = 200
+
+// aiRuns is the run grain (invariant 101): every run the gateway's rows name,
+// with every model it called and each model's share of its spend, and how it
+// ended as far as the rows show.
+func (s *Server) aiRuns(w http.ResponseWriter, r *http.Request) {
+	if s.guard(w, r) == nil {
+		return
+	}
+	month, real, err := finops.LatestRealAIMonth(s.db)
+	if err != nil {
+		http.Error(w, "store unavailable", http.StatusInternalServerError)
+		return
+	}
+	var runs []finops.RunRow
+	if real {
+		if runs, err = finops.AIRuns(s.db, month); err != nil {
+			http.Error(w, "store unavailable", http.StatusInternalServerError)
+			return
+		}
+	}
+	sum := finops.SummarizeRuns(runs)
+	var restCost money.Micros
+	rest := 0
+	if len(runs) > runsShown {
+		for _, x := range runs[runsShown:] {
+			restCost += x.Cost
+		}
+		rest = len(runs) - runsShown
+		runs = runs[:runsShown]
+	}
+	s.render(w, tplAIRuns, struct {
+		shell
+		Month    string
+		Real     bool
+		Runs     []finops.RunRow
+		Sum      finops.RunsSummary
+		Rest     int
+		RestCost money.Micros
+	}{s.shellFor(r, "Runs", "ai"), month, real, runs, sum, rest, restCost})
 }
 
 // thousands groups a large count so a reader can tell a million from ten.

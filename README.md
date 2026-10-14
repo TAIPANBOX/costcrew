@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/TAIPANBOX/costcrew/actions/workflows/ci.yml/badge.svg)](https://github.com/TAIPANBOX/costcrew/actions/workflows/ci.yml)
 ![Go](https://img.shields.io/badge/go-1.27-00ADD8.svg)
-![tests](https://img.shields.io/badge/tests-1597-brightgreen.svg)
+![tests](https://img.shields.io/badge/tests-1637-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)
 ![Status](https://img.shields.io/badge/enforces-nothing%20by%20design-success.svg)
 
@@ -220,6 +220,51 @@ How good a hint is depends on the backend, and typryx-evalset measured that on
 its frozen 434-question test split (2026-09-30): Jev 87.1% overall and 87.0% on
 the triage family, a keyword-rules baseline 82.3%, and `qwen2.5:7b` on a CPU
 70.0%. A hint is worth reading, not obeying.
+
+## The AI spend page, section by section
+
+`/ai` reads the gateway's own per-call rows once the TokenFuse FOCUS export
+connector has imported them, and shows the generated estate until then. Each
+section below opens with one sentence that says what it is for.
+
+- **Price and volume, separated.** Tokens beside cost, per team and model, so
+  a bill that doubled because the price rose reads differently from one that
+  doubled because twice as much was done.
+- **By agent.** Every call is filed under the agent that made it; a call the
+  gateway refused for identity is filed under the credential (`key:...`) that
+  sent it, never under the agent it claimed.
+- **Blocked, by the gateway's reason.** A blocked call costs nothing, and the
+  gateway's own reason says why it was stopped.
+
+### Forwarded under identity warn mode
+
+**Spend the gateway let through although it could not prove which agent made
+it, marked per agent, per team and per run.** With
+`TOKENFUSE_IDENTITY_STRICT=warn` TokenFuse forwards a call whose agent id does
+not belong to the credential that sent it, and files the spend under the id it
+claimed. From TokenFuse 1.8.0 the export names the check that failed
+(`x_identity_reason`), and the console reads it: the page says how many calls
+and how much spend were forwarded this month, the agent's row and the team's
+rows carry an `identity warn` mark, and a panel lists the forwarded calls by
+team and by run with the check that failed. The spend stays in every total,
+because it is real spend; the mark says nobody proved who spent it. An export
+written before 1.8.0 cannot say, and the page says that instead of reading
+those calls as honest.
+
+### Runs
+
+**Every run the gateway saw, with every model it used and each model's share
+of the spend.** `/ai/runs` lists the month's runs, largest spend first. An
+agent that starts a task on a large model and finishes it on a small one is
+one run with two models in it, and naming that run by its last model names it
+by the model that may have done the least of its work, so the page lists each
+model in the order the run first called it, with its share: a run that spent
+96% on Opus and then 4% on Haiku reads that way, marked as a model switch. It
+also says how each run ended as far as the gateway's rows show (killed,
+stopped by its budget or another refusal on its last call, refused once and
+went on, or ran) and which of its calls were forwarded under identity warn
+mode. The gateway's export does not say which door a call came through, and
+the page says so.
 
 ## Run it
 
@@ -683,9 +728,9 @@ estate-gates repository's own PROVEN record:
 ## Gates
 
 ```sh
-go test ./...                        # 1597 tests, 32 packages
+go test ./...                        # 1637 tests, 32 packages
 ./scripts/features-are-bound.sh      # every scenario bound to a named test, both ways
-./scripts/gates-have-teeth.sh        # 546 cases: each gate is made to fail on purpose
+./scripts/gates-have-teeth.sh        # 565 cases: each gate is made to fail on purpose
 gofmt -l . && go vet ./...
 ```
 
