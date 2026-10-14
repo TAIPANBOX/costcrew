@@ -31,6 +31,7 @@ func TestCovAIPageRefusesToRenderWhenOneOfItsReadsFails(t *testing.T) {
 		{"the units read", "charges", "model"},
 		{"the agents read, by block reason", "ai_calls", "block_reason"},
 		{"the export mix", "ai_calls", "key_id"},
+		{"the identity warnings", "ai_calls", "identity_reason"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -60,5 +61,31 @@ func TestCovAIPageRendersTheImportedRealMonthWhenEveryReadWorks(t *testing.T) {
 	}
 	if !strings.Contains(body, "key:imposter") {
 		t.Error("the imported export's agents are not on the AI page")
+	}
+}
+
+// The runs page reads the latest real month, then the runs of that month. A
+// failed read in either is a server fault, not an empty list of runs.
+func TestCovAIRunsPageRefusesWhenOneOfItsReadsFails(t *testing.T) {
+	cases := []struct {
+		name          string
+		table, column string
+	}{
+		{"the latest real month", "charges", "provenance"},
+		{"the runs of the month", "ai_calls", "identity_reason"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			h := start(t)
+			h.signUp(t, "owner", "owner-password-2026")
+			importExportsWeb(t, h, nil, "tokenfuse-focus-runs-2026-10-14.csv")
+			covDropColumn(t, h, c.table, c.column)
+
+			code, body, _ := h.get(t, "/ai/runs")
+			if code != http.StatusInternalServerError || !strings.Contains(body, "store unavailable") {
+				t.Errorf("with %s.%s gone the runs page answered %d, want 500 saying the store is unavailable",
+					c.table, c.column, code)
+			}
+		})
 	}
 }
