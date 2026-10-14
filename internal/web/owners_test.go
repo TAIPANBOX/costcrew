@@ -102,6 +102,7 @@ func TestPagesRenderTheSameTwice(t *testing.T) {
 		"/rightsizing",                                              // PR #34 review: was groups-by-desk and not on this list
 		"/leadership",                                               // C8-LEADERSHIP-SPEC.md: groups packs by Published
 		"/reconciliation", "/reconciliation?connector=openai-usage", // invariant 81: groups by day and model
+		"/ai/runs", // invariant 101: groups calls by run and model
 	}
 	for _, p := range paths {
 		code, first, _ := h.get(t, p)
