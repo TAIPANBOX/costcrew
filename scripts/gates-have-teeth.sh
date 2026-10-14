@@ -4820,8 +4820,8 @@ run_case $'re-export: the last file read wins' \
 	$'TestAnOlderExportNeverDisplacesANewerOne' \
 	$'displaced the newer one' \
 	internal/connectors/tokenfusefocus.go \
-	$'\t\tAND ` + exportGenerationSQL + ` <= ?2`' \
-	$'\t\tAND ` + exportGenerationSQL + ` <= 1`' \
+	$'\t\tAND ` + exportGenerationSQL + ` <= ?2' \
+	$'\t\tAND ` + exportGenerationSQL + ` <= 1' \
 	internal/connectors/tokenfusefocus.go \
 	$'` > ?2 AND COALESCE(door,\'`' \
 	$'` > 1 AND COALESCE(door,\'`'
