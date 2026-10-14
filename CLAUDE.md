@@ -85,7 +85,8 @@ health path passed.
 
 ```sh
 go test ./...                        # 1732 tests, 32 packages
-./scripts/gates-have-teeth.sh        # 606 cases; needs a clean tree
+./scripts/gates-have-teeth.sh        # 606 cases; needs a clean tree; TEETH_SHARD=i/N runs one of N shards
+./scripts/teeth-shards-cover-every-case.sh  # the shards partition the cases: none missing, none twice
 ./scripts/features-are-bound.sh      # 613 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
@@ -6680,6 +6681,10 @@ an absent invariant.
     `features/two-doors-are-two-traces.feature`, bound.)* What this does not do:
     it does not change the call_key itself, which still excludes the agent (so a
     1.7.0 identity refusal still supersedes its pre-1.7.0 copy within one door).
+
+107. **The teeth shards are a partition of the teeth cases: every case runs in exactly one shard, and no shard is empty.**
+    `scripts/gates-have-teeth.sh` runs only shard i of N when `TEETH_SHARD=i/N` is set. The filter is in `scripts/teeth-shard.sh`, which the harness sources and never edits, because bash reads a script as it runs and a rewrite under it would execute the wrong bytes. CI runs the four shards in parallel as the `teeth-shard` matrix, and the job named `teeth`, the one required check, waits for them and fails unless all four passed. A split is only faster if it is a partition: a case no shard takes is a fault nobody plants any more and the run stays green without it, and a case two shards take is paid for twice. Neither prints a red line. `scripts/teeth-shards-cover-every-case.sh` therefore compares the list each shard would run (`TEETH_LIST=1`) with the full list, and fails on a case in no shard, a case run more than once, or a shard with no case in it.
+    *(gate: `scripts/teeth-shards-cover-every-case.sh`, run by the `gate` job and by `TestTeethShardsCoverEveryCase` in `internal/manifest`. Teeth: `gates-have-teeth.sh` plants a filter that drops one case in five and a filter that repeats an early case in every shard, and points the gate at a harness that is not there; a reworded comment in the gate is the one pass case.)*
 
 ## Decisions that have no gate yet
 

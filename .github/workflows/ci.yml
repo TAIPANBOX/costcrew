@@ -98,20 +98,48 @@ jobs:
       # even though the full suite defers it.
       - name: the manifest is what this repository builds
         run: go test ./internal/manifest/ -race
+      # The teeth run is split four ways (teeth-shard below). A split is only
+      # faster if every case lands in exactly one shard, and a case that falls
+      # out of the split prints no red line, so this checks the partition itself.
+      - name: the teeth shards partition every case
+        run: ./scripts/teeth-shards-cover-every-case.sh
 
-  # The teeth harness, in its own job because it is the slow one and measuring
-  # said so rather than a guess. 45 cases, each planting a fault and running a
-  # gate against it: 138s on a warm laptop and the bulk of a 12-minute first
-  # run on a cold runner. Beside `gate` rather than inside it, so build, vet,
-  # gofmt and the whole suite come back in about two minutes and this reports
-  # when it is ready.
-  teeth:
+  # The teeth harness, in its own job because it is the slow one. Its cases are
+  # split four ways with TEETH_SHARD (scripts/teeth-shard.sh) so the four shards
+  # run in parallel on the standard runners; one shard alone took most of an
+  # hour on a cold runner before the split. Beside `gate` rather than inside it,
+  # so build, vet, gofmt and the whole suite come back in about two minutes.
+  teeth-shard:
+    name: teeth shard ${{ matrix.shard }} of 4
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: '1.27.2'
           check-latest: false
-      - name: the gates have teeth
+      - name: the gates have teeth, shard ${{ matrix.shard }} of 4
+        env:
+          TEETH_SHARD: ${{ matrix.shard }}/4
         run: ./scripts/gates-have-teeth.sh
+
+  # The required check keeps the name `teeth`. It does no teeth work itself: it
+  # waits for every shard and is red unless all four passed. Without this job the
+  # required name would never report on a pull request, and every PR would block.
+  teeth:
+    needs: [teeth-shard]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: every teeth shard passed
+        env:
+          SHARDS: ${{ needs.teeth-shard.result }}
+        run: |
+          if [ "$SHARDS" != "success" ]; then
+            echo "teeth shards: $SHARDS, so at least one shard did not pass" >&2
+            exit 1
+          fi
