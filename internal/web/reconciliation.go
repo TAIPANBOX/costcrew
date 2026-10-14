@@ -20,6 +20,9 @@ var tplReconciliation = page("reconciliation.html")
 type reconView struct {
 	Day, Model, Provider, Gateway, Gap, Status, Chip string
 	ProviderIn, GatewayIn, ProviderOut, GatewayOut   string
+	// Fallback is the part of Gateway priced at the gateway's fallback rate,
+	// "" when none was (invariant 103).
+	Fallback string
 }
 
 func statusChip(s string) string {
@@ -63,6 +66,14 @@ func tokens(n int64, covered bool) string {
 	return strconv.FormatInt(n, 10)
 }
 
+// fallbackPart is the fallback-priced part of a gateway sum, or "" for none.
+func fallbackPart(micros int64) string {
+	if micros == 0 {
+		return ""
+	}
+	return connectors.MicrosExact(micros)
+}
+
 func (s *Server) reconciliation(w http.ResponseWriter, r *http.Request) {
 	if s.guard(w, r) == nil {
 		return
@@ -79,6 +90,7 @@ func (s *Server) reconciliation(w http.ResponseWriter, r *http.Request) {
 			Gap: connectors.MicrosExact(x.GapMicros), Status: x.Status, Chip: statusChip(x.Status),
 			ProviderIn: tokens(x.ProviderIn, x.UsageCovered), GatewayIn: strconv.FormatInt(x.GatewayIn, 10),
 			ProviderOut: tokens(x.ProviderOut, x.UsageCovered), GatewayOut: strconv.FormatInt(x.GatewayOut, 10),
+			Fallback: fallbackPart(x.GatewayFallbackMicros),
 		})
 	}
 	s.render(w, tplReconciliation, struct {

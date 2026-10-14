@@ -215,7 +215,15 @@ func (s *Server) ai(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "store unavailable", http.StatusInternalServerError)
 		return
 	}
-	real := len(rows) > 0
+	// The month's admitted calls by the price the gateway settled them at
+	// (invariant 103). A month whose every call was priced off the book has
+	// no row in the ledger and is still a month of real calls.
+	basis, err := finops.PriceBases(s.db, month)
+	if err != nil {
+		http.Error(w, "store unavailable", http.StatusInternalServerError)
+		return
+	}
+	real := len(rows) > 0 || basis.Calls() > 0
 	if !real {
 		for _, u := range world.AIUnits() {
 			if u.Month != month {
@@ -235,7 +243,12 @@ func (s *Server) ai(w http.ResponseWriter, r *http.Request) {
 	var mixedNote, exportNote string
 	var blockedBy []finops.ReasonCount
 	var warn finops.IdentityWarn
+	var pii finops.PIILetThrough
 	if real {
+		if pii, err = finops.PIIFindings(s.db, month); err != nil {
+			http.Error(w, "store unavailable", http.StatusInternalServerError)
+			return
+		}
 		if warn, err = finops.IdentityWarnings(s.db, month); err != nil {
 			http.Error(w, "store unavailable", http.StatusInternalServerError)
 			return
@@ -301,8 +314,10 @@ func (s *Server) ai(w http.ResponseWriter, r *http.Request) {
 		ExportNote  string
 		BlockedBy   []finops.ReasonCount
 		Warn        finops.IdentityWarn
+		Basis       finops.PriceBasis
+		PII         finops.PIILetThrough
 	}{s.shellFor(r, "AI spend", "ai"), rows, total, thousands(tokens), len(list), sp,
-		crewCost, crewTasks, month, real, hasOutcomes, agentRows, mixedNote, exportNote, blockedBy, warn})
+		crewCost, crewTasks, month, real, hasOutcomes, agentRows, mixedNote, exportNote, blockedBy, warn, basis, pii})
 }
 
 // runsShown is how many runs /ai/runs lists, largest spend first; the rest are

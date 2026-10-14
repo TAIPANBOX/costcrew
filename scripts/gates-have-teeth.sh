@@ -48,14 +48,27 @@
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)" || exit 1
 
-if ! command -v go >/dev/null 2>&1; then
+# TEETH_LIST=1 prints each case's name, one per line in file order, and runs none
+# of them. TEETH_SHARD=i/N runs only shard i of N (scripts/teeth-shard.sh). A listing
+# touches nothing: it skips the checks below and sets no trap, because the trap
+# restores the tree with git reset --hard, and a listing must never be what discards
+# somebody's uncommitted work. Its output goes to fd 3; stdout is silenced.
+if [ -n "${TEETH_LIST:-}" ]; then
+	exec 3>&1 1>/dev/null
+else
+	exec 3>&1
+fi
+. scripts/teeth-shard.sh
+teeth_shard_parse
+
+if [ -z "${TEETH_LIST:-}" ] && ! command -v go >/dev/null 2>&1; then
 	printf 'the gates here are Go tests and there is no go on PATH, so this\n'
 	printf 'harness would report that nothing failed, which is the exact\n'
 	printf 'silent pass it exists to catch.\n'
 	exit 1
 fi
 
-if [ -n "$(git status --porcelain)" ]; then
+if [ -z "${TEETH_LIST:-}" ] && [ -n "$(git status --porcelain)" ]; then
 	printf 'this script mutates tracked files, so it needs a clean tree.\n'
 	printf 'commit or stash first; it restores with git and cannot tell your\n'
 	printf 'edits from its own.\n'
@@ -66,7 +79,8 @@ restore() {
 	git reset -q --hard HEAD 2>/dev/null
 	git clean -fdq 2>/dev/null
 }
-baseline_dir="$(mktemp -d)"
+baseline_dir=""
+[ -n "${TEETH_LIST:-}" ] || baseline_dir="$(mktemp -d)"
 cleanup() {
 	restore
 	rm -rf "$baseline_dir"
@@ -90,11 +104,14 @@ cleanup_and_stop() {
 	trap - EXIT
 	exit 130
 }
-trap cleanup EXIT
-trap cleanup_and_stop INT TERM
+if [ -z "${TEETH_LIST:-}" ]; then
+	trap cleanup EXIT
+	trap cleanup_and_stop INT TERM
+fi
 
 failures=0
 cases=0
+case_index=0
 
 # gate <pkg> <pattern> runs one gate and says whether it measured anything.
 #
@@ -123,6 +140,14 @@ gate() {
 run_case() {
 	local name="$1" expect="$2" pkg="$3" pattern="$4" needle="$5"
 	shift 5
+	# Every call takes the next index, whether this run owns it or not, so every
+	# shard numbers the cases the same way. See scripts/teeth-shard.sh.
+	case_index=$((case_index + 1))
+	teeth_shard_takes "$case_index" || return 0
+	if [ -n "${TEETH_LIST:-}" ]; then
+		printf '%s\n' "$name" >&3
+		return 0
+	fi
 	cases=$((cases + 1))
 
 	# An expect word this harness does not define matches neither TOOTHLESS
@@ -251,6 +276,38 @@ PYEOF
 
 echo
 echo "=== faults each gate must catch ==="
+run_case $'teeth shards: the filter leaves one case in five out of every shard' \
+	fail \
+	./internal/manifest \
+	$'^TestTeethShardsCoverEveryCase$' \
+	$'NOT IN ANY SHARD' \
+	scripts/teeth-shard.sh \
+	$'\t[ $(( ($1 - 1) % shard_n )) -eq $(( shard_i - 1 )) ]' \
+	$'\t[ $(( ($1 - 1) % (shard_n + 1) )) -eq $(( shard_i - 1 )) ]'
+run_case $'teeth shards: the filter lets an early case into every shard' \
+	fail \
+	./internal/manifest \
+	$'^TestTeethShardsCoverEveryCase$' \
+	$'a shard runs a case more than once' \
+	scripts/teeth-shard.sh \
+	$'\t[ $(( ($1 - 1) % shard_n )) -eq $(( shard_i - 1 )) ]' \
+	$'\t[ $(( ($1 - 1) % shard_n )) -le $(( shard_i - 1 )) ]'
+run_case $'teeth shards: a reworded comment in the partition gate is not a fault' \
+	pass \
+	./internal/manifest \
+	$'^TestTeethShardsCoverEveryCase$' \
+	$'' \
+	scripts/teeth-shards-cover-every-case.sh \
+	$'# nothing.\n' \
+	$'# nothing, by design.\n'
+run_case $'teeth shards: the partition gate is pointed at a harness that is not there' \
+	fail \
+	./internal/manifest \
+	$'^TestTeethShardsCoverEveryCase$' \
+	$'MEASURED NOTHING' \
+	scripts/teeth-shards-cover-every-case.sh \
+	$'harness=scripts/gates-have-teeth.sh\n' \
+	$'harness=scripts/gates-have-teeth-moved.sh\n'
 run_case $'retired rights: a skill hands one back out' \
 	fail \
 	./internal/crew \
@@ -4747,7 +4804,7 @@ run_case $'re-export: the supersede step skipped' \
 	$'TestAReExportOfTheSameCallsReplacesTheEarlierRows' \
 	$'counted twice' \
 	internal/connectors/tokenfusefocus.go \
-	$'keys, days, err := supersede(tx, local.sha, local.generation)' \
+	$'keys, days, err := supersede(tx, local.sha, local.generation, local.door)' \
 	$'keys, days, err := []string(nil), []string(nil), error(nil)'
 run_case $'re-export: the agent in the call\'s identity' \
 	fail \
@@ -4763,11 +4820,11 @@ run_case $'re-export: the last file read wins' \
 	$'TestAnOlderExportNeverDisplacesANewerOne' \
 	$'displaced the newer one' \
 	internal/connectors/tokenfusefocus.go \
-	$'\t\tAND ` + exportGenerationSQL + ` <= ?2`' \
-	$'\t\tAND ` + exportGenerationSQL + ` <= 1`' \
+	$'\t\tAND ` + exportGenerationSQL + ` <= ?2' \
+	$'\t\tAND ` + exportGenerationSQL + ` <= 1' \
 	internal/connectors/tokenfusefocus.go \
-	$'WHERE file_sha256 != ?1 AND ` + exportGenerationSQL + ` > ?2)`' \
-	$'WHERE file_sha256 != ?1 AND ` + exportGenerationSQL + ` > 1)`'
+	$'` > ?2 AND COALESCE(door,\'`' \
+	$'` > 1 AND COALESCE(door,\'`'
 run_case $'re-export: the import counts a call twice in its own sentence' \
 	fail \
 	./internal/connectors \
@@ -4782,8 +4839,8 @@ run_case $'re-export: the credential column not written' \
 	$'TestTheKeyAndTheBlockReasonAreKeptWhenTheExportCarriesThem' \
 	$'the two honest calls with their key' \
 	internal/connectors/tokenfusefocus.go \
-	$'\t\t\trow.KeyID, row.BlockReason, row.IdentityReason, door); err != nil {' \
-	$'\t\t\tnil, row.BlockReason, row.IdentityReason, door); err != nil {'
+	$'\t\t\trow.KeyID, row.BlockReason, row.IdentityReason, door, row.PriceBasis, row.PIIFindings); err != nil {' \
+	$'\t\t\tnil, row.BlockReason, row.IdentityReason, door, row.PriceBasis, row.PIIFindings); err != nil {'
 run_case $'re-export: a refusal with client keys off reported as bad data' \
 	fail \
 	./internal/connectors \
@@ -5237,7 +5294,7 @@ run_case $'cloudability: a call exported twice is in the drop twice' \
 	$'TestACallExportedTwiceIsInTheDropOnce' \
 	$'the same calls exported twice' \
 	internal/connectors/tokenfusefocus.go \
-	$'keys, days, err := supersede(tx, local.sha, local.generation)' \
+	$'keys, days, err := supersede(tx, local.sha, local.generation, local.door)' \
 	$'keys, days, err := []string(nil), []string(nil), error(nil)'
 run_case $'cloudability: a drop written into an epoch folder that exists' \
 	fail \
@@ -5378,8 +5435,8 @@ run_case $'identity warn: supersede ignores the 1.8.0 column' \
 	$'TestAWarnMarkedExportIsKeptOverAnOlderCopyOfTheSameCalls' \
 	$'the marker was lost' \
 	internal/connectors/tokenfusefocus.go \
-	$'const exportGenerationSQL = `((key_id IS NOT NULL) + (identity_reason IS NOT NULL))`' \
-	$'const exportGenerationSQL = `((key_id IS NOT NULL) + 0)`'
+	$'const exportGenerationSQL = `((key_id IS NOT NULL) + (identity_reason IS NOT NULL) + (price_basis IS NOT NULL) + `' \
+	$'const exportGenerationSQL = `((key_id IS NOT NULL) + 0 + (price_basis IS NOT NULL) + `'
 run_case $'identity warn: the 64-byte bound lifted' \
 	fail \
 	./internal/connectors \
@@ -5511,6 +5568,38 @@ run_case $'runs page: the intro reworded is not a fault' \
 	internal/web/templates/ai_runs.html \
 	$'One row per run the gateway\'s rows name' \
 	$'A row for each run the gateway\'s rows name'
+run_case $'pricing: the truncating formula back' \
+	fail \
+	./internal/deliver \
+	$'TestACallsCostIsRoundedNeverTruncated' \
+	$'10499 micros, want 10500' \
+	internal/deliver/estimate.go \
+	$'\treturn int64(math.Round(float64(in)*p.InPerM + float64(out)*p.OutPerM))' \
+	$'\treturn int64(math.Trunc((float64(in)/1e6*p.InPerM + float64(out)/1e6*p.OutPerM) * 1e6))'
+run_case $'deliver: a wider task guard loosens the run' \
+	fail \
+	./internal/deliver \
+	$'TestTheGatewayBudgetIsTheTighterOfTheRunAndTheTask' \
+	$'GatewayBudgetUSD(500, 700)' \
+	internal/deliver/call.go \
+	$'\tif taskGuard > 0 && taskGuard < b {' \
+	$'\tif taskGuard > 0 {'
+run_case $'deliver: an engine with no caller answers nothing' \
+	fail \
+	./internal/deliver \
+	$'TestACallThatCannotBeMadeSaysWhyBeforeSendingAnything' \
+	$'claude-cli' \
+	internal/deliver/call.go \
+	$'\treturn Result{}, fmt.Errorf("no caller is written for engine %q", engine)' \
+	$'\treturn Result{}, nil'
+run_case $'deliver: an agent id with a space rides in the header' \
+	fail \
+	./internal/deliver \
+	$'TestAnAgentIDThatCannotRideInTheHeaderIsRefused' \
+	$'an analyst whose id holds a space' \
+	internal/deliver/call.go \
+	$'\tif strings.ContainsAny(agent, ", \\t\\r\\n") {' \
+	$'\tif false {'
 
 # Invariant 102: each gateway door is named as its own source when the input
 # tells them apart, and "one source" is said when it does not.
@@ -5544,8 +5633,8 @@ run_case $'doors: a run\'s doors not counted' \
 	$'TestARunThroughTwoDoorsNamesBoth' \
 	$'w2-b12-A\'s doors' \
 	internal/finops/runs.go \
-	$'\t\td.Calls++\n\t\td.Cost += money.Micros(micros)' \
-	$'\t\td.Cost += money.Micros(micros)'
+	$'\t\td.Calls++\n\t\td.Cost += spend' \
+	$'\t\td.Cost += spend'
 run_case $'doors: a row from before the column read as no door' \
 	fail \
 	./internal/finops \
@@ -5595,12 +5684,248 @@ run_case $'engines: the doors panel\'s note reworded is not a fault' \
 	$'so a second wire is a second door with its own address' \
 	$'so another wire is another door with its own address'
 
+# Invariant 103: a fallback-priced amount is the gateway's estimate, kept out
+# of spend and shown apart; the personal data let through is named by kind and
+# count, never by value; a column the export does not carry is said so.
+run_case $'price basis: the basis is not written' \
+	fail \
+	./internal/connectors \
+	$'TestThePriceBasisIsKeptAndAFallbackIsLeftOutOfTheLedger' \
+	$'with price_basis "known", want 3' \
+	internal/connectors/tokenfusefocus.go \
+	$'row.IdentityReason, door, row.PriceBasis, row.PIIFindings); err != nil {' \
+	$'row.IdentityReason, door, nil, row.PIIFindings); err != nil {'
+run_case $'price basis: a fallback estimate reaches the ledger' \
+	fail \
+	./internal/connectors \
+	$'TestThePriceBasisIsKeptAndAFallbackIsLeftOutOfTheLedger' \
+	$'a fallback estimate reached it' \
+	internal/connectors/tokenfusefocus.go \
+	$'\t\t\tFROM ai_calls WHERE day=? AND blocked=0 AND NOT `+FallbackPricedSQL+`\n\t\t\tGROUP BY COALESCE(team' \
+	$'\t\t\tFROM ai_calls WHERE day=? AND blocked=0\n\t\t\tGROUP BY COALESCE(team'
+run_case $'price basis: an empty basis read as a fallback' \
+	fail \
+	./internal/connectors \
+	$'TestThePriceBasisIsKeptAndAFallbackIsLeftOutOfTheLedger' \
+	$'FallbackPricedSQL counts' \
+	internal/connectors/tokenfusefocus.go \
+	$'NOT IN (\'\', \'` + PriceBook + `\', \'` + PriceKnown + `\'))`' \
+	$'NOT IN (\'` + PriceBook + `\', \'` + PriceKnown + `\'))`'
+run_case $'price basis: an older copy displaces the one with the basis' \
+	fail \
+	./internal/connectors \
+	$'TestAPriceBasisExportIsKeptOverAnOlderCopyOfTheSameCalls' \
+	$'the older copy displaced the one that says so' \
+	internal/connectors/tokenfusefocus.go \
+	$'(price_basis IS NOT NULL) + `' \
+	$'0 + `' \
+	internal/connectors/tokenfusefocus.go \
+	$'`(pii_findings IS NOT NULL))`' \
+	$'`0)`'
+run_case $'price basis: a fallback estimate in an agent\'s cost' \
+	fail \
+	./internal/finops \
+	$'TestAFallbackEstimateIsNeverInAnAgentsOrAModelsCost' \
+	$'want 0.056 and 2 calls of 0.00236 apart' \
+	internal/finops/ai.go \
+	$'` THEN 0 ELSE billed_microusd END),0)`' \
+	$'` THEN billed_microusd ELSE billed_microusd END),0)`'
+run_case $'price basis: a fallback estimate in a run\'s spend' \
+	fail \
+	./internal/finops \
+	$'TestARunsFallbackEstimateIsKeptOutOfItsSpendAndItsShares' \
+	$'run-p1: spend' \
+	internal/finops/runs.go \
+	$'\t\tif fallback {\n\t\t\tspend = 0\n\t\t}' \
+	$'\t\tif false && fallback {\n\t\t\tspend = 0\n\t\t}'
+run_case $'price basis: a month of fallback calls only reads as no month' \
+	fail \
+	./internal/finops \
+	$'TestAMonthOfOnlyFallbackPricedCallsIsStillAMonthOfRealCalls' \
+	$'a month of fallback-priced calls only' \
+	internal/finops/ai.go \
+	$'\t\tif calls.Valid && (!day.Valid || calls.String > day.String) {' \
+	$'\t\tif false && calls.Valid && (!day.Valid || calls.String > day.String) {'
+run_case $'ai page: the fallback tile dropped' \
+	fail \
+	./internal/web \
+	$'TestTheAIPageShowsFallbackPricedSpendApart' \
+	$'Fallback-priced</div>' \
+	internal/web/templates/ai.html \
+	$'{{if .Basis.FallbackCalls}}<div class="tile">' \
+	$'{{if false}}<div class="tile">'
+run_case $'ai page: "not reported" not said' \
+	fail \
+	./internal/web \
+	$'TestTheAIPageSaysThePriceBasisIsNotReportedByAnOlderGateway' \
+	$'does not say the price basis is not reported' \
+	internal/web/templates/ai.html \
+	$'{{if .Basis.UnreportedCalls}}<p class="note">Price basis not reported' \
+	$'{{if false}}<p class="note">Price basis not reported'
+run_case $'reconciliation: the fallback part not marked' \
+	fail \
+	./internal/web \
+	$'TestTheAIPageShowsFallbackPricedSpendApart' \
+	$'does not mark the fallback-priced part' \
+	internal/web/reconciliation.go \
+	$'\t\t\tFallback: fallbackPart(x.GatewayFallbackMicros),' \
+	$'\t\t\tFallback: fallbackPart(0),'
+run_case $'packet: the fallback line dropped' \
+	fail \
+	./internal/deliver \
+	$'TestAISpendSectionKeepsAFallbackEstimateOutOfTheTotalAndNamesPII' \
+	$'does not carry "priced at the gateway\'s fallback rate' \
+	internal/deliver/packet.go \
+	$'\tif basis.FallbackCalls > 0 {' \
+	$'\tif basis.FallbackCalls > 1000 {'
+run_case $'pii: the findings not written' \
+	fail \
+	./internal/connectors \
+	$'TestThePIIFindingsAreKeptWhenTheExportCarriesThem' \
+	$'stored as not reporting it' \
+	internal/connectors/tokenfusefocus.go \
+	$'row.IdentityReason, door, row.PriceBasis, row.PIIFindings); err != nil {' \
+	$'row.IdentityReason, door, row.PriceBasis, nil); err != nil {'
+run_case $'pii: a kind that is not a scanner word let in' \
+	fail \
+	./internal/connectors \
+	$'TestHostilePriceBasisAndPIIFindingsAreRefusedByName' \
+	$'was imported, or not refused by name' \
+	internal/connectors/tokenfusefocus.go \
+	$'\t\tif !ok || !piiKind(kind) || seen[kind] {' \
+	$'\t\tif !ok || seen[kind] {'
+run_case $'pii: a refusal quotes the value it refused' \
+	fail \
+	./internal/connectors \
+	$'TestHostilePriceBasisAndPIIFindingsAreRefusedByName' \
+	$'prints the value it refused' \
+	internal/connectors/tokenfusefocus.go \
+	$'\t\t\treturn errors.New("x_pii_findings is not kind=count pairs, each kind once (value not shown)")' \
+	$'\t\t\treturn fmt.Errorf("x_pii_findings %q is not kind=count pairs", v)'
+run_case $'pii: a run\'s findings not read' \
+	fail \
+	./internal/finops \
+	$'TestPersonalDataLetThroughIsCountedByKindAgentAndRun' \
+	$'run-p1\'s findings' \
+	internal/finops/runs.go \
+	$'\t\tif pii != "" {\n\t\t\tr.PIICalls++' \
+	$'\t\tif false && pii != "" {\n\t\t\tr.PIICalls++'
+run_case $'ai page: the PII panel\'s agents dropped' \
+	fail \
+	./internal/web \
+	$'TestTheAIPageNamesThePersonalDataLetThrough' \
+	$'the PII panel does not contain' \
+	internal/web/templates/ai.html \
+	$'{{if .PII.ByAgent}}' \
+	$'{{if false}}'
+run_case $'packet: the PII line dropped' \
+	fail \
+	./internal/deliver \
+	$'TestAISpendSectionKeepsAFallbackEstimateOutOfTheTotalAndNamesPII' \
+	$'found and let through: 2 calls' \
+	internal/deliver/packet.go \
+	$'\tif pii.Calls > 0 {' \
+	$'\tif pii.Calls > 1000 {'
+run_case $'price basis: the panel\'s note reworded is not a fault' \
+	pass \
+	./internal/web \
+	$'TestTheAIPageShowsFallbackPricedSpendApart' \
+	$'' \
+	internal/web/templates/ai.html \
+	$'which can be many times the real price.' \
+	$'which can be far above the real price.'
+
+# Invariant 104: the gateway's export folders are an input a launcher sets on
+# the command line, read at start and on an interval, and every automatic
+# import says on the connector's page what it read or why it read nothing.
+run_case $'focus input: the second door\'s folder not saved' \
+	fail \
+	./internal/connectors \
+	$'TestTheLaunchersFoldersAreReadAndRecordedOnTheConnector' \
+	$'read from the launcher\'s two folders, want 18' \
+	internal/connectors/focusinput.go \
+	$'map[string]string{"path": f.Main, OpenAIPathInput: f.OpenAI})' \
+	$'map[string]string{"path": f.Main})'
+run_case $'focus input: a refused import not recorded' \
+	fail \
+	./internal/connectors \
+	$'TestAnAutomaticImportOnTheGeneratedEstateSaysWhyItReadNothing' \
+	$'does not say why the automatic import read nothing' \
+	internal/connectors/focusinput.go \
+	$'\tif err != nil {\n\t\tnote :=' \
+	$'\tif false && err != nil {\n\t\tnote :='
+run_case $'focus input: the launcher\'s yes not passed' \
+	fail \
+	./internal/connectors \
+	$'TestAnAutomaticImportOnTheGeneratedEstateSaysWhyItReadNothing' \
+	$'with -focus-replace-generated' \
+	internal/connectors/focusinput.go \
+	$'\t\tReplaceGenerated: f.ReplaceGenerated, Actor: FocusActor, Rec: rec,' \
+	$'\t\tReplaceGenerated: false, Actor: FocusActor, Rec: rec,'
+run_case $'focus input: the interval never reads again' \
+	fail \
+	./internal/connectors \
+	$'TestWatchFocusReadsTheFolderAgainOnItsInterval' \
+	$'a file written after the start was never read' \
+	internal/connectors/focusinput.go \
+	$'\t\tcase <-t.C:\n\t\t\tonce()' \
+	$'\t\tcase <-t.C:'
+run_case $'focus input: one folder as both doors accepted' \
+	fail \
+	./internal/connectors \
+	$'TestCheckFocusInputRefusesAMisconfiguredLauncher' \
+	$'want an error saying "the same folder"' \
+	internal/connectors/focusinput.go \
+	$'\tif f.OpenAI != "" && sameFolder(f.Main, f.OpenAI) {' \
+	$'\tif false && f.OpenAI != "" && sameFolder(f.Main, f.OpenAI) {'
+run_case $'focus input: an interval of seconds accepted' \
+	fail \
+	./internal/connectors \
+	$'TestCheckFocusInputRefusesAMisconfiguredLauncher' \
+	$'want an error saying "at least 1m0s"' \
+	internal/connectors/focusinput.go \
+	$'\tif f.Every < 0 || (f.Every > 0 && f.Every < MinFocusEvery) {' \
+	$'\tif f.Every < 0 {'
+run_case $'focus input: the console never starts the reader' \
+	fail \
+	./cmd/costcrew \
+	$'TestTheConsoleReadsTheGatewaysExportFromFocusDir' \
+	$'did not read -focus-dir at start' \
+	cmd/costcrew/main.go \
+	$'\t\tgo connectors.WatchFocus(focusCtx, st.DB(), focus, rec, log.Printf)' \
+	$'\t\t_ = focusCtx'
+run_case $'focus input: the interval flag\'s help reworded is not a fault' \
+	pass \
+	./internal/connectors \
+	$'TestCheckFocusInputRefusesAMisconfiguredLauncher' \
+	$'' \
+	cmd/costcrew/main.go \
+	$'"with -focus-dir, how often the folders are read again; 0 reads them once, at start")' \
+	$'"with -focus-dir, how often the folders are read once more; 0 reads them once, at start")'
+run_case $'supersede: a call_key match across doors removes a row (invariant 106)' \
+	fail \
+	./internal/connectors \
+	$'TestOneBlockedCallOnEachDoorIsTwoCalls' \
+	$'row(s) for one blocked call on each door' \
+	internal/connectors/tokenfusefocus.go \
+	$'<= ?2 AND COALESCE(door,\'` + DoorMain + `\') = ?3' \
+	$'<= ?2 AND ?3 IS NOT NULL' \
+	internal/connectors/tokenfusefocus.go \
+	$'> ?2 AND COALESCE(door,\'` + DoorMain + `\') = ?3)' \
+	$'> ?2 AND ?3 IS NOT NULL)'
+
 echo
-if [ -n "$(git status --porcelain)" ]; then
+if [ -z "${TEETH_LIST:-}" ] && [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'
 	printf 'this is a failure of this script, not of any gate:\n'
 	git status --porcelain | sed 's/^/    /'
 	failures=$((failures + 1))
+fi
+
+# A shard that owns no case would report success having run nothing.
+if [ -z "${TEETH_LIST:-}" ] && [ "$shard_n" -ne 0 ] && [ "$cases" -eq 0 ]; then
+	printf 'MEASURED NOTHING  TEETH_SHARD=%s/%s runs no case (the file has %s), so this run would judge nothing\n' "$shard_i" "$shard_n" "$case_index"
+	exit 1
 fi
 
 printf 'teeth: %d passed, %d failed\n' "$((cases - failures))" "$failures"

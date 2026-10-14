@@ -153,7 +153,11 @@ func EnsureFocusSchema(db *sql.DB) error {
 	// stored the same way: NULL when the file's header did not carry it.
 	// door is which configured folder a row was read from (invariant 102):
 	// NULL for a row imported before the column, read as the main folder's.
-	for _, c := range []string{"key_id", "block_reason", "identity_reason", "door"} {
+	// price_basis is TokenFuse's x_price_basis (invariant 103): which price a
+	// call was settled at, the price book's or the gateway's fallback rate.
+	// pii_findings is its x_pii_findings, the kinds and counts of personal
+	// data the gateway's scanner found and let through, never the values.
+	for _, c := range []string{"key_id", "block_reason", "identity_reason", "door", "price_basis", "pii_findings"} {
 		if _, err := db.Exec(`ALTER TABLE ai_calls ADD COLUMN ` + c + ` TEXT`); err != nil &&
 			!strings.Contains(err.Error(), "duplicate column name") {
 			return fmt.Errorf("adding ai_calls.%s: %w", c, err)
@@ -354,8 +358,9 @@ func readTokenFuseFocus(db *sql.DB, cfg map[string]string, opt ImportOptions) (*
 		ins, err = tx.Prepare(`INSERT INTO ai_calls
 			(file_sha256, row_no, ts, day, team, agent, run_id, parent_run_id,
 			 provider, model, tokens_in, tokens_out, billed_microusd, blocked, basis,
-			 outcome, tool_calls, invoice_id, key_id, block_reason, identity_reason, door)
-			VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+			 outcome, tool_calls, invoice_id, key_id, block_reason, identity_reason, door, price_basis,
+			 pii_findings)
+			VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 			ON CONFLICT(file_sha256, row_no) DO UPDATE SET
 			  ts=excluded.ts, day=excluded.day, team=excluded.team, agent=excluded.agent,
 			  run_id=excluded.run_id, parent_run_id=excluded.parent_run_id,
@@ -364,7 +369,8 @@ func readTokenFuseFocus(db *sql.DB, cfg map[string]string, opt ImportOptions) (*
 			  billed_microusd=excluded.billed_microusd, blocked=excluded.blocked, basis=excluded.basis,
 			  outcome=excluded.outcome, tool_calls=excluded.tool_calls, invoice_id=excluded.invoice_id,
 			  key_id=excluded.key_id, block_reason=excluded.block_reason,
-			  identity_reason=excluded.identity_reason, door=excluded.door`)
+			  identity_reason=excluded.identity_reason, door=excluded.door,
+			  price_basis=excluded.price_basis, pii_findings=excluded.pii_findings`)
 		if err != nil {
 			return nil, err
 		}
@@ -427,7 +433,7 @@ func readTokenFuseFocus(db *sql.DB, cfg map[string]string, opt ImportOptions) (*
 			daysTouched[d] = true
 		}
 		if !opt.DryRun {
-			keys, days, err := supersede(tx, local.sha, local.generation)
+			keys, days, err := supersede(tx, local.sha, local.generation, local.door)
 			if err != nil {
 				return nil, fmt.Errorf("%s: replacing an earlier export of the same calls: %w",
 					filepath.Base(f), err)
@@ -676,6 +682,12 @@ func processFocusFile(path, door string, ins, cins *sql.Stmt) (*focusSummary, er
 	if _, ok := col["x_identity_reason"]; ok {
 		sum.generation++
 	}
+	if _, ok := col["x_price_basis"]; ok {
+		sum.generation++
+	}
+	if _, ok := col["x_pii_findings"]; ok {
+		sum.generation++
+	}
 
 	rowNo := 0
 	for {
@@ -752,7 +764,7 @@ func processFocusFile(path, door string, ins, cins *sql.Stmt) (*focusSummary, er
 			nullIfEmpty(row.RunID), nullIfEmpty(row.ParentRunID), nullIfEmpty(row.Provider),
 			row.Model, row.TokensIn, row.TokensOut, int64(row.BilledMicros), blockedInt,
 			row.Basis, nullIfEmpty(row.Outcome), toolCalls, nullIfEmpty(row.InvoiceID),
-			row.KeyID, row.BlockReason, row.IdentityReason, door); err != nil {
+			row.KeyID, row.BlockReason, row.IdentityReason, door, row.PriceBasis, row.PIIFindings); err != nil {
 			return nil, fmt.Errorf("row %d: writing to ai_calls: %w", rowNo, err)
 		}
 	}
@@ -821,7 +833,41 @@ type focusRow struct {
 	// on, and that is the only thing that tells such a call from an honest
 	// one (invariant 100).
 	IdentityReason *string
+	// PriceBasis is x_price_basis, held the same way: nil when the header has
+	// no such column. "book" is a call settled at the gateway's price book;
+	// "fallback" one the book had no price for, settled at the gateway's
+	// fallback rate, an estimate (invariant 103).
+	PriceBasis *string
+	// PIIFindings is x_pii_findings, held the same way: "" when the scanner
+	// let nothing through, else kinds and counts, "pii_card=1,pii_email=2",
+	// checked by checkPIIFindings and never a value.
+	PIIFindings *string
 }
+
+// FallbackPriced is true when the gateway settled this call at a price other
+// than its book's: its amount is the gateway's estimate, not a bill.
+func (r focusRow) FallbackPriced() bool {
+	return !r.Blocked && r.PriceBasis != nil && *r.PriceBasis != "" &&
+		*r.PriceBasis != PriceBook && *r.PriceBasis != PriceKnown
+}
+
+// PriceBook is x_price_basis for a call priced from the gateway's price book;
+// PriceFallback is the gateway's fallback rate. A word other than these two
+// is kept apart from spend the same way a fallback is: it is not the book.
+const (
+	PriceBook     = "book"
+	PriceFallback = "fallback"
+	// PriceKnown is the same basis as PriceBook in the word TokenFuse's Cloud
+	// wire uses today (cloudsink price_basis: known | fallback).
+	PriceKnown = "known"
+)
+
+// FallbackPricedSQL is FallbackPriced as a condition on an ai_calls row: an
+// admitted call whose export reported a basis other than the book. The daily
+// ledger and every spend figure leave such a call out, and the pages show it
+// apart; a row whose export did not report a basis is spend, as it always
+// was, and the pages say the basis was not reported.
+const FallbackPricedSQL = `(blocked = 0 AND COALESCE(price_basis,'') NOT IN ('', '` + PriceBook + `', '` + PriceKnown + `'))`
 
 // Warned is true when the gateway admitted this call although its identity
 // check failed. TOKENFUSE_IDENTITY_STRICT=warn records the check's finding on
@@ -860,7 +906,60 @@ const (
 	// identity check's own words (agent_id_not_allowed and four more), printed
 	// on /ai the way a block reason is.
 	xIdentityReasonMaxBytes = 64
+	// xPriceBasisMaxBytes bounds x_price_basis, a one-word basis.
+	xPriceBasisMaxBytes = 32
+	// xPIIFindingsMaxBytes bounds x_pii_findings, a short list of kinds and
+	// counts.
+	xPIIFindingsMaxBytes = 256
 )
+
+// checkPIIFindings holds x_pii_findings to the shape TokenFuse writes: kinds
+// and counts, "pii_card=1,pii_email=2", each kind a lower-case word and each
+// count a whole number from 1, no kind twice. A value that is not that shape
+// may carry the personal data the column exists to leave out, so the row is
+// refused by name rather than stored.
+func checkPIIFindings(v string) error {
+	if v == "" {
+		return nil
+	}
+	if len(v) > xPIIFindingsMaxBytes {
+		return fmt.Errorf("x_pii_findings is %d bytes, over the %d byte limit", len(v), xPIIFindingsMaxBytes)
+	}
+	seen := map[string]bool{}
+	for _, pair := range strings.Split(v, ",") {
+		kind, count, ok := strings.Cut(pair, "=")
+		if !ok || !piiKind(kind) || seen[kind] {
+			// The value is not quoted: it may be the very data the column
+			// exists to leave out.
+			return errors.New("x_pii_findings is not kind=count pairs, each kind once (value not shown)")
+		}
+		seen[kind] = true
+		n, err := strconv.ParseInt(count, 10, 32)
+		if err != nil || n < 1 || strconv.FormatInt(n, 10) != count {
+			return fmt.Errorf("x_pii_findings: the count for %s is not a whole number from 1 (value not shown)", kind)
+		}
+	}
+	return nil
+}
+
+// piiKind is a scanner kind: a lower-case letter, then up to 31 lower-case
+// letters, digits or underscores.
+func piiKind(k string) bool {
+	if k == "" || len(k) > 32 || k[0] < 'a' || k[0] > 'z' {
+		return false
+	}
+	for _, c := range k {
+		if !(c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '_') {
+			return false
+		}
+	}
+	return true
+}
+
+// PIILetThroughSQL is an admitted call the gateway's scanner found personal
+// data in and let through (TOKENFUSE_DLP_PII=shadow), the condition every
+// page counts such calls with (invariant 103).
+const PIILetThroughSQL = `(blocked = 0 AND COALESCE(pii_findings,'') <> '')`
 
 // optionalPlain reads an optional column that is printed later: nil when the
 // header lacks it, the trimmed value otherwise, refused by name when it is
@@ -923,6 +1022,21 @@ func parseFocusRow(rec []string, col map[string]int) (focusRow, error) {
 	if err != nil {
 		return focusRow{}, err
 	}
+	priceBasis, err := optionalPlain(rec, col, "x_price_basis", xPriceBasisMaxBytes)
+	if err != nil {
+		return focusRow{}, err
+	}
+	// Read apart from optionalPlain, whose refusal quotes the value: a value
+	// that is not kinds and counts may be the personal data itself, and the
+	// refusal is printed on the connector's page.
+	var piiFindings *string
+	if _, ok := col["x_pii_findings"]; ok {
+		v := strings.TrimSpace(field("x_pii_findings"))
+		if err := checkPIIFindings(v); err != nil {
+			return focusRow{}, err
+		}
+		piiFindings = &v
+	}
 
 	blocked := strings.EqualFold(strings.TrimSpace(field("x_blocked")), "true")
 
@@ -979,6 +1093,8 @@ func parseFocusRow(rec []string, col map[string]int) (focusRow, error) {
 		InvoiceID: strings.TrimSpace(field("InvoiceId")),
 		KeyID:     keyID, BlockReason: blockReason,
 		IdentityReason: identityReason,
+		PriceBasis:     priceBasis,
+		PIIFindings:    piiFindings,
 	}, nil
 }
 
@@ -1145,6 +1261,11 @@ type focusSummary struct {
 	// under the agent id each one claimed.
 	Warned       int
 	WarnedMicros money.Micros
+	// Fallback counts the calls priced at a basis other than the gateway's
+	// book (focusRow.FallbackPriced), and FallbackMicros their estimated
+	// amount, which no spend figure includes (invariant 103).
+	Fallback       int
+	FallbackMicros money.Micros
 	// Doors counts accepted rows by the door they were read through, and
 	// twoDoors says the OpenAI-wire door's folder was configured, which is when
 	// the sentence names them (invariant 102).
@@ -1181,6 +1302,10 @@ func (s *focusSummary) accept(row focusRow) {
 	if row.Warned() {
 		s.Warned++
 		s.WarnedMicros += row.BilledMicros
+	}
+	if row.FallbackPriced() {
+		s.Fallback++
+		s.FallbackMicros += row.BilledMicros
 	}
 }
 
@@ -1229,6 +1354,8 @@ func (s *focusSummary) merge(o *focusSummary) {
 	s.CommitmentFlagged += o.CommitmentFlagged
 	s.Warned += o.Warned
 	s.WarnedMicros += o.WarnedMicros
+	s.Fallback += o.Fallback
+	s.FallbackMicros += o.FallbackMicros
 	for d, n := range o.Doors {
 		s.Doors[d] += n
 	}
@@ -1251,18 +1378,21 @@ func (s *focusSummary) recount(tx *sql.Tx, shas []string) error {
 	for i, h := range shas {
 		args[i] = h
 	}
-	var rows, agents, warned int
-	var micros, warnedMicros int64
+	var rows, agents, warned, fallback int
+	var micros, warnedMicros, fallbackMicros int64
 	var first, last sql.NullString
 	if err := tx.QueryRow(`SELECT COUNT(*), COUNT(DISTINCT agent), COALESCE(SUM(billed_microusd),0),
 			MIN(ts), MAX(ts),
 			COALESCE(SUM(CASE WHEN `+IdentityWarnedSQL+` THEN 1 ELSE 0 END),0),
-			COALESCE(SUM(CASE WHEN `+IdentityWarnedSQL+` THEN billed_microusd ELSE 0 END),0)
+			COALESCE(SUM(CASE WHEN `+IdentityWarnedSQL+` THEN billed_microusd ELSE 0 END),0),
+			COALESCE(SUM(CASE WHEN `+FallbackPricedSQL+` THEN 1 ELSE 0 END),0),
+			COALESCE(SUM(CASE WHEN `+FallbackPricedSQL+` THEN billed_microusd ELSE 0 END),0)
 			FROM ai_calls WHERE file_sha256 IN (`+in+`)`, args...).
-		Scan(&rows, &agents, &micros, &first, &last, &warned, &warnedMicros); err != nil {
+		Scan(&rows, &agents, &micros, &first, &last, &warned, &warnedMicros, &fallback, &fallbackMicros); err != nil {
 		return fmt.Errorf("counting what the store holds for this import: %w", err)
 	}
 	s.Warned, s.WarnedMicros = warned, money.Micros(warnedMicros)
+	s.Fallback, s.FallbackMicros = fallback, money.Micros(fallbackMicros)
 	drows, err := tx.Query(`SELECT COALESCE(door,'`+DoorMain+`'), COUNT(*) FROM ai_calls
 		WHERE file_sha256 IN (`+in+`) GROUP BY 1`, args...)
 	if err != nil {
@@ -1286,7 +1416,10 @@ func (s *focusSummary) recount(tx *sql.Tx, shas []string) error {
 	return nil
 }
 
-// supersede makes a call that two exports carry count once. Rows of other
+// supersede makes a call that two exports carry count once, when both exports
+// were read through the same door (invariant 106): two doors are two traces, so
+// a call_key match between the main folder and the OpenAI-wire folder is two
+// calls. Rows of other
 // files with the same call_key as a row of this file are removed when they
 // came from an export no newer than this one; this file's own rows are removed
 // when another file's copy came from a newer export. "Newer" is the export's
@@ -1301,13 +1434,13 @@ func (s *focusSummary) recount(tx *sql.Tx, shas []string) error {
 // kept: an export from before 1.7.0 never displaces one from 1.7.0, whichever
 // file name sorts first. It returns the rows removed and the days they were
 // on, so the caller re-derives those days' charges.
-func supersede(tx *sql.Tx, sha string, gen int) (keys, days []string, err error) {
+func supersede(tx *sql.Tx, sha string, gen int, door string) (keys, days []string, err error) {
 	const others = `file_sha256 != ?1 AND call_key IN (SELECT call_key FROM ai_calls WHERE file_sha256 = ?1)
-		AND ` + exportGenerationSQL + ` <= ?2`
+		AND ` + exportGenerationSQL + ` <= ?2 AND COALESCE(door,'` + DoorMain + `') = ?3`
 	const mine = `file_sha256 = ?1 AND call_key IN (SELECT call_key FROM ai_calls
-		WHERE file_sha256 != ?1 AND ` + exportGenerationSQL + ` > ?2)`
+		WHERE file_sha256 != ?1 AND ` + exportGenerationSQL + ` > ?2 AND COALESCE(door,'` + DoorMain + `') = ?3)`
 	for _, where := range []string{others, mine} {
-		rows, err := tx.Query(`SELECT DISTINCT call_key, day FROM ai_calls WHERE `+where, sha, gen)
+		rows, err := tx.Query(`SELECT DISTINCT call_key, day FROM ai_calls WHERE `+where, sha, gen, door)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -1320,7 +1453,7 @@ func supersede(tx *sql.Tx, sha string, gen int) (keys, days []string, err error)
 			keys, days = append(keys, k), append(days, d)
 		}
 		rows.Close()
-		if _, err := tx.Exec(`DELETE FROM ai_calls WHERE `+where, sha, gen); err != nil {
+		if _, err := tx.Exec(`DELETE FROM ai_calls WHERE `+where, sha, gen, door); err != nil {
 			return nil, nil, err
 		}
 	}
@@ -1356,7 +1489,8 @@ func sameFolder(a, b string) bool {
 // exportGenerationSQL is a row's export generation as supersede compares it,
 // the same count processFocusFile makes from the header: a column the header
 // carried is text on every row ("" or a value), a column it lacked is NULL.
-const exportGenerationSQL = `((key_id IS NOT NULL) + (identity_reason IS NOT NULL))`
+const exportGenerationSQL = `((key_id IS NOT NULL) + (identity_reason IS NOT NULL) + (price_basis IS NOT NULL) + ` +
+	`(pii_findings IS NOT NULL))`
 
 func wasWere(n int) string {
 	if n == 1 {
@@ -1407,6 +1541,10 @@ func (s *focusSummary) Sentence(dryRun bool) string {
 			map[bool]string{true: "it", false: "them"}[n == 1],
 			map[bool]string{true: "it is", false: "they are"}[n == 1],
 			map[bool]string{true: "it", false: "each"}[n == 1])
+	}
+	if n := s.Fallback; n > 0 {
+		fmt.Fprintf(&b, " %d call%s (%s) %s priced at a basis other than the gateway's price book, its "+
+			"fallback rate: an estimate, not a bill, kept apart from spend.", n, plural(n), s.FallbackMicros, wasWere(n))
 	}
 	if len(s.Unfiled) > 0 {
 		reasons := make([]string, 0, len(s.Unfiled))
@@ -1500,7 +1638,7 @@ func deriveCharges(tx *sql.Tx, daysTouched map[string]bool) error {
 		// would be reading a number this query itself had already blurred.
 		rows, err := tx.Query(`SELECT COALESCE(team,''), COALESCE(provider,''), model,
 				COALESCE(invoice_id,''), SUM(billed_microusd), SUM(tokens_in+tokens_out)
-			FROM ai_calls WHERE day=? AND blocked=0
+			FROM ai_calls WHERE day=? AND blocked=0 AND NOT `+FallbackPricedSQL+`
 			GROUP BY COALESCE(team,''), COALESCE(provider,''), model, COALESCE(invoice_id,'')
 			ORDER BY 1,2,3,4`, d)
 		if err != nil {
@@ -1556,7 +1694,7 @@ func deriveAttribution(tx *sql.Tx, daysTouched map[string]bool) error {
 		// happened to return, rather than to who actually spent more.
 		rows, err := tx.Query(`SELECT COALESCE(team,''), COALESCE(provider,''),
 				agent, SUM(billed_microusd) AS micros
-			FROM ai_calls WHERE day=? AND blocked=0
+			FROM ai_calls WHERE day=? AND blocked=0 AND NOT `+FallbackPricedSQL+`
 			GROUP BY COALESCE(team,''), COALESCE(provider,''), agent
 			ORDER BY 1, 2, micros DESC, agent ASC`, d)
 		if err != nil {

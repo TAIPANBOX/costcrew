@@ -508,6 +508,10 @@ var Classes = map[string]Class{
 	// Invariant 102: which configured folder a row was read from, one of two
 	// fixed words.
 	"ai_calls.door": Plain,
+	// Invariant 103: x_price_basis, "book" or "fallback".
+	"ai_calls.price_basis": Plain,
+	// Invariant 103: x_pii_findings, kinds and counts, never a value.
+	"ai_calls.pii_findings": Plain,
 
 	"allocation_rules.source": ID, "allocation_rules.category": Plain,
 	"allocation_rules.method": Plain, "allocation_rules.note": Free,

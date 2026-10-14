@@ -9,6 +9,7 @@ package deliver
 
 import (
 	"database/sql"
+	"math"
 
 	"github.com/TAIPANBOX/costcrew/internal/crew"
 	"github.com/TAIPANBOX/costcrew/internal/engines"
@@ -20,9 +21,17 @@ import (
 // same formula tools/run/main.go's price() has always used, extracted rather
 // than reimplemented.
 func WorstCaseMicros(promptTokens, maxOutputTokens int, p engines.Price) int64 {
-	in := float64(promptTokens) / 1e6 * p.InPerM
-	out := float64(maxOutputTokens) / 1e6 * p.OutPerM
-	return int64((in + out) * 1e6)
+	return tokensAtRates(promptTokens, maxOutputTokens, p)
+}
+
+// tokensAtRates is tokens at prices quoted per million tokens, in micro-units
+// (invariant 105): a token at P per million costs exactly P micro-units, so
+// the product needs no division, and it is rounded to the nearest
+// micro-unit. It was (tokens / 1e6 * P + ...) * 1e6 truncated, which put a
+// float a hair under the exact figure and dropped a micro-unit: 1,000 tokens
+// in at 3 and 500 out at 15 is exactly 10,500 and came back as 10,499.
+func tokensAtRates(in, out int, p engines.Price) int64 {
+	return int64(math.Round(float64(in)*p.InPerM + float64(out)*p.OutPerM))
 }
 
 // ActualMicros is one call's REAL cost, in micro-dollars, from the token
@@ -33,9 +42,7 @@ func WorstCaseMicros(promptTokens, maxOutputTokens int, p engines.Price) int64 {
 // does, rather than a second copy that only looks like it); loop.go keeps
 // a one-line wrapper of its old unexported name.
 func ActualMicros(inTokens, outTokens int, p engines.Price) int64 {
-	in := float64(inTokens) / 1e6 * p.InPerM
-	out := float64(outTokens) / 1e6 * p.OutPerM
-	return int64((in + out) * 1e6)
+	return tokensAtRates(inTokens, outTokens, p)
 }
 
 // estimateDate is the fixed, non-moving date tools/run's own price() sends

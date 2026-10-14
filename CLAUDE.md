@@ -84,15 +84,38 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 1627 tests, 32 packages
-./scripts/gates-have-teeth.sh        # 575 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 598 scenarios, both directions
+go test ./...                        # 1733 tests, 32 packages
+./scripts/gates-have-teeth.sh        # 610 cases; needs a clean tree; TEETH_SHARD=i/N runs one of N shards
+./scripts/teeth-shards-cover-every-case.sh  # the shards partition the cases: none missing, none twice
+./scripts/features-are-bound.sh      # 613 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 govulncheck ./...                    # CI runs it, pinned at v1.8.0; reports only vulnerabilities the code can reach
 staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refused PR #19 on two findings the list above never asked for; a staticcheck built for an older Go cannot read this module, so on such a machine CI is the only place it runs
 ```
+
+Invariant 104 (the gateway's export folders are an input a launcher sets on
+the command line, read at start and on an interval) added 7 tests
+(`internal/connectors/focusinput_test.go`, 4; `cmd/costcrew/focus_test.go`,
+3), 8 `gates-have-teeth.sh` cases (7 `fail`, 1 `pass`), 5 scenarios
+(`features/a-launcher-sets-the-gateways-export.feature`, new), four console
+flags and two environment variables (declared in `components.json`) and no
+route: 1642 -> 1649 tests, 32 packages unchanged, 593 -> 601 cases, 606 ->
+611 scenarios, measured on this branch with the three commands this block
+already names.
+
+Invariant 103 (a fallback-priced amount is shown apart from spend, and
+personal data let through is named by kind and count) added 15 tests
+(`internal/connectors/tokenfusefocus_pricebasis_test.go`, 6;
+`internal/finops/price_basis_test.go`, 5;
+`internal/deliver/ai_desk_price_basis_test.go`, 1;
+`internal/web/price_basis_page_test.go`, 3), 18 `gates-have-teeth.sh` cases
+(17 `fail`, 1 `pass`), 8 scenarios
+(`features/a-fallback-price-and-pii-are-shown-apart.feature`, new) and no
+route: 1627 -> 1642 tests, 32 packages unchanged, 575 -> 593 cases, 598 ->
+606 scenarios, measured on this branch with the three commands this block
+already names.
 
 Invariant 102 (each gateway door is named as its own source when the input
 tells them apart, and "one source" is said when it does not) added 9 tests
@@ -6496,6 +6519,172 @@ an absent invariant.
     model, tokens and amount would be read as one; and the doors this
     console's own calls go through are read from its own flags, never from
     the gateways themselves (invariant 64).
+105. **A call's cost, real or worst case, is its tokens at their rates rounded
+    to the nearest micro-unit, never truncated.** `deliver.ActualMicros` (what
+    a call cost: the runner's tool loop and the bench) and
+    `deliver.WorstCaseMicros` (what a call reserves: the runner, the bench and
+    the console's plan preview) computed `(tokens / 1e6 * P + ...) * 1e6` in
+    floating point and truncated it, so a float a hair under the exact figure
+    lost a micro-unit: 1,000 tokens in at 3 per million and 500 out at 15 is
+    exactly 10,500 micro-units and came back as 10,499. Both now go through
+    `tokensAtRates`, the product with no division, rounded once with
+    `math.Round`; the reservation and the preview still use the one function,
+    so invariant 44 holds unchanged. *(gate: `TestACallsCostIsRoundedNeverTruncated`
+    in `internal/deliver`, red on the old formula with "ActualMicros: 1000 in,
+    500 out at 3/15: 10499 micros, want 10500", and the same for
+    `WorstCaseMicros`; one `fail` case in `gates-have-teeth.sh`, the old formula
+    back; scenario `features/a-calls-cost-is-rounded.feature`, bound. Three more
+    `fail` cases in the same package pin the task guard, the missing caller and
+    the agent id in the header, the tests `coverage_paths_test.go` holds.)*
+    What this does not do: a figure is still a float product before the
+    rounding, exact for the token counts and the per-million prices this
+    console holds; and a settled charge is the gateway's own figure (invariant
+    51), which this does not touch.
+
+103. **A fallback-priced amount is shown apart from spend, never inside it,
+    and personal data let through is named by kind and count, never by
+    value.** TokenFuse prices a call from its price book, and a model the
+    book has no price for at its fallback rate (15 / 75 USD per million on
+    forge 2026-10-14: `openai/gpt-4.1-mini` 0.00036 for 16 tokens, thirty
+    times or more its list price). Its scanner, with
+    `TOKENFUSE_DLP_PII=shadow`, finds card, email and phone numbers in a call
+    and lets it through. The basis rode TokenFuse's Cloud wire alone and the
+    findings its trace alone; tokenfuse#436 (its invariant 109) appends
+    `x_price_basis` (`known` or `fallback`, empty on an older row and a
+    refusal) and `x_pii_findings` (`pii_card=1,pii_email=2`) to the FOCUS
+    export. Read here as optional columns: an export without them reads as
+    it always did.
+
+    The reader stores both (`ai_calls.price_basis`, `ai_calls.pii_findings`,
+    NULL when the header lacks the column). A basis is held to
+    `plainname.Check` at 32 bytes; findings to `checkPIIFindings`, kind=count
+    pairs, each kind a lower-case scanner word once, each count a whole
+    number from 1, at most 256 bytes, and a refusal of findings never quotes
+    the value, which may be the personal data itself. A call is
+    fallback-priced when it was admitted and its basis is reported and is
+    neither `known` nor `book` (`connectors.FallbackPricedSQL`; a word
+    TokenFuse adds later is kept apart the same way, never read as the
+    book). `deriveCharges` and `deriveAttribution` leave such a call out of
+    the daily ledger, and every per-agent, per-model, per-door and per-run
+    spend figure leaves it out too (`finops.spendMicrosSQL`, `RunRow.Cost`),
+    so the ledger and the pages agree (invariant 13); the call itself stays
+    in `ai_calls`, counted. A call whose basis is not reported (no column, or
+    an empty value) is spend as it always was. Both columns count one more
+    export generation in supersede (invariant 89), and `LatestRealAIMonth`
+    reads `ai_calls` too, so a month of fallback-priced calls only is a month
+    of real calls, not the generated estate.
+
+    `/ai` gains a "Fallback-priced" tile and line when there is any, the
+    estimate beside each agent's cost, and a "Price basis" panel
+    (`#price-basis`): calls and spend priced from the book, the
+    fallback-priced calls by basis and model, and "Price basis not reported
+    by this gateway version" for calls from an export without the column. It
+    gains a "Personal data found and let through" panel (`#pii`): calls,
+    kinds and counts, by agent, or that none was let through, or "PII
+    findings not reported by this gateway version". `/ai/runs` shows a run's
+    fallback estimate beside its spend, a model priced only at the fallback
+    rate as "fallback estimate only" with no share, and a run's personal
+    data let through. `/reconciliation` marks the part of a gateway sum
+    priced at the fallback rate. The ai-spend packet leaves the fallback
+    amount out of its total, says how much it was, desk-wide even under
+    aggregates, and names the personal data let through by kind and count.
+    *(gate: `TestThePriceBasisIsKeptAndAFallbackIsLeftOutOfTheLedger`,
+    `TestAnExportWithoutThePriceBasisKeepsEveryCallInTheLedger`,
+    `TestAPriceBasisExportIsKeptOverAnOlderCopyOfTheSameCalls`,
+    `TestHostilePriceBasisAndPIIFindingsAreRefusedByName` (16 shapes),
+    `TestThePIIFindingsAreKeptWhenTheExportCarriesThem`,
+    `TestTheReconciliationMarksTheFallbackPricedPartOfTheGatewaySum` in
+    `internal/connectors`; `TestTheMonthIsSplitByPriceBasis`,
+    `TestAFallbackEstimateIsNeverInAnAgentsOrAModelsCost`,
+    `TestARunsFallbackEstimateIsKeptOutOfItsSpendAndItsShares`,
+    `TestAMonthOfOnlyFallbackPricedCallsIsStillAMonthOfRealCalls`,
+    `TestPersonalDataLetThroughIsCountedByKindAgentAndRun` in
+    `internal/finops`; `TestAISpendSectionKeepsAFallbackEstimateOutOfTheTotalAndNamesPII`
+    in `internal/deliver`; `TestTheAIPageShowsFallbackPricedSpendApart`,
+    `TestTheAIPageSaysThePriceBasisIsNotReportedByAnOlderGateway`,
+    `TestTheAIPageNamesThePersonalDataLetThrough` in `internal/web`. Red first
+    on the branch below it. Seventeen `fail` cases and one `pass` case in
+    `gates-have-teeth.sh`; the cases of invariants 100 and 102 that edit the
+    lines this one changed were moved onto the new lines. Scenarios:
+    `features/a-fallback-price-and-pii-are-shown-apart.feature`, eight, each
+    bound.)* What this does not do: `costcrew-cloudability`'s drop still
+    carries a fallback-priced call at the gateway's amount; a pre-#436 export
+    cannot be told to hold a fallback-priced call, and the page says so; the
+    findings are what the gateway's scanner reports (card, email and phone
+    numbers, its documented scope), never more; and the warn-mode figures of
+    invariant 100 count a call's billed amount whatever its basis.
+
+104. **The gateway's export folders are an input a launcher sets on the
+    command line, read at start and on an interval, and every automatic
+    import says what it read or why it read nothing.** The `tokenfuse-focus`
+    connector was configured only on its page and read only when a person
+    clicked Import, so a launcher could not wire it: on forge 2026-10-14 the
+    console ran beside two gateways for a day of agent runs and its AI pages
+    never saw a call (stack-single mounts no export into it, and nothing
+    could have told it where to look). `-focus-dir` (`COSTCREW_FOCUS_DIR`)
+    names the main gateway's export folder and `-focus-dir-openai`
+    (`COSTCREW_FOCUS_DIR_OPENAI`) the OpenAI-wire door's (invariant 102);
+    `-focus-every` (default 15m, 0 reads once) how often they are read again;
+    `-focus-replace-generated` is the launcher's yes to replacing the
+    generated estate on the first import that finds real calls.
+    `connectors.CheckFocusInput` refuses, before the store opens, a second
+    door with no main folder, a folder that is not there or not a folder, one
+    folder as both doors, and an interval under a minute (every import reads
+    the whole folder). At start the console saves the folders on the
+    connector, in place of what its page held (`ApplyFocusInput`), and
+    `WatchFocus` imports beside the listener at once and on the interval,
+    each outcome in the log; `ImportFocus` records a refused import on the
+    connector too ("Not imported (costcrew -focus-dir): ..."), so its page
+    says why an automatic import read nothing. Without the launcher's yes an
+    installation that still holds the generated estate imports nothing,
+    which is invariant 24's refusal kept; with it the replacement is
+    journaled under the actor `costcrew -focus-dir`. Without `-focus-dir`
+    nothing changes, and the start says the connector is left to its page.
+    *(gate: `TestCheckFocusInputRefusesAMisconfiguredLauncher`,
+    `TestTheLaunchersFoldersAreReadAndRecordedOnTheConnector`,
+    `TestAnAutomaticImportOnTheGeneratedEstateSaysWhyItReadNothing`,
+    `TestWatchFocusReadsTheFolderAgainOnItsInterval` in `internal/connectors`;
+    `TestTheConsoleReadsTheGatewaysExportFromFocusDir`,
+    `TestTheConsoleWithoutFocusDirSaysTheConnectorIsLeftToItsPage`,
+    `TestAMisconfiguredFocusDirRefusesToStart` in `cmd/costcrew` (the built
+    binary); the four flags and two variables declared in `components.json`
+    (`TestEveryFlagEveryBinaryDefinesIsDeclaredAndTheReverse`). Red first on
+    the branch below it: the connector tests by compile (`FocusInput`
+    undefined), the console's with "flag provided but not defined:
+    -focus-dir". Seven `fail` cases and one `pass` case in
+    `gates-have-teeth.sh`: the second door's folder not saved; a refused
+    import not recorded; the launcher's yes not passed; the interval never
+    reading again; one folder as both doors accepted; an interval of seconds
+    accepted; the console never starting the reader; and the interval flag's
+    help reworded, which must stay green. Scenarios:
+    `features/a-launcher-sets-the-gateways-export.feature`, five, each
+    bound.)* What this does not do: detection and the board run at start, so
+    calls an automatic import reads after the start reach the AI pages and
+    the runs at once and the anomaly desk at the next start; every import
+    reads the whole folder, so a launcher that writes a full export every
+    window grows the work with the folder (writing each window with
+    `--from` and `--to`, or one rolling file, keeps it flat); and the
+    console mounts nothing itself: a launcher that does not give it the
+    folder still gets a console that reads nothing.
+
+106. **Two doors are two traces: a call_key match across the main folder and the
+    OpenAI-wire folder is two calls, not one re-export, so `supersede` removes a
+    row only when it was read through the same door as the file being imported.**
+    `supersede` matched on `call_key` alone, so the same blocked call exported by
+    both gateways (same run, instant, model, tokens, amount and block) deleted one
+    door's row when the other door's file was read second, and the door counts
+    read 1 and 0. Now both WHERE clauses carry `COALESCE(door,'main') = ?3`, the
+    importing file's door. *(gate: `TestOneBlockedCallOnEachDoorIsTwoCalls` in
+    `internal/connectors`, red on `origin/main` 732b265 with "1 row(s) for one
+    blocked call on each door, want 2" in both read orders; one `fail` case in
+    `gates-have-teeth.sh` drops the door condition from both clauses; scenario
+    `features/two-doors-are-two-traces.feature`, bound.)* What this does not do:
+    it does not change the call_key itself, which still excludes the agent (so a
+    1.7.0 identity refusal still supersedes its pre-1.7.0 copy within one door).
+
+107. **The teeth shards are a partition of the teeth cases: every case runs in exactly one shard, and no shard is empty.**
+    `scripts/gates-have-teeth.sh` runs only shard i of N when `TEETH_SHARD=i/N` is set. The filter is in `scripts/teeth-shard.sh`, which the harness sources and never edits, because bash reads a script as it runs and a rewrite under it would execute the wrong bytes. CI runs the four shards in parallel as the `teeth-shard` matrix, and the job named `teeth`, the one required check, waits for them and fails unless all four passed. A split is only faster if it is a partition: a case no shard takes is a fault nobody plants any more and the run stays green without it, and a case two shards take is paid for twice. Neither prints a red line. `scripts/teeth-shards-cover-every-case.sh` therefore compares the list each shard would run (`TEETH_LIST=1`) with the full list, and fails on a case in no shard, a case run more than once, or a shard with no case in it.
+    *(gate: `scripts/teeth-shards-cover-every-case.sh`, run by the `gate` job and by `TestTeethShardsCoverEveryCase` in `internal/manifest`. Teeth: `gates-have-teeth.sh` plants a filter that drops one case in five and a filter that repeats an early case in every shard, and points the gate at a harness that is not there; a reworded comment in the gate is the one pass case.)*
 
 ## Decisions that have no gate yet
 

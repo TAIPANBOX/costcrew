@@ -9,10 +9,12 @@
 <div class="tiles">
   <div class="tile"><div class="k">This month</div><div class="v">{{.Total}}</div><div class="s">{{if .Real}}read from a connector{{else}}across every model{{end}}</div></div>
   <div class="tile"><div class="k">Tokens</div><div class="v">{{.Tokens}}</div><div class="s">measured, not derived from cost</div></div>
+  {{if .Basis.FallbackCalls}}<div class="tile"><div class="k">Fallback-priced</div><div class="v up">{{.Basis.FallbackCost}}</div><div class="s">an estimate, not in this month's spend</div></div>{{end}}
   <div class="tile"><div class="k">Anomalies here</div><div class="v {{if .Anomalies}}up{{end}}">{{.Anomalies}}</div><div class="s"><a href="/anomalies?source=ai">on the AI desk</a></div></div>
 </div>
 
 {{if .Warn.Calls}}<p class="msg"><strong>{{.Warn.Calls}} call{{if ne .Warn.Calls 1}}s{{end}} ({{.Warn.Cost}})</strong> this month {{if eq .Warn.Calls 1}}was{{else}}were{{end}} forwarded under identity warn mode: the gateway's identity check would have refused {{if eq .Warn.Calls 1}}it{{else}}them{{end}}, and the spend is counted under the agent id {{if eq .Warn.Calls 1}}it{{else}}each{{end}} claimed. <a href="#identity-warn">Which teams and runs</a>.</p>{{end}}
+{{if .Basis.FallbackCalls}}<p class="msg"><strong>{{.Basis.FallbackCalls}} call{{if ne .Basis.FallbackCalls 1}}s{{end}} ({{.Basis.FallbackCost}})</strong> this month {{if eq .Basis.FallbackCalls 1}}was{{else}}were{{end}} priced at the gateway's fallback rate, because its price book had no price for the model: an estimate, not a bill. {{if eq .Basis.FallbackCalls 1}}It is{{else}}They are{{end}} kept out of this month's spend and out of every cost below, and shown apart. <a href="#price-basis">Which models</a>.</p>{{end}}
 {{if .MixedNote}}<p class="msg">{{.MixedNote}}</p>{{end}}
 {{if .ExportNote}}<p class="msg">{{.ExportNote}}</p>{{end}}
 
@@ -58,13 +60,56 @@
         <td>{{.Agent}}{{if .Credential}} <span class="chip grain">credential, not an agent</span><span class="sub">calls refused for identity are filed under the key that sent them</span>{{end}}{{if .WarnedCalls}} <span class="chip triaged">identity warn</span><span class="sub">{{.WarnedCalls}} of these calls ({{.WarnedCost}}) forwarded although the identity check failed</span>{{end}}</td>
         <td class="num">{{.Calls}}</td>
         <td class="num">{{.Tokens}}</td>
-        <td class="num">{{.Cost}}</td>
+        <td class="num">{{.Cost}}{{if .FallbackCalls}}<span class="sub">+ {{.FallbackCost}} fallback-priced, {{.FallbackCalls}} {{plural .FallbackCalls "call" "calls"}}, not in this cost</span>{{end}}</td>
         <td class="num">{{if .BlockedCalls}}{{.BlockedCalls}}<span class="sub">{{.BlockedText}}</span><span class="sub">{{if .OnlyIdentityRefusals}}refused for identity: never forwarded, nothing reserved or spent{{else}}reserved amount not carried in this export{{end}}</span>{{else}}0{{end}}</td>
       </tr>
     {{end}}
     </tbody>
   </table>
   </div>
+</div>
+<div class="panel" id="price-basis">
+  <h2>Price basis</h2>
+  <div class="body">
+    <p class="note">The gateway prices each call from its price book; a model the book has no price for is priced at the gateway's fallback rate, which can be many times the real price. From the version that adds <code>x_price_basis</code> to its export, each row says which, and this console keeps a fallback-priced amount out of spend and shows it here.</p>
+    {{if .Basis.BookCalls}}<p>Priced from the book: {{.Basis.BookCalls}} {{plural .Basis.BookCalls "call" "calls"}}, {{.Basis.BookCost}}.</p>{{end}}
+    {{if .Basis.FallbackCalls}}<p><strong>Fallback-priced: {{.Basis.FallbackCalls}} {{plural .Basis.FallbackCalls "call" "calls"}}, {{.Basis.FallbackCost}}</strong>, the gateway's estimate, not a bill, and not in this month's spend.</p>{{end}}
+    {{if .Basis.UnreportedCalls}}<p class="note">Price basis not reported by this gateway version: {{.Basis.UnreportedCalls}} {{plural .Basis.UnreportedCalls "call" "calls"}} ({{.Basis.UnreportedCost}}) came from an export without the column, so whether {{if eq .Basis.UnreportedCalls 1}}it was{{else}}any of them was{{end}} priced at the fallback rate cannot be told. They are counted as spend, as they always were.</p>{{end}}
+    {{if .Basis.UnstatedCalls}}<p class="note">{{.Basis.UnstatedCalls}} {{plural .Basis.UnstatedCalls "call" "calls"}} ({{.Basis.UnstatedCost}}) came from an export with the column and no basis on the row; counted as spend.</p>{{end}}
+  </div>
+  {{if .Basis.Fallback}}
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Model</th><th>Basis</th><th class="num">Calls</th><th class="num">Estimated</th></tr></thead>
+    <tbody>
+    {{range .Basis.Fallback}}
+      <tr><td><code>{{.Model}}</code></td><td><code>{{.Basis}}</code></td><td class="num">{{.Calls}}</td><td class="num">{{.Cost}}</td></tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+  {{end}}
+</div>
+<div class="panel" id="pii">
+  <h2>Personal data found and let through</h2>
+  <div class="body">
+    <p class="note">With <code>TOKENFUSE_DLP_PII=shadow</code> the gateway's scanner records the personal data it finds in a call (card, email and phone numbers) and lets the call through. From the version that adds <code>x_pii_findings</code> to its export, each row names the kinds and how many of each, never the values, and this panel reads them.</p>
+    {{if .PII.Calls}}<p><strong>{{.PII.Calls}} {{plural .PII.Calls "call" "calls"}}</strong> this month carried personal data the gateway let through: {{range $i, $k := .PII.Kinds}}{{if $i}}, {{end}}{{$k.Found}} <code>{{$k.Kind}}</code>{{end}}.</p>
+    {{else if .PII.Reported}}<p>No call this month carried personal data the gateway's scanner let through{{if .PII.Unreported}}, among the {{.PII.Reported}} whose export reports it{{end}}.</p>{{end}}
+    {{if .PII.Unreported}}<p class="note">PII findings not reported by this gateway version: {{.PII.Unreported}} {{plural .PII.Unreported "call" "calls"}} came from an export without the column.</p>{{end}}
+  </div>
+  {{if .PII.ByAgent}}
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Agent</th><th class="num">Calls</th><th>Found and let through</th></tr></thead>
+    <tbody>
+    {{range .PII.ByAgent}}
+      <tr><td>{{.Agent}}</td><td class="num">{{.Calls}}</td><td>{{range $i, $k := .Kinds}}{{if $i}}, {{end}}{{$k.Found}} <code>{{$k.Kind}}</code>{{end}}</td></tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+  {{end}}
 </div>
 <div class="panel" id="identity-warn">
   <h2>Forwarded under identity warn mode</h2>

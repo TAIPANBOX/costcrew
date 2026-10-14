@@ -79,6 +79,12 @@
           },
           "COSTCREW_TYPRYX_KEY": {
             "required": false
+          },
+          "COSTCREW_FOCUS_DIR": {
+            "required": false
+          },
+          "COSTCREW_FOCUS_DIR_OPENAI": {
+            "required": false
           }
         },
         "flags": {
@@ -161,6 +167,18 @@
             "required": false
           },
           "typryx-max-asks": {
+            "required": false
+          },
+          "focus-dir": {
+            "required": false
+          },
+          "focus-dir-openai": {
+            "required": false
+          },
+          "focus-every": {
+            "required": false
+          },
+          "focus-replace-generated": {
             "required": false
           }
         },
