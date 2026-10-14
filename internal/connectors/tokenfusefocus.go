@@ -149,7 +149,9 @@ func EnsureFocusSchema(db *sql.DB) error {
 	// row whose file's header did not carry the column, "" or the value on a
 	// row whose did: that difference is how a row says which export wrote it,
 	// and the supersede rule below and the /ai page's note read it.
-	for _, c := range []string{"key_id", "block_reason"} {
+	// TokenFuse 1.8.0 appended a third, x_identity_reason (its invariant 87),
+	// stored the same way: NULL when the file's header did not carry it.
+	for _, c := range []string{"key_id", "block_reason", "identity_reason"} {
 		if _, err := db.Exec(`ALTER TABLE ai_calls ADD COLUMN ` + c + ` TEXT`); err != nil &&
 			!strings.Contains(err.Error(), "duplicate column name") {
 			return fmt.Errorf("adding ai_calls.%s: %w", c, err)
@@ -326,8 +328,8 @@ func readTokenFuseFocus(db *sql.DB, cfg map[string]string, opt ImportOptions) (*
 		ins, err = tx.Prepare(`INSERT INTO ai_calls
 			(file_sha256, row_no, ts, day, team, agent, run_id, parent_run_id,
 			 provider, model, tokens_in, tokens_out, billed_microusd, blocked, basis,
-			 outcome, tool_calls, invoice_id, key_id, block_reason)
-			VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+			 outcome, tool_calls, invoice_id, key_id, block_reason, identity_reason)
+			VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 			ON CONFLICT(file_sha256, row_no) DO UPDATE SET
 			  ts=excluded.ts, day=excluded.day, team=excluded.team, agent=excluded.agent,
 			  run_id=excluded.run_id, parent_run_id=excluded.parent_run_id,
@@ -335,7 +337,8 @@ func readTokenFuseFocus(db *sql.DB, cfg map[string]string, opt ImportOptions) (*
 			  tokens_in=excluded.tokens_in, tokens_out=excluded.tokens_out,
 			  billed_microusd=excluded.billed_microusd, blocked=excluded.blocked, basis=excluded.basis,
 			  outcome=excluded.outcome, tool_calls=excluded.tool_calls, invoice_id=excluded.invoice_id,
-			  key_id=excluded.key_id, block_reason=excluded.block_reason`)
+			  key_id=excluded.key_id, block_reason=excluded.block_reason,
+			  identity_reason=excluded.identity_reason`)
 		if err != nil {
 			return nil, err
 		}
@@ -397,7 +400,7 @@ func readTokenFuseFocus(db *sql.DB, cfg map[string]string, opt ImportOptions) (*
 			daysTouched[d] = true
 		}
 		if !opt.DryRun {
-			keys, days, err := supersede(tx, local.sha, local.newColumns)
+			keys, days, err := supersede(tx, local.sha, local.generation)
 			if err != nil {
 				return nil, fmt.Errorf("%s: replacing an earlier export of the same calls: %w",
 					filepath.Base(f), err)
@@ -636,7 +639,15 @@ func processFocusFile(path string, ins, cins *sql.Stmt) (*focusSummary, error) {
 	}
 	nCols := len(header)
 	sum.sha = sha
-	_, sum.newColumns = col["x_key_id"]
+	// The export's generation, which decides which of two copies of one call
+	// is kept (supersede): 0 before TokenFuse 1.7.0, 1 with its x_key_id, 2
+	// with 1.8.0's x_identity_reason as well.
+	if _, ok := col["x_key_id"]; ok {
+		sum.generation++
+	}
+	if _, ok := col["x_identity_reason"]; ok {
+		sum.generation++
+	}
 
 	rowNo := 0
 	for {
@@ -713,7 +724,7 @@ func processFocusFile(path string, ins, cins *sql.Stmt) (*focusSummary, error) {
 			nullIfEmpty(row.RunID), nullIfEmpty(row.ParentRunID), nullIfEmpty(row.Provider),
 			row.Model, row.TokensIn, row.TokensOut, int64(row.BilledMicros), blockedInt,
 			row.Basis, nullIfEmpty(row.Outcome), toolCalls, nullIfEmpty(row.InvoiceID),
-			row.KeyID, row.BlockReason); err != nil {
+			row.KeyID, row.BlockReason, row.IdentityReason); err != nil {
 			return nil, fmt.Errorf("row %d: writing to ai_calls: %w", rowNo, err)
 		}
 	}
@@ -775,7 +786,28 @@ type focusRow struct {
 	// has: stored as NULL and as text respectively, so a row says which
 	// export wrote it.
 	KeyID, BlockReason *string
+	// IdentityReason is TokenFuse 1.8.0's x_identity_reason, held the same
+	// way: nil when the header has no such column. On a row refused for
+	// identity it names the check that refused it; on an admitted row it
+	// names the check TOKENFUSE_IDENTITY_STRICT=warn would have refused it
+	// on, and that is the only thing that tells such a call from an honest
+	// one (invariant 100).
+	IdentityReason *string
 }
+
+// Warned is true when the gateway admitted this call although its identity
+// check failed. TOKENFUSE_IDENTITY_STRICT=warn records the check's finding on
+// every row of such a call and files it, and its spend, under the agent id it
+// claimed; enforce records the same finding on the refusal. Only an admitted
+// row is a forwarded call (a row the Breaker blocked spent nothing), which is
+// also what TokenFuse Cloud counts as identity_warned on a run.
+func (r focusRow) Warned() bool {
+	return !r.Blocked && r.IdentityReason != nil && *r.IdentityReason != ""
+}
+
+// IdentityWarnedSQL is Warned as a condition on an ai_calls row, the one
+// formula every page and the packet count forwarded-under-warn calls with.
+const IdentityWarnedSQL = `(blocked = 0 AND COALESCE(identity_reason,'') <> '')`
 
 // errUnfiledRefusal is a row the gateway refused that no agent and no key
 // can be named for: x_agent_id and ResourceId are both empty and
@@ -796,6 +828,10 @@ func (e errUnfiledRefusal) Error() string {
 const (
 	xKeyIDMaxBytes       = 256
 	xBlockReasonMaxBytes = 64
+	// xIdentityReasonMaxBytes bounds 1.8.0's x_identity_reason, one of the
+	// identity check's own words (agent_id_not_allowed and four more), printed
+	// on /ai the way a block reason is.
+	xIdentityReasonMaxBytes = 64
 )
 
 // optionalPlain reads an optional column that is printed later: nil when the
@@ -855,6 +891,10 @@ func parseFocusRow(rec []string, col map[string]int) (focusRow, error) {
 	if err != nil {
 		return focusRow{}, err
 	}
+	identityReason, err := optionalPlain(rec, col, "x_identity_reason", xIdentityReasonMaxBytes)
+	if err != nil {
+		return focusRow{}, err
+	}
 
 	blocked := strings.EqualFold(strings.TrimSpace(field("x_blocked")), "true")
 
@@ -910,6 +950,7 @@ func parseFocusRow(rec []string, col map[string]int) (focusRow, error) {
 		ToolCalls: toolCalls,
 		InvoiceID: strings.TrimSpace(field("InvoiceId")),
 		KeyID:     keyID, BlockReason: blockReason,
+		IdentityReason: identityReason,
 	}, nil
 }
 
@@ -1071,13 +1112,19 @@ type focusSummary struct {
 	// Unfiled counts the gateway's refusals that name no agent and no key,
 	// by reason, so the sentence can say what they are (errUnfiledRefusal).
 	Unfiled map[string]int
+	// Warned counts the calls the gateway forwarded under identity warn mode
+	// (focusRow.Warned), and WarnedMicros what they cost: real spend, filed
+	// under the agent id each one claimed.
+	Warned       int
+	WarnedMicros money.Micros
 	// agentsCounted replaces len(Agents) once recount has read the store.
 	agentsCounted int
 
-	// per file only, never merged: the file's hash and whether its header
-	// carried TokenFuse 1.7.0's columns.
+	// per file only, never merged: the file's hash and its export's
+	// generation (0 before TokenFuse 1.7.0, 1 with x_key_id, 2 with 1.8.0's
+	// x_identity_reason as well).
 	sha        string
-	newColumns bool
+	generation int
 }
 
 func newFocusSummary() *focusSummary {
@@ -1095,6 +1142,10 @@ func (s *focusSummary) accept(row focusRow) {
 	}
 	if s.LastTS == "" || row.TS > s.LastTS {
 		s.LastTS = row.TS
+	}
+	if row.Warned() {
+		s.Warned++
+		s.WarnedMicros += row.BilledMicros
 	}
 }
 
@@ -1141,6 +1192,8 @@ func (s *focusSummary) merge(o *focusSummary) {
 	}
 	s.CommitmentRows += o.CommitmentRows
 	s.CommitmentFlagged += o.CommitmentFlagged
+	s.Warned += o.Warned
+	s.WarnedMicros += o.WarnedMicros
 	for r, n := range o.Unfiled {
 		s.Unfiled[r] += n
 	}
@@ -1160,14 +1213,18 @@ func (s *focusSummary) recount(tx *sql.Tx, shas []string) error {
 	for i, h := range shas {
 		args[i] = h
 	}
-	var rows, agents int
-	var micros int64
+	var rows, agents, warned int
+	var micros, warnedMicros int64
 	var first, last sql.NullString
 	if err := tx.QueryRow(`SELECT COUNT(*), COUNT(DISTINCT agent), COALESCE(SUM(billed_microusd),0),
-			MIN(ts), MAX(ts) FROM ai_calls WHERE file_sha256 IN (`+in+`)`, args...).
-		Scan(&rows, &agents, &micros, &first, &last); err != nil {
+			MIN(ts), MAX(ts),
+			COALESCE(SUM(CASE WHEN `+IdentityWarnedSQL+` THEN 1 ELSE 0 END),0),
+			COALESCE(SUM(CASE WHEN `+IdentityWarnedSQL+` THEN billed_microusd ELSE 0 END),0)
+			FROM ai_calls WHERE file_sha256 IN (`+in+`)`, args...).
+		Scan(&rows, &agents, &micros, &first, &last, &warned, &warnedMicros); err != nil {
 		return fmt.Errorf("counting what the store holds for this import: %w", err)
 	}
+	s.Warned, s.WarnedMicros = warned, money.Micros(warnedMicros)
 	s.RowsAccepted, s.agentsCounted, s.TotalMicros = rows, agents, money.Micros(micros)
 	s.FirstTS, s.LastTS = first.String, last.String
 	return nil
@@ -1176,25 +1233,23 @@ func (s *focusSummary) recount(tx *sql.Tx, shas []string) error {
 // supersede makes a call that two exports carry count once. Rows of other
 // files with the same call_key as a row of this file are removed when they
 // came from an export no newer than this one; this file's own rows are removed
-// when another file's copy came from a newer export. "Newer" is exactly one
-// thing: the header carried TokenFuse 1.7.0's x_key_id, so the row knows the
-// credential and files an identity refusal under it rather than under the
-// agent it claimed. Between two exports of the same generation the later file
-// read wins, and the two are copies of the same calls anyway.
+// when another file's copy came from a newer export. "Newer" is the export's
+// generation, read off the row: one step for TokenFuse 1.7.0's x_key_id (the
+// row knows the credential and files an identity refusal under it rather than
+// under the agent it claimed), one more for 1.8.0's x_identity_reason (the row
+// says whether warn mode forwarded it; invariant 100). Between two exports of
+// the same generation the later file read wins, and the two are copies of the
+// same calls anyway.
 //
 // The order the folder is read in therefore does not decide which copy is
 // kept: an export from before 1.7.0 never displaces one from 1.7.0, whichever
 // file name sorts first. It returns the rows removed and the days they were
 // on, so the caller re-derives those days' charges.
-func supersede(tx *sql.Tx, sha string, newColumns bool) (keys, days []string, err error) {
-	gen := 0
-	if newColumns {
-		gen = 1
-	}
+func supersede(tx *sql.Tx, sha string, gen int) (keys, days []string, err error) {
 	const others = `file_sha256 != ?1 AND call_key IN (SELECT call_key FROM ai_calls WHERE file_sha256 = ?1)
-		AND (key_id IS NOT NULL) <= ?2`
+		AND ` + exportGenerationSQL + ` <= ?2`
 	const mine = `file_sha256 = ?1 AND call_key IN (SELECT call_key FROM ai_calls
-		WHERE file_sha256 != ?1 AND (key_id IS NOT NULL) > ?2)`
+		WHERE file_sha256 != ?1 AND ` + exportGenerationSQL + ` > ?2)`
 	for _, where := range []string{others, mine} {
 		rows, err := tx.Query(`SELECT DISTINCT call_key, day FROM ai_calls WHERE `+where, sha, gen)
 		if err != nil {
@@ -1215,6 +1270,11 @@ func supersede(tx *sql.Tx, sha string, newColumns bool) (keys, days []string, er
 	}
 	return keys, days, nil
 }
+
+// exportGenerationSQL is a row's export generation as supersede compares it,
+// the same count processFocusFile makes from the header: a column the header
+// carried is text on every row ("" or a value), a column it lacked is NULL.
+const exportGenerationSQL = `((key_id IS NOT NULL) + (identity_reason IS NOT NULL))`
 
 func wasWere(n int) string {
 	if n == 1 {
@@ -1253,6 +1313,14 @@ func (s *focusSummary) Sentence(dryRun bool) string {
 		fmt.Fprintf(&b, " %d call%s appeared in more than one export of the same trace and %s "+
 			"counted once; the copy kept is the one from TokenFuse 1.7.0 or later, which names the "+
 			"credential, when there is one.", n, plural(n), wasWere(n))
+	}
+	if n := s.Warned; n > 0 {
+		fmt.Fprintf(&b, " %d call%s (%s) %s forwarded under identity warn mode: the gateway's "+
+			"identity check would have refused %s, and %s counted as spend under the agent id %s claimed.",
+			n, plural(n), s.WarnedMicros, wasWere(n),
+			map[bool]string{true: "it", false: "them"}[n == 1],
+			map[bool]string{true: "it is", false: "they are"}[n == 1],
+			map[bool]string{true: "it", false: "each"}[n == 1])
 	}
 	if len(s.Unfiled) > 0 {
 		reasons := make([]string, 0, len(s.Unfiled))

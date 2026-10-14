@@ -84,15 +84,35 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 1675 tests, 32 packages
-./scripts/gates-have-teeth.sh        # 546 cases; needs a clean tree
-./scripts/features-are-bound.sh      # 580 scenarios, both directions
+go test ./...                        # 1696 tests, 32 packages
+./scripts/gates-have-teeth.sh        # 565 cases; needs a clean tree
+./scripts/features-are-bound.sh      # 593 scenarios, both directions
 ./scripts/roles-are-bound.sh         # internal/crew/roles.yaml against the code and the roster, both ways
 ./parity/gate-has-teeth.sh parity/captures/golden
 gofmt -l . && go vet ./...
 govulncheck ./...                    # CI runs it, pinned at v1.8.0; reports only vulnerabilities the code can reach
 staticcheck ./...                    # CI runs it, pinned at 2026.2.1, and refused PR #19 on two findings the list above never asked for; a staticcheck built for an older Go cannot read this module, so on such a machine CI is the only place it runs
 ```
+
+Invariant 101 (a run names every model it used, each one's share of its
+spend, and how it ended) added 6 tests (`internal/finops/runs_test.go`, 3;
+`internal/finops/runs_share_test.go`, 1; `internal/web/ai_runs_page_test.go`,
+2), 9 `gates-have-teeth.sh` cases (8 `fail`, 1 `pass`), 6 scenarios
+(`features/a-run-names-every-model-it-used.feature`, new) and one read-only
+route, `GET /ai/runs`: 1612 -> 1618 tests, 32 packages unchanged, 556 -> 565
+cases, 587 -> 593 scenarios, measured on this branch with the three commands
+this block already names.
+
+Invariant 100 (a call the gateway forwarded under identity warn mode is
+marked, with its spend, per agent, per team and per run) added 15 tests
+(`internal/connectors/tokenfusefocus_identity_test.go`, 5;
+`internal/finops/ai_identity_warn_test.go`, 6;
+`internal/deliver/ai_desk_identity_warn_test.go`, 1;
+`internal/web/ai_identity_warn_page_test.go`, 3), 10 `gates-have-teeth.sh`
+cases (9 `fail`, 1 `pass`), 7 scenarios
+(`features/identity-warn-is-marked.feature`, new) and no route: 1597 -> 1612
+tests, 32 packages unchanged, 546 -> 556 cases, 580 -> 587 scenarios,
+measured on this branch with the three commands this block already names.
 
 Invariants 98 and 99 (a Cloudability drop is the whole month to date, exact,
 in FOCUS 1.1 and laid out the way the ingress reads it, or it is not written;
@@ -6278,6 +6298,133 @@ an absent invariant.
     eight; the drop's `TestHostileInputMakesNoDrop` carries the same amount
     through the gateway reader. One `fail` case in `gates-have-teeth.sh`: the
     bound removed.)*
+
+100. **A call the gateway forwarded under identity warn mode is marked, with
+    its spend, per agent, per team and per run.** With
+    `TOKENFUSE_IDENTITY_STRICT=warn` TokenFuse lets a call through when the
+    agent id it carries does not belong to the credential that sent it, and
+    files the call and its spend under the id it claimed: an admitted, spent
+    row like any other. TokenFuse 1.8.0 (its invariant 87) appended
+    `x_identity_reason` to the FOCUS export, the identity check's own word
+    (`agent_id_not_allowed`, `agent_id_missing`, `unit_chosen_by_agent_id`,
+    `key_has_no_unit_binding`, `agent_id_contradicts_proven_chain`), set on
+    every row of such a call and on a refusal for identity. Nothing here read
+    it, so `/ai` showed a forwarded call exactly as an honest one, under an
+    agent nobody proved made it.
+
+    The reader stores it (`ai_calls.identity_reason`, added by
+    `EnsureFocusSchema`; NULL when the file's header lacks the column, "" or
+    the word when it has it), held to `plainname.Check` at 64 bytes like
+    `x_block_reason`; the prompt-data fixture classifies it as plain. A call
+    counts as forwarded under warn when it was admitted (`blocked = 0`) and
+    carries a finding (`connectors.IdentityWarnedSQL`, the one formula, and
+    `focusRow.Warned` beside it), which is what TokenFuse Cloud counts as
+    `identity_warned` on a run: a refusal for identity carries the finding
+    too and spent nothing, and so does a warned call the Breaker then
+    blocked. The supersede rule of invariant 89 counts one more generation: a
+    row whose export carried `x_identity_reason` is newer than one whose
+    export carried only `x_key_id` (`exportGenerationSQL`), so a 1.7.0 copy of
+    the same calls never displaces the 1.8.0 copy and its mark, whichever
+    file the folder lists last. The import's sentence counts the forwarded
+    calls and what they cost.
+
+    `/ai` says above its tables how many calls and how much spend warn mode
+    forwarded this month; the By agent row carries an `identity warn` mark
+    and how much of its spend it was; each team row of the price and volume
+    table carries the team's count; and a panel, "Forwarded under identity
+    warn mode" (`#identity-warn`), lists them by team and by run, largest
+    spend first, with the agent ids claimed and the findings
+    (`finops.IdentityWarnings`). Forwarded spend stays inside every total:
+    it is real spend, marked, never moved. When a month holds calls from an
+    export written before 1.8.0 the panel says how many, and that they read as
+    honest whether or not they were; it says "no call was forwarded" only for
+    calls whose export reports it. The ai-spend packet carries the desk-wide
+    count, spend and findings (kept under `-prompt-data aggregates`, a
+    desk-wide figure in a closed vocabulary) and each agent line's share.
+    *(gate: `TestTheIdentityReasonIsKeptWhenTheExportCarriesIt`,
+    `TestAnExportWithoutTheColumnStoresNoIdentityReason`,
+    `TestAWarnMarkedExportIsKeptOverAnOlderCopyOfTheSameCalls`,
+    `TestHostileIdentityReasonIsRefusedByName` (15 shapes and the inclusive
+    bound), `TestTheIdentityReasonColumnIsAddedToAStoreThatPredatesIt` in
+    `internal/connectors`; `TestAForwardedUnderWarnCallIsMarkedPerTeamAndPerRun`,
+    `TestTheAgentRowCountsItsForwardedCallsInsideItsSpend`,
+    `TestAnOlderExportIsCountedAsNotReportingIdentityWarn`,
+    `TestWarnGroupsAreOrderedTheSameEveryCall`,
+    `TestWarnGroupsBreakTiesOnCallsAndThenTheKey`,
+    `TestIdentityWarningsReportsAStoreThatCannotBeRead` in `internal/finops`;
+    `TestAISpendSectionNamesTheCallsForwardedUnderIdentityWarn` in
+    `internal/deliver`; `TestTheAIPageMarksCallsForwardedUnderIdentityWarn`,
+    `TestTheAIPageSaysAnOlderExportCannotTellAWarnedCall`,
+    `TestTheAIPageSaysNothingWasForwardedWhenTheExportSaysSo` in
+    `internal/web`. Red first on `origin/main` (`f3dee1c`) with the product
+    files reverted: the connector tests with "6 row(s) of a 1.8.0 export were
+    stored with no identity_reason" (the column did not exist), the rest by
+    compile (`IdentityWarnedSQL`, `IdentityWarnings`, `WarnedCalls` undefined)
+    or, for the page and the packet, by the missing marks. Nine `fail` cases
+    and one `pass` case in `gates-have-teeth.sh`: the finding not written; a
+    refusal counted as forwarded; the supersede generation ignoring the
+    column; the 64-byte bound lifted; the per-run table emptied; the agent's
+    mark dropped; the team flag dropped; the agent row's spend share zeroed;
+    the packet's line dropped; and the panel's note reworded, which must stay
+    green. Scenarios: `features/identity-warn-is-marked.feature`, seven,
+    each bound.)* What this does not do: a reason word TokenFuse adds later is
+    stored and shown as written, not explained; a pre-1.8.0 export cannot be
+    told to hold a warned call, and the page says so rather than guessing; the
+    team is the gateway's `x_unit`, so a call whose unit the identity map did
+    not resolve is listed under "no team on the row"; and the Cloud's own
+    run counters (`identity_warned`) are not read, because this console reads
+    the FOCUS export and makes no call to the Cloud (invariant 64).
+
+101. **A run names every model it used, each one's share of its spend, and
+    how it ended.** An agent can change model in the middle of a run, and
+    TokenFuse prices each call at its own model (measured on forge
+    2026-10-14: Haiku, then Sonnet, then Opus in one run, each priced right).
+    The Cloud's runs view, the console that reads it and its copilot name a
+    run by its LAST model, and on forge an Opus then Haiku run with 96% of
+    its spend on Opus read as a Haiku run. This console had no run grain at
+    all: `/ai` grouped by team and model and by agent, never by run.
+
+    `GET /ai/runs` (`Server.aiRuns`, `finops.AIRuns`) lists every run the
+    gateway's rows name for the month `/ai` shows, largest spend first, ties
+    on the latest call and then the run id (invariant 7): its spend, calls
+    and tokens, its first and last call, every model it called in the order
+    it first called each, with each model's calls, spend and share of the
+    run's spend (`RunModel.Share`: rounded down, so only a model that did all
+    the spending reads 100%; one decimal below ten; "<0.1%" for a sliver,
+    never 0%; "no spend" when the run spent nothing), a `model switch` mark
+    when there is more than one and the last call's model named apart, its
+    agents and teams, and how it ended as the gateway's rows show it
+    (`RunRow.State`): `killed` when a call was refused with the Breaker's
+    `killed`, "stopped by the gateway: <reason>" when its last call was
+    refused, "N calls refused, then went on", or "ran"; and its calls
+    forwarded under identity warn mode (invariant 100). The header counts
+    the runs, those that switched model, those killed and those stopped. The
+    page says that the door a call came through is not in the FOCUS export,
+    so every run is read from one source. It lists 200 runs and counts the
+    rest with their spend; before an import it says there are no runs and
+    points at the connector. `/ai` links to it.
+    *(gate: `TestARunThatSwitchedModelsListsEveryModelWithItsShare`,
+    `TestARunSaysHowItEndedAsTheGatewaysRowsShow`,
+    `TestRunsAreListedLargestSpendFirstTheSameEveryCall` (twenty reads of
+    the same month), `TestTheShareOfASliverIsNeverReadAsNothing` in
+    `internal/finops`; `TestTheRunsPageShowsEveryModelARunUsedWithItsShare`,
+    `TestTheRunsPageSaysThereAreNoRunsBeforeAnImport` in `internal/web`, and
+    `/ai/runs` on `TestPagesRenderTheSameTwice`'s list. Red first on the
+    branch below it: the finops tests by compile (`finops.AIRuns`
+    undefined), the page tests with "GET /ai/runs: 404". Eight `fail` cases
+    and one `pass` case in `gates-have-teeth.sh`: only the last model kept; a
+    share counted by calls rather than spend; a kill not read; the last
+    call's refusal ignored; runs listed by id rather than spend; a sliver read
+    as nothing; the page's first model dropped; the door sentence dropped;
+    and the page's intro reworded, which must stay green. Scenarios:
+    `features/a-run-names-every-model-it-used.feature`, six, each bound.)*
+    What this does not do: a kill that no later call ran into is not in the
+    export and is not shown (the Cloud holds it, and this console does not
+    call the Cloud, invariant 64); a run is grouped by its id within one
+    month, so a run that crossed a month boundary shows in each month with
+    that month's calls; and the order of models is by each one's first call,
+    so a run that went back to a model it had left shows that model once,
+    where it first appeared.
 
 ## Decisions that have no gate yet
 

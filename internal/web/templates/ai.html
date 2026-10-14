@@ -3,6 +3,7 @@
   <h1>AI spend</h1>
   <p>Volume beside cost, so price and volume can be told apart. A bill that doubled because the price rose and one that doubled because twice as much was done are different facts with different answers, and a console that reports only dollars cannot separate them.</p>
   <p>Whether the gateway's rows add up to what the provider itself billed: <a href="/reconciliation">Reconciliation</a>.</p>
+  <p>Each run the gateway's rows name, with every model it called and each model's share: <a href="/ai/runs">Runs</a>.</p>
 </header>
 
 <div class="tiles">
@@ -11,6 +12,7 @@
   <div class="tile"><div class="k">Anomalies here</div><div class="v {{if .Anomalies}}up{{end}}">{{.Anomalies}}</div><div class="s"><a href="/anomalies?source=ai">on the AI desk</a></div></div>
 </div>
 
+{{if .Warn.Calls}}<p class="msg"><strong>{{.Warn.Calls}} call{{if ne .Warn.Calls 1}}s{{end}} ({{.Warn.Cost}})</strong> this month {{if eq .Warn.Calls 1}}was{{else}}were{{end}} forwarded under identity warn mode: the gateway's identity check would have refused {{if eq .Warn.Calls 1}}it{{else}}them{{end}}, and the spend is counted under the agent id {{if eq .Warn.Calls 1}}it{{else}}each{{end}} claimed. <a href="#identity-warn">Which teams and runs</a>.</p>{{end}}
 {{if .MixedNote}}<p class="msg">{{.MixedNote}}</p>{{end}}
 {{if .ExportNote}}<p class="msg">{{.ExportNote}}</p>{{end}}
 
@@ -26,7 +28,7 @@
     {{range .Rows}}
       <tr>
         <td class="tight">{{.Month}}</td>
-        <td class="tight">{{if .Team}}<a href="/team/{{.Team}}?period={{$.Month}}">{{.Team}}</a>{{else}}<span class="note">none tagged</span>{{end}}</td>
+        <td class="tight">{{if .Team}}<a href="/team/{{.Team}}?period={{$.Month}}">{{.Team}}</a>{{else}}<span class="note">none tagged</span>{{end}}{{with index $.Warn.TeamCalls .Team}} <span class="chip triaged">identity warn: {{.}} call{{if ne . 1}}s{{end}}</span>{{end}}</td>
         <td>{{if .Model}}{{.Model}}{{else}}<span class="note">unattributed</span>{{end}}</td>
         <td class="num">{{.Tokens}}</td>
         <td class="num">{{.Cost}}</td>
@@ -53,7 +55,7 @@
     <tbody>
     {{range .AgentRows}}
       <tr>
-        <td>{{.Agent}}{{if .Credential}} <span class="chip grain">credential, not an agent</span><span class="sub">calls refused for identity are filed under the key that sent them</span>{{end}}</td>
+        <td>{{.Agent}}{{if .Credential}} <span class="chip grain">credential, not an agent</span><span class="sub">calls refused for identity are filed under the key that sent them</span>{{end}}{{if .WarnedCalls}} <span class="chip triaged">identity warn</span><span class="sub">{{.WarnedCalls}} of these calls ({{.WarnedCost}}) forwarded although the identity check failed</span>{{end}}</td>
         <td class="num">{{.Calls}}</td>
         <td class="num">{{.Tokens}}</td>
         <td class="num">{{.Cost}}</td>
@@ -63,6 +65,49 @@
     </tbody>
   </table>
   </div>
+</div>
+<div class="panel" id="identity-warn">
+  <h2>Forwarded under identity warn mode</h2>
+  <div class="body">
+    <p class="note">With <code>TOKENFUSE_IDENTITY_STRICT=warn</code> the gateway lets a call through when the agent id it carries does not belong to the credential that sent it, and files the call and its spend under the id it claimed. From TokenFuse 1.8.0 the export says so on the row (<code>x_identity_reason</code>), and this panel reads it: such a call is real spend, and it is counted in every figure above, but nobody proved which agent made it.</p>
+    {{if .Warn.Calls}}<p><strong>{{.Warn.Calls}} call{{if ne .Warn.Calls 1}}s{{end}}, {{.Warn.Cost}}</strong>, forwarded although the identity check failed.</p>
+    {{else if .Warn.Reported}}<p>No call this month was forwarded under identity warn mode{{if .Warn.Unreported}} among the {{.Warn.Reported}} whose export reports it{{end}}.</p>{{end}}
+    {{if .Warn.Unreported}}<p class="note">{{.Warn.Unreported}} call{{if ne .Warn.Unreported 1}}s{{end}} this month came from an export written before TokenFuse 1.8.0, which does not say whether warn mode forwarded a call: {{if eq .Warn.Unreported 1}}it reads{{else}}they read{{end}} as honest whether or not {{if eq .Warn.Unreported 1}}it was{{else}}they were{{end}}.</p>{{end}}
+  </div>
+  {{if .Warn.Calls}}
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Team</th><th class="num">Calls</th><th class="num">Spend</th><th>Agent ids claimed</th><th>What the identity check found</th></tr></thead>
+    <tbody>
+    {{range .Warn.ByTeam}}
+      <tr>
+        <td>{{if .Key}}{{.Key}}{{else}}<span class="note">no team on the row</span>{{end}}</td>
+        <td class="num">{{.Calls}}</td>
+        <td class="num">{{.Cost}}</td>
+        <td>{{range $i, $a := .Agents}}{{if $i}}, {{end}}{{$a}}{{end}}</td>
+        <td><code>{{.ReasonText}}</code></td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Run</th><th class="num">Calls</th><th class="num">Spend</th><th>Agent ids claimed</th><th>What the identity check found</th></tr></thead>
+    <tbody>
+    {{range .Warn.ByRun}}
+      <tr>
+        <td>{{if .Key}}<code>{{.Key}}</code>{{else}}<span class="note">no run id on the row</span>{{end}}</td>
+        <td class="num">{{.Calls}}</td>
+        <td class="num">{{.Cost}}</td>
+        <td>{{range $i, $a := .Agents}}{{if $i}}, {{end}}{{$a}}{{end}}</td>
+        <td><code>{{.ReasonText}}</code></td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+  {{end}}
 </div>
 {{if .BlockedBy}}
 <div class="panel">
