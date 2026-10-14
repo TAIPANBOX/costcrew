@@ -5746,6 +5746,74 @@ run_case $'price basis: the panel\'s note reworded is not a fault' \
 	$'which can be many times the real price.' \
 	$'which can be far above the real price.'
 
+# Invariant 104: the gateway's export folders are an input a launcher sets on
+# the command line, read at start and on an interval, and every automatic
+# import says on the connector's page what it read or why it read nothing.
+run_case $'focus input: the second door\'s folder not saved' \
+	fail \
+	./internal/connectors \
+	$'TestTheLaunchersFoldersAreReadAndRecordedOnTheConnector' \
+	$'read from the launcher\'s two folders, want 18' \
+	internal/connectors/focusinput.go \
+	$'map[string]string{"path": f.Main, OpenAIPathInput: f.OpenAI})' \
+	$'map[string]string{"path": f.Main})'
+run_case $'focus input: a refused import not recorded' \
+	fail \
+	./internal/connectors \
+	$'TestAnAutomaticImportOnTheGeneratedEstateSaysWhyItReadNothing' \
+	$'does not say why the automatic import read nothing' \
+	internal/connectors/focusinput.go \
+	$'\tif err != nil {\n\t\tnote :=' \
+	$'\tif false && err != nil {\n\t\tnote :='
+run_case $'focus input: the launcher\'s yes not passed' \
+	fail \
+	./internal/connectors \
+	$'TestAnAutomaticImportOnTheGeneratedEstateSaysWhyItReadNothing' \
+	$'with -focus-replace-generated' \
+	internal/connectors/focusinput.go \
+	$'\t\tReplaceGenerated: f.ReplaceGenerated, Actor: FocusActor, Rec: rec,' \
+	$'\t\tReplaceGenerated: false, Actor: FocusActor, Rec: rec,'
+run_case $'focus input: the interval never reads again' \
+	fail \
+	./internal/connectors \
+	$'TestWatchFocusReadsTheFolderAgainOnItsInterval' \
+	$'a file written after the start was never read' \
+	internal/connectors/focusinput.go \
+	$'\t\tcase <-t.C:\n\t\t\tonce()' \
+	$'\t\tcase <-t.C:'
+run_case $'focus input: one folder as both doors accepted' \
+	fail \
+	./internal/connectors \
+	$'TestCheckFocusInputRefusesAMisconfiguredLauncher' \
+	$'want an error saying "the same folder"' \
+	internal/connectors/focusinput.go \
+	$'\tif f.OpenAI != "" && sameFolder(f.Main, f.OpenAI) {' \
+	$'\tif false && f.OpenAI != "" && sameFolder(f.Main, f.OpenAI) {'
+run_case $'focus input: an interval of seconds accepted' \
+	fail \
+	./internal/connectors \
+	$'TestCheckFocusInputRefusesAMisconfiguredLauncher' \
+	$'want an error saying "at least 1m0s"' \
+	internal/connectors/focusinput.go \
+	$'\tif f.Every < 0 || (f.Every > 0 && f.Every < MinFocusEvery) {' \
+	$'\tif f.Every < 0 {'
+run_case $'focus input: the console never starts the reader' \
+	fail \
+	./cmd/costcrew \
+	$'TestTheConsoleReadsTheGatewaysExportFromFocusDir' \
+	$'did not read -focus-dir at start' \
+	cmd/costcrew/main.go \
+	$'\t\tgo connectors.WatchFocus(focusCtx, st.DB(), focus, rec, log.Printf)' \
+	$'\t\t_ = focusCtx'
+run_case $'focus input: the interval flag\'s help reworded is not a fault' \
+	pass \
+	./internal/connectors \
+	$'TestCheckFocusInputRefusesAMisconfiguredLauncher' \
+	$'' \
+	cmd/costcrew/main.go \
+	$'"with -focus-dir, how often the folders are read again; 0 reads them once, at start")' \
+	$'"with -focus-dir, how often the folders are read once more; 0 reads them once, at start")'
+
 echo
 if [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'

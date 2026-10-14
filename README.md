@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/TAIPANBOX/costcrew/actions/workflows/ci.yml/badge.svg)](https://github.com/TAIPANBOX/costcrew/actions/workflows/ci.yml)
 ![Go](https://img.shields.io/badge/go-1.27-00ADD8.svg)
-![tests](https://img.shields.io/badge/tests-1642-brightgreen.svg)
+![tests](https://img.shields.io/badge/tests-1649-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)
 ![Status](https://img.shields.io/badge/enforces-nothing%20by%20design-success.svg)
 
@@ -296,6 +296,24 @@ let through" panel counts the card, email and phone numbers the scanner found
 and let through, by kind, agent and run, never the values. An export from an
 older gateway reads as before, and the page says the price basis and the
 findings are not reported by that version.
+
+### Reading the gateway's export without a click
+
+**A launcher points the console at the gateway's export folders, and the AI
+pages fill on their own.** Start the console with `-focus-dir` (the main
+gateway's `tokenfuse focus-export` folder) and, for a second door,
+`-focus-dir-openai`; it reads them at start and every `-focus-every` (15
+minutes by default), and the connector's page says what the last read found
+or why it found nothing. A console that still holds the generated estate it
+starts with reads nothing until the launcher adds `-focus-replace-generated`
+or a person imports once from the connector's page.
+
+| Flag or variable | Meaning |
+|---|---|
+| `-focus-dir DIR` (or `COSTCREW_FOCUS_DIR`) | the main gateway's export folder; empty, the default, leaves the connector to its page |
+| `-focus-dir-openai DIR` (or `COSTCREW_FOCUS_DIR_OPENAI`) | the OpenAI-wire door's export folder; needs `-focus-dir` |
+| `-focus-every DURATION` | how often the folders are read again (default `15m`, at least `1m`; `0` reads once) |
+| `-focus-replace-generated` | the launcher's yes to replacing the generated estate on the first read that finds real calls |
 
 ## Run it
 
@@ -759,9 +777,9 @@ estate-gates repository's own PROVEN record:
 ## Gates
 
 ```sh
-go test ./...                        # 1642 tests, 32 packages
+go test ./...                        # 1649 tests, 32 packages
 ./scripts/features-are-bound.sh      # every scenario bound to a named test, both ways
-./scripts/gates-have-teeth.sh        # 593 cases: each gate is made to fail on purpose
+./scripts/gates-have-teeth.sh        # 601 cases: each gate is made to fail on purpose
 gofmt -l . && go vet ./...
 ```
 
