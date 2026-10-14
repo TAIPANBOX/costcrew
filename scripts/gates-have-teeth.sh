@@ -48,14 +48,27 @@
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)" || exit 1
 
-if ! command -v go >/dev/null 2>&1; then
+# TEETH_LIST=1 prints each case's name, one per line in file order, and runs none
+# of them. TEETH_SHARD=i/N runs only shard i of N (scripts/teeth-shard.sh). A listing
+# touches nothing: it skips the checks below and sets no trap, because the trap
+# restores the tree with git reset --hard, and a listing must never be what discards
+# somebody's uncommitted work. Its output goes to fd 3; stdout is silenced.
+if [ -n "${TEETH_LIST:-}" ]; then
+	exec 3>&1 1>/dev/null
+else
+	exec 3>&1
+fi
+. scripts/teeth-shard.sh
+teeth_shard_parse
+
+if [ -z "${TEETH_LIST:-}" ] && ! command -v go >/dev/null 2>&1; then
 	printf 'the gates here are Go tests and there is no go on PATH, so this\n'
 	printf 'harness would report that nothing failed, which is the exact\n'
 	printf 'silent pass it exists to catch.\n'
 	exit 1
 fi
 
-if [ -n "$(git status --porcelain)" ]; then
+if [ -z "${TEETH_LIST:-}" ] && [ -n "$(git status --porcelain)" ]; then
 	printf 'this script mutates tracked files, so it needs a clean tree.\n'
 	printf 'commit or stash first; it restores with git and cannot tell your\n'
 	printf 'edits from its own.\n'
@@ -66,7 +79,8 @@ restore() {
 	git reset -q --hard HEAD 2>/dev/null
 	git clean -fdq 2>/dev/null
 }
-baseline_dir="$(mktemp -d)"
+baseline_dir=""
+[ -n "${TEETH_LIST:-}" ] || baseline_dir="$(mktemp -d)"
 cleanup() {
 	restore
 	rm -rf "$baseline_dir"
@@ -90,11 +104,14 @@ cleanup_and_stop() {
 	trap - EXIT
 	exit 130
 }
-trap cleanup EXIT
-trap cleanup_and_stop INT TERM
+if [ -z "${TEETH_LIST:-}" ]; then
+	trap cleanup EXIT
+	trap cleanup_and_stop INT TERM
+fi
 
 failures=0
 cases=0
+case_index=0
 
 # gate <pkg> <pattern> runs one gate and says whether it measured anything.
 #
@@ -123,6 +140,14 @@ gate() {
 run_case() {
 	local name="$1" expect="$2" pkg="$3" pattern="$4" needle="$5"
 	shift 5
+	# Every call takes the next index, whether this run owns it or not, so every
+	# shard numbers the cases the same way. See scripts/teeth-shard.sh.
+	case_index=$((case_index + 1))
+	teeth_shard_takes "$case_index" || return 0
+	if [ -n "${TEETH_LIST:-}" ]; then
+		printf '%s\n' "$name" >&3
+		return 0
+	fi
 	cases=$((cases + 1))
 
 	# An expect word this harness does not define matches neither TOOTHLESS
@@ -251,6 +276,38 @@ PYEOF
 
 echo
 echo "=== faults each gate must catch ==="
+run_case $'teeth shards: the filter leaves one case in five out of every shard' \
+	fail \
+	./internal/manifest \
+	$'^TestTeethShardsCoverEveryCase$' \
+	$'NOT IN ANY SHARD' \
+	scripts/teeth-shard.sh \
+	$'\t[ $(( ($1 - 1) % shard_n )) -eq $(( shard_i - 1 )) ]' \
+	$'\t[ $(( ($1 - 1) % (shard_n + 1) )) -eq $(( shard_i - 1 )) ]'
+run_case $'teeth shards: the filter lets an early case into every shard' \
+	fail \
+	./internal/manifest \
+	$'^TestTeethShardsCoverEveryCase$' \
+	$'a shard runs a case more than once' \
+	scripts/teeth-shard.sh \
+	$'\t[ $(( ($1 - 1) % shard_n )) -eq $(( shard_i - 1 )) ]' \
+	$'\t[ $(( ($1 - 1) % shard_n )) -le $(( shard_i - 1 )) ]'
+run_case $'teeth shards: a reworded comment in the partition gate is not a fault' \
+	pass \
+	./internal/manifest \
+	$'^TestTeethShardsCoverEveryCase$' \
+	$'' \
+	scripts/teeth-shards-cover-every-case.sh \
+	$'# nothing.\n' \
+	$'# nothing, by design.\n'
+run_case $'teeth shards: the partition gate is pointed at a harness that is not there' \
+	fail \
+	./internal/manifest \
+	$'^TestTeethShardsCoverEveryCase$' \
+	$'MEASURED NOTHING' \
+	scripts/teeth-shards-cover-every-case.sh \
+	$'harness=scripts/gates-have-teeth.sh\n' \
+	$'harness=scripts/gates-have-teeth-moved.sh\n'
 run_case $'retired rights: a skill hands one back out' \
 	fail \
 	./internal/crew \
@@ -5596,11 +5653,17 @@ run_case $'engines: the doors panel\'s note reworded is not a fault' \
 	$'so another wire is another door with its own address'
 
 echo
-if [ -n "$(git status --porcelain)" ]; then
+if [ -z "${TEETH_LIST:-}" ] && [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'
 	printf 'this is a failure of this script, not of any gate:\n'
 	git status --porcelain | sed 's/^/    /'
 	failures=$((failures + 1))
+fi
+
+# A shard that owns no case would report success having run nothing.
+if [ -z "${TEETH_LIST:-}" ] && [ "$shard_n" -ne 0 ] && [ "$cases" -eq 0 ]; then
+	printf 'MEASURED NOTHING  TEETH_SHARD=%s/%s runs no case (the file has %s), so this run would judge nothing\n' "$shard_i" "$shard_n" "$case_index"
+	exit 1
 fi
 
 printf 'teeth: %d passed, %d failed\n' "$((cases - failures))" "$failures"
