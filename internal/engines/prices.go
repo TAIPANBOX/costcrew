@@ -22,13 +22,22 @@ import (
 //
 // Provenance, said plainly rather than implied:
 //
-//   - The three routed through OpenRouter are @measured 2026-08-24, by
+//   - The DeepSeek and Kimi rows routed through OpenRouter are @measured 2026-08-24, by
 //     GET https://openrouter.ai/api/v1/models with a live key, reading each
 //     model's own pricing.prompt and pricing.completion and multiplying by a
-//     million. They were @claude estimates first, and all three were HIGH:
+//     million. They were @claude estimates first, and all were HIGH:
 //     0.27/1.10 against a real 0.2574/1.0287, and 0.60/2.50 against 0.57/2.30.
 //     High is the safe direction for a bound, and being close is not the same
 //     as being right.
+//   - The Anthropic model routed through OpenRouter is Sonnet 5 since
+//     2026-10-15, when OpenRouter listed no provider at all for
+//     anthropic/claude-sonnet-4 (`GET
+//     https://openrouter.ai/api/v1/models/anthropic/claude-sonnet-4/endpoints`
+//     answered an empty `endpoints`), so the old row priced a model nobody
+//     served. Sonnet 5's endpoints list two prices, 2.00/10.00 (Anthropic and
+//     the global endpoints) and 2.20/11.00 (the regional ones); the row takes
+//     the higher, because OpenRouter picks the provider and low is the
+//     direction that costs money.
 //   - The two Anthropic direct entries are @measured 2026-10-13 from the
 //     vendor's own price list, `curl -sL
 //     https://platform.claude.com/docs/en/about-claude/pricing.md | grep -E
@@ -77,9 +86,9 @@ var prices = map[string]Price{
 		InPerM: 0.57, OutPerM: 2.30,
 		Recorded: "2026-08-24", Source: "@measured, GET openrouter.ai/api/v1/models",
 	},
-	"openrouter/anthropic/claude-sonnet-4": {
-		InPerM: 3.00, OutPerM: 15.00,
-		Recorded: "2026-08-24", Source: "@measured, GET openrouter.ai/api/v1/models",
+	"openrouter/anthropic/claude-sonnet-5": {
+		InPerM: 2.20, OutPerM: 11.00,
+		Recorded: "2026-10-15", Source: "@measured, GET openrouter.ai/api/v1/models/anthropic/claude-sonnet-5/endpoints",
 	},
 	// Bedrock, eu-central-1, ON-DEMAND. Read from AWS's own price list, not
 	// from a page: `aws pricing get-products --service-code AmazonBedrock

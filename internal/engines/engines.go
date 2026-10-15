@@ -134,7 +134,7 @@ var Catalogue = []Engine{
 		Doc:     "https://openrouter.ai/keys",
 		EnvVar:  "OPENROUTER_API_KEY",
 		BaseURL: "https://openrouter.ai/api/v1",
-		Models:  []string{"deepseek/deepseek-chat", "moonshotai/kimi-k2", "anthropic/claude-sonnet-4"},
+		Models:  []string{"deepseek/deepseek-chat", "moonshotai/kimi-k2", "anthropic/claude-sonnet-5"},
 	},
 	{
 		ID: "anthropic", Name: "Anthropic API", Family: APIKey, Metered: true,
