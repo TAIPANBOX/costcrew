@@ -1,7 +1,7 @@
 github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERoyfY=
 github.com/Microsoft/go-winio v0.6.2/go.mod h1:yd8OoFMLzJbo9gZq8j5qaps8bJ9aShtEA8Ipt1oGCvU=
-github.com/TAIPANBOX/agent-stack-go v1.2.0 h1:wmJNKHwL8fbGAh/pVsboOhfqw8rwTS7MEg8ZuxeKW+I=
-github.com/TAIPANBOX/agent-stack-go v1.2.0/go.mod h1:v7GRuHwIjTV/RWoB+vs8CItVDjAnpUzcfxKAJCAi2rg=
+github.com/TAIPANBOX/agent-stack-go v1.3.0 h1:epWhBAV1gbhacesRG7ZkSbLHA4XLk8wzuJJms679oEc=
+github.com/TAIPANBOX/agent-stack-go v1.3.0/go.mod h1:v7GRuHwIjTV/RWoB+vs8CItVDjAnpUzcfxKAJCAi2rg=
 github.com/aws/aws-sdk-go-v2 v1.47.1 h1:uOIZnp4PK3ZhKI0dNrJrhTEsLxbpXHTAJlwoS1pvAtw=
 github.com/aws/aws-sdk-go-v2 v1.47.1/go.mod h1:bttEH6JqnUL8LepvDVfdrds/fZ5bCIxzpe3abyUrhDU=
 github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.20 h1:GPRlPwz40I2B2VrBEASOA3Bi77NyeqejNLkifosX0rs=
