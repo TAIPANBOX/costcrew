@@ -41,6 +41,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/TAIPANBOX/costcrew/internal/anomaly"
 	"github.com/TAIPANBOX/costcrew/internal/crew"
 	"github.com/TAIPANBOX/costcrew/internal/money"
 )
@@ -113,7 +114,25 @@ func Supervise(db *sql.DB, sprintID int, rec Recorder) (Pass, error) {
 		// would already have panicked), which makes every real figure
 		// "over" it -- the conservative direction, carrying rather than
 		// silently applying past a threshold that could not be read.
-		withinThreshold := top.FigureCents <= tAnomaly.ValueCents
+		//
+		// An option tied to an anomaly is judged on the anomaly's own
+		// recorded excess, never on the figure the analyst wrote into its
+		// options block (F-008): that figure is what an injected analyst
+		// could set to anything.
+		recorded, tied, err := recordedFigure(db, top)
+		if err != nil {
+			return pass, err
+		}
+		judged := top.FigureCents
+		if tied {
+			judged = recorded
+		}
+		withinThreshold := judged <= tAnomaly.ValueCents
+		// An option whose own figure disagrees with the anomaly's recorded
+		// excess is never applied by the supervisor. Exact cents: the packet
+		// prints the excess as an integer and the analyst copies it, so no
+		// rounding sits between the two that a tolerance would have to allow for.
+		agrees := !tied || top.FigureCents == recorded
 
 		// Two things keep an analyst-class option on the owner's desk even
 		// inside the threshold, both of them "two analysts answered the same
@@ -129,7 +148,7 @@ func Supervise(db *sql.DB, sprintID int, rec Recorder) (Pass, error) {
 		}
 		alreadySettled := anomalyID != "" && settledAnomalies[anomalyID] && analystOwned(top.Class)
 
-		if may && withinThreshold && !contradicted && !alreadySettled {
+		if may && withinThreshold && agrees && !contradicted && !alreadySettled {
 			if err := Apply(db, top, "supervisor", rec); err != nil {
 				return pass, err
 			}
@@ -154,6 +173,13 @@ func Supervise(db *sql.DB, sprintID int, rec Recorder) (Pass, error) {
 			pass.Carried = append(pass.Carried, o)
 			if n, is := note[optionKey(o)]; is {
 				notes[optionKey(o)] = n
+			}
+			if tied && o.FigureCents != recorded {
+				msg := figureMismatchNote(o.FigureCents, recorded)
+				if prev := notes[optionKey(o)]; prev != "" {
+					msg = prev + " " + msg
+				}
+				notes[optionKey(o)] = msg
 			}
 		}
 		if _, seen := byOwner[owner]; !seen {
@@ -362,6 +388,40 @@ func anomalyOfOption(db *sql.DB, o crew.Option) (string, error) {
 		return "", err
 	}
 	return t.Anomaly, nil
+}
+
+// recordedFigure is the anomaly figure an option tied to an anomaly is judged
+// against: the absolute excess the anomaly's own row holds. T.anomaly is "the
+// excess above which", and a fall is judged by its size, as the money-found
+// KPIs judge it. tied is false for an option whose deliverable's task did not
+// come from an anomaly; that option keeps its own figure, which is the only
+// figure it has (F-008: no recorded counterpart is reachable from it).
+func recordedFigure(db *sql.DB, o crew.Option) (recorded int64, tied bool, err error) {
+	taskID, err := crew.TaskOfArtifact(db, o.Artifact)
+	if err != nil {
+		return 0, false, err
+	}
+	t, err := crew.GetTask(db, taskID)
+	if err != nil {
+		return 0, false, err
+	}
+	if t.Anomaly == "" {
+		return 0, false, nil
+	}
+	a, err := anomaly.Get(db, t.Anomaly)
+	if err != nil {
+		return 0, false, err
+	}
+	return int64(a.Excess.Abs()), true, nil
+}
+
+// figureMismatchNote is the reason a carried option is written with on the
+// decision request, beside the contradiction note the pass already writes the
+// same way (decisionRequestBody renders it under the option).
+func figureMismatchNote(figure, recorded int64) string {
+	return fmt.Sprintf("the figure written for this option, %s, does not match the "+
+		"anomaly's recorded excess of %s; it is not applied automatically, and the "+
+		"owner decides.", money.Cents(figure), money.Cents(recorded))
 }
 
 // analystOwned is whether roles.yaml gives the class to the analyst link.

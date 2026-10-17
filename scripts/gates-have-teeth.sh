@@ -1839,24 +1839,24 @@ run_case 'supervisor: an analyst class past T.anomaly is applied' \
 	$'TestAnAnalystClassOptionOverTAnomalyIsCarried' \
 	$'is over T.anomaly' \
 	internal/finops/supervise.go \
-	$'if may && withinThreshold && !contradicted && !alreadySettled {' \
-	$'if may && (withinThreshold || analystOwned(top.Class)) && !contradicted && !alreadySettled {'
+	$'if may && withinThreshold && agrees && !contradicted && !alreadySettled {' \
+	$'if may && (withinThreshold || analystOwned(top.Class)) && agrees && !contradicted && !alreadySettled {'
 run_case 'supervisor: a contradiction is settled by the ranking' \
 	fail \
 	./internal/finops \
 	$'TestAContradictedAnalystOptionIsStillCarriedToTheOwner' \
 	$'is the owner'"'"'s one question' \
 	internal/finops/supervise.go \
-	$'if may && withinThreshold && !contradicted && !alreadySettled {' \
-	$'if may && withinThreshold && (!contradicted || analystOwned(top.Class)) && !alreadySettled {'
+	$'if may && withinThreshold && agrees && !contradicted && !alreadySettled {' \
+	$'if may && withinThreshold && agrees && (!contradicted || analystOwned(top.Class)) && !alreadySettled {'
 run_case 'supervisor: a second option on a settled anomaly is applied on top' \
 	fail \
 	./internal/finops \
 	$'TestASecondOptionOnAnAnomalyTheSupervisorAlreadyDecidedIsCarried' \
 	$'the pass aborted on the second option' \
 	internal/finops/supervise.go \
-	$'if may && withinThreshold && !contradicted && !alreadySettled {' \
-	$'if may && withinThreshold && !contradicted && (!alreadySettled || anomalyID != "") {'
+	$'if may && withinThreshold && agrees && !contradicted && !alreadySettled {' \
+	$'if may && withinThreshold && agrees && !contradicted && (!alreadySettled || anomalyID != "") {'
 run_case 'supervisor: an owner or nobody class is selected as if it were an analyst'"'"'s' \
 	fail \
 	./internal/finops \
@@ -1885,8 +1885,8 @@ run_case 'supervisor: the T.anomaly boundary spelled another way is not a fault'
 	$'TestAnAnalystClassOptionExactlyAtTAnomalyIsApplied' \
 	$'' \
 	internal/finops/supervise.go \
-	$'withinThreshold := top.FigureCents <= tAnomaly.ValueCents' \
-	$'withinThreshold := top.FigureCents < tAnomaly.ValueCents+1'
+	$'withinThreshold := judged <= tAnomaly.ValueCents' \
+	$'withinThreshold := judged < tAnomaly.ValueCents+1'
 # Invariant 57: every analyst family has its class lists, and the never list
 # carries the blocked-task clause, bound to the test that holds it. Each
 # property of the shell gate gets one case that switches that property off and
@@ -5913,6 +5913,47 @@ run_case $'supersede: a call_key match across doors removes a row (invariant 106
 	internal/connectors/tokenfusefocus.go \
 	$'> ?2 AND COALESCE(door,\'` + DoorMain + `\') = ?3)' \
 	$'> ?2 AND ?3 IS NOT NULL)'
+
+run_case $'F-008: an option figure is not compared with its anomaly (invariant 108)' \
+	fail \
+	./internal/finops \
+	$'TestAnOptionFiguredDifferentlyFromItsAnomalyIsCarriedNotApplied' \
+	$'was applied to an anomaly whose recorded excess' \
+	internal/finops/supervise.go \
+	$'agrees := !tied || top.FigureCents == recorded' \
+	$'agrees := true'
+run_case $'F-008: the recorded figure keeps the sign of a fall (invariant 108)' \
+	fail \
+	./internal/finops \
+	$'TestTheRecordedFigureIsTheMagnitudeOfAnExcessThatFell' \
+	$'want true for figure' \
+	internal/finops/supervise.go \
+	$'return int64(a.Excess.Abs()), true, nil' \
+	$'return int64(a.Excess), true, nil'
+run_case $'F-008: agreement allows one cent either way (invariant 108)' \
+	fail \
+	./internal/finops \
+	$'TestAgreementIsExactToTheCent' \
+	$'want false for figure 104001 cents' \
+	internal/finops/supervise.go \
+	$'agrees := !tied || top.FigureCents == recorded' \
+	$'agrees := !tied || top.FigureCents-recorded <= 1 && recorded-top.FigureCents <= 1'
+run_case $'F-008: a carried option with a disagreeing figure is written with no reason (invariant 108)' \
+	fail \
+	./internal/finops \
+	$'TestTheCarriedDecisionSaysWhyItsFigureWasNotApplied' \
+	$'decision request does not contain' \
+	internal/finops/supervise.go \
+	$'if tied && o.FigureCents != recorded {' \
+	$'if false && tied && o.FigureCents != recorded {'
+run_case $'F-008 pass: a reworded reason on the decision is not a fault' \
+	pass \
+	./internal/finops \
+	$'TestTheCarriedDecisionSaysWhyItsFigureWasNotApplied' \
+	$'' \
+	internal/finops/supervise.go \
+	$'"owner decides."' \
+	$'"the owner decides."'
 
 echo
 if [ -z "${TEETH_LIST:-}" ] && [ -n "$(git status --porcelain)" ]; then
