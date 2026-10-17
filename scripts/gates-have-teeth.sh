@@ -1847,16 +1847,16 @@ run_case 'supervisor: a contradiction is settled by the ranking' \
 	$'TestAContradictedAnalystOptionIsStillCarriedToTheOwner' \
 	$'is the owner'"'"'s one question' \
 	internal/finops/supervise.go \
-	$'if may && withinThreshold && !contradicted && !alreadySettled {' \
-	$'if may && withinThreshold && (!contradicted || analystOwned(top.Class)) && !alreadySettled {'
+	$'if may && withinThreshold && agrees && !contradicted && !alreadySettled {' \
+	$'if may && withinThreshold && agrees && (!contradicted || analystOwned(top.Class)) && !alreadySettled {'
 run_case 'supervisor: a second option on a settled anomaly is applied on top' \
 	fail \
 	./internal/finops \
 	$'TestASecondOptionOnAnAnomalyTheSupervisorAlreadyDecidedIsCarried' \
 	$'the pass aborted on the second option' \
 	internal/finops/supervise.go \
-	$'if may && withinThreshold && !contradicted && !alreadySettled {' \
-	$'if may && withinThreshold && !contradicted && (!alreadySettled || anomalyID != "") {'
+	$'if may && withinThreshold && agrees && !contradicted && !alreadySettled {' \
+	$'if may && withinThreshold && agrees && !contradicted && (!alreadySettled || anomalyID != "") {'
 run_case 'supervisor: an owner or nobody class is selected as if it were an analyst'"'"'s' \
 	fail \
 	./internal/finops \
@@ -1885,8 +1885,8 @@ run_case 'supervisor: the T.anomaly boundary spelled another way is not a fault'
 	$'TestAnAnalystClassOptionExactlyAtTAnomalyIsApplied' \
 	$'' \
 	internal/finops/supervise.go \
-	$'withinThreshold := top.FigureCents <= tAnomaly.ValueCents' \
-	$'withinThreshold := top.FigureCents < tAnomaly.ValueCents+1'
+	$'withinThreshold := judged <= tAnomaly.ValueCents' \
+	$'withinThreshold := judged < tAnomaly.ValueCents+1'
 # Invariant 57: every analyst family has its class lists, and the never list
 # carries the blocked-task clause, bound to the test that holds it. Each
 # property of the shell gate gets one case that switches that property off and
