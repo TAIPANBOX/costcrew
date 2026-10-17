@@ -86,7 +86,9 @@ func TestTheSupervisorsSelectionOfAnAnalystClassCarriesItsSideEffect(t *testing.
 	db, sprintID := superviseTestDB(t)
 	plantAnomalyRow(t, db, "A-dismiss")
 	artID, ords := plantDeliverable(t, db, sprintID, "aws", "y.mercer", "A-dismiss",
-		optSpec{"anomaly.dismiss", "a planned load test, ticket on file", "low", 10000, 0},
+		// The figure is the anomaly's own recorded excess (plantAnomalyRow:
+		// 104000): an option tied to an anomaly must agree with it (F-008).
+		optSpec{"anomaly.dismiss", "a planned load test, ticket on file", "low", 104000, 0},
 	)
 
 	pass, err := finops.Supervise(db, sprintID, nil)

@@ -241,10 +241,17 @@ func plantPostedOptionOnAnomaly(t *testing.T, db *sql.DB, sprintID int, desk, ow
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The figure is the anomaly's own recorded excess: an option tied to an
+	// anomaly must agree with it, or the pass carries it (F-008). An honest
+	// analyst copies that number from the packet.
+	var excess int64
+	if err := db.QueryRow(`SELECT ABS(excess_cents) FROM anomalies WHERE id=?`, anomalyID).Scan(&excess); err != nil {
+		t.Fatalf("planting an option on anomaly %s, which is not planted: %v", anomalyID, err)
+	}
 	if _, err := db.Exec(`INSERT INTO artifact_options
 		(artifact, ordinal, class, summary, figure_cents, saving_cents, risk, needs, evidence, state)
-		VALUES (?, 1, ?, ?, 10000, 0, 'low', 'nothing', '[]', 'open')`,
-		artID, class, summary); err != nil {
+		VALUES (?, 1, ?, ?, ?, 0, 'low', 'nothing', '[]', 'open')`,
+		artID, class, summary, excess); err != nil {
 		t.Fatal(err)
 	}
 	return crew.Option{Artifact: int(artID), Ordinal: 1, Class: class}

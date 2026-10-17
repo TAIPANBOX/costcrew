@@ -5914,6 +5914,55 @@ run_case $'supersede: a call_key match across doors removes a row (invariant 106
 	$'> ?2 AND COALESCE(door,\'` + DoorMain + `\') = ?3)' \
 	$'> ?2 AND ?3 IS NOT NULL)'
 
+run_case $'F-008: the threshold reads the option\'s own figure again (invariant 108)' \
+	fail \
+	./internal/finops \
+	$'TestTheThresholdReadsTheAnomaliesRecordedExcessNotTheOption' \
+	$'applied true, want false: recorded excess' \
+	internal/finops/supervise.go \
+	$'judged = recorded' \
+	$'judged = top.FigureCents'
+run_case $'F-008: an option figure is not compared with its anomaly (invariant 108)' \
+	fail \
+	./internal/finops \
+	$'TestAnOptionFiguredDifferentlyFromItsAnomalyIsCarriedNotApplied' \
+	$'was applied to an anomaly whose recorded excess' \
+	internal/finops/supervise.go \
+	$'agrees := !tied || top.FigureCents == recorded' \
+	$'agrees := true'
+run_case $'F-008: the recorded figure keeps the sign of a fall (invariant 108)' \
+	fail \
+	./internal/finops \
+	$'TestTheRecordedFigureIsTheMagnitudeOfAnExcessThatFell' \
+	$'want true for figure' \
+	internal/finops/supervise.go \
+	$'return int64(a.Excess.Abs()), true, nil' \
+	$'return int64(a.Excess), true, nil'
+run_case $'F-008: agreement allows one cent either way (invariant 108)' \
+	fail \
+	./internal/finops \
+	$'TestAgreementIsExactToTheCent' \
+	$'want false for figure 104001 cents' \
+	internal/finops/supervise.go \
+	$'agrees := !tied || top.FigureCents == recorded' \
+	$'agrees := !tied || top.FigureCents-recorded <= 1 && recorded-top.FigureCents <= 1'
+run_case $'F-008: a carried option with a disagreeing figure is written with no reason (invariant 108)' \
+	fail \
+	./internal/finops \
+	$'TestTheCarriedDecisionSaysWhyItsFigureWasNotApplied' \
+	$'decision request does not contain' \
+	internal/finops/supervise.go \
+	$'if tied && o.FigureCents != recorded {' \
+	$'if false && tied && o.FigureCents != recorded {'
+run_case $'F-008 pass: a reworded reason on the decision is not a fault' \
+	pass \
+	./internal/finops \
+	$'TestTheCarriedDecisionSaysWhyItsFigureWasNotApplied' \
+	$'' \
+	internal/finops/supervise.go \
+	$'"owner decides."' \
+	$'"the owner decides."'
+
 echo
 if [ -z "${TEETH_LIST:-}" ] && [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'
