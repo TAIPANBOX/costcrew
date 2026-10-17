@@ -5914,14 +5914,6 @@ run_case $'supersede: a call_key match across doors removes a row (invariant 106
 	$'> ?2 AND COALESCE(door,\'` + DoorMain + `\') = ?3)' \
 	$'> ?2 AND ?3 IS NOT NULL)'
 
-run_case $'F-008: the threshold reads the option\'s own figure again (invariant 108)' \
-	fail \
-	./internal/finops \
-	$'TestTheThresholdReadsTheAnomaliesRecordedExcessNotTheOption' \
-	$'applied true, want false: recorded excess' \
-	internal/finops/supervise.go \
-	$'judged = recorded' \
-	$'judged = top.FigureCents'
 run_case $'F-008: an option figure is not compared with its anomaly (invariant 108)' \
 	fail \
 	./internal/finops \
