@@ -1839,8 +1839,8 @@ run_case 'supervisor: an analyst class past T.anomaly is applied' \
 	$'TestAnAnalystClassOptionOverTAnomalyIsCarried' \
 	$'is over T.anomaly' \
 	internal/finops/supervise.go \
-	$'if may && withinThreshold && !contradicted && !alreadySettled {' \
-	$'if may && (withinThreshold || analystOwned(top.Class)) && !contradicted && !alreadySettled {'
+	$'if may && withinThreshold && agrees && !contradicted && !alreadySettled {' \
+	$'if may && (withinThreshold || analystOwned(top.Class)) && agrees && !contradicted && !alreadySettled {'
 run_case 'supervisor: a contradiction is settled by the ranking' \
 	fail \
 	./internal/finops \
