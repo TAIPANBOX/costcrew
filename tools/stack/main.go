@@ -29,6 +29,7 @@ import (
 
 	"github.com/TAIPANBOX/agent-stack-go/event"
 	"github.com/TAIPANBOX/agent-stack-go/passport"
+	"github.com/TAIPANBOX/costcrew/internal/stack"
 	"gopkg.in/yaml.v3"
 )
 
@@ -168,11 +169,12 @@ func desks(crew []jd) []string {
 
 // ----------------------------------------------------------------- passports
 
-// agentURI is the stack's canonical identity for one analyst. The host segment
+// agentURI is the stack's canonical identity for one analyst, the one the
+// console writes, so the two cannot disagree about a name. The host segment
 // scopes the id to this installation, so two CostCrew deployments do not claim
 // the same agent.
 func agentURI(host, name string) string {
-	return "agent://" + host + "/" + name
+	return stack.AgentURI(host, name)
 }
 
 // toPassport maps a job description onto the shared Passport document.

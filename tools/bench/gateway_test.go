@@ -217,7 +217,7 @@ func TestLiveRefusesWithNoStackHost(t *testing.T) {
 // AgentURI's own costcrew.local default. -n 5 (both known cases, the
 // shuffle order is not this test's concern) and checked by membership
 // rather than by which case landed first, matching the coordinator's own
-// review, which named agent://example.test/investigator-gcp specifically.
+// review, which named agent://example.test/costcrew/investigator-gcp specifically.
 func TestLiveWithStackHostMintsTheAgentIdUnderIt(t *testing.T) {
 	t.Setenv("ANTHROPIC_API_KEY", "sk-ant-stub-not-real")
 	var gotAgentIDs []string
@@ -234,7 +234,7 @@ func TestLiveWithStackHostMintsTheAgentIdUnderIt(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stdout: %s stderr: %s", code, out, errOut)
 	}
-	want := "agent://example.test/investigator-gcp"
+	want := "agent://example.test/costcrew/investigator-gcp"
 	found := false
 	for _, id := range gotAgentIDs {
 		if id == want {
@@ -276,7 +276,7 @@ func TestGatewayForBuildsThePerCaseGateway(t *testing.T) {
 	if gw.BudgetUSD != "0.05" {
 		t.Errorf("BudgetUSD = %q", gw.BudgetUSD)
 	}
-	if want := "agent://gcp.taipanbox.local/investigator-gcp"; gw.AgentID != want {
+	if want := "agent://gcp.taipanbox.local/costcrew/investigator-gcp"; gw.AgentID != want {
 		t.Errorf("AgentID = %q, want %q", gw.AgentID, want)
 	}
 }

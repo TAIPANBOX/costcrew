@@ -105,7 +105,7 @@ func TestEveryEventIsAValidEnvelope(t *testing.T) {
 	if ev.Source != stack.Source {
 		t.Errorf("source %q", ev.Source)
 	}
-	if ev.AgentID != "agent://costcrew.test/triage-aws" {
+	if ev.AgentID != "agent://costcrew.test/costcrew/triage-aws" {
 		t.Errorf("agent id %q", ev.AgentID)
 	}
 	if len(ev.OnBehalfOf) == 0 {
@@ -129,7 +129,7 @@ func TestDelegationIsRootFirst(t *testing.T) {
 	if !strings.HasPrefix(chain[0], "user://") {
 		t.Errorf("the chain does not start with the human who asked: %v", chain)
 	}
-	if chain[1] != "agent://costcrew.test/supervisor" {
+	if chain[1] != "agent://costcrew.test/costcrew/supervisor" {
 		t.Errorf("the supervisor is not the second link: %v", chain)
 	}
 	// The supervisor does not act on behalf of itself.
@@ -309,7 +309,7 @@ func TestThePassportCarriesWhatWasDecidedAtHireTime(t *testing.T) {
 	if p.Attestation == nil || p.Attestation.Method != "spiffe-svid" {
 		t.Errorf("attestation: hired with spiffe-svid, passport says %v", p.Attestation)
 	}
-	if want := "agent://costcrew.local/capacity-aws"; p.Parent != want {
+	if want := "agent://costcrew.local/costcrew/capacity-aws"; p.Parent != want {
 		t.Errorf("parent: hired under capacity-aws, passport says %q, want %q", p.Parent, want)
 	}
 	for k, want := range map[string]string{

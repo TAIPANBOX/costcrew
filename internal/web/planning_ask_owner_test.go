@@ -62,7 +62,7 @@ func TestThePlanAskNamesTheAskingPersonAsTheRoot(t *testing.T) {
 	if len(got) != 1 {
 		t.Fatalf("the gateway saw %d call(s), want 1", len(got))
 	}
-	want := "user://costcrew.test/pat.ng,agent://costcrew.test/supervisor"
+	want := "user://costcrew.test/pat.ng,agent://costcrew.test/costcrew/supervisor"
 	if got[0] != want {
 		t.Errorf("x-fuse-on-behalf-of = %q, want %q", got[0], want)
 	}
@@ -89,7 +89,7 @@ func TestAHostileUsernameCannotReshapeThePlanAsksChain(t *testing.T) {
 	}
 	parts := strings.Split(got[0], ",")
 	if len(parts) != 2 || !strings.HasPrefix(parts[0], "user://costcrew.test/") ||
-		parts[1] != "agent://costcrew.test/supervisor" || strings.Contains(got[0], "evil.example/boss") {
+		parts[1] != "agent://costcrew.test/costcrew/supervisor" || strings.Contains(got[0], "evil.example/boss") {
 		t.Errorf("a hostile username reshaped the chain: %q", got[0])
 	}
 }

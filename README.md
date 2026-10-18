@@ -347,6 +347,20 @@ shared bus. Two flags carry the whole integration: `-stack-events` names the
 NDJSON file, and the name IS the integration because genaryx keys a read offset
 off the stem; `-stack-host` sets the `agent://` authority.
 
+Every agent this console names sits under `costcrew/` below that authority:
+`agent://<host>/costcrew/<name>`, the supervisor and the detector included. A
+gateway client key bound to `agent://<host>/costcrew/*` therefore covers the
+crew and nothing else of the same trust domain. A host long enough to push an id
+past agent-passport's 255-byte cap is refused at start, before anything is
+written.
+
+**Upgrading from the form `agent://<host>/<name>`.** Analysts still on the
+roster are written again under the new ids, since their passport files keep the
+same names. Events already on the bus keep the ids they were written with. A
+passport of an analyst removed before this change keeps the old id and is not
+swept, so delete it from `-stack-passports` by hand. A gateway key or identity
+map bound to `agent://<host>/<name>` must be rebound to `agent://<host>/costcrew/*`.
+
 ### Sign in through your identity provider
 
 The console can hand sign-in to the organisation's identity provider with

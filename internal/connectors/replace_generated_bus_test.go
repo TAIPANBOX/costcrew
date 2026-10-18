@@ -93,7 +93,7 @@ func TestReplacingTheGeneratedEstateIsJournaledWithASeverityTheBusAccepts(t *tes
 			t.Errorf("generated_estate_replaced went out with severity %q, want %q: a "+
 				"fixture being retired is information, not a warning", ev.Severity, asgevent.SeverityInfo)
 		}
-		if ev.AgentID != "agent://costcrew.test/boss" {
+		if ev.AgentID != "agent://costcrew.test/costcrew/boss" {
 			t.Errorf("the replacement is credited to %q, not to the operator who asked for it", ev.AgentID)
 		}
 		if ev.Data["connector"] != "tokenfuse-focus" {

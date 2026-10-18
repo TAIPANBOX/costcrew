@@ -92,7 +92,7 @@ func TestReplacingTheGeneratedEstateLandsWhenTheConsoleIsOnTheBus(t *testing.T) 
 			t.Errorf("generated_estate_replaced went out with severity %q, want %q",
 				ev.Severity, asgevent.SeverityInfo)
 		}
-		if ev.AgentID != "agent://costcrew.test/boss" {
+		if ev.AgentID != "agent://costcrew.test/costcrew/boss" {
 			t.Errorf("the replacement is credited to %q, not to the operator who asked", ev.AgentID)
 		}
 	}

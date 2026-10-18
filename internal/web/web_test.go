@@ -1485,7 +1485,7 @@ func TestTheAgentCardReadsTheAgentEventStream(t *testing.T) {
 	dir := t.TempDir()
 	stream := filepath.Join(dir, "events.ndjson")
 	line := `{"schema":"taipanbox.dev/agent-event/v0.2","ts":"2026-08-20T09:15:00Z",` +
-		`"source":"costcrew","type":"anomaly_triaged","agent_id":"agent://costcrew.test/supervisor",` +
+		`"source":"costcrew","type":"anomaly_triaged","agent_id":"agent://costcrew.test/costcrew/supervisor",` +
 		`"severity":"medium","on_behalf_of":["user://costcrew.test/owner"],` +
 		`"data":{"anomaly":"A-1234","assigned_to":"triage-aws"}}` + "\n"
 	if err := os.WriteFile(stream, []byte(line), 0o644); err != nil {
@@ -2154,9 +2154,9 @@ func TestTheLinksAnAlertCarriesLand(t *testing.T) {
 	for _, tc := range []struct{ path, wantPrefix string }{
 		// Exactly as heraldyx writes them, unescaped, because that is what
 		// arrives and the console does not get to require otherwise.
-		{"/a/agent://costcrew.test/triage-aws", "/staff/triage-aws"},
+		{"/a/agent://costcrew.test/costcrew/triage-aws", "/staff/triage-aws"},
 		{"/a/agent:/costcrew.test/triage-aws", "/staff/triage-aws"}, // after the mux collapses //
-		{"/i/anomaly_triaged:agent://costcrew.test/triage-aws", "/"},
+		{"/i/anomaly_triaged:agent://costcrew.test/costcrew/triage-aws", "/"},
 		{"/o/owner", "/o/owner"},
 	} {
 		code, _, loc := h.get(t, tc.path)

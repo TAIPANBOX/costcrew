@@ -5955,6 +5955,72 @@ run_case $'F-008 pass: a reworded reason on the decision is not a fault' \
 	$'"owner decides."' \
 	$'"the owner decides."'
 
+# Analyst ids live under the costcrew path (invariant 109): the one key bound to
+# agent://<host>/costcrew/* covers the crew, so the path must be where every id
+# is built, and dropping it, doubling it or moving it must each go red.
+run_case $'analyst path: an analyst id drops the costcrew segment' \
+	fail \
+	./internal/stack \
+	$'TestAnalystIDsLiveUnderTheCostcrewPath' \
+	$'AgentURI("triage-aws")' \
+	internal/stack/stack.go \
+	$'\treturn "agent://" + host + "/" + AnalystPath + "/" + name' \
+	$'\treturn "agent://" + host + "/" + name'
+
+run_case $'analyst path: an analyst id has the costcrew segment twice' \
+	fail \
+	./internal/stack \
+	$'TestAnalystIDsLiveUnderTheCostcrewPath' \
+	$'AgentURI("triage-aws")' \
+	internal/stack/stack.go \
+	$'\treturn "agent://" + host + "/" + AnalystPath + "/" + name' \
+	$'\treturn "agent://" + host + "/" + AnalystPath + "/" + AnalystPath + "/" + name'
+
+run_case $'analyst path: the costcrew segment is moved before the trust domain' \
+	fail \
+	./internal/stack \
+	$'TestAnalystIDsLiveUnderTheCostcrewPath' \
+	$'AgentURI("triage-aws")' \
+	internal/stack/stack.go \
+	$'\treturn "agent://" + host + "/" + AnalystPath + "/" + name' \
+	$'\treturn "agent://" + AnalystPath + "/" + host + "/" + name'
+
+run_case $'analyst path: the passport sweep removes other agents of the domain' \
+	fail \
+	./internal/stack \
+	$'TestSweepingLeavesOtherAgentsOfTheSameTrustDomainAlone' \
+	$'outside the costcrew path was swept' \
+	internal/stack/stack.go \
+	$'strings.HasPrefix(doc.ID, "agent://"+e.host()+"/"+AnalystPath+"/")' \
+	$'strings.HasPrefix(doc.ID, "agent://"+e.host()+"/")'
+
+run_case $'analyst path: the gateway chain names the analyst without the path' \
+	fail \
+	./internal/deliver \
+	$'TestTheOnBehalfOfChainNamesTheAnalystUnderTheCostcrewPath' \
+	$'chain = ' \
+	internal/deliver/call.go \
+	$'agent := stack.AgentURI(host, analyst)' \
+	$'agent := "agent://" + host + "/" + analyst'
+
+run_case $'analyst path: an id too long for the passport grammar is written anyway' \
+	fail \
+	./internal/stack \
+	$'TestOpenRefusesAHostTooLongForAnAnalystID' \
+	$'was accepted' \
+	internal/stack/stack.go \
+	$'if err := passport.ValidateAgentURI(AgentURI(cfg.Host, strings.Repeat("a", longestAnalystName))); err != nil {' \
+	$'if err := error(nil); err != nil {'
+
+run_case $'analyst path pass: a reworded comment about the path is not a fault' \
+	pass \
+	./internal/stack \
+	$'TestAnalystIDsLiveUnderTheCostcrewPath' \
+	$'' \
+	internal/stack/stack.go \
+	$'// AnalystPath is the segment every agent this console mints sits under' \
+	$'// AnalystPath is the path segment every agent this console mints sits under'
+
 echo
 if [ -z "${TEETH_LIST:-}" ] && [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'

@@ -171,7 +171,7 @@ Verified on 2026-08-22, with the commands above:
   Then `services.idryx` in the descriptor, and the call that answered 422
   answers 200 with 41 identities, every one of them this console's, each
   carrying `"source": "passport"`. Opened in genaryx's own console, the
-  Agent 360 card for `agent://costcrew.local/triage-aws` shows:
+  Agent 360 card for `agent://costcrew.local/costcrew/triage-aws` shows:
 
   - **IDENTITY**: source passport, owner yurii, privileged no, and idryx's own
     `bom_incomplete` alert, "agent-bom incomplete: missing attestation" -

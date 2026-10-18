@@ -165,7 +165,7 @@ notion of a parent, which today it never does, so it is never invented.
 
 `x-fuse-on-behalf-of` is sent on every call, from the runner, the bench and
 the console's planning call alike: the analyst's owner from the roster as a
-`user://<host>/<owner>` root, then the analyst's own `agent://<host>/<name>`.
+`user://<host>/<owner>` root, then the analyst's own `agent://<host>/costcrew/<name>`.
 TokenFuse folds the owner from the first `user://` entry, so this is what puts
 the crew's spend under a person in its owner view. An analyst with no owner
 (or only the `unclaimed` placeholder a roster seeded without `-stack-owner`

@@ -73,7 +73,7 @@ Feature: The runner and the bench spend through one door
   Scenario: The agent id is minted under the given host, not the default
     Given -live, -gateway pointed at a fake server, and -stack-host example.test
     When a known case is scored
-    Then the fake server receives x-fuse-agent-id agent://example.test/investigator-gcp,
+    Then the fake server receives x-fuse-agent-id agent://example.test/costcrew/investigator-gcp,
       never one built under costcrew.local
 
   # @test:TestLiveWithARealEngineAndNoGatewayRefuses

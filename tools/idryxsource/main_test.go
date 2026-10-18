@@ -89,7 +89,7 @@ func TestTheRosterIsWrittenAsAnIdryxAgentsSource(t *testing.T) {
 		t.Fatalf("%d agents, want 2:\n%s", len(got.Agents), out)
 	}
 	sup, tri := got.Agents[0], got.Agents[1]
-	if sup.ID != "agent://crew.example.test/supervisor" || tri.ID != "agent://crew.example.test/triage-aws" {
+	if sup.ID != "agent://crew.example.test/costcrew/supervisor" || tri.ID != "agent://crew.example.test/costcrew/triage-aws" {
 		t.Errorf("ids = %q, %q", sup.ID, tri.ID)
 	}
 	if sup.Runtime != "costcrew" || tri.Runtime != "costcrew" {
@@ -101,7 +101,7 @@ func TestTheRosterIsWrittenAsAnIdryxAgentsSource(t *testing.T) {
 	if sup.OnBehalfOf != "" {
 		t.Errorf("the supervisor acts for nobody, got onBehalfOf %q", sup.OnBehalfOf)
 	}
-	if tri.OnBehalfOf != "agent://crew.example.test/supervisor" {
+	if tri.OnBehalfOf != "agent://crew.example.test/costcrew/supervisor" {
 		t.Errorf("onBehalfOf = %q, want the supervisor's agent:// URI", tri.OnBehalfOf)
 	}
 	if sup.Created != "2026-03-01T00:00:00Z" || tri.Created != "2026-04-15T00:00:00Z" {
@@ -126,7 +126,7 @@ func TestAgentsAreSortedByName(t *testing.T) {
 	_, out, _ := invoke(t, "-data", dir)
 	var names []string
 	for _, a := range decode(t, out).Agents {
-		names = append(names, strings.TrimPrefix(a.ID, "agent://costcrew.local/"))
+		names = append(names, strings.TrimPrefix(a.ID, "agent://costcrew.local/costcrew/"))
 	}
 	if strings.Join(names, ",") != "alpha,mike,zulu" {
 		t.Errorf("order = %v", names)
@@ -184,7 +184,7 @@ func TestOutWritesTheFileAndSaysHowMany(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := decode(t, string(raw)); len(got.Agents) != 1 || got.Agents[0].ID != "agent://costcrew.local/solo" {
+	if got := decode(t, string(raw)); len(got.Agents) != 1 || got.Agents[0].ID != "agent://costcrew.local/costcrew/solo" {
 		t.Errorf("file = %s", raw)
 	}
 	if !strings.HasSuffix(string(raw), "}\n") {

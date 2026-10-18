@@ -62,7 +62,7 @@ func TestAGatewayCallCarriesTheAnalystsIdentity(t *testing.T) {
 	if got := gotHeaders.Get("x-fuse-run-id"); got != "crew-2026-w35" {
 		t.Errorf("x-fuse-run-id %q, want the invocation's run id crew-2026-w35", got)
 	}
-	wantAgent := "agent://gcp.taipanbox.local/y.mercer"
+	wantAgent := "agent://gcp.taipanbox.local/costcrew/y.mercer"
 	if got := gotHeaders.Get("x-fuse-agent-id"); got != wantAgent {
 		t.Errorf("x-fuse-agent-id %q, want %q", got, wantAgent)
 	}

@@ -206,7 +206,7 @@ func TestConnectAllWritesOneValidPassportPerAnalyst(t *testing.T) {
 	}
 
 	sup := readPassport(t, filepath.Join(out, "supervisor.json"))
-	if sup.ID != "agent://crew.example.test/supervisor" || sup.Owner != "finops@example.test" ||
+	if sup.ID != "agent://crew.example.test/costcrew/supervisor" || sup.Owner != "finops@example.test" ||
 		sup.DisplayName != "Crew supervisor" || sup.Runtime != "costcrew" {
 		t.Errorf("supervisor passport = %+v", sup)
 	}
@@ -242,7 +242,7 @@ func TestConnectAllWritesOneValidPassportPerAnalyst(t *testing.T) {
 	}
 
 	tri := readPassport(t, filepath.Join(out, "triage-aws.json"))
-	if tri.Parent != "agent://crew.example.test/supervisor" {
+	if tri.Parent != "agent://crew.example.test/costcrew/supervisor" {
 		t.Errorf("parent = %q", tri.Parent)
 	}
 	if tri.Labels["budget_per_task_usd"] != "0.25" {
@@ -343,8 +343,8 @@ func TestDryRunSaysWhatItWouldWriteAndWritesNothing(t *testing.T) {
 	}
 	for _, want := range []string{
 		"would write " + filepath.Join(out, "triage-aws.json"),
-		"agent://crew.example.test/triage-aws  parent=agent://crew.example.test/supervisor  attestation=none",
-		"agent://crew.example.test/supervisor  parent=(none, this is the supervisor)  attestation=none",
+		"agent://crew.example.test/costcrew/triage-aws  parent=agent://crew.example.test/costcrew/supervisor  attestation=none",
+		"agent://crew.example.test/costcrew/supervisor  parent=(none, this is the supervisor)  attestation=none",
 		"would connect 3 of 3 analysts",
 	} {
 		if !strings.Contains(stdout, want) {
@@ -446,9 +446,9 @@ func TestEmitWritesAChainedEventPerSelectedAnalystsJournalLine(t *testing.T) {
 		behalf               bool
 	}
 	for i, w := range []exp{
-		{"task_assigned", "agent://crew.example.test/triage-aws", event.SeverityInfo, true},
-		{"guard_blocked", "agent://crew.example.test/triage-aws", event.SeverityHigh, true},
-		{"budget_raised", "agent://crew.example.test/supervisor", event.SeverityMedium, false},
+		{"task_assigned", "agent://crew.example.test/costcrew/triage-aws", event.SeverityInfo, true},
+		{"guard_blocked", "agent://crew.example.test/costcrew/triage-aws", event.SeverityHigh, true},
+		{"budget_raised", "agent://crew.example.test/costcrew/supervisor", event.SeverityMedium, false},
 	} {
 		e := evs[i]
 		if e.Type != w.typ || e.AgentID != w.agent || e.Severity != w.severity {
@@ -457,7 +457,7 @@ func TestEmitWritesAChainedEventPerSelectedAnalystsJournalLine(t *testing.T) {
 		if e.Source != "costcrew" || e.Schema != event.SchemaV02 {
 			t.Errorf("event %d source/schema = %q/%q", i, e.Source, e.Schema)
 		}
-		if (len(e.OnBehalfOf) == 1 && e.OnBehalfOf[0] == "agent://crew.example.test/supervisor") != w.behalf {
+		if (len(e.OnBehalfOf) == 1 && e.OnBehalfOf[0] == "agent://crew.example.test/costcrew/supervisor") != w.behalf {
 			t.Errorf("event %d on_behalf_of = %v, want supervisor=%v", i, e.OnBehalfOf, w.behalf)
 		}
 	}
