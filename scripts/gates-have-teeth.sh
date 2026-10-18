@@ -3812,8 +3812,8 @@ run_case $'idryxsource: an agent acts on behalf of itself, not its parent' \
 	$'TestTheRosterIsWrittenAsAnIdryxAgentsSource' \
 	$'--- FAIL: TestTheRosterIsWrittenAsAnIdryxAgentsSource' \
 	tools/idryxsource/main.go \
-	$'e.OnBehalfOf = "agent://" + host + "/" + a.Parent' \
-	$'e.OnBehalfOf = "agent://" + host + "/" + a.Name'
+	$'e.OnBehalfOf = stack.AgentURI(host, a.Parent)' \
+	$'e.OnBehalfOf = stack.AgentURI(host, a.Name)'
 run_case $'idryxsource: the skills are written where the rights belong' \
 	fail \
 	./tools/idryxsource \
@@ -6001,7 +6001,7 @@ run_case $'analyst path: the gateway chain names the analyst without the path' \
 	$'chain = ' \
 	internal/deliver/call.go \
 	$'agent := stack.AgentURI(host, analyst)' \
-	$'agent := "agent://" + host + "/" + analyst'
+	$'agent := stack.AgentURI(host, analyst)[:0] + "agent://" + host + "/" + analyst'
 
 run_case $'analyst path: an id too long for the passport grammar is written anyway' \
 	fail \
