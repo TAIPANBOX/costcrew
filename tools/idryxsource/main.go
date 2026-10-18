@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/TAIPANBOX/costcrew/internal/crew"
+	"github.com/TAIPANBOX/costcrew/internal/stack"
 	"github.com/TAIPANBOX/costcrew/internal/store"
 )
 
@@ -98,7 +99,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 // entryFor is one roster entry as idryx's agents source writes it.
 func entryFor(a crew.Analyst, host string) agent {
 	e := agent{
-		ID:      "agent://" + host + "/" + a.Name,
+		ID:      stack.AgentURI(host, a.Name),
 		Runtime: "costcrew",
 		Owner:   a.Owner,
 		// The RIGHTS, not the skills. idryx's graph is about what an
@@ -110,7 +111,7 @@ func entryFor(a crew.Analyst, host string) agent {
 		Tools: append(make([]string, 0, len(a.Rights)), a.Rights...),
 	}
 	if a.Parent != "" {
-		e.OnBehalfOf = "agent://" + host + "/" + a.Parent
+		e.OnBehalfOf = stack.AgentURI(host, a.Parent)
 	}
 	if a.Hired != "" {
 		// idryx's own format. A date with no time is not what it reads.

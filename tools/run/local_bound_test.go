@@ -253,7 +253,7 @@ func TestALocalTaskThroughTheOpenAIGatewayIsChargedItsSettlement(t *testing.T) {
 		if got := r.Header.Get("x-fuse-run-id"); got != "crew-2026-w40" {
 			t.Errorf("round %d x-fuse-run-id %q", i+1, got)
 		}
-		if got, want := r.Header.Get("x-fuse-agent-id"), "agent://gcp.taipanbox.local/y.mercer"; got != want {
+		if got, want := r.Header.Get("x-fuse-agent-id"), "agent://gcp.taipanbox.local/costcrew/y.mercer"; got != want {
 			t.Errorf("round %d x-fuse-agent-id %q, want %q", i+1, got, want)
 		}
 		if got := r.Header.Get("x-fuse-budget-usd"); got != "5.00" {

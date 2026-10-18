@@ -28,7 +28,7 @@ func TestAnEntryCarriesTheRightsTheAgentHolds(t *testing.T) {
 	a := crew.Analyst{Name: "triage-aws", Owner: "pat", Parent: "supervisor",
 		Rights: []string{"figures-read", "sql-readonly"}, Hired: "2026-09-01"}
 	e := entryFor(a, "costcrew.test")
-	if e.ID != "agent://costcrew.test/triage-aws" || e.OnBehalfOf != "agent://costcrew.test/supervisor" {
+	if e.ID != "agent://costcrew.test/costcrew/triage-aws" || e.OnBehalfOf != "agent://costcrew.test/costcrew/supervisor" {
 		t.Errorf("identity: %+v", e)
 	}
 	if strings.Join(e.Tools, ",") != "figures-read,sql-readonly" {

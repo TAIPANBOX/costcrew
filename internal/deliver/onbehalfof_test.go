@@ -56,7 +56,7 @@ func TestTheChainIsTheOwnersUserRootThenTheAnalystsAgent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"user://acme.example/alice", "agent://acme.example/y.mercer"}
+	want := []string{"user://acme.example/alice", "agent://acme.example/costcrew/y.mercer"}
 	if strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Fatalf("chain = %v, want %v", got, want)
 	}
@@ -66,7 +66,7 @@ func TestTheChainIsTheOwnersUserRootThenTheAnalystsAgent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got[0] != "user://costcrew.local/alice" || got[1] != "agent://costcrew.local/y.mercer" {
+	if got[0] != "user://costcrew.local/alice" || got[1] != "agent://costcrew.local/costcrew/y.mercer" {
 		t.Errorf("default-host chain = %v", got)
 	}
 }
@@ -127,7 +127,7 @@ func TestHostileOwnersCannotForgeOrBreakAChain(t *testing.T) {
 		if uerr != nil || back != strings.TrimSpace(owner) {
 			t.Errorf("owner %q: the root %q decodes to %q (%v), want the owner back", owner, root, back, uerr)
 		}
-		if parsed[1] != "agent://acme.example/y.mercer" {
+		if parsed[1] != "agent://acme.example/costcrew/y.mercer" {
 			t.Errorf("owner %q: the actor became %q", owner, parsed[1])
 		}
 		for _, r := range header {
@@ -168,7 +168,7 @@ func TestEveryRequestShapeCarriesTheOnBehalfOfChain(t *testing.T) {
 	}
 	gw := Gateway{
 		URL: "http://127.0.0.1:1", OpenAIURL: "http://127.0.0.1:2",
-		RunID: "crew-9", AgentID: "agent://acme.example/y.mercer", BudgetUSD: "1.00", OnBehalfOf: chain,
+		RunID: "crew-9", AgentID: "agent://acme.example/costcrew/y.mercer", BudgetUSD: "1.00", OnBehalfOf: chain,
 	}
 	ant, err := anthropicRequest(context.Background(), "k", "m", "p", 10, gw)
 	if err != nil {
@@ -178,7 +178,7 @@ func TestEveryRequestShapeCarriesTheOnBehalfOfChain(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "user://acme.example/alice,agent://acme.example/y.mercer"
+	want := "user://acme.example/alice,agent://acme.example/costcrew/y.mercer"
 	for name, req := range map[string]*http.Request{"anthropic": ant, "openai": oai} {
 		if got := req.Header.Get("x-fuse-on-behalf-of"); got != want {
 			t.Errorf("%s request x-fuse-on-behalf-of = %q, want %q", name, got, want)

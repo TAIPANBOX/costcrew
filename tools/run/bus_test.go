@@ -36,7 +36,7 @@ func TestALiveCallReachesTheSharedBus(t *testing.T) {
 		t.Errorf("type %q, want tool_call: the estate's own word for a tool "+
 			"being called, and the type its record plane maps", ev["type"])
 	}
-	if got := ev["agent_id"]; got != "agent://gcp.taipanbox.local/y.mercer" {
+	if got := ev["agent_id"]; got != "agent://gcp.taipanbox.local/costcrew/y.mercer" {
 		t.Errorf("agent_id %q: the analyst that made the call has to be the "+
 			"agent on the record, under this installation's trust domain", got)
 	}
@@ -159,7 +159,7 @@ func TestTheRunnerOpensARealBusFromItsFlags(t *testing.T) {
 	if b.run == "" {
 		t.Error("a run with no id: every call it makes would belong to no run")
 	}
-	if got := b.em.AgentURI("y.mercer"); got != "agent://gcp.taipanbox.local/y.mercer" {
+	if got := b.em.AgentURI("y.mercer"); got != "agent://gcp.taipanbox.local/costcrew/y.mercer" {
 		t.Errorf("agent uri %q: the runner minted under a domain that is not "+
 			"the one it was given", got)
 	}

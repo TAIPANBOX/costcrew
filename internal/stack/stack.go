@@ -81,6 +81,14 @@ func Open(cfg Config) (*Emitter, error) {
 	if cfg.Attestation == "" {
 		cfg.Attestation = "none"
 	}
+	// Refused here, where it can be said, rather than written: an id over the
+	// passport grammar's 255-byte cap is refused by every consumer, so every
+	// event this console wrote would be missing from the record. The longest
+	// analyst name the roster allows is 40 bytes (crew.nameOK).
+	if err := passport.ValidateAgentURI(AgentURI(cfg.Host, strings.Repeat("a", longestAnalystName))); err != nil {
+		return nil, fmt.Errorf("the stack host %q gives agent ids that agent-passport refuses, so "+
+			"no event would be readable: %w", cfg.Host, err)
+	}
 	if err := os.MkdirAll(filepath.Dir(cfg.EventsPath), 0o755); err != nil {
 		return nil, err
 	}
@@ -100,8 +108,17 @@ func (e *Emitter) Close() error {
 
 func (e *Emitter) On() bool { return e.w != nil }
 
-// AgentURI is this installation's name for one analyst, as a standalone
-// function of a host and a name rather than a method on an open Emitter.
+// AnalystPath is the segment every agent this console mints sits under, between
+// the trust domain and the agent's own name. One gateway client key bound to
+// agent://<host>/costcrew/* covers the crew, and no other agent of the domain.
+const AnalystPath = "costcrew"
+
+// longestAnalystName is the longest name crew.nameOK lets an analyst have.
+const longestAnalystName = 40
+
+// AgentURI is this installation's name for one agent, as a standalone function
+// of a host and a name rather than a method on an open Emitter. The supervisor
+// and the detector are named the same way: they are this console's agents too.
 //
 // tools/run's gateway headers need this exact value even when the estate bus
 // is off (eventsPath empty, no Emitter ever opened): TokenFuse still needs an
@@ -113,7 +130,7 @@ func AgentURI(host, name string) string {
 	if host == "" {
 		host = "costcrew.local"
 	}
-	return "agent://" + host + "/" + name
+	return "agent://" + host + "/" + AnalystPath + "/" + name
 }
 
 // host is this installation's trust domain, with the same default the URI
@@ -385,14 +402,15 @@ func (e *Emitter) WritePassports(roster []crew.Analyst) (int, error) {
 			if ent.IsDir() || !strings.HasSuffix(name, ".json") || keep[name] {
 				continue
 			}
-			// Ours only: it has to parse as a Passport whose id is in this
-			// installation's own trust domain.
+			// Ours only: it has to parse as a Passport whose id is under this
+			// installation's own costcrew path. An agent of the same trust domain
+			// outside that path belongs to some other product.
 			raw, err := os.ReadFile(filepath.Join(e.cfg.PassportDir, name))
 			if err != nil {
 				continue
 			}
 			doc, err := passport.Parse(raw)
-			if err != nil || !strings.HasPrefix(doc.ID, "agent://"+e.host()+"/") {
+			if err != nil || !strings.HasPrefix(doc.ID, "agent://"+e.host()+"/"+AnalystPath+"/") {
 				continue
 			}
 			if err := os.Remove(filepath.Join(e.cfg.PassportDir, name)); err != nil {

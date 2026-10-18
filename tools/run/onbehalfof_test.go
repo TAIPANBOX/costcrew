@@ -24,7 +24,7 @@ import (
 	"github.com/TAIPANBOX/costcrew/internal/money"
 )
 
-const wantChain = "user://gcp.taipanbox.local/alice,agent://gcp.taipanbox.local/y.mercer"
+const wantChain = "user://gcp.taipanbox.local/alice,agent://gcp.taipanbox.local/costcrew/y.mercer"
 
 // Every round of a task on the Anthropic wire carries the owner: a task that
 // asks for a tool makes two calls, and both are attributed.
@@ -111,7 +111,7 @@ func TestAHostileOwnerStillGivesTheGatewayExactlyTwoEntries(t *testing.T) {
 	got := srv.seen()[0].Header.Get("x-fuse-on-behalf-of")
 	parts := strings.Split(got, ",")
 	if len(parts) != 2 || !strings.HasPrefix(parts[0], "user://gcp.taipanbox.local/") ||
-		parts[1] != "agent://gcp.taipanbox.local/y.mercer" || strings.Contains(got, "evil.example/boss") {
+		parts[1] != "agent://gcp.taipanbox.local/costcrew/y.mercer" || strings.Contains(got, "evil.example/boss") {
 		t.Errorf("a hostile owner reshaped the chain on the wire: %q", got)
 	}
 }
@@ -263,7 +263,7 @@ func TestTheToolLoopAndDeliverCallSendTheSameFuseHeaders(t *testing.T) {
 	}
 	mk := func(url, openaiURL string) gatewayHeaders {
 		return gatewayHeaders{
-			URL: url, OpenAIURL: openaiURL, RunID: "crew-9", AgentID: "agent://gcp.taipanbox.local/y.mercer",
+			URL: url, OpenAIURL: openaiURL, RunID: "crew-9", AgentID: "agent://gcp.taipanbox.local/costcrew/y.mercer",
 			BudgetUSD: "1.00", ParentRunID: "crew-8", OnBehalfOf: chain,
 		}
 	}

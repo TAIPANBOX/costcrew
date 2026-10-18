@@ -141,7 +141,7 @@ func TestAskPlanForAnOpenRouterSupervisorGoesThroughTheOpenAIGateway(t *testing.
 	if reqs[0].path != "/v1/chat/completions" {
 		t.Errorf("path %q, want /v1/chat/completions", reqs[0].path)
 	}
-	if got := reqs[0].headers.Get("x-fuse-agent-id"); got != "agent://costcrew.test/supervisor" {
+	if got := reqs[0].headers.Get("x-fuse-agent-id"); got != "agent://costcrew.test/costcrew/supervisor" {
 		t.Errorf("x-fuse-agent-id = %q, want the supervisor's own", got)
 	}
 	if reqs[0].headers.Get("x-fuse-run-id") == "" || reqs[0].headers.Get("x-fuse-budget-usd") == "" {

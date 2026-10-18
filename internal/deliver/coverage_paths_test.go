@@ -60,7 +60,7 @@ func TestAnAgentIDThatCannotRideInTheHeaderIsRefused(t *testing.T) {
 		t.Errorf("an analyst whose id holds a space: %v", err)
 	}
 	chain, err := OnBehalfOfChain("costcrew.example", "owner", "triage")
-	if err != nil || len(chain) != 2 || chain[0] != "user://costcrew.example/owner" || chain[1] != "agent://costcrew.example/triage" {
+	if err != nil || len(chain) != 2 || chain[0] != "user://costcrew.example/owner" || chain[1] != "agent://costcrew.example/costcrew/triage" {
 		t.Errorf("a plain analyst: %v %v", chain, err)
 	}
 }

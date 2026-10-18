@@ -88,7 +88,7 @@ func plantRealAIAttribution(t *testing.T, h *harness, period string) {
 	}
 	if _, err := h.st.DB().Exec(`INSERT INTO attribution
 		(source, team, service, day_start, day_end, agent, confidence)
-		VALUES ('ai', 'ml-platform', 'Claude API', ?, ?, 'agent://costcrew.test/investigator-aws', 'high')`,
+		VALUES ('ai', 'ml-platform', 'Claude API', ?, ?, 'agent://costcrew.test/costcrew/investigator-aws', 'high')`,
 		period+"-01", period+"-28"); err != nil {
 		t.Fatal(err)
 	}
@@ -108,7 +108,7 @@ func plantCostPerOutcomeCall(t *testing.T, h *harness, month, fileTag string, bi
 	if _, err := h.st.DB().Exec(`INSERT INTO ai_calls
 		(file_sha256, row_no, ts, day, agent, model, tokens_in, tokens_out,
 		 billed_microusd, blocked, basis, outcome)
-		VALUES (?, 1, ?, ?, 'agent://costcrew.test/investigator-aws', 'claude-haiku-4-5',
+		VALUES (?, 1, ?, ?, 'agent://costcrew.test/costcrew/investigator-aws', 'claude-haiku-4-5',
 		        100, 50, ?, 0, 'settled', 'case_resolved')`,
 		fileTag, day+"T12:00:00Z", day, billedMicros); err != nil {
 		t.Fatal(err)
