@@ -329,6 +329,15 @@ Secure even though the browser's own connection is HTTPS end to end. The
 first account created at `/signup` becomes the admin of that installation, so
 make one before you hand anybody the address.
 
+In the release after `v0.9.0` (planned as `v0.10.0`) the console refuses to start on any address that is not
+loopback (`0.0.0.0:8321`, `:8321`, a LAN address) unless `-behind-tls` is set
+or you pass `-insecure-http` (`COSTCREW_INSECURE_HTTP`) to say that plain HTTP
+there is deliberate. On such an address every cookie is marked Secure, whatever
+`-behind-tls` says, so a browser that reaches it over plain HTTP from anywhere
+but localhost cannot sign in. The session key, `.session-secret`, must be a
+plain file that no other account can read (`chmod 600`); the console refuses
+to start on a key with any group or other access, and on a link.
+
 The `costcrew` console accepts `-gateway` for its own planning calls and
 `-behind-tls` from `v0.2.1` onward, and `-gateway-openai` (or
 `COSTCREW_GATEWAY_OPENAI`), the gateway that fronts the OpenAI wire for an
@@ -695,8 +704,11 @@ how much of that leaves the process. It is `-prompt-data` on `costcrew` and on
 three values, spelled exactly. Anything else, a capital letter included,
 refuses to start.
 
-`full` is the default and is what this console has always sent. Nothing changes
-unless you set something else.
+`masked` is the default in the release after `v0.9.0`, planned as `v0.10.0`
+(invariant 110). Before that the default was `full`, which is what this console has always sent. To keep sending
+everything, set `-prompt-data full` or `COSTCREW_PROMPT_DATA=full` on each
+binary that calls a model. The start-up log says whether the mode was chosen or
+is the default.
 
 `masked` replaces every name with a stable token before a prompt or a tool
 result leaves the process: teams, desks, services, agents, people, invoices,

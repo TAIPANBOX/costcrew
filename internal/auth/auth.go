@@ -23,6 +23,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -74,8 +75,8 @@ type Auth struct {
 // does not carry the key that signs its sessions.
 func New(st *store.Store, dir string) (*Auth, error) {
 	path := filepath.Join(dir, ".session-secret")
-	key, err := os.ReadFile(path)
-	if err != nil {
+	key, err := readSessionSecret(path)
+	if errors.Is(err, fs.ErrNotExist) {
 		key = make([]byte, 32)
 		if _, err := rand.Read(key); err != nil {
 			return nil, err
@@ -83,11 +84,35 @@ func New(st *store.Store, dir string) (*Auth, error) {
 		if err := os.WriteFile(path, key, 0o600); err != nil {
 			return nil, err
 		}
+	} else if err != nil {
+		// Anything but a missing file stops the start (invariant 110). Before,
+		// a read that failed for any reason was taken for "no key yet" and the
+		// file was overwritten, which signs out every session.
+		return nil, err
 	}
 	if err := ensureExternal(st.DB()); err != nil {
 		return nil, err
 	}
 	return &Auth{st: st, secret: key}, nil
+}
+
+// readSessionSecret reads the signing key only from a plain file that no other
+// account on the machine can read (invariant 110). A link is refused even when
+// its target would pass: the path would name one thing and the check another.
+func readSessionSecret(path string) ([]byte, error) {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return nil, err
+	}
+	if !info.Mode().IsRegular() {
+		return nil, fmt.Errorf("%s is not a regular file (a symbolic link or a directory counts): "+
+			"refusing to start. Put the key in a plain file of its own and chmod 600 it", path)
+	}
+	if perm := info.Mode().Perm(); perm&0o077 != 0 {
+		return nil, fmt.Errorf("%s is readable by its group or by other accounts (mode %o): "+
+			"refusing to start. chmod 600 %s", path, perm, path)
+	}
+	return os.ReadFile(path)
 }
 
 // DemoMode: one switch, read from the environment, so a deployment cannot

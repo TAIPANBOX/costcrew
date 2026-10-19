@@ -6,8 +6,10 @@ package deliver
 // Three modes, set per installation (one process serves one installation) by
 // -prompt-data or COSTCREW_PROMPT_DATA:
 //
-//	full        what this console has always sent. The default, and unchanged.
-//	masked      every identifier is replaced by a stable pseudonym before a
+//	full        what this console has always sent. Asked for by name since
+//	            invariant 110; it is no longer the default.
+//	masked      the default (invariant 110). Every identifier is replaced by a
+//	            stable pseudonym before a
 //	            prompt or a tool result leaves the process; money, dates,
 //	            counts and ratios stay; free text that can carry a name is not
 //	            sent at all; the model-written SQL tools are not offered.
@@ -56,13 +58,14 @@ func ParsePromptData(raw string) (PromptData, error) {
 }
 
 // PromptDataEnvDefault is -prompt-data's default: the environment variable
-// when it is set, "full" otherwise. It returns the variable as written, so a
-// typo in it reaches ParsePromptData and is refused there.
+// when it is set, "masked" otherwise (invariant 110). It returns the variable
+// as written, so a typo in it reaches ParsePromptData and is refused there.
+// The shared default: costcrew and costcrew-run both read it.
 func PromptDataEnvDefault() string {
 	if v := os.Getenv(PromptDataEnv); v != "" {
 		return v
 	}
-	return string(PromptFull)
+	return string(PromptMasked)
 }
 
 // WithheldFreeText stands in for text that is not sent. One line, the same

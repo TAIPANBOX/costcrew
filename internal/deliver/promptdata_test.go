@@ -48,8 +48,8 @@ func TestPromptDataIsAClosedVocabulary(t *testing.T) {
 
 func TestThePromptDataEnvironmentVariableBacksTheFlagDefault(t *testing.T) {
 	t.Setenv(PromptDataEnv, "")
-	if got := PromptDataEnvDefault(); got != "full" {
-		t.Errorf("with nothing set the default is %q, want full", got)
+	if got := PromptDataEnvDefault(); got != "masked" {
+		t.Errorf("with nothing set the default is %q, want masked (invariant 110)", got)
 	}
 	t.Setenv(PromptDataEnv, "masked")
 	if got := PromptDataEnvDefault(); got != "masked" {

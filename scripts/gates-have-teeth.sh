@@ -6021,6 +6021,90 @@ run_case $'analyst path pass: a reworded comment about the path is not a fault' 
 	$'// AnalystPath is the segment every agent this console mints sits under' \
 	$'// AnalystPath is the path segment every agent this console mints sits under'
 
+# Invariant 110: the safer defaults and the refusals that hold them. Each case
+# plants one fault in the file that owns it and requires the test that names it
+# to go red; the last one reworded a sentence and must stay green.
+run_case 'safer defaults: the cookie ignores a listener that is not loopback' \
+	fail \
+	./internal/web \
+	$'TestExposedListenerMarksEveryCookieSecureWithoutTheFlag' \
+	$'want true' \
+	internal/web/server.go \
+	$'\tc.Secure = s.behindTLS || s.exposed || r.TLS != nil' \
+	$'\tc.Secure = s.behindTLS || r.TLS != nil'
+
+run_case 'safer defaults: every host is taken for loopback' \
+	fail \
+	./internal/web \
+	$'TestLoopbackListenIsOnlyTheLoopbackInterface' \
+	$'want false' \
+	internal/web/listen.go \
+	$'\tip := net.ParseIP(host)\n\treturn ip != nil && ip.IsLoopback()' \
+	$'\treturn true'
+
+run_case 'safer defaults: the start ignores -insecure-http' \
+	fail \
+	./cmd/costcrew \
+	$'TestAnAddressAnotherMachineCanReachNeedsTLSOrTheExplicitFlag' \
+	$'want an error = false' \
+	cmd/costcrew/listen.go \
+	$'\tif web.LoopbackListen(addr) || behindTLS || insecureHTTP {' \
+	$'\tif web.LoopbackListen(addr) || behindTLS {'
+
+run_case 'safer defaults: the session key is read whatever its mode' \
+	fail \
+	./internal/auth \
+	$'TestASessionSecretReadableByItsGroupOrOthersStopsTheStart' \
+	$'want a refusal' \
+	internal/auth/auth.go \
+	$'\tif perm := info.Mode().Perm(); perm&0o077 != 0 {' \
+	$'\tif perm := info.Mode().Perm(); perm&0o000 != 0 {'
+
+run_case 'safer defaults: a session key that is a link is followed' \
+	fail \
+	./internal/auth \
+	$'TestASessionSecretThatIsALinkStopsTheStart' \
+	$'want a refusal' \
+	internal/auth/auth.go \
+	$'\tinfo, err := os.Lstat(path)' \
+	$'\tinfo, err := os.Stat(path)'
+
+run_case 'safer defaults: an unreadable session key is replaced again' \
+	fail \
+	./internal/auth \
+	$'TestAnUnreadableSessionSecretIsNotReplaced' \
+	$'want a refusal' \
+	internal/auth/auth.go \
+	$'\tif errors.Is(err, fs.ErrNotExist) {' \
+	$'\tif err != nil {'
+
+run_case 'safer defaults: the prompt data default is full again' \
+	fail \
+	./internal/deliver \
+	$'TestThePromptDataDefaultIsMasked' \
+	$'want masked' \
+	internal/deliver/promptdata.go \
+	$'\treturn string(PromptMasked)' \
+	$'\treturn string(PromptFull)'
+
+run_case 'safer defaults: the start log drops where the prompt data setting came from' \
+	fail \
+	./cmd/costcrew \
+	$'TestPromptDataSourceSaysWhereTheSettingCameFrom' \
+	$'does not say it is the default' \
+	cmd/costcrew/listen.go \
+	$'\treturn "the default: neither -prompt-data nor " + deliver.PromptDataEnv + " is set"' \
+	$'\treturn ""'
+
+run_case $'safer defaults pass: a reworded refusal that still names both flags is not a fault' \
+	pass \
+	./cmd/costcrew \
+	$'TestAnAddressAnotherMachineCanReachNeedsTLSOrTheExplicitFlag' \
+	$'' \
+	cmd/costcrew/listen.go \
+	$'"(or COSTCREW_INSECURE_HTTP). Refusing to start", addr)' \
+	$'"(or COSTCREW_INSECURE_HTTP). Refusing to start; nothing was written", addr)'
+
 echo
 if [ -z "${TEETH_LIST:-}" ] && [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'

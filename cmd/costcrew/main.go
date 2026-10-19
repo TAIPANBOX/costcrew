@@ -54,6 +54,16 @@ func main() {
 			"then only ever sees plain HTTP and would otherwise never mark a "+
 			"cookie Secure. Falls back to COSTCREW_BEHIND_TLS.")
 
+	// Invariant 110. A listen address that other machines can reach is refused
+	// without -behind-tls, unless the operator says in so many words that plain
+	// HTTP there is intended. The flag never changes the address; it only lets
+	// the start through.
+	insecureHTTP := flag.Bool("insecure-http", web.InsecureHTTPEnvDefault(),
+		"allow this console to serve plain HTTP on a listen address that is not loopback. Without "+
+			"-behind-tls it refuses to start on such an address unless this is set. Every cookie is "+
+			"Secure there regardless, so a browser that reaches it over plain HTTP from anywhere but "+
+			"localhost cannot sign in. Falls back to COSTCREW_INSECURE_HTTP.")
+
 	// The governance stack is off until somebody points it somewhere. Nothing
 	// is emitted by default, because a product that starts writing into a
 	// shared event stream without being asked is one nobody trusts to install.
@@ -140,9 +150,9 @@ func main() {
 	// supervisor's plan-ask, and this governs it the same way it governs the
 	// runner's. full is today's behaviour and the default.
 	promptData := flag.String("prompt-data", deliver.PromptDataEnvDefault(),
-		"how much billing data a model may be sent: full (as it always was), masked (every "+
-			"name replaced by a stable token, free text withheld) or aggregates (totals only). "+
-			"Anything else refuses to start. Falls back to COSTCREW_PROMPT_DATA.")
+		"how much billing data a model may be sent: masked (the default: every name replaced by a "+
+			"stable token, free text withheld), full (as it always was, asked for by name) or "+
+			"aggregates (totals only). Anything else refuses to start. Falls back to COSTCREW_PROMPT_DATA.")
 	// Invariant 104: the gateway's export folders, set by the launcher rather
 	// than only on the connector's page, and read at start and then every
 	// -focus-every. Off unless -focus-dir is given.
@@ -174,9 +184,16 @@ func main() {
 	// Before the store is opened or anything is rebuilt: a misspelt setting
 	// that fell back to sending everything is the mistake this flag exists to
 	// prevent. A restricting mode also creates its pseudonym key in -data here.
-	if _, err := deliver.ConfigurePromptData(*promptData, *dir); err != nil {
+	// Invariant 110: refused before anything is written under -data, the
+	// pseudonym key included, so a refusal leaves the directory as it was.
+	if err := checkListenAddress(*addr, *behindTLS, *insecureHTTP); err != nil {
 		log.Fatalf("costcrew: %v", err)
 	}
+	mode, err := deliver.ConfigurePromptData(*promptData, *dir)
+	if err != nil {
+		log.Fatalf("costcrew: %v", err)
+	}
+	log.Printf("CostCrew: -prompt-data %s, from %s", mode, promptDataSource(flag.CommandLine))
 
 	cfg := stack.Config{
 		EventsPath: *events, PassportDir: *passports,
@@ -652,11 +669,19 @@ func run(addr, dir string, scfg stack.Config, gatewayURL, gatewayOpenAIURL strin
 	// web.NewHTTPServer, not a literal http.Server: the read, write and idle
 	// timeouts live with the handler they were measured against (invariant 59),
 	// and a literal here is how they went unset.
+	// Invariant 110: a listener other machines can reach marks every cookie
+	// Secure, whatever -behind-tls says.
+	exposed := !web.LoopbackListen(addr)
+	if exposed {
+		log.Printf("CostCrew: %s is not a loopback address: every cookie is marked Secure whatever "+
+			"-behind-tls says. A browser that reaches this address over plain HTTP from anywhere but "+
+			"localhost drops every cookie, and sign-in cannot work that way: put a TLS proxy in front.", addr)
+	}
 	srv := web.NewHTTPServer(addr, web.New(st, au, web.Stack{
 		Recorder: rec, Host: scfg.Host, EventsPath: scfg.EventsPath,
 		Passports: em.WritePassports, PassportFor: em.PassportFor,
 		Delegation: em.Delegation, Gateway: gatewayURL, GatewayOpenAI: gatewayOpenAIURL,
-		BehindTLS: behindTLS, OIDC: oidcProv,
+		BehindTLS: behindTLS, Exposed: exposed, OIDC: oidcProv,
 	}))
 
 	// Shut down on a signal rather than being killed mid-write: the journal is
