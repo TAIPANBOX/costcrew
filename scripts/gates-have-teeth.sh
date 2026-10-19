@@ -1684,8 +1684,8 @@ run_case 'behind-tls: drop the flag from the cookie'"'"'s own Secure decision' \
 	$'TestLoginOverPlainHTTPIsSecureWhenBehindTLS' \
 	$'want true' \
 	internal/web/server.go \
-	$'\tc.Secure = s.behindTLS || r.TLS != nil' \
-	$'\tc.Secure = r.TLS != nil'
+	$'\tc.Secure = s.behindTLS || s.exposed || r.TLS != nil' \
+	$'\tc.Secure = s.exposed || r.TLS != nil'
 
 # Fable finding 3 on invariant 49: the OTHER half of the same line was
 # untested. Dropping r.TLS != nil (leaving only s.behindTLS) is invisible to
@@ -1700,8 +1700,8 @@ run_case 'behind-tls: drop r.TLS from the cookie'"'"'s own Secure decision' \
 	$'TestLoginOverRealTLSIsSecureWithoutTheFlag' \
 	$'want true' \
 	internal/web/server.go \
-	$'\tc.Secure = s.behindTLS || r.TLS != nil' \
-	$'\tc.Secure = s.behindTLS'
+	$'\tc.Secure = s.behindTLS || s.exposed || r.TLS != nil' \
+	$'\tc.Secure = s.behindTLS || s.exposed'
 
 # Fable finding 2 on invariant 49: TestEveryCookieGoesThroughOneSecurePosture
 # used to count only the literal "http.SetCookie(", which a header written
@@ -2747,8 +2747,8 @@ run_case $'http edge: the console builds a literal http.Server again' \
 	$'\tsrv := web.NewHTTPServer(addr, web.New(st, au, web.Stack{' \
 	$'\tsrv := &http.Server{Addr: addr, Handler: web.New(st, au, web.Stack{' \
 	cmd/costcrew/main.go \
-	$'\t\tBehindTLS: behindTLS, OIDC: oidcProv,\n\t}))\n' \
-	$'\t\tBehindTLS: behindTLS, OIDC: oidcProv,\n\t})}\n'
+	$'\t\tBehindTLS: behindTLS, Exposed: exposed, OIDC: oidcProv,\n\t}))\n' \
+	$'\t\tBehindTLS: behindTLS, Exposed: exposed, OIDC: oidcProv,\n\t})}\n'
 run_case $'http edge: reordered policy directives and a reworded refusal are not a fault' \
 	pass \
 	./internal/web \
@@ -4388,8 +4388,8 @@ run_case $'prompt data: the console starts on a misspelt setting' \
 	$'TestAMisspeltPromptDataFlagRefusesToStartTheConsole' \
 	$'started the console' \
 	cmd/costcrew/main.go \
-	$'\tif _, err := deliver.ConfigurePromptData(*promptData, *dir); err != nil {' \
-	$'\tif _, err := deliver.ConfigurePromptData(*promptData, *dir); err != nil && false {'
+	$'\tmode, err := deliver.ConfigurePromptData(*promptData, *dir)\n\tif err != nil {' \
+	$'\tmode, err := deliver.ConfigurePromptData(*promptData, *dir)\n\tif err != nil && false {'
 run_case $'prompt data: a longer token and a reworded stand-in are not faults' \
 	pass \
 	./internal/deliver \
