@@ -6051,23 +6051,23 @@ run_case 'safer defaults: the start ignores -insecure-http' \
 	$'\tif web.LoopbackListen(addr) || behindTLS || insecureHTTP {' \
 	$'\tif web.LoopbackListen(addr) || behindTLS {'
 
-run_case 'safer defaults: the session key is read whatever its mode' \
+run_case 'safer defaults: a group-readable key is accepted for this account' \
 	fail \
 	./internal/auth \
-	$'TestASessionSecretReadableByItsGroupOrOthersStopsTheStart' \
-	$'want a refusal' \
-	internal/auth/auth.go \
-	$'\tif perm := info.Mode().Perm(); perm&0o077 != 0 {' \
-	$'\tif perm := info.Mode().Perm(); perm&0o000 != 0 {'
+	$'TestAFileOwnedByThisUserMustBeOwnerOnly' \
+	$'want accepted = false' \
+	internal/auth/keyfile.go \
+	$'if perm&^0o600 != 0 {' \
+	$'if perm&^0o640 != 0 {'
 
 run_case 'safer defaults: a session key that is a link is followed' \
 	fail \
 	./internal/auth \
 	$'TestASessionSecretThatIsALinkStopsTheStart' \
 	$'want a refusal' \
-	internal/auth/auth.go \
-	$'\tinfo, err := os.Lstat(path)' \
-	$'\tinfo, err := os.Stat(path)'
+	internal/auth/keyfile_unix.go \
+	$'os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK' \
+	$'os.O_RDONLY|syscall.O_NONBLOCK'
 
 run_case 'safer defaults: an unreadable session key is replaced again' \
 	fail \
@@ -6095,6 +6095,33 @@ run_case 'safer defaults: the start log drops where the prompt data setting came
 	cmd/costcrew/listen.go \
 	$'\treturn "the default: neither -prompt-data nor " + deliver.PromptDataEnv + " is set"' \
 	$'\treturn ""'
+
+run_case 'safer defaults: the mode is read from the path, not the open file' \
+	fail \
+	./internal/auth \
+	$'TestTheModeIsJudgedOnTheOpenFileNotThePath' \
+	$'the path'"'"'s mode decided' \
+	internal/auth/keyfile.go \
+	$'\tst, err := ops.stat(f)' \
+	$'\tst, err := ops.stat(f)\n\tif p, e := os.Stat(path); e == nil {\n\t\tst.Mode = p.Mode()\n\t}'
+
+run_case 'safer defaults: a fifo at the path can hold the start' \
+	fail \
+	./internal/auth \
+	$'TestAFIFOIsRefusedWithoutBlockingTheStart' \
+	$'the start blocked on a fifo' \
+	internal/auth/keyfile_unix.go \
+	$'syscall.O_NOFOLLOW|syscall.O_NONBLOCK' \
+	$'syscall.O_NOFOLLOW'
+
+run_case 'safer defaults: a root-owned key may be group-writable' \
+	fail \
+	./internal/auth \
+	$'TestAFileOwnedByRootMayBeGroupReadableAtMost0640' \
+	$'want accepted = false' \
+	internal/auth/keyfile.go \
+	$'if perm&^0o640 != 0 {' \
+	$'if perm&^0o660 != 0 {'
 
 run_case $'safer defaults pass: a reworded refusal that still names both flags is not a fault' \
 	pass \

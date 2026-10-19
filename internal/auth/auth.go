@@ -96,25 +96,6 @@ func New(st *store.Store, dir string) (*Auth, error) {
 	return &Auth{st: st, secret: key}, nil
 }
 
-// readSessionSecret reads the signing key only from a plain file that no other
-// account on the machine can read (invariant 110). A link is refused even when
-// its target would pass: the path would name one thing and the check another.
-func readSessionSecret(path string) ([]byte, error) {
-	info, err := os.Lstat(path)
-	if err != nil {
-		return nil, err
-	}
-	if !info.Mode().IsRegular() {
-		return nil, fmt.Errorf("%s is not a regular file (a symbolic link or a directory counts): "+
-			"refusing to start. Put the key in a plain file of its own and chmod 600 it", path)
-	}
-	if perm := info.Mode().Perm(); perm&0o077 != 0 {
-		return nil, fmt.Errorf("%s is readable by its group or by other accounts (mode %o): "+
-			"refusing to start. chmod 600 %s", path, perm, path)
-	}
-	return os.ReadFile(path)
-}
-
 // DemoMode: one switch, read from the environment, so a deployment cannot
 // enable spending by forgetting a setting. It has to choose it.
 func DemoMode() bool {
