@@ -41,6 +41,9 @@
           "COSTCREW_BEHIND_TLS": {
             "required": false
           },
+          "COSTCREW_INSECURE_HTTP": {
+            "required": false
+          },
           "COSTCREW_OIDC_ISSUER": {
             "required": false
           },
@@ -101,6 +104,9 @@
             "required": false
           },
           "behind-tls": {
+            "required": false
+          },
+          "insecure-http": {
             "required": false
           },
           "oidc-issuer": {

@@ -23,6 +23,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -74,8 +75,8 @@ type Auth struct {
 // does not carry the key that signs its sessions.
 func New(st *store.Store, dir string) (*Auth, error) {
 	path := filepath.Join(dir, ".session-secret")
-	key, err := os.ReadFile(path)
-	if err != nil {
+	key, err := readSessionSecret(path)
+	if errors.Is(err, fs.ErrNotExist) {
 		key = make([]byte, 32)
 		if _, err := rand.Read(key); err != nil {
 			return nil, err
@@ -83,6 +84,11 @@ func New(st *store.Store, dir string) (*Auth, error) {
 		if err := os.WriteFile(path, key, 0o600); err != nil {
 			return nil, err
 		}
+	} else if err != nil {
+		// Anything but a missing file stops the start (invariant 110). Before,
+		// a read that failed for any reason was taken for "no key yet" and the
+		// file was overwritten, which signs out every session.
+		return nil, err
 	}
 	if err := ensureExternal(st.DB()); err != nil {
 		return nil, err

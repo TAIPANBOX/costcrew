@@ -70,6 +70,10 @@ type Server struct {
 	// setCookie, the one place that decision is made.
 	behindTLS bool
 
+	// exposed is Stack.Exposed: the listen address is not loopback, so every
+	// cookie is Secure (invariant 110). See setCookie.
+	exposed bool
+
 	// oidc is sign-in through the organisation's identity provider
 	// (invariant 74), nil unless -oidc-issuer is set. While it is set,
 	// registration here is closed: accounts come from the provider, and the
@@ -98,6 +102,10 @@ type Stack struct {
 	// BehindTLS is -behind-tls: true when a TLS-terminating proxy sits in
 	// front of this process (invariant 49). See Server.behindTLS.
 	BehindTLS bool
+	// Exposed is true when the listen address is not loopback (invariant
+	// 110): every cookie is then Secure whatever -behind-tls says. Zero means
+	// loopback, which is what every test harness builds.
+	Exposed bool
 	// OIDC is the identity provider sign-in, nil when it is not configured.
 	OIDC *sso.Provider
 }
@@ -113,7 +121,7 @@ func New(st *store.Store, au *auth.Auth, sk Stack) *Server {
 		eventsPath: sk.EventsPath, passports: sk.Passports,
 		passportFor: sk.PassportFor,
 		delegate:    sk.Delegation, gateway: sk.Gateway, gatewayOpenAI: sk.GatewayOpenAI,
-		behindTLS: sk.BehindTLS, oidc: sk.OIDC, mux: http.NewServeMux()}
+		behindTLS: sk.BehindTLS, exposed: sk.Exposed, oidc: sk.OIDC, mux: http.NewServeMux()}
 	s.routes()
 	return s
 }
@@ -312,8 +320,12 @@ func (s *Server) sessionToken(r *http.Request) string {
 // behindTLS) is the operator's explicit statement that such a proxy is
 // there, so a cookie is marked Secure on that fact alone rather than on
 // what this process itself happened to see.
+//
+// A listener that is not loopback (exposed, invariant 110) marks every cookie
+// Secure whatever -behind-tls says: the browser is on another machine, and a
+// cookie that may travel in the clear is the thing this exists to prevent.
 func (s *Server) setCookie(w http.ResponseWriter, r *http.Request, c *http.Cookie) {
-	c.Secure = s.behindTLS || r.TLS != nil
+	c.Secure = s.behindTLS || s.exposed || r.TLS != nil
 	http.SetCookie(w, c)
 }
 

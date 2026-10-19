@@ -98,7 +98,9 @@ func TestTheConsoleUnderMaskedSaysSoAndKeepsItsKeyInTheDataDir(t *testing.T) {
 	}
 }
 
-func TestTheConsoleWithNothingSetIsFullAndMakesNoKey(t *testing.T) {
+// Invariant 110: with nothing set the console is masked, so it makes the
+// pseudonym key it needs, and its log says the mode is the default.
+func TestTheConsoleWithNothingSetIsMaskedAndSaysItIsTheDefault(t *testing.T) {
 	bin := buildConsole(t)
 	data := filepath.Join(t.TempDir(), "data")
 	logPath := filepath.Join(t.TempDir(), "boot.log")
@@ -118,11 +120,11 @@ func TestTheConsoleWithNothingSetIsFullAndMakesNoKey(t *testing.T) {
 		b, _ := os.ReadFile(logPath)
 		t.Fatalf("the console never reached listening:\n%s", b)
 	}
-	if _, err := os.Stat(filepath.Join(data, "prompt-data.key")); err == nil {
-		t.Error("the default made a key it has no use for")
+	if _, err := os.Stat(filepath.Join(data, "prompt-data.key")); err != nil {
+		t.Errorf("the masked default made no pseudonym key: %v", err)
 	}
 	b, _ := os.ReadFile(logPath)
-	if strings.Contains(string(b), "-prompt-data") {
-		t.Errorf("the default console mentions a setting nobody made:\n%s", b)
+	if !strings.Contains(string(b), "-prompt-data masked, from the default") {
+		t.Errorf("the start log does not say the masked mode is the default:\n%s", b)
 	}
 }

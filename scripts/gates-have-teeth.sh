@@ -1684,8 +1684,8 @@ run_case 'behind-tls: drop the flag from the cookie'"'"'s own Secure decision' \
 	$'TestLoginOverPlainHTTPIsSecureWhenBehindTLS' \
 	$'want true' \
 	internal/web/server.go \
-	$'\tc.Secure = s.behindTLS || r.TLS != nil' \
-	$'\tc.Secure = r.TLS != nil'
+	$'\tc.Secure = s.behindTLS || s.exposed || r.TLS != nil' \
+	$'\tc.Secure = s.exposed || r.TLS != nil'
 
 # Fable finding 3 on invariant 49: the OTHER half of the same line was
 # untested. Dropping r.TLS != nil (leaving only s.behindTLS) is invisible to
@@ -1700,8 +1700,8 @@ run_case 'behind-tls: drop r.TLS from the cookie'"'"'s own Secure decision' \
 	$'TestLoginOverRealTLSIsSecureWithoutTheFlag' \
 	$'want true' \
 	internal/web/server.go \
-	$'\tc.Secure = s.behindTLS || r.TLS != nil' \
-	$'\tc.Secure = s.behindTLS'
+	$'\tc.Secure = s.behindTLS || s.exposed || r.TLS != nil' \
+	$'\tc.Secure = s.behindTLS || s.exposed'
 
 # Fable finding 2 on invariant 49: TestEveryCookieGoesThroughOneSecurePosture
 # used to count only the literal "http.SetCookie(", which a header written
@@ -2747,8 +2747,8 @@ run_case $'http edge: the console builds a literal http.Server again' \
 	$'\tsrv := web.NewHTTPServer(addr, web.New(st, au, web.Stack{' \
 	$'\tsrv := &http.Server{Addr: addr, Handler: web.New(st, au, web.Stack{' \
 	cmd/costcrew/main.go \
-	$'\t\tBehindTLS: behindTLS, OIDC: oidcProv,\n\t}))\n' \
-	$'\t\tBehindTLS: behindTLS, OIDC: oidcProv,\n\t})}\n'
+	$'\t\tBehindTLS: behindTLS, Exposed: exposed, OIDC: oidcProv,\n\t}))\n' \
+	$'\t\tBehindTLS: behindTLS, Exposed: exposed, OIDC: oidcProv,\n\t})}\n'
 run_case $'http edge: reordered policy directives and a reworded refusal are not a fault' \
 	pass \
 	./internal/web \
@@ -4388,8 +4388,8 @@ run_case $'prompt data: the console starts on a misspelt setting' \
 	$'TestAMisspeltPromptDataFlagRefusesToStartTheConsole' \
 	$'started the console' \
 	cmd/costcrew/main.go \
-	$'\tif _, err := deliver.ConfigurePromptData(*promptData, *dir); err != nil {' \
-	$'\tif _, err := deliver.ConfigurePromptData(*promptData, *dir); err != nil && false {'
+	$'\tmode, err := deliver.ConfigurePromptData(*promptData, *dir)\n\tif err != nil {' \
+	$'\tmode, err := deliver.ConfigurePromptData(*promptData, *dir)\n\tif err != nil && false {'
 run_case $'prompt data: a longer token and a reworded stand-in are not faults' \
 	pass \
 	./internal/deliver \
@@ -6020,6 +6020,117 @@ run_case $'analyst path pass: a reworded comment about the path is not a fault' 
 	internal/stack/stack.go \
 	$'// AnalystPath is the segment every agent this console mints sits under' \
 	$'// AnalystPath is the path segment every agent this console mints sits under'
+
+# Invariant 110: the safer defaults and the refusals that hold them. Each case
+# plants one fault in the file that owns it and requires the test that names it
+# to go red; the last one reworded a sentence and must stay green.
+run_case 'safer defaults: the cookie ignores a listener that is not loopback' \
+	fail \
+	./internal/web \
+	$'TestExposedListenerMarksEveryCookieSecureWithoutTheFlag' \
+	$'want true' \
+	internal/web/server.go \
+	$'\tc.Secure = s.behindTLS || s.exposed || r.TLS != nil' \
+	$'\tc.Secure = s.behindTLS || r.TLS != nil'
+
+run_case 'safer defaults: every host is taken for loopback' \
+	fail \
+	./internal/web \
+	$'TestLoopbackListenIsOnlyTheLoopbackInterface' \
+	$'want false' \
+	internal/web/listen.go \
+	$'\tip := net.ParseIP(host)\n\treturn ip != nil && ip.IsLoopback()' \
+	$'\treturn true'
+
+run_case 'safer defaults: the start ignores -insecure-http' \
+	fail \
+	./cmd/costcrew \
+	$'TestAnAddressAnotherMachineCanReachNeedsTLSOrTheExplicitFlag' \
+	$'want an error = false' \
+	cmd/costcrew/listen.go \
+	$'\tif web.LoopbackListen(addr) || behindTLS || insecureHTTP {' \
+	$'\tif web.LoopbackListen(addr) || behindTLS {'
+
+run_case 'safer defaults: a group-readable key is accepted for this account' \
+	fail \
+	./internal/auth \
+	$'TestAFileOwnedByThisUserMustBeOwnerOnly' \
+	$'want accepted = false' \
+	internal/auth/keyfile.go \
+	$'if perm&^0o600 != 0 {' \
+	$'if perm&^0o640 != 0 {'
+
+run_case 'safer defaults: a session key that is a link is followed' \
+	fail \
+	./internal/auth \
+	$'TestASessionSecretThatIsALinkStopsTheStart' \
+	$'want a refusal' \
+	internal/auth/keyfile_unix.go \
+	$'os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK' \
+	$'os.O_RDONLY|syscall.O_NONBLOCK'
+
+run_case 'safer defaults: an unreadable session key is replaced again' \
+	fail \
+	./internal/auth \
+	$'TestAnUnreadableSessionSecretIsNotReplaced' \
+	$'want a refusal' \
+	internal/auth/auth.go \
+	$'\tif errors.Is(err, fs.ErrNotExist) {' \
+	$'\tif errors.Is(err, fs.ErrNotExist) || err != nil {'
+
+run_case 'safer defaults: the prompt data default is full again' \
+	fail \
+	./internal/deliver \
+	$'TestThePromptDataDefaultIsMasked' \
+	$'want masked' \
+	internal/deliver/promptdata.go \
+	$'\treturn string(PromptMasked)' \
+	$'\treturn string(PromptFull)'
+
+run_case 'safer defaults: the start log drops where the prompt data setting came from' \
+	fail \
+	./cmd/costcrew \
+	$'TestPromptDataSourceSaysWhereTheSettingCameFrom' \
+	$'does not say it is the default' \
+	cmd/costcrew/listen.go \
+	$'\treturn "the default: neither -prompt-data nor " + deliver.PromptDataEnv + " is set"' \
+	$'\treturn ""'
+
+run_case 'safer defaults: the mode is read from the path, not the open file' \
+	fail \
+	./internal/auth \
+	$'TestTheModeIsJudgedOnTheOpenFileNotThePath' \
+	$'the path'"'"'s mode decided' \
+	internal/auth/keyfile.go \
+	$'\tst, err := ops.stat(f)' \
+	$'\tst, err := ops.stat(f)\n\tif p, e := os.Stat(path); e == nil {\n\t\tst.Mode = p.Mode()\n\t}'
+
+run_case 'safer defaults: a fifo at the path can hold the start' \
+	fail \
+	./internal/auth \
+	$'TestAFIFOIsRefusedWithoutBlockingTheStart' \
+	$'the start blocked on a fifo' \
+	internal/auth/keyfile_unix.go \
+	$'syscall.O_NOFOLLOW|syscall.O_NONBLOCK' \
+	$'syscall.O_NOFOLLOW'
+
+run_case 'safer defaults: a root-owned key may be group-writable' \
+	fail \
+	./internal/auth \
+	$'TestAFileOwnedByRootMayBeGroupReadableAtMost0640' \
+	$'want accepted = false' \
+	internal/auth/keyfile.go \
+	$'if perm&^0o640 != 0 {' \
+	$'if perm&^0o660 != 0 {'
+
+run_case $'safer defaults pass: a reworded refusal that still names both flags is not a fault' \
+	pass \
+	./cmd/costcrew \
+	$'TestAnAddressAnotherMachineCanReachNeedsTLSOrTheExplicitFlag' \
+	$'' \
+	cmd/costcrew/listen.go \
+	$'"(or COSTCREW_INSECURE_HTTP). Refusing to start", addr)' \
+	$'"(or COSTCREW_INSECURE_HTTP). Refusing to start; nothing was written", addr)'
 
 echo
 if [ -z "${TEETH_LIST:-}" ] && [ -n "$(git status --porcelain)" ]; then
