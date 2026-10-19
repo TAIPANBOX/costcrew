@@ -83,3 +83,33 @@ Feature: The console's defaults send less, refuse more, and keep its key to itse
     Given the mode came from the default, the command line or the environment
     When the console starts
     Then its log names where the mode came from
+
+  @test:TestAFileOwnedByThisUserMustBeOwnerOnly
+  Scenario: a session key this account owns must be 0600 or stricter
+    Given a session key owned by the account that runs the console
+    When its mode is 0640, 0644 or 0700
+    Then the console refuses to start and names chmod 600
+
+  @test:TestAFileOwnedByRootMayBeGroupReadableAtMost0640
+  Scenario: a session key root owns may be group-readable, as a Kubernetes Secret mount is
+    Given a session key owned by root whose mode is 0640 or stricter
+    When the console runs as another account
+    Then it starts, and a key root owns at 0644 or 0660 is refused
+
+  @test:TestAFileOwnedByAnotherAccountIsRefusedWhateverItsMode
+  Scenario: a session key owned by another account is refused whatever its mode
+    Given a session key owned by an account that is neither the one running the console nor root
+    When the console starts
+    Then it refuses to start and names the owning uid
+
+  @test:TestTheModeIsJudgedOnTheOpenFileNotThePath
+  Scenario: the mode is judged on the file that is read
+    Given a session key whose path says 0600 and whose open file says 0644
+    When the console starts
+    Then it refuses to start, because the file it reads is the one judged
+
+  @test:TestAFIFOIsRefusedWithoutBlockingTheStart
+  Scenario: a fifo at the session key path does not hold the start
+    Given a fifo where the session key should be
+    When the console starts
+    Then it refuses to start, without waiting for a writer

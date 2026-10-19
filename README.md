@@ -335,8 +335,10 @@ or you pass `-insecure-http` (`COSTCREW_INSECURE_HTTP`) to say that plain HTTP
 there is deliberate. On such an address every cookie is marked Secure, whatever
 `-behind-tls` says, so a browser that reaches it over plain HTTP from anywhere
 but localhost cannot sign in. The session key, `.session-secret`, must be a
-plain file that no other account can read (`chmod 600`); the console refuses
-to start on a key with any group or other access, and on a link.
+plain file this account owns and reads only as 0600 (`chmod 600`). If root owns
+it, it may be group-readable at 0640 or stricter, which is how a Kubernetes
+Secret mount is owned. The console refuses to start on any other owner, on any
+other mode, on a symbolic link, and on anything that is not a regular file.
 
 The `costcrew` console accepts `-gateway` for its own planning calls and
 `-behind-tls` from `v0.2.1` onward, and `-gateway-openai` (or
