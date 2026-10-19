@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	asgpassport "github.com/TAIPANBOX/agent-stack-go/passport"
+	asgpassport "github.com/TAIPANBOX/agent-stack-go/v2/passport"
 
 	"github.com/TAIPANBOX/costcrew/internal/crew"
 	"github.com/TAIPANBOX/costcrew/internal/stack"

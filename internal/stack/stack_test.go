@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	asgevent "github.com/TAIPANBOX/agent-stack-go/event"
-	asgpassport "github.com/TAIPANBOX/agent-stack-go/passport"
+	asgevent "github.com/TAIPANBOX/agent-stack-go/v2/event"
+	asgpassport "github.com/TAIPANBOX/agent-stack-go/v2/passport"
 
 	"github.com/TAIPANBOX/costcrew/internal/crew"
 	"github.com/TAIPANBOX/costcrew/internal/money"

@@ -21,8 +21,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/TAIPANBOX/agent-stack-go/event"
-	"github.com/TAIPANBOX/agent-stack-go/passport"
+	"github.com/TAIPANBOX/agent-stack-go/v2/event"
+	"github.com/TAIPANBOX/agent-stack-go/v2/passport"
 
 	"github.com/TAIPANBOX/costcrew/internal/crew"
 	"github.com/TAIPANBOX/costcrew/internal/money"

@@ -135,7 +135,8 @@ Feature: Sign-in does not leak who exists, and what is stored on disk is not a w
   Scenario: the passports and the bus event file stay readable by the services they are for
     Given the console writing agent passports and its event stream
     When their permissions are read
-    Then other accounts can still read them
+    Then other accounts can still read the passports
+    And the event stream is readable by the stack's group and by no other account
 
   @test:TestTheSessionSecretAndTheDatabaseFilesCannotBeCommitted
   Scenario: the signing key and the data files cannot be committed by accident

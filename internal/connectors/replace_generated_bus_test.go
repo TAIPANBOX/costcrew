@@ -22,7 +22,7 @@ import (
 	"strings"
 	"testing"
 
-	asgevent "github.com/TAIPANBOX/agent-stack-go/event"
+	asgevent "github.com/TAIPANBOX/agent-stack-go/v2/event"
 
 	"github.com/TAIPANBOX/costcrew/internal/estate"
 	"github.com/TAIPANBOX/costcrew/internal/stack"

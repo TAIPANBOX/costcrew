@@ -19,7 +19,7 @@ import (
 	"strings"
 	"testing"
 
-	asgevent "github.com/TAIPANBOX/agent-stack-go/event"
+	asgevent "github.com/TAIPANBOX/agent-stack-go/v2/event"
 )
 
 func TestReplacingTheGeneratedEstateLandsWhenTheConsoleIsOnTheBus(t *testing.T) {
