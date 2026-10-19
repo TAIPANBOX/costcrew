@@ -3950,9 +3950,19 @@ an absent invariant.
     is not silent either: it is a warning printed at start. `.gitignore` now
     names `.session-secret`, `*.db-wal`, `*.db-shm` and `events.ndjson`.
     **The passport files (`-stack-passports`) and the `-stack-events` file are
-    shared with other services by design and are left at 0644**: heraldyx,
+    shared with other services by design and are not made private**: heraldyx,
     idryx, genaryx and trailryx read them, usually under another account, and
     making them private would stop the integration with no error on this side.
+    The passports stay 0644. The event stream is created by agent-stack-go,
+    whose v2 writes it 0640 (its invariant 29): the stack's group reads it and
+    no other account has access, and the launchers give every reader that group
+    (stack-single invariant 41; stack-k8s's fsGroup 10001). `@decided
+    2026-10-19`: the stream's test holds that rule, group read required and
+    other access refused, in place of the 0644 it held before v2. Red first on
+    `origin/main` (agent-stack-go v1.3.0): "the -stack-events file has mode
+    0644: other accounts have access to it". The mode is the dependency's, so
+    no teeth case can plant it in this repository; the passport case below
+    still plants its own.
     *(gate: `TestTheDataDirectoryIsPrivateWhenTheStoreCreatesIt`,
     `TestAnExistingDataDirectoryKeepsItsMode`, `TestEveryFileTheStoreCreatesIsPrivate`
     (measured on the files actually created, `-wal` and `-shm` included, on two

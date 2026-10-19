@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/TAIPANBOX/agent-stack-go/passport"
+	"github.com/TAIPANBOX/agent-stack-go/v2/passport"
 
 	"github.com/TAIPANBOX/costcrew/internal/anomaly"
 	"github.com/TAIPANBOX/costcrew/internal/crew"

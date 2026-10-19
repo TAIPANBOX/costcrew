@@ -16,6 +16,14 @@ import (
 // integration without an error anywhere on this side. This is a guard on a
 // deliberate non-change, green on the code before the invariant existed; it
 // goes red the day a sweep for "every file 0600" reaches them.
+//
+// The event stream is held to the bus's own rule since agent-stack-go v2
+// (its invariant 29): mode 0640, readable by the stack's group and by no
+// other account, because the bus is shared by planes running under different
+// uids and a stream others could read or write is one any of them could
+// forge or follow. The launchers give every reader that group (stack-single
+// invariant 41; stack-k8s's fsGroup 10001), so group read is what a reader
+// needs and other access is what it must not have.
 func TestSharedFilesStayReadableByOtherServices(t *testing.T) {
 	em, events, pass := open(t)
 	if err := em.Emit("anomaly_detected", "detector", "medium",
@@ -37,6 +45,18 @@ func TestSharedFilesStayReadableByOtherServices(t *testing.T) {
 		fi, err := os.Stat(path)
 		if err != nil {
 			t.Fatalf("%s: %v", label, err)
+		}
+		if path == events {
+			// The stream: the stack's group reads it, nobody else has any
+			// access (agent-stack-go invariant 29).
+			got := fi.Mode().Perm()
+			if got&0o040 == 0 {
+				t.Errorf("%s has mode %04o: the stack's group can no longer read it", label, got)
+			}
+			if got&0o007 != 0 {
+				t.Errorf("%s has mode %04o: other accounts have access to it, and a stream on the shared bus is for the stack's group only", label, got)
+			}
+			continue
 		}
 		// Group and other read (and, for a directory, traverse): what a reader
 		// under a different uid needs.
