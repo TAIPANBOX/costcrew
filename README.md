@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/TAIPANBOX/costcrew/actions/workflows/ci.yml/badge.svg)](https://github.com/TAIPANBOX/costcrew/actions/workflows/ci.yml)
 ![Go](https://img.shields.io/badge/go-1.27-00ADD8.svg)
-![tests](https://img.shields.io/badge/tests-1820-brightgreen.svg)
+![tests](https://img.shields.io/badge/tests-1845-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)
 ![Status](https://img.shields.io/badge/enforces-nothing%20by%20design-success.svg)
 
@@ -329,7 +329,7 @@ Secure even though the browser's own connection is HTTPS end to end. The
 first account created at `/signup` becomes the admin of that installation, so
 make one before you hand anybody the address.
 
-In the release after `v0.9.0` (planned as `v0.10.0`) the console refuses to start on any address that is not
+From `v0.10.0` the console refuses to start on any address that is not
 loopback (`0.0.0.0:8321`, `:8321`, a LAN address) unless `-behind-tls` is set
 or you pass `-insecure-http` (`COSTCREW_INSECURE_HTTP`) to say that plain HTTP
 there is deliberate. On such an address every cookie is marked Secure, whatever
@@ -349,7 +349,7 @@ openrouter engine, from `v0.3.0` onward; sign-in through an identity provider
 `-max-run-tokens`, with `-local-parallel` from `v0.5.0` onward. The `v0.2.0` image has neither
 `-gateway` nor `-behind-tls`: passing `-gateway` to that image exits with
 `flag provided but not defined`. The `costcrew-run` binary in `v0.2.0` already
-accepts its separate `-gateway` flag. Pin `ghcr.io/taipanbox/costcrew:v0.9.0`
+accepts its separate `-gateway` flag. Pin `ghcr.io/taipanbox/costcrew:v0.10.0`
 for the console flags and complete release assets.
 
 Inside the stack, `./up.sh --with-finops` from
@@ -706,8 +706,8 @@ how much of that leaves the process. It is `-prompt-data` on `costcrew` and on
 three values, spelled exactly. Anything else, a capital letter included,
 refuses to start.
 
-`masked` is the default in the release after `v0.9.0`, planned as `v0.10.0`
-(invariant 110). Before that the default was `full`, which is what this console has always sent. To keep sending
+`masked` is the default from `v0.10.0` (invariant 110). Before that the default
+was `full`, which is what this console has always sent. To keep sending
 everything, set `-prompt-data full` or `COSTCREW_PROMPT_DATA=full` on each
 binary that calls a model. The start-up log says whether the mode was chosen or
 is the default.
@@ -805,9 +805,9 @@ estate-gates repository's own PROVEN record:
 ## Gates
 
 ```sh
-go test ./...                        # 1820 tests, 32 packages
+go test ./...                        # 1845 tests, 32 packages
 ./scripts/features-are-bound.sh      # every scenario bound to a named test, both ways
-./scripts/gates-have-teeth.sh        # 622 cases: each gate is made to fail on purpose
+./scripts/gates-have-teeth.sh        # 634 cases: each gate is made to fail on purpose
 gofmt -l . && go vet ./...
 ```
 
