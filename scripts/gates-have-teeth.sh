@@ -6076,7 +6076,7 @@ run_case 'safer defaults: an unreadable session key is replaced again' \
 	$'want a refusal' \
 	internal/auth/auth.go \
 	$'\tif errors.Is(err, fs.ErrNotExist) {' \
-	$'\tif err != nil {'
+	$'\tif errors.Is(err, fs.ErrNotExist) || err != nil {'
 
 run_case 'safer defaults: the prompt data default is full again' \
 	fail \
