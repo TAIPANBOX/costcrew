@@ -2,14 +2,14 @@
 # scripts/teeth-shard.sh. Rows are shard, seconds, case name, separated by tabs.
 # shards: 12
 # Predicted seconds per shard, by these weights: 346 346 346 346 346 346 346 346 346 346 346 346
-# Slowest shard / mean: 1.000. Weights from 4 log(s); 16 case(s) had none and took the median of the rest, 5.4s.
+# Slowest shard / mean: 1.000. Weights from 4 log(s); 1 case(s) had none and took the median of the rest, 5.4s.
 5	26.1	teeth shards: the filter leaves one case in five out of every shard
 5	44.7	teeth shards: the filter lets an early case into every shard
 2	38.0	teeth shards: a reworded comment in the partition gate is not a fault
 2	19.2	teeth shards: the partition gate is pointed at a harness that is not there
 2	5.4	teeth shards: the plan gives a case to no shard
 2	5.4	teeth shards: the plan gives a case to every shard from its own on
-2	5.4	teeth shards: a case the plan does not name is placed by a checksum off by one shard
+2	5.4	teeth shards: a case the plan does not name is counted into a shard that is not there
 2	5.4	teeth shards pass: a case the plan does not name still runs exactly once
 2	5.4	teeth shards: the plan names a case the harness does not have
 2	5.4	teeth shards: the plan is for another shard count than the workflow runs

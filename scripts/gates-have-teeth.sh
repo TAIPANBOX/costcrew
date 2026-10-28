@@ -335,7 +335,7 @@ run_case $'teeth shards: the partition gate is pointed at a harness that is not 
 # The plan (scripts/teeth-shard-plan.tsv) and what CI runs. The two faults above
 # are in the rule that counts cases, which is what any shard count the plan was not
 # made for falls back to, so they are judged by the five-shard test. The cases below
-# are in the plan's own path, the checksum a case the plan does not name falls to,
+# are in the plan's own path, the counting a case the plan does not name falls to,
 # the workflow's shard count, and the planner.
 run_case $'teeth shards: the plan gives a case to no shard' \
 	fail \
@@ -353,7 +353,7 @@ run_case $'teeth shards: the plan gives a case to every shard from its own on' \
 	scripts/teeth-shard.sh \
 	$'if [ "$((10#$row_shard))" -eq "$shard_i" ]; then' \
 	$'if [ "$((10#$row_shard))" -le "$shard_i" ]; then'
-run_case $'teeth shards: a case the plan does not name is placed by a checksum off by one shard' \
+run_case $'teeth shards: a case the plan does not name is counted into a shard that is not there' \
 	fail \
 	./internal/manifest \
 	$'^TestTeethShardsCoverEveryCase$' \
@@ -362,8 +362,8 @@ run_case $'teeth shards: a case the plan does not name is placed by a checksum o
 	$'shard_plan_all="$shard_plan_all$row_name"' \
 	$'shard_plan_all="$shard_plan_all"' \
 	scripts/teeth-shard.sh \
-	$'[ $(( sum % shard_n )) -eq $(( shard_i - 1 )) ]' \
-	$'[ $(( sum % (shard_n + 1) )) -eq $(( shard_i - 1 )) ]'
+	$'\t[ $(( ($1 - 1) % shard_n )) -eq $(( shard_i - 1 )) ]' \
+	$'\t[ $(( ($1 - 1) % (shard_n + 1) )) -eq $(( shard_i - 1 )) ]'
 run_case $'teeth shards pass: a case the plan does not name still runs exactly once' \
 	pass \
 	./internal/manifest \

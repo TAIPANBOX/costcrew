@@ -143,7 +143,7 @@ if [ -f "$plan" ]; then
 			failed=1
 		fi
 		unplanned=$(LC_ALL=C comm -23 "$work/full" "$work/planned" | grep -c .)
-		printf '  plan %s: %s cases placed by the plan, %s placed by a checksum of the name\n' "$plan" "$((total - unplanned))" "$unplanned"
+		printf '  plan %s: %s cases placed by the plan, %s placed by their position in the file\n' "$plan" "$((total - unplanned))" "$unplanned"
 	elif [ "$from_ci" -eq 1 ]; then
 		printf 'PLAN FOR ANOTHER N  %s is a plan for %s shards and CI runs %s, so CI counts cases instead of balancing them (run scripts/teeth-plan.sh %s)\n' "$plan" "${plan_n:-no number of}" "$shards" "$shards"
 		failed=1

@@ -11,11 +11,13 @@
 #    by scripts/teeth-plan.sh from the seconds each case took in CI, so the
 #    shards finish together. The plan is used only when its `# shards: N` line
 #    equals this run's N: a plan made for twelve shards says nothing about five.
-#    A case the plan has no row for (one added since the plan was made) goes to
-#    the shard its name's checksum picks, so it still runs exactly once.
-# 2. Without a plan for this N: case k (1-based, in file order) belongs to shard
-#    ((k - 1) % N) + 1, the rule the split started with. It is balanced by count,
-#    not by time, and it is what a person gets with TEETH_SHARD=1/3 on a laptop.
+#    A case the plan has no row for (one added since the plan was made) falls to
+#    the rule below, so it still runs exactly once.
+# 2. Otherwise case k (1-based, in file order) belongs to shard ((k - 1) % N) + 1,
+#    the rule the split started with. It is balanced by count, not by time, and it
+#    is what a person gets with TEETH_SHARD=1/3 on a laptop, and what a case added
+#    after the plan was made gets until the plan is remade. Every shard numbers the
+#    cases the same way, because they all read the same file.
 #
 # Both are a partition. Neither prints a red line when it is not, which is why
 # the gate lists what each shard would run and compares it with the whole.
@@ -79,11 +81,6 @@ teeth_shard_takes() {
 			[[ $'\n'"$shard_plan_mine" == *$'\n'"$2"$'\n'* ]]
 			return
 		fi
-		local sum
-		sum=$(printf %s "$2" | cksum)
-		sum=${sum%% *}
-		[ $(( sum % shard_n )) -eq $(( shard_i - 1 )) ]
-		return
 	fi
 	[ $(( ($1 - 1) % shard_n )) -eq $(( shard_i - 1 )) ]
 }
