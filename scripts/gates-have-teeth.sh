@@ -49,7 +49,9 @@ set -uo pipefail
 cd "$(git rev-parse --show-toplevel)" || exit 1
 
 # TEETH_LIST=1 prints each case's name, one per line in file order, and runs none
-# of them. TEETH_SHARD=i/N runs only shard i of N (scripts/teeth-shard.sh). A listing
+# of them. TEETH_LIST=gates prints, for the same cases, name, package and test
+# pattern, tab separated, which is what scripts/teeth-plan.sh groups by.
+# TEETH_SHARD=i/N runs only shard i of N (scripts/teeth-shard.sh). A listing
 # touches nothing: it skips the checks below and sets no trap, because the trap
 # restores the tree with git reset --hard, and a listing must never be what discards
 # somebody's uncommitted work. Its output goes to fd 3; stdout is silenced.
@@ -113,6 +115,22 @@ failures=0
 cases=0
 case_index=0
 
+# teeth_clock prints the time in seconds, with a fraction where bash has
+# EPOCHREALTIME (5.0 and later) and whole seconds where it has not. teeth_since T
+# prints the seconds since T. Every green line carries its own duration, which is
+# what scripts/teeth-plan.sh balances the shards by.
+teeth_clock() {
+	local t="${EPOCHREALTIME:-}"
+	if [ -n "$t" ]; then
+		printf '%s' "${t/,/.}"
+	else
+		date +%s
+	fi
+}
+teeth_since() {
+	awk -v a="$1" -v b="$(teeth_clock)" 'BEGIN { printf "%.1f", b - a }'
+}
+
 # gate <pkg> <pattern> runs one gate and says whether it measured anything.
 #
 # The "[no tests to run]" check is why this is a function rather than an
@@ -143,12 +161,18 @@ run_case() {
 	# Every call takes the next index, whether this run owns it or not, so every
 	# shard numbers the cases the same way. See scripts/teeth-shard.sh.
 	case_index=$((case_index + 1))
-	teeth_shard_takes "$case_index" || return 0
+	teeth_shard_takes "$case_index" "$name" || return 0
 	if [ -n "${TEETH_LIST:-}" ]; then
-		printf '%s\n' "$name" >&3
+		if [ "$TEETH_LIST" = gates ]; then
+			printf '%s\t%s\t%s\n' "$name" "$pkg" "$pattern" >&3
+		else
+			printf '%s\n' "$name" >&3
+		fi
 		return 0
 	fi
 	cases=$((cases + 1))
+	local t0
+	t0=$(teeth_clock)
 
 	# An expect word this harness does not define matches neither TOOTHLESS
 	# below (expect = fail) nor OVEREAGER (expect = pass), so it fell through
@@ -214,7 +238,7 @@ run_case() {
 	# because a gate whose test has been renamed away reports success.
 	if [ "$expect" = gone ]; then
 		if [ "$rc" -eq 3 ]; then
-			printf 'ok  %-62s (%s)\n' "$name" "$expect"
+			printf 'ok  %-62s (%s)  %ss\n' "$name" "$expect" "$(teeth_since "$t0")"
 		else
 			printf 'SILENT PASS  %s\n             the test was removed and the gate still reported success,\n             so every green line above would survive its own test\n             being deleted\n' "$name"
 			failures=$((failures + 1))
@@ -253,7 +277,7 @@ run_case() {
 		# nothing reads this pipeline's status, but noise that looks like a fault).
 		printf '%s\n' "$out" | sed -n '1,4s/^/           /p'
 	else
-		printf 'ok  %-62s (%s)\n' "$name" "$expect"
+		printf 'ok  %-62s (%s)  %ss\n' "$name" "$expect" "$(teeth_since "$t0")"
 	fi
 }
 
@@ -279,7 +303,7 @@ echo "=== faults each gate must catch ==="
 run_case $'teeth shards: the filter leaves one case in five out of every shard' \
 	fail \
 	./internal/manifest \
-	$'^TestTeethShardsCoverEveryCase$' \
+	$'^TestTeethShardsCoverEveryCaseWithoutThePlan$' \
 	$'NOT IN ANY SHARD' \
 	scripts/teeth-shard.sh \
 	$'\t[ $(( ($1 - 1) % shard_n )) -eq $(( shard_i - 1 )) ]' \
@@ -287,7 +311,7 @@ run_case $'teeth shards: the filter leaves one case in five out of every shard' 
 run_case $'teeth shards: the filter lets an early case into every shard' \
 	fail \
 	./internal/manifest \
-	$'^TestTeethShardsCoverEveryCase$' \
+	$'^TestTeethShardsCoverEveryCaseWithoutThePlan$' \
 	$'a shard runs a case more than once' \
 	scripts/teeth-shard.sh \
 	$'\t[ $(( ($1 - 1) % shard_n )) -eq $(( shard_i - 1 )) ]' \
@@ -308,6 +332,144 @@ run_case $'teeth shards: the partition gate is pointed at a harness that is not 
 	scripts/teeth-shards-cover-every-case.sh \
 	$'harness=scripts/gates-have-teeth.sh\n' \
 	$'harness=scripts/gates-have-teeth-moved.sh\n'
+# The plan (scripts/teeth-shard-plan.tsv) and what CI runs. The two faults above
+# are in the rule that counts cases, which is what any shard count the plan was not
+# made for falls back to, so they are judged by the five-shard test. The cases below
+# are in the plan's own path, the checksum a case the plan does not name falls to,
+# the workflow's shard count, and the planner.
+run_case $'teeth shards: the plan gives a case to no shard' \
+	fail \
+	./internal/manifest \
+	$'^TestTeethShardsCoverEveryCase$' \
+	$'NOT IN ANY SHARD' \
+	scripts/teeth-shard.sh \
+	$'if [ "$((10#$row_shard))" -eq "$shard_i" ]; then' \
+	$'if [ "$((10#$row_shard))" -eq 0 ]; then'
+run_case $'teeth shards: the plan gives a case to every shard from its own on' \
+	fail \
+	./internal/manifest \
+	$'^TestTeethShardsCoverEveryCase$' \
+	$'a shard runs a case more than once' \
+	scripts/teeth-shard.sh \
+	$'if [ "$((10#$row_shard))" -eq "$shard_i" ]; then' \
+	$'if [ "$((10#$row_shard))" -le "$shard_i" ]; then'
+run_case $'teeth shards: a case the plan does not name is placed by a checksum off by one shard' \
+	fail \
+	./internal/manifest \
+	$'^TestTeethShardsCoverEveryCase$' \
+	$'NOT IN ANY SHARD' \
+	scripts/teeth-shard.sh \
+	$'shard_plan_all="$shard_plan_all$row_name"' \
+	$'shard_plan_all="$shard_plan_all"' \
+	scripts/teeth-shard.sh \
+	$'[ $(( sum % shard_n )) -eq $(( shard_i - 1 )) ]' \
+	$'[ $(( sum % (shard_n + 1) )) -eq $(( shard_i - 1 )) ]'
+run_case $'teeth shards pass: a case the plan does not name still runs exactly once' \
+	pass \
+	./internal/manifest \
+	$'^TestTeethShardsCoverEveryCase$' \
+	$'' \
+	scripts/teeth-shard.sh \
+	$'shard_plan_all="$shard_plan_all$row_name"' \
+	$'shard_plan_all="$shard_plan_all"'
+run_case $'teeth shards: the plan names a case the harness does not have' \
+	fail \
+	./internal/manifest \
+	$'^TestTeethShardsCoverEveryCase$' \
+	$'PLAN NAMES NO CASE' \
+	scripts/teeth-shard-plan.tsv \
+	$'# shards: 12\n' \
+	$'# shards: 12\n1\t1.0\tno such case\n'
+run_case $'teeth shards: the plan is for another shard count than the workflow runs' \
+	fail \
+	./internal/manifest \
+	$'^TestTeethShardsCoverEveryCase$' \
+	$'PLAN FOR ANOTHER N' \
+	scripts/teeth-shard-plan.tsv \
+	$'# shards: 12\n' \
+	$'# shards: 11\n'
+run_case $'teeth shards: the workflow starts one shard fewer than it divides by' \
+	fail \
+	./internal/manifest \
+	$'^TestTeethShardsCoverEveryCase$' \
+	$'CI DISAGREES' \
+	.github/workflows/ci.yml \
+	$', 11, 12]\n' \
+	$', 11]\n'
+run_case $'teeth shards: the workflow divides by a different total than it starts shards for' \
+	fail \
+	./internal/manifest \
+	$'^TestTeethShardsCoverEveryCase$' \
+	$'CI DISAGREES' \
+	.github/workflows/ci.yml \
+	$'TEETH_SHARD: ${{ matrix.shard }}/12' \
+	$'TEETH_SHARD: ${{ matrix.shard }}/11'
+run_case $'teeth shards pass: a reworded comment in the workflow is not a fault' \
+	pass \
+	./internal/manifest \
+	$'^TestTeethShardsCoverEveryCase$' \
+	$'' \
+	.github/workflows/ci.yml \
+	$'# Nothing was dropped to make it shorter.' \
+	$'# Nothing was dropped to make it any shorter.'
+run_case $'teeth plan: the planner splits the cases of one gate across shards' \
+	fail \
+	./internal/manifest \
+	$'^TestTheTeethPlanScriptBalancesTheShardsAndKeepsAGateTogether$' \
+	$'so each pays for the clean run of it' \
+	scripts/teeth-plan.sh \
+	$'groups.setdefault(key, []).append(name)' \
+	$'groups.setdefault(name, []).append(name)'
+run_case $'teeth plan: the planner puts every group in the first shard' \
+	fail \
+	./internal/manifest \
+	$'^TestTheTeethPlanScriptBalancesTheShardsAndKeepsAGateTogether$' \
+	$'more than a tenth over' \
+	scripts/teeth-plan.sh \
+	$'target = min(range(n), key=lambda s: (load[s], s))' \
+	$'target = 0'
+run_case $'teeth plan pass: a reworded comment in the planner is not a fault' \
+	pass \
+	./internal/manifest \
+	$'^TestTheTeethPlanScriptBalancesTheShardsAndKeepsAGateTogether$' \
+	$'' \
+	scripts/teeth-plan.sh \
+	$'# HOW IT PLACES THEM' \
+	$'# HOW IT PLACES THE CASES'
+
+run_case $'ci required checks: a job is added that the gate does not wait for' \
+	fail \
+	./internal/manifest \
+	$'^TestTheRequiredChecksWaitForEveryJob$' \
+	$'NOT WAITED FOR' \
+	.github/workflows/ci.yml \
+	$'needs: [build-lint, tests, tests-web, race-bindings]' \
+	$'needs: [build-lint, tests, race-bindings]'
+run_case $'ci required checks: the gate is skipped, not red, when a job it needs fails' \
+	fail \
+	./internal/manifest \
+	$'^TestTheRequiredChecksWaitForEveryJob$' \
+	$'SKIPPED NOT RED' \
+	.github/workflows/ci.yml \
+	$'needs: [build-lint, tests, tests-web, race-bindings]\n    if: always()\n' \
+	$'needs: [build-lint, tests, tests-web, race-bindings]\n'
+run_case $'ci required checks: the gate waits for a job and never reads its result' \
+	fail \
+	./internal/manifest \
+	$'^TestTheRequiredChecksWaitForEveryJob$' \
+	$'RESULT NEVER READ' \
+	.github/workflows/ci.yml \
+	$'          RACE_BINDINGS: ${{ needs.race-bindings.result }}\n' \
+	$''
+run_case $'ci required checks pass: a reworded step name in the gate is not a fault' \
+	pass \
+	./internal/manifest \
+	$'^TestTheRequiredChecksWaitForEveryJob$' \
+	$'' \
+	.github/workflows/ci.yml \
+	$'- name: every gate job passed' \
+	$'- name: every gate job has passed'
+
 run_case $'retired rights: a skill hands one back out' \
 	fail \
 	./internal/crew \
