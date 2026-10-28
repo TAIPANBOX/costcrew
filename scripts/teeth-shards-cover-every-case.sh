@@ -21,7 +21,7 @@
 # that CI does not run proves nothing about CI. The workflow is read for the two
 # places the shard count is written, which have to agree: the matrix list
 # (`shard: [1, 2, ...]`) must be exactly 1..N, and every TEETH_SHARD must end in /N.
-# A matrix that lacks shard 12 of 12 leaves that shard's cases unrun, the teeth
+# A matrix that lacks shard 8 of 8 leaves that shard's cases unrun, the teeth
 # job stays green, and no line goes red. And when scripts/teeth-shard-plan.tsv
 # exists, it has to be a plan for that N, and every row must name a case the
 # harness has (a renamed case leaves a row that places nothing).

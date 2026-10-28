@@ -111,6 +111,17 @@ if [ -z "${TEETH_LIST:-}" ]; then
 	trap cleanup_and_stop INT TERM
 fi
 
+# The tree builds and links before any case mutates it. Each case below only has
+# to COMPILE (see "Compile before judging" in run_case), which is the whole of what
+# it needs to know about its mutation, and compiling skips linking the ten
+# binaries this module builds, which was about a fifth of every case. Linking is
+# asserted once, here, on the tree the cases start from. Without it a tree that
+# does not build would show as a BROKEN line per case instead of as one reason.
+if [ -z "${TEETH_LIST:-}" ] && ! go build ./... 2>&1; then
+	printf 'the tree does not build before any case has changed it, so no case can be judged.\n'
+	exit 1
+fi
+
 failures=0
 cases=0
 case_index=0
@@ -222,7 +233,15 @@ run_case() {
 	# Compile before judging. See the header: a mutation that leaves an unused
 	# variable fails `go test` without the test ever running, and that is
 	# indistinguishable from a caught fault by exit code alone.
-	if ! go build ./... 2>/dev/null; then
+	#
+	# `go list -export` compiles every package of the module, the ten main
+	# packages included, and exits non-zero on a package that does not compile,
+	# exactly as `go build ./...` does; it stops before linking. Measured
+	# 2026-10-28 at four procs: 1.6s for the build against 0.8s for this, per case,
+	# of which linking the ten binaries was the difference. A mutation that
+	# compiled and still could not link would be found by the gate's own `go test`,
+	# which links its test binary and reports "[build failed]".
+	if ! go list -export -f '' ./... >/dev/null 2>&1; then
 		printf 'BROKEN  %s\n        its mutation does not compile, so the gate never ran and a\n        non-zero exit would have been recorded as a catch\n' "$name"
 		failures=$((failures + 1))
 		restore
@@ -378,32 +397,32 @@ run_case $'teeth shards: the plan names a case the harness does not have' \
 	$'^TestTeethShardsCoverEveryCase$' \
 	$'PLAN NAMES NO CASE' \
 	scripts/teeth-shard-plan.tsv \
-	$'# shards: 12\n' \
-	$'# shards: 12\n1\t1.0\tno such case\n'
+	$'# shards: 8\n' \
+	$'# shards: 8\n1\t1.0\tno such case\n'
 run_case $'teeth shards: the plan is for another shard count than the workflow runs' \
 	fail \
 	./internal/manifest \
 	$'^TestTeethShardsCoverEveryCase$' \
 	$'PLAN FOR ANOTHER N' \
 	scripts/teeth-shard-plan.tsv \
-	$'# shards: 12\n' \
-	$'# shards: 11\n'
+	$'# shards: 8\n' \
+	$'# shards: 7\n'
 run_case $'teeth shards: the workflow starts one shard fewer than it divides by' \
 	fail \
 	./internal/manifest \
 	$'^TestTeethShardsCoverEveryCase$' \
 	$'CI DISAGREES' \
 	.github/workflows/ci.yml \
-	$', 11, 12]\n' \
-	$', 11]\n'
+	$', 7, 8]\n' \
+	$', 7]\n'
 run_case $'teeth shards: the workflow divides by a different total than it starts shards for' \
 	fail \
 	./internal/manifest \
 	$'^TestTeethShardsCoverEveryCase$' \
 	$'CI DISAGREES' \
 	.github/workflows/ci.yml \
-	$'TEETH_SHARD: ${{ matrix.shard }}/12' \
-	$'TEETH_SHARD: ${{ matrix.shard }}/11'
+	$'TEETH_SHARD: ${{ matrix.shard }}/8' \
+	$'TEETH_SHARD: ${{ matrix.shard }}/7'
 run_case $'teeth shards pass: a reworded comment in the workflow is not a fault' \
 	pass \
 	./internal/manifest \

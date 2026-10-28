@@ -10,7 +10,7 @@
 # 1. The plan. scripts/teeth-shard-plan.tsv names a shard for each case, chosen
 #    by scripts/teeth-plan.sh from the seconds each case took in CI, so the
 #    shards finish together. The plan is used only when its `# shards: N` line
-#    equals this run's N: a plan made for twelve shards says nothing about five.
+#    equals this run's N: a plan made for eight shards says nothing about five.
 #    A case the plan has no row for (one added since the plan was made) falls to
 #    the rule below, so it still runs exactly once.
 # 2. Otherwise case k (1-based, in file order) belongs to shard ((k - 1) % N) + 1,
