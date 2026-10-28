@@ -1,0 +1,655 @@
+# Which shard each teeth case runs in. Made by scripts/teeth-plan.sh; read by
+# scripts/teeth-shard.sh. Rows are shard, seconds, case name, separated by tabs.
+# shards: 8
+# Predicted seconds per shard, by these weights: 512 512 512 514 512 514 514 514
+# Slowest shard / mean: 1.003. Weights from 12 log(s); 0 case(s) had none and took nothing.
+7	5.5	teeth shards: the filter leaves one case in five out of every shard
+7	3.7	teeth shards: the filter lets an early case into every shard
+1	22.1	teeth shards: a reworded comment in the partition gate is not a fault
+1	2.6	teeth shards: the partition gate is pointed at a harness that is not there
+1	11.1	teeth shards: the plan gives a case to no shard
+1	14.7	teeth shards: the plan gives a case to every shard from its own on
+1	3.9	teeth shards: a case the plan does not name is counted into a shard that is not there
+1	3.9	teeth shards pass: a case the plan does not name still runs exactly once
+1	11.6	teeth shards: the plan names a case the harness does not have
+1	3.4	teeth shards: the plan is for another shard count than the workflow runs
+1	11.5	teeth shards: the workflow starts one shard fewer than it divides by
+1	3.3	teeth shards: the workflow divides by a different total than it starts shards for
+1	11.6	teeth shards pass: a reworded comment in the workflow is not a fault
+1	5.2	teeth plan: the planner splits the cases of one gate across shards
+1	3.5	teeth plan: the planner puts every group in the first shard
+1	3.4	teeth plan pass: a reworded comment in the planner is not a fault
+8	4.6	ci required checks: a job is added that the gate does not wait for
+8	3.1	ci required checks: the gate is skipped, not red, when a job it needs fails
+8	3.1	ci required checks: the gate waits for a job and never reads its result
+8	3.1	ci required checks pass: a reworded step name in the gate is not a fault
+3	6.5	retired rights: a skill hands one back out
+1	6.8	skill taxonomy: a roster skill loses its rights entry
+3	31.2	roles: a class named in code is absent from the file
+3	5.7	roles: a class owned by two links
+3	18.8	roles: a role decides a class its rights do not back
+3	15.6	roles: the file is taken away
+8	6.2	thresholds: T.anomaly goes back to its draft cents
+2	6.8	thresholds: T.anomaly goes back to its draft cents, read by the supervisor
+8	5.7	thresholds: T.anomaly shows the card its draft text
+5	6.3	thresholds: T.urgent goes back to its draft cents
+5	6.7	thresholds: a threshold goes back to being a draft
+3	5.6	thresholds: a provenance names somebody as its marker
+7	5.4	thresholds: the loader accepts any provenance at all
+8	9.6	thresholds: the shell gate stops checking provenance
+5	8.1	thresholds: a measured provenance with its how and date is not a fault
+8	6.5	connector status: every entry claims Built regardless of its reader
+4	6.9	generated estate: the refusal to mix it with real money is dropped
+3	6.4	sub-cent calls: rounded per row before the sum instead of once after it
+8	5.8	rights vocabulary: an explanation for a right nothing grants
+7	7.4	session guard: a download route loses its guard
+7	12.7	roles: the operator check leaves the one chokepoint
+7	8.9	roles: an operator can change a role
+3	9.3	ownership: rebrief stops asking who owns it
+6	17.0	ownership: the check refuses everybody, owner included
+7	7.2	transfer: a restart undoes a placement a person made
+1	16.4	hire: a fixed owner is stamped instead of who signed
+1	4.9	determinism: rows come back in map order
+5	56.3	determinism: a page renders differently twice
+1	6.0	ownership history: spend read from the roster instead
+7	4.7	ownership history: a restart re-derives every charge
+6	6.7	owners: a desk with agents and nobody to answer for them
+4	5.1	owners: one password would open every installation
+2	8.8	agent card: the stops panel reads the event stream
+3	8.6	csrf: the chokepoint stops checking the token
+3	6.9	csrf: the accounts handler stops checking its own
+5	10.8	features: a scenario loses its binding
+5	7.2	features: a binding points at a test that is gone
+5	5.9	a KPI that hides which part is real
+2	6.2	a KPI library that crashes on an empty detector
+7	6.3	a card reporting the whole board as its own
+2	5.9	a sentence about money nobody spent
+1	5.7	a bound narrower than its own promise
+7	7.0	a deliverable showing its own markdown
+7	6.1	a heading glued to the line under it
+7	6.0	a rule printed as three dashes
+2	7.1	a model able to put a tag on the page
+3	6.2	a model left to guess the date
+4	8.3	a crew figure that hides which part is real
+2	4.9	a marker drawn like a panel edge
+1	7.4	a sidebar the page can move
+1	6.3	content rendered under the sidebar
+2	5.6	each task rounded up on its own
+2	4.9	the run is never settled into cents
+4	4.1	work done past a reason a person recorded
+2	5.2	the model is left free to think instead of answering
+6	4.6	a deliverable that does not say a model wrote it
+5	8.1	a marker no page displays
+7	6.1	session guard: a route named in a comment
+1	6.7	rights vocabulary: a right added with its explanation
+3	6.8	owners: a desk moved to a different person
+7	3.7	the runner's ceiling stops being declared
+7	4.6	a renamed test is not a passing test
+6	3.7	a deleted gate is not a passing gate
+7	4.3	skills are tools: the dispatcher stops checking the right
+2	5.4	skills are tools: charges_query drops its table allow-list
+3	5.2	skills are tools: the whole-statement identifier scan is dropped
+1	5.3	skills are tools: a CTE naming itself charges is allowed again
+4	5.3	skills are tools: ai_calls_query drops its table allow-list
+8	5.2	reads promise: stakeholder-briefing loses budgets-read again
+8	6.4	reads promise: stakeholder-briefing gains a right nothing asked for
+5	8.9	options: an analyst's Post applies an option
+4	8.4	anomaly desk: emit before the post instead of after
+6	7.6	anomaly desk: told matches the event name alone, not its owner field
+3	6.1	bench: the driver: line is left in a hiding-mode packet
+4	3.8	bench: cause scored by substring of the whole body
+6	4.2	bench: cost summed after rounding each case to cents
+8	5.0	memory: own history is not scoped to the one analyst
+3	5.4	memory: own history drops the fate line
+3	6.6	memory: drivers keep the old ninety-day window
+7	4.6	memory: history is prepended instead of appended, so it no longer yields first
+7	4.2	due: skip the switch check
+4	6.5	due: skip the -due check for a halted desk
+5	4.1	bench: a second net/http door
+5	5.3	run: live.go grows a second net/http door
+8	6.1	plan-ask: accept an item without a ref
+6	5.2	plan-ask: skip the headroom check
+6	4.5	plan-ask: let budget_cents go up
+8	6.2	plan-ask: charge the settled cost to nobody
+3	4.9	C2: accept a target-less allocation.rule
+2	5.7	the executive pack: show a refused KPI as zero
+3	5.7	rightsizing: rank by current cost instead of saving
+7	5.0	C6: idle-seat waste computed through a float64 round trip
+8	5.4	C6: the notice deadline line is dropped from the renewal calendar
+1	4.8	C6: a benchmark figure is invented where none exists
+2	6.0	forecast: a recurring driver applies its effect once, un-extended
+6	4.7	forecast: a driver rate rounds to the cent before its window multiplies it
+7	4.7	forecast: the largest miss grades a live figure instead of the frozen one
+4	6.1	commitments: coverage rounds through dollars first
+6	5.7	commitments: a Purchase row counted as usage
+1	5.0	commitments: purchase in the apply table
+2	5.6	driver-window: write Start = End = day ignoring the target
+1	4.7	price display: report a task's worst case without the loop multiplier
+5	6.1	guardrail: read budget_recommendations into CurrentBudgets result
+3	10.4	leadership page: reformat a KPI value instead of printing its own string
+6	3.0	documents: a named document that is neither in the tree nor a specification
+6	2.5	documents: a full URL to another repository, bare and as a link
+6	2.5	documents: a dangling bare name right after a URL is still caught
+8	5.0	owner quotes: the old marker back on a scenario header
+8	5.6	owner quotes: a Ukrainian sentence back in a Go comment
+8	3.7	owner quotes: guillemets around Cyrillic inside a Go string
+8	3.7	owner quotes: the owner named as the one who found it
+8	3.7	owner quotes: a copyright line and the name inside URLs
+3	7.1	behind-tls: drop the flag from the cookie's own Secure decision
+6	7.3	behind-tls: drop r.TLS from the cookie's own Secure decision
+7	5.9	behind-tls: a stray Set-Cookie header outside setCookie
+6	5.4	shared bus: generated_estate_replaced journaled with no severity
+6	5.2	shared bus: option_refused journaled with a severity outside the enum
+6	5.1	shared bus: a move to another legal severity is not a fault
+4	6.2	settlement: the header is ignored and the runner's own price is booked
+6	4.8	settlement: the run's cumulative header is read as this call's own
+8	5.3	settlement: an absurd value becomes a charge
+6	4.2	settlement: rounded to cents per call before the run is summed
+6	5.3	price display: the tool catalogue is dropped from the worst case
+8	4.8	settlement: a wider byte cap on the header value is not a fault
+5	6.2	supervisor: the analyst link's classes are carried again (MayDecide)
+5	6.0	supervisor: option.select removed from the job description
+6	5.0	supervisor: an analyst class past T.anomaly is applied
+4	6.4	supervisor: a contradiction is settled by the ranking
+8	5.0	supervisor: a second option on a settled anomaly is applied on top
+6	5.9	supervisor: an owner or nobody class is selected as if it were an analyst's
+7	5.3	supervisor: option.select is assumed, not read from the job description
+1	6.3	supervisor: the T.anomaly boundary spelled another way is not a fault
+2	4.7	job descriptions: a family decides_alone goes back to empty
+3	18.6	job descriptions: an exemption is renamed so the gate cannot read it
+1	4.6	job descriptions: the shell gate stops refusing an empty list
+1	5.4	job descriptions: the shell gate accepts an exemption of any length
+1	5.7	job descriptions: the shell gate keeps an exemption beside a written list
+1	5.3	job descriptions: the shell gate lets an analyst decide a class it does not own
+4	5.3	never list: a binding to a test that does not exist is accepted
+5	5.5	never list: a binding for a clause that left the list is accepted
+6	6.2	never list: the blocked-task clause leaves the list
+3	6.2	never list: the blocked-task clause loses its binding
+5	6.7	job descriptions: an exemption reworded is not a fault
+6	6.0	gateway route: an openrouter call ignores the gateway again
+1	6.0	gateway route: bedrock is let through to AWS with a gateway on
+6	6.4	gateway route: Call stops asking whether the engine has a route
+8	4.9	gateway route: the openrouter URL is always the direct host
+8	4.4	gateway route: the x-fuse headers are left off the OpenAI request
+2	4.6	gateway route: the OpenAI door's settlement is not read
+3	4.6	gateway route: a header on the direct openrouter route becomes a charge
+4	4.6	gateway route: a 402 from the OpenAI gateway is an ordinary failure
+7	5.5	gateway route: the run preflight lets an unfronted engine through
+4	5.4	gateway route: the tool loop stops asking whether the engine has a route
+2	6.3	gateway route: the openrouter round ignores the gateway (the unfixed loop)
+2	8.6	gateway route: the supervisor's ask is not given the OpenAI gateway
+6	3.6	gateway route: the bench stops checking the route before the store opens
+6	5.5	gateway route: rewording a refusal is not a fault
+8	4.1	stopped task: an unanswered round erases the settled ones before it
+8	3.6	stopped task: the error path books nothing
+6	5.4	stopped task: every unsettled round is skipped, not only an unanswered one
+1	4.3	stopped task: the headline hides a gateway total above the booked one
+5	10.8	admin answers: the reason check is skipped
+2	7.7	admin answers: every answerer is treated as answering for somebody else
+7	6.5	admin answers: the owner is treated as having answered for themselves when an admin did
+2	6.7	admin answers: the answer type accepts any reason
+7	6.1	admin answers: the reason has no length cap
+7	6.2	admin answers: the reason is dropped from the event
+1	7.3	admin answers: a refusal a person made is not journaled
+4	10.8	admin answers: the card stops naming who answered for whom
+6	5.1	admin answers: the refusal event goes out with a severity outside the enum
+5	8.9	admin answers: a reworded refusal message is not a fault
+7	4.4	unit showback: the showback drops every unit a rule covers
+5	5.9	unit showback: the spend of a unit with no rule vanishes from the file
+7	9.6	unit showback: an unruled unit's name is printed in the unruled row
+5	6.4	unit showback: the export is emptied at the route
+7	8.2	unit showback: the chargeback page stops listing the units
+6	6.3	unit showback: the close pack stops naming the units
+4	5.4	unit rule: applied for a unit that has no rows
+8	6.2	unit rule: rows a reader did not write count as a unit
+3	6.7	unit rule: a roster team's name is accepted as a unit
+5	6.5	unit rule: a proposal for a unit with no rows reaches the owner
+7	5.4	unit rule: a name that opens as a spreadsheet formula is accepted
+7	5.0	unit rule: the supervisor applies an allocation.rule on its own
+8	8.8	unit rule: any operator may stamp another owner's unit rule
+7	6.4	money found: the crew-cost KPI sums the absolute excess again
+4	4.9	unit rule: a reworded refusal message is not a fault
+7	6.5	unit showback: a reworded sentence on the units panel is not a fault
+2	4.3	sessions: the cookie is stored as it is, not as its hash
+7	4.5	sessions: a hash read from the database is accepted as a cookie
+5	4.8	sessions: the migration renames the old table instead of erasing it
+8	3.5	sessions: the migration runs on every start and signs everybody out
+3	4.3	sessions: the CSRF token is keyed on the storage hash, not the cookie
+5	4.4	sessions: a reworded journal reason for the reset is not a fault
+2	3.9	sign-in: a locked account says it is locked
+2	7.6	sign-in: a locked account says it is locked, seen through the form
+1	5.0	sign-in: a locked account skips the password hash
+2	3.4	sign-in: an unknown account gets words of its own
+2	3.6	sign-in: the lockout itself is never reached
+2	3.4	sign-in: a reworded refusal is not a fault
+3	4.7	files: the data directory is created 0755
+6	3.6	files: the journal is created 0644
+7	3.6	files: Open stops tightening files that already exist
+4	4.7	files: Open chmods a data directory that was already there
+5	3.6	files: a chmod the filesystem refuses is swallowed
+7	2.9	files: the session secret leaves the ignore list
+2	4.8	files: the passports are written 0600, unreadable to the services they are for
+5	3.2	files: a reworded warning about a refused chmod is not a fault
+3	5.3	egress: a handler builds an http.Client
+3	2.8	egress: the command line takes a reference to http.Get
+7	7.1	egress: a package the console imports starts building requests
+7	4.7	egress: the console imports the package that pushes budgets elsewhere
+8	6.6	egress: a second place reaches deliver.Call
+3	3.7	egress: ordinary server code in a handler is not a fault
+2	3.9	image: a declared binary is not copied into the runtime stage
+7	3.4	image: a base image goes back to a tag with no digest
+8	3.0	image: the comparison stops reporting a declared binary the Dockerfile lacks
+7	3.1	image: a reworded comment above a digest is not a fault
+4	6.6	http edge: a hand-written HTML writer is back in the results export
+1	7.4	http edge: the results export is built with text/template, which does not escape
+6	9.2	http edge: the Content-Security-Policy is not sent
+6	6.5	http edge: X-Frame-Options is not sent
+5	8.3	http edge: the policy allows inline script
+1	9.5	http edge: Sign out needs a script again
+3	6.6	http edge: Strict-Transport-Security is sent over plain HTTP too
+3	5.8	http edge: Strict-Transport-Security ignores a TLS handshake this process made
+1	10.4	http edge: the body cap is not applied
+1	7.9	http edge: a chunked body is handed to the handler uncapped
+2	9.2	http edge: the intake upload is held to the general cap
+7	10.1	http edge: the intake round trip is held to the general cap
+1	8.3	http edge: the intake reads a file over its cap in part again
+8	7.3	http edge: the write timeout is not longer than a model call
+8	6.1	http edge: the write timeout is not set
+1	4.5	http edge: the console builds a literal http.Server again
+3	9.0	http edge: reordered policy directives and a reworded refusal are not a fault
+3	4.8	owner chain: the header is left out of the one function that sets them
+2	5.4	owner chain: the tool loop builds its own headers again
+3	5.4	owner chain: the owner goes into the chain unescaped
+4	6.2	owner chain: an empty owner is accepted
+8	5.4	owner chain: the door lets a gateway call through with no chain
+5	5.1	owner chain: pricing no longer refuses an ownerless analyst
+5	4.7	owner chain: the runner builds its Gateway without the chain
+4	4.3	owner chain: the bench builds its Gateway without the chain
+2	8.6	owner chain: the console builds its plan-ask Gateway without the chain
+2	6.8	owner chain: the plan-ask names the supervisor's roster owner, not the person who asked
+5	6.8	owner chain: the roster placeholder is accepted as an owner
+2	6.0	owner chain: a chain the gateway would silently ignore is sent
+5	6.0	owner chain: a reworded placeholder refusal is not a fault
+5	5.3	owner chain: a reworded refusal prefix in execute is not a fault
+6	5.3	blocked meanwhile: the draft insert stops looking at the task's state
+6	4.6	blocked meanwhile: the discarded answer's charge is not booked
+6	4.7	blocked meanwhile: the run counts a discarded answer as a failed task
+6	4.5	blocked meanwhile: the discard is not said
+6	4.0	blocked meanwhile: the summary does not count the discard
+2	5.2	blocked meanwhile: a failed call overwrites the person's reason
+6	4.6	blocked meanwhile: a reworded discard line is not a fault
+5	8.2	downloads: Markdown values written raw into the packet
+5	5.4	downloads: a reworded comment in the Markdown escaping is not a fault
+7	8.1	downloads: the file name concatenated into the header again
+4	5.8	downloads: a second place names a download
+3	7.4	downloads: a CSV cell that starts a formula is written as it came
+3	6.0	downloads: a number column neutralised like a text one
+8	6.7	downloads: x_unit carried unchecked into charges.team
+4	6.7	downloads: every refused row named, however many
+7	6.6	downloads: a link in the import folder followed
+3	10.3	no-store: the header left off
+4	8.0	no-store: the stylesheet marked no-store too
+3	6.6	no-store: a reworded comment is not a fault
+1	8.8	team page: a unit off the roster answers 404 again
+1	3.6	idryxsource: an agent with no rights written as tools null
+3	3.0	spiffe: Close decides with no lock
+5	3.8	spiffe: Identity asks a source it has closed
+1	4.4	parity: the usage names a flag capture does not have
+6	3.5	parity: the Go audit hash left unscrubbed
+1	6.1	plan-ask: a local supervisor refused with the generic sentence
+7	8.2	engines page: only the first three families listed
+2	3.6	typryx hint: the whole state leaves instead of the template's fields
+2	4.5	typryx hint: team joins the vocabulary the console offers
+2	4.4	typryx hint: saving a hint also moves the anomaly's state
+4	4.8	typryx hint: the bus carries a field's value
+5	4.6	typryx hint: the answer's label is trusted over its distribution
+5	3.4	typryx hint: a refusal echoes typryx's body into the reason
+2	4.0	typryx hint: a typryx that never answers is asked about every anomaly
+5	6.2	typryx hint: the bench's hiding packet carries the hint
+3	5.2	typryx hint: the runner asks typryx on a dry run
+5	6.9	typryx hint: rewording the packet's advice is not a fault
+6	14.0	typryx hint: the model is named in a masked packet
+3	14.4	typryx hint: the hint section is sent under aggregates
+1	8.1	typryx hint: typryx is sent real names under masked
+4	7.1	typryx unset: the packet prints a hint section with no hint
+7	6.7	typryx unset: the anomaly page shows the panel with no hint
+2	7.0	typryx door: a page handler imports internal/typryx
+5	4.8	typryx door: rewording the start's log line is not a fault
+8	5.2	oidc: the signature is not checked
+5	5.8	oidc: the audience is not checked
+5	4.8	oidc: the expiry is not checked
+5	4.9	oidc: the nonce is not checked
+8	4.4	oidc: an iat from the future is accepted
+8	4.4	oidc: an iat from before the sign-in began is accepted
+8	4.3	oidc: the authorized party is not checked
+3	3.9	oidc: a state is read instead of spent
+2	5.7	oidc: the state is not bound to the browser that started it
+5	4.9	oidc: an unmapped group gets a default role
+1	6.9	oidc: removal from the group leaves the sessions alive
+8	6.9	oidc: a role change at the provider is not applied
+5	4.3	oidc: an identity adopts a local account by its name
+8	7.5	oidc: -oidc-only still takes any password
+7	7.4	oidc: registration stays open while a provider is configured
+6	6.7	oidc: the sign-in page posts a form to the provider
+8	4.1	oidc: the client follows a redirect from the provider
+2	5.0	oidc: a response body is read whole
+3	3.6	oidc: the client reaches plain http off this machine
+4	3.6	oidc: the client secret prints
+7	4.8	oidc: the sign-in package grows a second outbound construction
+4	4.9	oidc: what the provider says reaches the journal unbounded
+8	4.7	oidc: a discovered authorization endpoint is not checked
+5	5.0	oidc: rewording what a refused person is shown is not a fault
+7	4.7	oidc: a comment naming http.Client in the flow is not a second door
+1	6.5	cloud focus: a negative BilledCost is refused as the gateway reader refuses it
+1	6.4	cloud focus: a Purchase is filed as Usage
+2	6.4	cloud focus: each row is rounded to cents before the day is summed
+8	6.8	cloud focus: the charges row is written without its provenance
+3	5.0	cloud focus: a revised file leaves its earlier version's rows behind
+6	7.8	cloud focus: a refused file's rows are not rolled back
+4	12.1	cloud focus: the gzip inflation cap is lifted
+2	6.5	cloud focus: the one-record cap is lifted
+6	6.4	cloud focus: a symlink in the folder is followed
+7	6.8	cloud focus: real rows are mixed into the generated estate
+6	5.1	cloud focus: a file's refusal list grows with the file
+3	6.0	cloud focus: the sentence's refusal list grows with the folder
+3	5.7	cloud focus: a row longer than a day lands on its last day, not its first
+6	6.7	cloud focus: the 366 day limit on one row is lifted
+2	5.3	cloud focus: a long row is not counted in the sentence
+6	6.9	cloud focus: another provider's rows are read as this desk's
+5	6.7	cloud focus: E notation is refused
+3	6.4	cloud focus: the tag key is matched case-sensitively only
+6	5.8	cloud focus: a copy of a file is counted as a second file
+8	5.2	cloud focus: Test demands a setting that has a default
+4	8.8	cloud focus: the connector page stops offering replace-generated
+6	6.7	cloud focus: a reworded currency refusal is not a fault
+1	3.7	enforce: the default run falls back to the wrong month
+8	3.8	enforce: a team budget is the last desk's, not the sum across desks
+8	3.5	enforce: the tool is not off without an address and a key
+3	3.4	enforce: -apply is handed the plan's own fingerprint, so any value is approved
+4	3.4	enforce: a lowering is no longer marked as the direction that stops work
+5	3.4	enforce: a wider UNIT column is not a fault
+2	3.7	parity: a redirect to a different page is no longer a difference
+3	4.4	parity: a comparison over an empty capture passes
+3	4.5	parity: a planted fault may change the body more than once
+3	4.0	parity: the CSRF token is not scrubbed, so two captures of one console differ
+4	4.4	parity: the crawl walks /logout and ends its own session
+2	9.4	parity: a reworded justification for a scrub is not a fault
+1	3.2	stack: three of four requested agents are connected without a word
+6	2.9	stack: an emit that wrote no event reports success
+7	3.5	stack: a blocked event is no longer raised above info
+3	3.4	stack: the passport the tool built is not round-tripped through the contract
+5	3.3	stack: the supervisor is made its own parent
+8	2.6	stack: a reworded attestation note is not a fault
+4	2.9	idryxsource: agents are written in reverse name order
+1	3.7	idryxsource: an agent acts on behalf of itself, not its parent
+1	3.4	idryxsource: the skills are written where the rights belong
+1	3.3	idryxsource: the hire date is passed on as a bare date, not RFC 3339
+7	3.8	idryxsource: a reworded -host help text is not a fault
+2	3.1	recon: a resource line that does not add up is not reported
+8	3.3	recon: the gap to a SaaS invoice loses its sign
+2	3.2	recon: a commitment's monthly figure uses 720 hours
+7	2.8	recon: a wider vendor column is not a fault
+1	3.8	spiffe: a bare socket path is not treated as a unix socket
+2	8.1	spiffe: a rotated identity is remembered from startup, not re-read
+1	3.2	spiffe: the certificate serial is written in decimal, not hex
+4	4.5	spiffe: a failed Open stops telling the operator where to look
+7	6.2	spiffe: a longer first-SVID wait is not a fault
+8	6.0	local engine: a gateway that does not front the OpenAI wire still lets a local call through
+6	6.5	local engine: the call ignores the gateway and goes to the operator's server
+2	6.1	local engine: the direct route is a vendor's host
+6	6.1	local engine: a server that reports no usage is counted as using nothing
+5	4.4	local engine: the tool loop does not count an unreported round
+5	6.3	local engine: an address with a password in it is accepted
+1	6.0	local engine: an empty key is sent as a bearer token
+1	5.4	local engine: an unreachable server is reported without its URL
+4	5.0	local engine: a local task loops one round, not six
+6	4.1	local engine: it reads as unmetered, so the estimator waves it through
+6	3.4	local engine: a negative price is accepted
+5	5.1	local engine: a run priced at zero starts with no token ceiling
+1	4.2	local engine: the whole run's worst case is not checked against the token ceiling
+5	4.8	local engine: a token reservation is never refused
+5	4.6	local engine: settling does not book the tokens a task used
+5	6.4	local engine: a refused token reservation keeps the money it took
+4	4.1	local engine: the local round sends a different request than the openrouter one
+3	5.6	local engine: the bus says a vendor price was involved
+8	5.7	local engine: execute is not handed the operator's server
+8	5.6	local engine: a server that is not there is not noticed at start
+7	5.2	local engine: the dry run stops warning about tasks money cannot bound
+4	6.0	local engine: rewording the gateway refusal is not a fault
+5	4.5	local engine: rewording the zero-price refusal is not a fault
+1	5.2	local engine: a longer round timeout is not a fault
+6	8.9	prompt data: the invoice ids are left out of the list of names to mask
+6	8.8	prompt data: a business unit a person named is left out of the list of names to mask
+6	7.2	prompt data: the packet is not masked at all
+7	21.5	prompt data: a past deliverable body is sent under masked
+7	12.2	prompt data: the drivers a forecast names are sent under masked
+6	10.0	prompt data: aggregates sends the service of an anomaly
+8	8.1	prompt data: the answer comes back from the shared caller still in tokens
+5	6.0	prompt data: a name gets a new token every time it is masked
+4	5.7	prompt data: two names are given the same token
+2	5.1	prompt data: a misspelling falls back to full
+3	5.1	prompt data: the data directory the key creates is readable by others
+6	4.0	prompt data: the key is no longer ignored by version control
+3	6.1	prompt data: the key is made readable by others
+7	6.0	prompt data: a key anybody can read is accepted
+7	7.9	prompt data: the typed goal is sent under masked
+8	6.1	prompt data: the prompt stops stating its mode
+3	7.6	prompt data: a mission somebody typed when hiring is sent under masked
+2	7.4	prompt data: the plan packet lists every analyst under aggregates
+2	5.7	prompt data: the operator goal is sent in the plan packet
+7	5.9	prompt data: full mode changes the text of a section
+3	7.7	prompt data: a column nobody has decided about is added to the schema
+6	8.9	prompt data: the SQL tools are offered under masked
+6	5.7	prompt data: a tool the policy does not offer is run when asked for
+3	11.2	prompt data: a tool result is not masked
+3	7.7	prompt data: aggregates names the person who closed a period
+4	9.6	prompt data: the model's tokens are not put back into a tool call
+5	5.7	prompt data: a name is spliced into the text of a tool call
+3	7.0	prompt data: the examples in the tool schemas are not masked
+8	7.3	prompt data: the draft is saved in tokens
+4	8.0	prompt data: a tool_call event stops carrying the mode
+4	5.9	prompt data: the crew_ran summary stops carrying the mode
+6	6.0	prompt data: the runner starts on a misspelt setting
+4	57.8	prompt data: the console starts on a misspelt setting
+8	29.5	prompt data: a longer token and a reworded stand-in are not faults
+6	7.1	provider usage: a duplicate key is no longer refused
+6	5.6	provider usage: a day repeated in one file is no longer refused
+7	6.5	provider usage: an amount is read through float64
+5	5.0	provider usage: a day is added to instead of replaced
+4	5.4	provider usage: the older file wins a day two files carry
+6	6.9	provider usage: a byte that is not UTF-8 is quietly replaced
+7	5.7	provider usage: a reworded refusal is not a fault
+7	5.7	reconciliation: a day never read reads as the provider billing nothing
+6	5.5	reconciliation: a matched row loses its gap
+3	6.5	reconciliation: the tolerance edge is no longer matched
+5	5.4	reconciliation: blocked calls count as gateway spend
+8	6.5	reconciliation: a key filter drops a cost report that carries no key
+6	8.2	reconciliation: a reworded page introduction is not a fault
+4	3.8	usage fetcher: a redirect is followed with the key
+5	3.1	usage fetcher: a key the provider echoes is printed
+1	3.5	usage fetcher: a repeated page cursor is followed
+5	4.6	reasoning tokens: the tool loop reads completion_tokens alone
+1	6.0	reasoning tokens: the shared rule ignores total_tokens
+4	6.1	reasoning tokens: a total smaller than its parts is believed
+6	5.4	reasoning tokens: the rule written as one max is not a fault
+7	7.0	local width: the local engine defaults to the vendor width
+4	6.5	local width: -local-parallel is ignored for the vendor width
+1	7.8	local width: the vendor engines take the local width
+8	5.8	local width: one queue, so a vendor task waits for a local slot
+5	6.5	local width: a task's deadline counts its wait for a slot
+3	5.3	local width: -local-parallel has no upper bound
+8	5.3	-only: a refused task's own reason is dropped
+4	5.1	-only: a task that is not open is called refused
+6	5.3	-only: the reason is reworded, which is not a fault
+5	6.1	prompt floor: a later local round is taken at what the server reported
+7	5.3	prompt floor: a vendor engine's count is raised too
+2	6.0	prompt floor: the rule written as one max is not a fault
+6	6.8	period: concatenated into the breakdown query again
+5	7.1	period: any column name written into the breakdown query
+5	4.9	period: a reworded comment on the query builder is not a fault
+5	5.5	csv readers: every refused row named, however many
+1	6.9	csv readers: a link passed over in silence
+1	6.3	csv readers: a link in the folder followed
+8	4.4	csv readers: a reworded comment on the shared walk is not a fault
+7	6.1	unit name: a second copy of the rule written beside the call
+4	3.4	unit name: a zero-width or control character let through
+5	3.6	unit name: the bound read one byte loose
+4	2.7	unit name: a reworded comment on the rule is not a fault
+5	5.1	prompt example: back to a real token's shape
+1	4.9	prompt example: Reidentify reads it as a name once the pattern would admit it
+1	4.3	prompt example: a wider token pattern alone is held by the guard
+6	5.1	re-export: the supersede step skipped
+6	4.2	re-export: the agent in the call's identity
+1	5.3	re-export: the last file read wins
+6	4.2	re-export: the import counts a call twice in its own sentence
+6	5.0	re-export: the credential column not written
+1	5.2	re-export: a refusal with client keys off reported as bad data
+6	8.4	re-export: the import's own sentence dropped from the connector page
+8	6.4	re-export: the identity's field order is not the property
+7	8.4	ai page: a credential labelled as an agent
+7	6.7	ai page: the reserved-amount label whatever the reason
+7	6.7	ai page: the blocked-by-reason panel dropped
+2	10.4	ai page: a month mixing two exports not noted
+3	8.4	anomalies: a gateway agent id linked to a /staff card
+3	9.9	kpis: agent attribution says no gateway reader exists
+5	4.5	ai-spend packet: the block reason dropped
+7	6.5	ai desk: a key: row not read as a credential
+7	6.6	ai page: the reason panel's wording is not the property
+8	8.7	prompt data: the mode dropped from /engines
+8	5.8	prompt data: the plan page does not say the goal is withheld
+4	8.2	plan ask: a paid answer that failed validation called refused before the call
+2	8.3	plan ask: a failed call called refused before the call
+8	6.0	prompt data: the engines note's wording is not the property
+1	6.1	typed hint: the task page panel dropped
+4	7.4	typed hint: the task panel shown with typryx off
+3	3.7	typed hint: the pass does not record what left
+1	6.2	typed hint: "typryx saw" printed when nothing was sent
+8	8.3	typed hint: the answer id dropped from the anomaly panel
+1	4.8	typed hint: the task panel's no-hint wording is not the property
+2	4.2	local engine: ready read off the console's own environment
+2	3.5	local engine: the How text loses -local-parallel
+3	8.7	engines page: the count written by hand
+5	8.5	hire form: raw engine ids
+7	5.4	runner: a task's tokens not recorded
+8	8.3	task page: a local task shown as money against a guard
+8	6.6	task page: every live deliverable marked as a real key
+8	6.0	agent card: a local agent's tokens dropped
+8	4.6	agent card: the tokens sentence's wording is not the property
+1	8.5	units: a ruled unit's page names no business unit
+4	9.6	teams: the customer units panel dropped
+4	6.5	teams: the column back to Unit
+4	8.5	chargeback: the units panel says today
+4	6.7	chargeback: the units panel's closing words are not the property
+3	8.2	reconciliation: the exact-model-name limit unstated
+6	9.4	connectors: a usage folder listed as an API call
+4	8.1	connectors: the drop-a-folder hint back
+4	5.8	connectors: the TokenFuse page loses its link to /ai
+4	6.3	connectors: the /ai link's words are not the property
+8	3.9	prices: Sonnet 5 back at the unverified 3 / 15
+8	3.9	prices: Opus 5 back at the unverified 15 / 75
+5	4.1	prices: a row marked unverified again
+8	3.8	prices: a new reading date alone moves no rate
+6	3.0	cloudability: the bucket's name left inside all_report_keys
+6	2.7	cloudability: the manifest names FOCUS 1.0
+7	3.8	cloudability: a mandatory column dropped from the table
+7	3.5	cloudability: a mandatory column dropped from the table and the validator's list
+7	3.5	cloudability: each call rounded to a cent before the sum
+7	2.8	cloudability: each row rounded to a cent
+8	5.0	cloudability: a call exported twice is in the drop twice
+5	4.0	cloudability: a drop written into an epoch folder that exists
+5	3.4	cloudability: a drop written behind a later one
+5	3.8	cloudability: a drop that fails part way leaves its folder behind
+6	2.8	cloudability: the rows come out in no fixed order
+6	3.8	cloudability: the first of next month taken into the month
+6	3.3	cloudability: a call filed on the date its text carries, not its UTC day
+6	3.9	cloudability: a group of only blocked calls given a row
+3	4.5	cloudability: a refused row let through into a drop
+3	3.1	cloudability: a formula cell through both checks
+3	3.3	cloudability: the export check alone removed, the validator still stops a formula
+4	6.4	cloudability: LoadTokenFuseFocus reports no refused rows
+7	3.4	cloudability: a reworded charge description is not a fault
+4	5.3	money: an amount past 64 bits of micro-units wraps again
+6	6.6	identity warn: the finding is not written
+1	6.5	identity warn: a refusal is counted as a forwarded call
+1	6.7	identity warn: supersede ignores the 1.8.0 column
+2	6.2	identity warn: the 64-byte bound lifted
+8	8.5	identity warn: the per-run table emptied
+8	6.7	identity warn: the agent row carries no mark
+8	6.7	identity warn: the team rows carry no flag
+1	5.9	identity warn: the agent row's forwarded spend zeroed
+2	5.4	identity warn: the packet's line dropped
+8	6.6	identity warn: the panel's note reworded is not a fault
+4	5.8	runs: only the last model kept
+4	5.4	runs: a share counted by calls, not spend
+7	5.9	runs: a kill is not read
+7	5.6	runs: the last call's refusal ignored
+2	5.9	runs: listed by run id, not by spend
+3	6.0	runs: a sliver read as nothing
+2	6.3	runs page: the first model dropped
+2	5.1	runs page: the door sentence dropped
+2	5.3	runs page: the intro reworded is not a fault
+6	6.2	pricing: the truncating formula back
+3	5.4	deliver: a wider task guard loosens the run
+6	4.9	deliver: an engine with no caller answers nothing
+8	4.1	deliver: an agent id with a space rides in the header
+2	6.5	doors: the second folder's rows named as the main gateway's
+6	5.8	doors: one folder set as both doors is read
+6	5.3	doors: the same folder reached another way is not seen
+1	6.3	doors: a run's doors not counted
+4	5.8	doors: a row from before the column read as no door
+8	8.6	runs page: the door column dropped
+4	8.4	engines: an engine listed under the door that does not front it
+4	6.9	engines: the whole gateway URL printed
+2	6.7	engines: one source not said
+4	7.0	engines: the doors panel's note reworded is not a fault
+2	6.5	price basis: the basis is not written
+2	6.0	price basis: a fallback estimate reaches the ledger
+2	6.1	price basis: an empty basis read as a fallback
+6	6.5	price basis: an older copy displaces the one with the basis
+5	5.8	price basis: a fallback estimate in an agent's cost
+7	5.0	price basis: a fallback estimate in a run's spend
+8	4.6	price basis: a month of fallback calls only reads as no month
+4	7.0	ai page: the fallback tile dropped
+7	8.6	ai page: "not reported" not said
+4	5.6	reconciliation: the fallback part not marked
+5	6.2	packet: the fallback line dropped
+7	5.8	pii: the findings not written
+4	6.9	pii: a kind that is not a scanner word let in
+4	6.2	pii: a refusal quotes the value it refused
+8	6.0	pii: a run's findings not read
+5	10.1	ai page: the PII panel's agents dropped
+5	5.4	packet: the PII line dropped
+4	5.5	price basis: the panel's note reworded is not a fault
+4	5.6	focus input: the second door's folder not saved
+5	5.7	focus input: a refused import not recorded
+5	5.0	focus input: the launcher's yes not passed
+7	15.8	focus input: the interval never reads again
+1	6.3	focus input: one folder as both doors accepted
+1	5.9	focus input: an interval of seconds accepted
+2	98.4	focus input: the console never starts the reader
+1	3.1	focus input: the interval flag's help reworded is not a fault
+8	4.5	supersede: a call_key match across doors removes a row (invariant 106)
+2	6.3	F-008: an option figure is not compared with its anomaly (invariant 108)
+5	5.3	F-008: the recorded figure keeps the sign of a fall (invariant 108)
+8	4.8	F-008: agreement allows one cent either way (invariant 108)
+2	6.2	F-008: a carried option with a disagreeing figure is written with no reason (invariant 108)
+2	5.5	F-008 pass: a reworded reason on the decision is not a fault
+8	4.6	analyst path: an analyst id drops the costcrew segment
+8	4.3	analyst path: an analyst id has the costcrew segment twice
+8	4.3	analyst path: the costcrew segment is moved before the trust domain
+8	3.8	analyst path: the passport sweep removes other agents of the domain
+4	6.0	analyst path: the gateway chain names the analyst without the path
+6	4.5	analyst path: an id too long for the passport grammar is written anyway
+8	2.8	analyst path pass: a reworded comment about the path is not a fault
+4	6.9	safer defaults: the cookie ignores a listener that is not loopback
+3	5.9	safer defaults: every host is taken for loopback
+1	3.1	safer defaults: the start ignores -insecure-http
+7	3.3	safer defaults: a group-readable key is accepted for this account
+7	4.1	safer defaults: a session key that is a link is followed
+1	4.1	safer defaults: an unreadable session key is replaced again
+8	5.4	safer defaults: the prompt data default is full again
+6	4.4	safer defaults: the start log drops where the prompt data setting came from
+3	4.2	safer defaults: the mode is read from the path, not the open file
+4	9.2	safer defaults: a fifo at the path can hold the start
+8	4.3	safer defaults: a root-owned key may be group-writable
+1	2.6	safer defaults pass: a reworded refusal that still names both flags is not a fault

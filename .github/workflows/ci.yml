@@ -18,6 +18,23 @@
 # The shape is deliberately the same as TAIPANBOX/vouchryx's, minus one step:
 # there is no scripts/readme-numbers.sh here, and naming a gate that does not
 # exist would be a workflow that fails for a reason nobody can fix.
+#
+# WHY IT IS SEVERAL JOBS AND NOT ONE
+#
+# Everything below used to run as two jobs, `gate` (build, lint, the whole suite,
+# the race detector, the bindings) and a four-way teeth split, and a pull request
+# took 20 to 32 minutes. The time was one `teeth shard` job of 12 to 21 minutes
+# (one case is three to eight seconds, ~160 of them in a row, plus a minute and
+# a half for the few that start a server) behind a `gate` of 8 to 12 minutes,
+# 215 seconds of which is the one package `internal/web`.
+#
+# Nothing was dropped to make it shorter. The same steps run, split over jobs
+# that run side by side, and the two names a pull request must pass, `gate` and
+# `teeth`, are now jobs that wait for the pieces and are red unless every piece
+# passed. A piece that is skipped or cancelled is not a pass.
+#
+# `gate` is `build-lint` + `tests` + `tests-web` + `race-bindings`.
+# `teeth` is the `teeth-shard` matrix.
 name: ci
 on:
   push:
@@ -27,9 +44,18 @@ on:
 permissions:
   contents: read
 
+# A newer push to a pull request makes the run for the older one pointless, so
+# that run is cancelled. A push to main is never cancelled and never queued
+# behind another: its group is its own run id.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
-  gate:
+  build-lint:
+    name: build, vet, lint
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -70,13 +96,6 @@ jobs:
         run: |
           go install honnef.co/go/tools/cmd/staticcheck@2026.2.1
           staticcheck ./...
-      # The suite plain, and the race detector only where it is cheap.
-      #
-      # Measured 2026-08-28: `internal/web` takes 54s plain and 1527s under
-      # -race, from 103 tests each standing up an HTTP server. Instrumenting the
-      # whole suite would make every push a half-hour wait, which is not a trade
-      # worth making. So -race runs on the packages where it costs seconds, and
-      # internal/web is checked plain.
       # Known vulnerabilities in the module graph AND the standard library the
       # pinned toolchain ships, reported only where this code reaches them.
       # Pinned like staticcheck above: a floating @latest would change what
@@ -85,8 +104,65 @@ jobs:
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@v1.8.0
           govulncheck ./...
-      - name: tests
-        run: go test ./...
+
+  # The whole suite, in two jobs that together are `go test ./...`: this one
+  # runs every package but internal/web, and tests-web runs that one. The list
+  # is taken from `go list ./...` with exactly one path removed, so a package
+  # added tomorrow is in this job without anybody editing this file.
+  tests:
+    name: tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.27.3'
+          check-latest: false
+      - name: every package but internal/web
+        shell: bash
+        run: |
+          all=$(go list ./...)
+          pkgs=$(grep -v '/internal/web$' <<<"$all")
+          if [ -z "$pkgs" ] || [ "$(wc -l <<<"$pkgs")" -ne "$(( $(wc -l <<<"$all") - 1 ))" ]; then
+            echo "expected every package but internal/web, got a different count" >&2
+            exit 1
+          fi
+          go test $pkgs
+
+  # internal/web alone takes 215 seconds, from 800 tests each standing up an
+  # HTTP server, which is longer than all the other packages together. It runs
+  # plain: see the note on the race detector in race-bindings.
+  tests-web:
+    name: tests, internal/web
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.27.3'
+          check-latest: false
+      - name: internal/web
+        run: go test ./internal/web/
+
+  race-bindings:
+    name: race detector and bindings
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.27.3'
+          check-latest: false
+      # The suite plain, and the race detector only where it is cheap.
+      #
+      # Measured 2026-08-28: `internal/web` takes 54s plain and 1527s under
+      # -race, from 103 tests each standing up an HTTP server. Instrumenting the
+      # whole suite would make every push a half-hour wait, which is not a trade
+      # worth making. So -race runs on the packages where it costs seconds, and
+      # internal/web is checked plain.
       - name: tests, with the race detector where it is cheap
         run: go test ./internal/crew/... ./internal/stack/... ./internal/anomaly/... ./internal/manifest/... ./internal/spiffe/... -race
       - name: every scenario is bound to a test
@@ -98,37 +174,66 @@ jobs:
       # even though the full suite defers it.
       - name: the manifest is what this repository builds
         run: go test ./internal/manifest/ -race
-      # The teeth run is split four ways (teeth-shard below). A split is only
+      # The teeth run is split into shards (teeth-shard below). A split is only
       # faster if every case lands in exactly one shard, and a case that falls
-      # out of the split prints no red line, so this checks the partition itself.
+      # out of the split prints no red line, so this checks the partition itself,
+      # and that the workflow below runs the shard count it was checked for.
       - name: the teeth shards partition every case
         run: ./scripts/teeth-shards-cover-every-case.sh
 
-  # The teeth harness, in its own job because it is the slow one. Its cases are
-  # split four ways with TEETH_SHARD (scripts/teeth-shard.sh) so the four shards
-  # run in parallel on the standard runners; one shard alone took most of an
-  # hour on a cold runner before the split. Beside `gate` rather than inside it,
-  # so build, vet, gofmt and the whole suite come back in about two minutes.
-  teeth-shard:
-    name: teeth shard ${{ matrix.shard }} of 4
+  # The required check `gate`. It does no work itself: it waits for the four
+  # jobs above and is red unless every one of them passed. Like `teeth` below,
+  # it keeps a name branch protection already requires.
+  gate:
+    needs: [build-lint, tests, tests-web, race-bindings]
+    if: always()
     runs-on: ubuntu-24.04
+    steps:
+      - name: every gate job passed
+        env:
+          BUILD_LINT: ${{ needs.build-lint.result }}
+          TESTS: ${{ needs.tests.result }}
+          TESTS_WEB: ${{ needs.tests-web.result }}
+          RACE_BINDINGS: ${{ needs.race-bindings.result }}
+        run: |
+          bad=0
+          for result in "build-lint=$BUILD_LINT" "tests=$TESTS" "tests-web=$TESTS_WEB" "race-bindings=$RACE_BINDINGS"; do
+            case "$result" in
+              *=success) ;;
+              *) echo "gate: $result, so the gate did not pass" >&2; bad=1 ;;
+            esac
+          done
+          [ "$bad" -eq 0 ]
+
+  # The teeth harness, in its own jobs because it is the slow one. Its cases are
+  # split eight ways with TEETH_SHARD (scripts/teeth-shard.sh) so the shards
+  # run in parallel on the standard runners; one shard alone took most of an
+  # hour on a cold runner before the split, and four shards still took 12 to 21
+  # minutes each. The shards are balanced by the seconds each case took in CI
+  # (scripts/teeth-shard-plan.tsv), not by how many cases each holds, and
+  # scripts/teeth-shards-cover-every-case.sh checks both that every case is in
+  # exactly one shard and that this matrix is the one that was checked.
+  teeth-shard:
+    name: teeth shard ${{ matrix.shard }} of 8
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: '1.27.3'
           check-latest: false
-      - name: the gates have teeth, shard ${{ matrix.shard }} of 4
+      - name: the gates have teeth, shard ${{ matrix.shard }} of 8
         env:
-          TEETH_SHARD: ${{ matrix.shard }}/4
+          TEETH_SHARD: ${{ matrix.shard }}/8
         run: ./scripts/gates-have-teeth.sh
 
   # The required check keeps the name `teeth`. It does no teeth work itself: it
-  # waits for every shard and is red unless all four passed. Without this job the
+  # waits for every shard and is red unless all of them passed. Without this job the
   # required name would never report on a pull request, and every PR would block.
   teeth:
     needs: [teeth-shard]
