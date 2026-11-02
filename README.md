@@ -2,7 +2,7 @@
 
 # costcrew - FinOps, staffed by agents
 
-**A crew of agents takes your bill apart. A person stamps every line before it counts.**
+**A crew of agents takes your bill apart. A person stamps every deliverable, and decides everything above a set amount.**
 
 [![CI](https://github.com/TAIPANBOX/costcrew/actions/workflows/ci.yml/badge.svg)](https://github.com/TAIPANBOX/costcrew/actions/workflows/ci.yml)
 ![Go](https://img.shields.io/badge/go-1.27-00ADD8.svg)
@@ -18,7 +18,9 @@ costcrew is a FinOps console in which a crew of agents does the analysis and a
 person reviews it. Analysts are hired into desks with a mission, an owner, rights
 that follow from their skills and a monthly guard. They triage anomalies, write
 variance commentary, propose rightsizing, draft explainers and freeze forecasts.
-Every deliverable arrives as a draft, and only a person's stamp publishes it.
+Every deliverable arrives as a draft, and only a person's stamp posts it. What
+happens to the options inside a posted deliverable is set out under
+[Who decides what](#who-decides-what).
 
 One static binary over pure-Go SQLite. No interpreter, no second database engine
 in the process, and **zero JavaScript** in the web UI.
@@ -144,6 +146,33 @@ refusal it will not talk around is per-agent AI spend: a generated charge carrie
 a model and a workload, never an agent, and that becomes answerable only when the
 calls go through TokenFuse with an agent id. Cost per outcome computes once an
 import carries tagged outcomes.
+
+## Who decides what
+
+A deliverable is a draft until a person stamps it, and only then is it posted.
+It can end in a choice of up to three options, which are alternatives and never
+independent actions. Once it is posted, the supervisor's pass reads its options
+and applies the top-ranked one itself, only when all of this holds:
+
+- it is a kind of option the supervisor may select, which `roles.yaml` lists;
+- its figure is at or under `T.anomaly`, USD 2,500 per anomaly, set in
+  `internal/crew/roles.yaml`; for an option tied to an anomaly the figure is the
+  excess the detector recorded, not the number the analyst wrote, and the two
+  must agree;
+- no second analyst has answered the same anomaly in the same pass.
+
+What the supervisor applies changes the console's own records: an anomaly moves
+to explained or dismissed, a driver is recorded, a forecast is frozen, a
+leadership explainer is published. Everything else is carried to the owner: an
+option over the threshold, one that fails a check above, and every option of a
+kind the supervisor may not select. Carried options reach the owner as one
+decision request per owner per sprint, and only the owner's stamp, or an admin's
+answering for the owner with a reason on record, applies one. Closing a period,
+a budget, an allocation rule, an announced decision and any message to people
+outside the crew are the owner's at any amount. Nothing is dropped.
+
+The pass does not run by itself: a person presses the button on the sprint page,
+or runs `costcrew-run -supervise -sprint N`.
 
 ## The detector
 

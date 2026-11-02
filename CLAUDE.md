@@ -1247,6 +1247,15 @@ an absent invariant.
     disagreement -- and options of different classes are alternatives, never
     contradictions.
 
+    `README.md`'s "Who decides what" section tells a reader this same rule,
+    `T.anomaly`'s value included, and `SECURITY.md` says only that a person
+    reviews every deliverable; a change to the rule or to `roles.yaml`'s
+    threshold changes those too. A deliverable is posted by a person alone
+    (`crew.Post`, whose one caller is `internal/web/work.go`, `@measured`
+    `grep -rn 'crew.Post(' --include='*.go' .` 2026-11-02); its options are
+    applied by this pass, for the classes and within the threshold above, or
+    by the owner.
+
     The decision request's own body lists a multi-option deliverable's
     options as "choose at most one," not as a flat list, and carries a
     contradiction's note under the option it belongs to
