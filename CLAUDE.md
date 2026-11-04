@@ -1465,13 +1465,18 @@ an absent invariant.
 
 31. **No clock-driven run spends without the console's switch AND the
     ceiling, both a person's act.** B5-SPEC.md. The cluster ships
-    `costcrew-crew` as a suspended CronJob (`stack-k8s/manifests/49-costcrew.yaml`)
-    and stack-single has no routine for it at all today (`@claude`
+    `costcrew-crew` as a CronJob with `suspend: false`
+    (`stack-k8s/manifests/49-costcrew.yaml`), so it fires on its schedule every
+    day, and firing is not spending (`@measured` `git -C stack-k8s show
+    origin/main:manifests/49-costcrew.yaml | grep -n suspend`, 2026-11-04:
+    `suspend: false`, set by stack-k8s `8449168` on 2026-09-03, "un-suspend the
+    crew CronJob, gated by cadence"; it was `true` when this invariant was first
+    written). stack-single has no routine for it at all today (`@claude`
     2026-09-03: read looking for one, per the spec's own instruction to read
     it; none exists, contrary to what a cursory read of that manifest's
     comment history might suggest -- the comment there only cites
-    `costcrew-crew` as PRECEDENT for `idryx-detect`'s own shape). Flipping
-    stack-k8s's `suspend: true` is a platform act and stays one; this
+    `costcrew-crew` as PRECEDENT for `idryx-detect`'s own shape). The CronJob's
+    `suspend` field is a platform act and stays one; this
     invariant is about the SECOND switch, inside the store, that a routine
     firing on the platform's clock still has to clear. `tools/run -due`
     refuses unless `crew.CadenceSettings` reads `cadence.enabled` on, re-read
