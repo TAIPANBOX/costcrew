@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/TAIPANBOX/costcrew/actions/workflows/ci.yml/badge.svg)](https://github.com/TAIPANBOX/costcrew/actions/workflows/ci.yml)
 ![Go](https://img.shields.io/badge/go-1.27-00ADD8.svg)
-![tests](https://img.shields.io/badge/tests-1845-brightgreen.svg)
+![tests](https://img.shields.io/badge/tests-1848-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)
 ![Status](https://img.shields.io/badge/enforces-nothing%20by%20design-success.svg)
 
@@ -60,7 +60,10 @@ flowchart TB
   VCX ==>|"delegation_issued / denied / revoked"| BUS
   TF ==>|"agent-event NDJSON"| BUS{{"agent-event bus + Agent Passport"}}
   WX ==> BUS
-  Agent -->|"web fetch"| SCX["Scopyx: governed web egress"]
+  Agent -->|"web fetch: MCP tools/call"| BRK["TokenFuse MCP broker: the scopyx key from its vault, the run labelled from the act"]
+  BRK -->|"last hop"| SCX["Scopyx: governed web egress"]
+  BRK -->|"observed act"| TF
+  Agent -.->|"or direct, key in a header"| SCX
   SCX -->|"POST /v1/decide"| WX
   SCX ==>|"web_fetch / web_blocked"| BUS
   ENG["Engram: memory"] -->|"reflect via base_url"| TF
@@ -71,6 +74,7 @@ flowchart TB
   QX ==>|"crypto events"| BUS
   BUS ==> VX["Verdryx: quality / drift"]
   VX ==>|"quality events"| BUS
+  VX ==>|"slo_burn: a policy can hold the agent"| WX
   TF -->|"outcome-tagged traces"| VX
   MX["Mockryx: pre-prod safety rehearsal"] -->|"hostile scenarios"| TF
   MX ==>|"sim events"| BUS
@@ -81,7 +85,7 @@ flowchart TB
   HX -->|"one mail, a view and never an action"| OPS["your mailbox"]
   HX ==>|"alert_sent"| HJ[("heraldyx's own hash-chained journal, not this bus")]
   YOU(["you, in a browser over your own tunnel"]) --> GX[["Genaryx: the console over all of it"]]
-  GX -->|"signed commands: the kill, an approval, a policy"| CL
+  GX -->|"commands: the kill, an approval, a policy"| CL
   GX -->|"signed commands"| WX
   GX ==>|"console_command"| BUS
   GX -.->|"reads it"| IDX
@@ -457,8 +461,8 @@ The image holds six binaries, all static and run as the same non-root user:
 prints, and exits, so a compose file runs them as separate containers from the
 same image with the entrypoint replaced, mounting the console's data
 directory. Images up to `v0.3.0` carry only the first two; `v0.4.0` is the
-first to carry five; `costcrew-cloudability` is in no released image yet
-(`v0.5.0` and earlier do not carry it).
+first to carry five; `v0.7.0` is the first to carry `costcrew-cloudability`,
+so six.
 
 `costcrew-enforce` shows what the console's budgets would set on a TokenFuse
 control plane and sends nothing unless told to. It is the one binary here that
