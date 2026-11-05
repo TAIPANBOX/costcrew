@@ -2,11 +2,11 @@ package web
 
 // /cadence: B5-SPEC.md section 4. The console page that says what is due,
 // what it would cost at worst, and the switch a person flips. No button on
-// this page runs anything; the routine runs on the platform's clock
-// (stack-k8s's CronJob, stack-single's routine), still suspended -- flipping
-// that is a platform act and a separate decision (section 5). This page's
-// own switch is the inner one `tools/run -due` reads before it will spend a
-// cent.
+// this page runs anything; the routine runs on the platform's clock. On a
+// cluster that is stack-k8s's CronJob, which fires every day with `suspend:
+// false`; stack-single has no routine for it. Firing is not spending: this
+// page's own switch is the inner one `tools/run -due` reads before it will
+// spend a cent, and with it off a run exits 2 and creates nothing.
 
 import (
 	"fmt"
