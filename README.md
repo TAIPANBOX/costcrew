@@ -2,11 +2,11 @@
 
 # costcrew - FinOps, staffed by agents
 
-**A crew of agents takes your bill apart. A person stamps every line before it counts.**
+**A crew of agents takes your bill apart. A person stamps every deliverable, and decides everything above a set amount.**
 
 [![CI](https://github.com/TAIPANBOX/costcrew/actions/workflows/ci.yml/badge.svg)](https://github.com/TAIPANBOX/costcrew/actions/workflows/ci.yml)
 ![Go](https://img.shields.io/badge/go-1.27-00ADD8.svg)
-![tests](https://img.shields.io/badge/tests-1845-brightgreen.svg)
+![tests](https://img.shields.io/badge/tests-1848-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)
 ![Status](https://img.shields.io/badge/enforces-nothing%20by%20design-success.svg)
 
@@ -18,7 +18,9 @@ costcrew is a FinOps console in which a crew of agents does the analysis and a
 person reviews it. Analysts are hired into desks with a mission, an owner, rights
 that follow from their skills and a monthly guard. They triage anomalies, write
 variance commentary, propose rightsizing, draft explainers and freeze forecasts.
-Every deliverable arrives as a draft, and only a person's stamp publishes it.
+Every deliverable arrives as a draft, and only a person's stamp posts it. What
+happens to the options inside a posted deliverable is set out under
+[Who decides what](#who-decides-what).
 
 One static binary over pure-Go SQLite. No interpreter, no second database engine
 in the process, and **zero JavaScript** in the web UI.
@@ -58,7 +60,10 @@ flowchart TB
   VCX ==>|"delegation_issued / denied / revoked"| BUS
   TF ==>|"agent-event NDJSON"| BUS{{"agent-event bus + Agent Passport"}}
   WX ==> BUS
-  Agent -->|"web fetch"| SCX["Scopyx: governed web egress"]
+  Agent -->|"web fetch: MCP tools/call"| BRK["TokenFuse MCP broker: the scopyx key from its vault, the run labelled from the act"]
+  BRK -->|"last hop"| SCX["Scopyx: governed web egress"]
+  BRK -->|"observed act"| TF
+  Agent -.->|"or direct, key in a header"| SCX
   SCX -->|"POST /v1/decide"| WX
   SCX ==>|"web_fetch / web_blocked"| BUS
   ENG["Engram: memory"] -->|"reflect via base_url"| TF
@@ -69,6 +74,7 @@ flowchart TB
   QX ==>|"crypto events"| BUS
   BUS ==> VX["Verdryx: quality / drift"]
   VX ==>|"quality events"| BUS
+  VX ==>|"slo_burn: a policy can hold the agent"| WX
   TF -->|"outcome-tagged traces"| VX
   MX["Mockryx: pre-prod safety rehearsal"] -->|"hostile scenarios"| TF
   MX ==>|"sim events"| BUS
@@ -79,7 +85,7 @@ flowchart TB
   HX -->|"one mail, a view and never an action"| OPS["your mailbox"]
   HX ==>|"alert_sent"| HJ[("heraldyx's own hash-chained journal, not this bus")]
   YOU(["you, in a browser over your own tunnel"]) --> GX[["Genaryx: the console over all of it"]]
-  GX -->|"signed commands: the kill, an approval, a policy"| CL
+  GX -->|"commands: the kill, an approval, a policy"| CL
   GX -->|"signed commands"| WX
   GX ==>|"console_command"| BUS
   GX -.->|"reads it"| IDX
@@ -144,6 +150,33 @@ refusal it will not talk around is per-agent AI spend: a generated charge carrie
 a model and a workload, never an agent, and that becomes answerable only when the
 calls go through TokenFuse with an agent id. Cost per outcome computes once an
 import carries tagged outcomes.
+
+## Who decides what
+
+A deliverable is a draft until a person stamps it, and only then is it posted.
+It can end in a choice of up to three options, which are alternatives and never
+independent actions. Once it is posted, the supervisor's pass reads its options
+and applies the top-ranked one itself, only when all of this holds:
+
+- it is a kind of option the supervisor may select, which `roles.yaml` lists;
+- its figure is at or under `T.anomaly`, USD 2,500 per anomaly, set in
+  `internal/crew/roles.yaml`; for an option tied to an anomaly the figure is the
+  excess the detector recorded, not the number the analyst wrote, and the two
+  must agree;
+- no second analyst has answered the same anomaly in the same pass.
+
+What the supervisor applies changes the console's own records: an anomaly moves
+to explained or dismissed, a driver is recorded, a forecast is frozen, a
+leadership explainer is published. Everything else is carried to the owner: an
+option over the threshold, one that fails a check above, and every option of a
+kind the supervisor may not select. Carried options reach the owner as one
+decision request per owner per sprint, and only the owner's stamp, or an admin's
+answering for the owner with a reason on record, applies one. Closing a period,
+a budget, an allocation rule, an announced decision and any message to people
+outside the crew are the owner's at any amount. Nothing is dropped.
+
+The pass does not run by itself: a person presses the button on the sprint page,
+or runs `costcrew-run -supervise -sprint N`.
 
 ## The detector
 
@@ -349,7 +382,7 @@ openrouter engine, from `v0.3.0` onward; sign-in through an identity provider
 `-max-run-tokens`, with `-local-parallel` from `v0.5.0` onward. The `v0.2.0` image has neither
 `-gateway` nor `-behind-tls`: passing `-gateway` to that image exits with
 `flag provided but not defined`. The `costcrew-run` binary in `v0.2.0` already
-accepts its separate `-gateway` flag. Pin `ghcr.io/taipanbox/costcrew:v0.10.0`
+accepts its separate `-gateway` flag. Pin `ghcr.io/taipanbox/costcrew:v0.10.1`
 for the console flags and complete release assets.
 
 Inside the stack, `./up.sh --with-finops` from
@@ -428,8 +461,8 @@ The image holds six binaries, all static and run as the same non-root user:
 prints, and exits, so a compose file runs them as separate containers from the
 same image with the entrypoint replaced, mounting the console's data
 directory. Images up to `v0.3.0` carry only the first two; `v0.4.0` is the
-first to carry five; `costcrew-cloudability` is in no released image yet
-(`v0.5.0` and earlier do not carry it).
+first to carry five; `v0.7.0` is the first to carry `costcrew-cloudability`,
+so six.
 
 `costcrew-enforce` shows what the console's budgets would set on a TokenFuse
 control plane and sends nothing unless told to. It is the one binary here that

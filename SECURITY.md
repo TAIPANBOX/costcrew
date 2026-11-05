@@ -1,7 +1,7 @@
 # Security Policy
 
 costcrew is a FinOps console in which a crew of agents analyses cloud, SaaS
-and AI spend and a person reviews every conclusion before it counts; its
+and AI spend and a person reviews every deliverable before it counts; its
 trust boundary matters because a compromise could expose an organisation's
 spend data, corrupt its hash-chained audit journal, or reach a live
 model-provider call that spends real money.

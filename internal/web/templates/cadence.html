@@ -2,7 +2,7 @@
 <p class="crumb"><a href="/sprints">Sprints</a> / cadence</p>
 <header class="page">
   <h1>Cadence</h1>
-  <p>The crew does nothing on its own. Two switches both have to be on before a clock-driven run spends a cent: the platform's own (the CronJob or the routine, still suspended) and this one. No button on this page runs anything; the routine runs on the platform's clock.</p>
+  <p>The crew does nothing on its own. Two things have to happen before a clock-driven run spends a cent: the platform's clock has to fire it (on a cluster the CronJob fires every day; a single-box install has no routine for it) and this switch has to be on. No button on this page runs anything; the routine runs on the platform's clock.</p>
 </header>
 
 <div class="tiles">
@@ -21,7 +21,7 @@
     <label for="ceiling">Ceiling (USD, e.g. 25.00)</label>
     <input type="text" id="ceiling" name="ceiling" value="{{.Ceiling}}">
   </div>
-  <p class="note">Turning this on means the next time the platform's own routine fires (still suspended today), it may spend up to the ceiling above on whatever is cadence-due that day. Turning it off, or setting the ceiling to 0.00, means the routine spends nothing even if the platform un-suspends it.</p>
+  <p class="note">Turning this on means the next time the platform's clock fires, the run may spend up to the ceiling above on whatever is cadence-due that day. Turning it off, or setting the ceiling to 0.00, means a run that fires spends nothing and creates nothing.</p>
   <div class="row"><button type="submit">Save</button></div>
 </form>
 {{end}}

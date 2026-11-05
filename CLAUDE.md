@@ -1247,6 +1247,15 @@ an absent invariant.
     disagreement -- and options of different classes are alternatives, never
     contradictions.
 
+    `README.md`'s "Who decides what" section tells a reader this same rule,
+    `T.anomaly`'s value included, and `SECURITY.md` says only that a person
+    reviews every deliverable; a change to the rule or to `roles.yaml`'s
+    threshold changes those too. A deliverable is posted by a person alone
+    (`crew.Post`, whose one caller is `internal/web/work.go`, `@measured`
+    `grep -rn 'crew.Post(' --include='*.go' .` 2026-11-02); its options are
+    applied by this pass, for the classes and within the threshold above, or
+    by the owner.
+
     The decision request's own body lists a multi-option deliverable's
     options as "choose at most one," not as a flat list, and carries a
     contradiction's note under the option it belongs to
@@ -1456,13 +1465,18 @@ an absent invariant.
 
 31. **No clock-driven run spends without the console's switch AND the
     ceiling, both a person's act.** B5-SPEC.md. The cluster ships
-    `costcrew-crew` as a suspended CronJob (`stack-k8s/manifests/49-costcrew.yaml`)
-    and stack-single has no routine for it at all today (`@claude`
+    `costcrew-crew` as a CronJob with `suspend: false`
+    (`stack-k8s/manifests/49-costcrew.yaml`), so it fires on its schedule every
+    day, and firing is not spending (`@measured` `git -C stack-k8s show
+    origin/main:manifests/49-costcrew.yaml | grep -n suspend`, 2026-11-04:
+    `suspend: false`, set by stack-k8s `8449168` on 2026-09-03, "un-suspend the
+    crew CronJob, gated by cadence"; it was `true` when this invariant was first
+    written). stack-single has no routine for it at all today (`@claude`
     2026-09-03: read looking for one, per the spec's own instruction to read
     it; none exists, contrary to what a cursory read of that manifest's
     comment history might suggest -- the comment there only cites
-    `costcrew-crew` as PRECEDENT for `idryx-detect`'s own shape). Flipping
-    stack-k8s's `suspend: true` is a platform act and stays one; this
+    `costcrew-crew` as PRECEDENT for `idryx-detect`'s own shape). The CronJob's
+    `suspend` field is a platform act and stays one; this
     invariant is about the SECOND switch, inside the store, that a routine
     firing on the platform's clock still has to clear. `tools/run -due`
     refuses unless `crew.CadenceSettings` reads `cadence.enabled` on, re-read
