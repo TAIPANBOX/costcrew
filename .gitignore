@@ -26,3 +26,4 @@ cover.out
 # useful to whoever generated it and to nobody else. It reached main in #48 by a
 # git add -A that swept an untracked directory the tooling had just created.
 .claude/
+.DS_Store
