@@ -62,8 +62,8 @@
 # it is free here: the SQLite driver is pure Go, so there is no C dependency to
 # carry into a static runtime.
 
-# golang:1.27.3-alpine
-FROM --platform=$BUILDPLATFORM golang:1.27.3-alpine@sha256:d200d2dd76b03a99b52651fd1325aff7dcd35422c35c01bac56571b0507f3deb AS build
+# golang:1.27.4-alpine
+FROM --platform=$BUILDPLATFORM golang:1.27.4-alpine@sha256:0a5f7fe796599ff487605987432e7619ae45beeb2fba4c2ce0b907879932aebf AS build
 ENV GOTOOLCHAIN=auto
 WORKDIR /src
 # Dependencies first, so a code-only change does not re-download the module
