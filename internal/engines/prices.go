@@ -87,8 +87,8 @@ var prices = map[string]Price{
 		Recorded: "2026-08-24", Source: "@measured, GET openrouter.ai/api/v1/models",
 	},
 	"openrouter/anthropic/claude-sonnet-5": {
-		InPerM: 2.20, OutPerM: 11.00,
-		Recorded: "2026-10-15", Source: "@measured, GET openrouter.ai/api/v1/models/anthropic/claude-sonnet-5/endpoints",
+		InPerM: 2.00, OutPerM: 10.00,
+		Recorded: "2026-11-22", Source: "@measured, GET openrouter.ai/api/v1/models/anthropic/claude-sonnet-5/endpoints",
 	},
 	// Bedrock, eu-central-1, ON-DEMAND. Read from AWS's own price list, not
 	// from a page: `aws pricing get-products --service-code AmazonBedrock
