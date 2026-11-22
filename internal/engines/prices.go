@@ -34,10 +34,14 @@ import (
 //     anthropic/claude-sonnet-4 (`GET
 //     https://openrouter.ai/api/v1/models/anthropic/claude-sonnet-4/endpoints`
 //     answered an empty `endpoints`), so the old row priced a model nobody
-//     served. Sonnet 5's endpoints list two prices, 2.00/10.00 (Anthropic and
-//     the global endpoints) and 2.20/11.00 (the regional ones); the row takes
-//     the higher, because OpenRouter picks the provider and low is the
-//     direction that costs money.
+//     served. On 2026-10-15 Sonnet 5's endpoints listed two prices, 2.00/10.00
+//     (Anthropic and the global endpoints) and 2.20/11.00 (the regional ones),
+//     and the row took the higher, because OpenRouter picks the provider and
+//     low is the direction that costs money. On 2026-11-22 all five providers
+//     list 2.00/10.00 and none charges 2.20/11.00, so the row is 2.00/10.00
+//     (estate-gates C23 holds it to a price a provider actually states). If a
+//     regional provider returns at 2.20/11.00 the gate goes red again and the
+//     row goes back to the higher price.
 //   - The two Anthropic direct entries are @measured 2026-10-13 from the
 //     vendor's own price list, `curl -sL
 //     https://platform.claude.com/docs/en/about-claude/pricing.md | grep -E
@@ -87,8 +91,8 @@ var prices = map[string]Price{
 		Recorded: "2026-08-24", Source: "@measured, GET openrouter.ai/api/v1/models",
 	},
 	"openrouter/anthropic/claude-sonnet-5": {
-		InPerM: 2.20, OutPerM: 11.00,
-		Recorded: "2026-10-15", Source: "@measured, GET openrouter.ai/api/v1/models/anthropic/claude-sonnet-5/endpoints",
+		InPerM: 2.00, OutPerM: 10.00,
+		Recorded: "2026-11-22", Source: "@measured, GET openrouter.ai/api/v1/models/anthropic/claude-sonnet-5/endpoints",
 	},
 	// Bedrock, eu-central-1, ON-DEMAND. Read from AWS's own price list, not
 	// from a page: `aws pricing get-products --service-code AmazonBedrock
