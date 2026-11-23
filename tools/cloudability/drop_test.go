@@ -672,7 +672,9 @@ func TestHostileInputMakesNoDrop(t *testing.T) {
 			writeRaw(t, dir, "a.csv", tfHeader29+",ChargeCategory,CommitmentDiscountId,CommitmentDiscountQuantity\n"+
 				strings.Join(ok.fields(true), ",")+",Purchase,cd-1,1\n")
 		}, "Purchase"},
-		{"a folder with nothing to read", func(t *testing.T, dir string) {}, "no *.csv"},
+		// An empty folder is zero files to the gateway reader (invariant 114),
+		// so the refusal is the empty month's, and still no drop is written.
+		{"a folder with nothing to read", func(t *testing.T, dir string) {}, "no call in the folder"},
 		{"a folder holding only a link", func(t *testing.T, dir string) {
 			target := filepath.Join(t.TempDir(), "elsewhere.csv")
 			writeExport(t, filepath.Dir(target), "elsewhere.csv", true, ok)
