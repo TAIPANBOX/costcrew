@@ -134,7 +134,11 @@ func WatchFocus(ctx context.Context, db *sql.DB, f FocusInput, rec Recorder, log
 		if msg, err := ImportFocus(db, f, rec); err != nil {
 			logf("CostCrew: the gateway's export was not imported: %v", err)
 		} else {
-			logf("CostCrew: imported the gateway's export: %s", msg)
+			if strings.Contains(msg, "holds no export yet") {
+				logf("CostCrew: the gateway's export folder holds no export yet: %s", msg)
+			} else {
+				logf("CostCrew: imported the gateway's export: %s", msg)
+			}
 		}
 	}
 	once()
