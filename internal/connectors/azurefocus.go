@@ -97,6 +97,9 @@ var azureFocusSpec = cloudSpec{
 }
 
 // azurePeriodFolder is the [YYYYMMDD-YYYYMMDD] folder of an export.
+var errNoManifest = errors.New("no manifest.json; which parts a run holds, and which run is newest, " +
+	"are read from it and from nothing else")
+
 var azurePeriodFolder = regexp.MustCompile(`^[0-9]{8}-[0-9]{8}$`)
 
 const azureManifestMaxBytes = 1 << 20
@@ -122,7 +125,8 @@ type azureManifest struct {
 		RunID         string `json:"runId"`
 	} `json:"runInfo"`
 	Blobs []struct {
-		BlobName string `json:"blobName"`
+		BlobName  string `json:"blobName"`
+		ByteCount *int64 `json:"byteCount"`
 	} `json:"blobs"`
 }
 
@@ -145,8 +149,27 @@ func planExportRuns(files []cloudFile) runPlan {
 	}
 	periods := map[string]*period{}
 	var order []string
+	addPeriod := func(key, root string) *period {
+		p, ok := periods[key]
+		if !ok {
+			p = &period{rel: key, root: root, runs: map[string]*azureRun{}}
+			periods[key] = p
+			order = append(order, key)
+		}
+		return p
+	}
 	for _, f := range files {
 		segs := strings.Split(f.rel, "/")
+		root := strings.TrimSuffix(f.abs, filepath.FromSlash(f.rel))
+		// A CSV straight in a period folder, beside its run folders, is no
+		// part of any run: reading it as a file of its own would count its
+		// days on top of the run's, so it is refused by name.
+		if len(segs) >= 2 && azurePeriodFolder.MatchString(segs[len(segs)-2]) {
+			plan.refusals = append(plan.refusals, fmt.Sprintf("%s: a CSV directly in the period folder, "+
+				"outside any [RunID] folder, is not read", f.rel))
+			addPeriod(strings.Join(segs[:len(segs)-1], "/"), root)
+			continue
+		}
 		at := -1
 		// The deepest period folder that has a run folder and then the file
 		// below it.
@@ -160,14 +183,7 @@ func planExportRuns(files []cloudFile) runPlan {
 			plan.units = append(plan.units, cloudUnit{files: []cloudFile{f}})
 			continue
 		}
-		key := strings.Join(segs[:at+1], "/")
-		p, ok := periods[key]
-		if !ok {
-			p = &period{rel: key, root: strings.TrimSuffix(f.abs, filepath.FromSlash(f.rel)),
-				runs: map[string]*azureRun{}}
-			periods[key] = p
-			order = append(order, key)
-		}
+		p := addPeriod(strings.Join(segs[:at+1], "/"), root)
 		run := segs[at+1]
 		r, ok := p.runs[run]
 		if !ok {
@@ -179,64 +195,74 @@ func planExportRuns(files []cloudFile) runPlan {
 
 	for _, key := range order {
 		p := periods[key]
+		dir := filepath.Join(p.root, filepath.FromSlash(p.rel))
+		// A newer run whose parts have not arrived yet still takes part in
+		// choosing the newest: run folders are listed, not inferred from the
+		// CSV files found, so one holding only its manifest is seen.
+		if entries, err := os.ReadDir(dir); err == nil {
+			for _, e := range entries {
+				if !e.IsDir() || p.runs[e.Name()] != nil {
+					continue
+				}
+				if _, err := os.Lstat(filepath.Join(dir, e.Name(), "manifest.json")); err == nil {
+					p.runs[e.Name()] = &azureRun{name: e.Name()}
+				}
+			}
+		}
+		if len(p.runs) == 0 {
+			continue
+		}
 		names := make([]string, 0, len(p.runs))
 		for n, r := range p.runs {
 			names = append(names, n)
-			r.manifest, r.err = readAzureManifest(filepath.Join(p.root, filepath.FromSlash(p.rel), n))
-			if r.err == nil && r.manifest != nil {
+			r.manifest, r.err = readAzureManifest(filepath.Join(dir, n))
+			if r.err == nil && r.manifest == nil {
+				r.err = errNoManifest
+			}
+			if r.err == nil {
 				r.submitted, r.err = manifestTime(r.manifest)
 			}
 		}
 		sort.Strings(names)
 
 		var chosen *azureRun
-		if len(names) == 1 {
-			chosen = p.runs[names[0]]
-			if chosen.err != nil {
-				plan.refusals = append(plan.refusals, fmt.Sprintf("%s/%s/manifest.json: %v; the period was not read",
-					p.rel, chosen.name, chosen.err))
-				continue
+		reason := ""
+		for _, n := range names {
+			r := p.runs[n]
+			if r.err != nil {
+				reason = fmt.Sprintf("%s: %v", n, r.err)
+				break
 			}
-		} else {
-			reason := ""
-			for _, n := range names {
-				r := p.runs[n]
-				switch {
-				case r.err != nil:
-					reason = fmt.Sprintf("%s/manifest.json: %v", n, r.err)
-				case r.manifest == nil:
-					reason = fmt.Sprintf("%s has no manifest.json", n)
-				}
-				if reason != "" {
-					break
-				}
-				if chosen == nil || r.submitted.After(chosen.submitted) {
-					chosen = r
-				}
-			}
-			if reason == "" {
-				for _, n := range names {
-					if r := p.runs[n]; r != chosen && r.submitted.Equal(chosen.submitted) {
-						reason = fmt.Sprintf("runs %s and %s were submitted at the same instant (%s)",
-							chosen.name, r.name, chosen.submitted.Format(time.RFC3339Nano))
-						break
-					}
-				}
-			}
-			if reason != "" {
-				plan.refusals = append(plan.refusals, fmt.Sprintf(
-					"%s: %d export runs, and which is newest is read from each manifest.json's runInfo.submittedTime "+
-						"and nothing else: %s; the period was not read (turn on Overwrite data in the export, "+
-						"or sync the manifests)", p.rel, len(names), reason))
-				continue
+			if chosen == nil || r.submitted.After(chosen.submitted) {
+				chosen = r
 			}
 		}
-
-		if missing := missingParts(chosen); missing != "" {
+		if reason == "" {
+			for _, n := range names {
+				if r := p.runs[n]; r != chosen && r.submitted.Equal(chosen.submitted) {
+					reason = fmt.Sprintf("runs %s and %s were submitted at the same instant (%s)",
+						chosen.name, r.name, chosen.submitted.Format(time.RFC3339Nano))
+					break
+				}
+			}
+		}
+		if reason != "" {
 			plan.refusals = append(plan.refusals, fmt.Sprintf(
-				"%s/%s: export run not read, because its manifest.json lists %s and the folder does not hold it "+
-					"(a sync still running?); the period keeps what it held before", p.rel, chosen.name, missing))
+				"%s: %d export run%s, and each run's parts and submission time are read from its manifest.json: "+
+					"%s; the period was not read and keeps what it held before (keep manifest.json in the sync)",
+				p.rel, len(names), plural(len(names)), reason))
 			continue
+		}
+
+		parts, extra, problem := manifestParts(chosen)
+		if problem != "" {
+			plan.refusals = append(plan.refusals, fmt.Sprintf(
+				"%s/%s: export run not read, because %s; the period keeps what it held before",
+				p.rel, chosen.name, problem))
+			continue
+		}
+		for _, x := range extra {
+			plan.refusals = append(plan.refusals, fmt.Sprintf("%s: not listed in its run's manifest.json, not read", x))
 		}
 		for _, n := range names {
 			if r := p.runs[n]; r != chosen {
@@ -246,13 +272,13 @@ func planExportRuns(files []cloudFile) runPlan {
 				}
 			}
 		}
-		plan.units = append(plan.units, cloudUnit{files: chosen.files, period: p.rel, run: chosen.name})
+		plan.units = append(plan.units, cloudUnit{files: parts, period: p.rel, run: chosen.name})
 	}
 	return plan
 }
 
-// readAzureManifest reads dir/manifest.json. A missing file is (nil, nil): a
-// lone run needs none. A link, something that is not a regular file, a file
+// readAzureManifest reads dir/manifest.json. A missing file is (nil, nil),
+// which the caller refuses: every run needs one. A link, something that is not a regular file, a file
 // over a megabyte or one that is not JSON is an error, so it is named.
 func readAzureManifest(dir string) (*azureManifest, error) {
 	p := filepath.Join(dir, "manifest.json")
@@ -289,33 +315,43 @@ func readAzureManifest(dir string) (*azureManifest, error) {
 }
 
 func manifestTime(m *azureManifest) (time.Time, error) {
+	if m == nil {
+		return time.Time{}, nil // unreachable: a run without one is refused first
+	}
 	v := strings.TrimSpace(m.RunInfo.SubmittedTime)
 	if v == "" {
 		return time.Time{}, errors.New("manifest.json has no runInfo.submittedTime")
 	}
 	t, err := time.Parse(time.RFC3339Nano, v)
 	if err != nil {
+		// The same manifest writes runInfo.startDate with no zone and
+		// endDate with a Z (Microsoft's own example), so a time with no zone
+		// is read as UTC rather than refused.
+		t, err = time.Parse("2006-01-02T15:04:05.999999999", v)
+	}
+	if err != nil {
 		return time.Time{}, fmt.Errorf("runInfo.submittedTime %q in manifest.json is not an RFC 3339 time", v)
 	}
 	return t.UTC(), nil
 }
 
-// missingParts names the first CSV part the run's manifest lists that the
-// folder does not hold, or a blob name that climbs out of its folder. A run
-// with no manifest has nothing to check against.
-func missingParts(r *azureRun) string {
+// manifestParts is the run's files that its manifest lists, in the folder's
+// order, and the rel paths of the files it does not list. problem is why the
+// run cannot be read whole: a listed CSV part missing from the folder, or of a
+// different size from the one the manifest records (a sync still running, a
+// file cut short), a blob name that climbs out of its folder, or no CSV part
+// listed at all.
+func manifestParts(r *azureRun) (parts []cloudFile, extra []string, problem string) {
 	if r.manifest == nil {
-		return ""
+		return r.files, nil, "" // unreachable: a run without one is refused first
 	}
-	have := map[string]bool{}
-	for _, f := range r.files {
-		have[path.Base(f.rel)] = true
-	}
+	want := map[string]int64{} // base name -> byteCount, -1 when not given
+	var order []string
 	for _, b := range r.manifest.Blobs {
 		name := strings.TrimSpace(b.BlobName)
 		for _, seg := range strings.Split(name, "/") {
 			if seg == ".." {
-				return fmt.Sprintf("%q, a blob name that climbs out of its folder", name)
+				return nil, nil, fmt.Sprintf("its manifest.json lists %q, a blob name that climbs out of its folder", name)
 			}
 		}
 		base := path.Base(name)
@@ -323,11 +359,43 @@ func missingParts(r *azureRun) string {
 		if !strings.HasSuffix(lower, ".csv") && !strings.HasSuffix(lower, ".csv.gz") {
 			continue
 		}
-		if !have[base] {
-			return base
+		size := int64(-1)
+		if b.ByteCount != nil {
+			size = *b.ByteCount
+		}
+		if _, dup := want[base]; !dup {
+			order = append(order, base)
+		}
+		want[base] = size
+	}
+	if len(want) == 0 {
+		return nil, nil, "its manifest.json lists no CSV part (a Parquet export? this reader reads CSV and CSV.gz)"
+	}
+	have := map[string]cloudFile{}
+	for _, f := range r.files {
+		base := path.Base(f.rel)
+		if _, listed := want[base]; listed {
+			have[base] = f
+		} else {
+			extra = append(extra, f.rel)
 		}
 	}
-	return ""
+	for _, base := range order {
+		f, ok := have[base]
+		if !ok {
+			return nil, nil, fmt.Sprintf("its manifest.json lists %s and the folder does not hold it (a sync still running?)", base)
+		}
+		if size := want[base]; size >= 0 && f.size != size {
+			return nil, nil, fmt.Sprintf("%s is %d bytes on disk and its manifest.json records %d "+
+				"(a sync still running, or a file cut short?)", base, f.size, size)
+		}
+	}
+	for _, f := range r.files {
+		if _, ok := have[path.Base(f.rel)]; ok {
+			parts = append(parts, f)
+		}
+	}
+	return parts, extra, ""
 }
 
 // dropOtherRuns removes the store's rows of every run of period except run,
@@ -338,9 +406,12 @@ func dropOtherRuns(tx *sql.Tx, connector, period, run string) ([]string, error) 
 	rp := period + "/" + run + "/"
 	// substr on a BLOB counts bytes, as len does; on TEXT it counts
 	// characters, and a non-ASCII folder name would compare the wrong prefix.
-	const where = `connector=? AND substr(CAST(path AS BLOB),1,?)=CAST(? AS BLOB)
+	// path >= pp AND path < pp+"\xff" is the same prefix under SQLite's
+	// BINARY collation, and lets the (connector, path) index narrow the scan.
+	const where = `connector=? AND path >= ? AND path < ?
+		AND substr(CAST(path AS BLOB),1,?)=CAST(? AS BLOB)
 		AND substr(CAST(path AS BLOB),1,?)<>CAST(? AS BLOB)`
-	args := []any{connector, len(pp), pp, len(rp), rp}
+	args := []any{connector, pp, pp + "\xff", len(pp), pp, len(rp), rp}
 	rows, err := tx.Query(`SELECT DISTINCT day FROM cloud_focus_rows WHERE `+where, args...)
 	if err != nil {
 		return nil, err

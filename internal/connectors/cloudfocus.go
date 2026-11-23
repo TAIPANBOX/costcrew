@@ -403,6 +403,7 @@ func readCloudFocus(spec cloudSpec, db *sql.DB, cfg map[string]string, opt Impor
 		if seen[sha] {
 			return nil, nil, sha, "", true, nil
 		}
+		seen[sha] = true
 		sp := savepoint("cloud_focus_file")
 		if w != nil {
 			if _, err := tx.Exec("SAVEPOINT " + sp); err != nil {
@@ -417,14 +418,13 @@ func readCloudFocus(spec cloudSpec, db *sql.DB, cfg map[string]string, opt Impor
 			if err := rollback(sp); err != nil {
 				return nil, nil, "", "", false, err
 			}
-			return nil, nil, "", fmt.Sprintf("%s: %v", f.rel, ferr), false, nil
+			return nil, nil, sha, fmt.Sprintf("%s: %v", f.rel, ferr), false, nil
 		}
 		if w != nil {
 			if _, err := tx.Exec("RELEASE " + sp); err != nil {
 				return nil, nil, "", "", false, err
 			}
 		}
-		seen[sha] = true
 		return local, stale, sha, "", false, nil
 	}
 	land := func(local *cloudSummary, stale []string) {
@@ -481,13 +481,31 @@ func readCloudFocus(spec cloudSpec, db *sql.DB, cfg map[string]string, opt Impor
 				dups++
 				continue
 			}
+			shas = append(shas, sha)
 			if refusal != "" {
 				refused = refusal
 				break
 			}
-			shas = append(shas, sha)
 			pending += local.AbsTotal
 			read = append(read, got{local, stale})
+		}
+		// A run that kept no row at all (every row refused: another currency,
+		// a ProviderName the setting does not name) must not replace the
+		// period with nothing.
+		if refused == "" {
+			kept := 0
+			for _, g := range read {
+				kept += g.local.Rows
+			}
+			if kept == 0 {
+				refused = "it kept no row (every row was refused)"
+				for _, g := range read {
+					if len(g.local.Refusals) > 0 {
+						refused += "; the first: " + g.local.Refusals[0]
+						break
+					}
+				}
+			}
 		}
 		if refused != "" {
 			if err := rollback(sp); err != nil {

@@ -18,6 +18,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/TAIPANBOX/costcrew/internal/auth"
 	"os"
 	"sort"
 
@@ -200,6 +201,12 @@ type estimate struct {
 }
 
 func run(dir, ceiling string, maxTok, sprint int, live, supervise, due bool, only int, engine, events, host, gateway, gatewayOpenAI string, local localOptions, typryxURL string) error {
+	// internal/auth's rule: in demo mode nobody spends the owner's model
+	// budget. Refused before the store is opened, so nothing is touched.
+	if live && auth.DemoMode() {
+		return fmt.Errorf("demo mode is on (COSTCREW_DEMO): nobody spends the owner's model budget, " +
+			"so -live is refused; unset COSTCREW_DEMO to spend")
+	}
 	// Validated before the store or the bus are even opened. A bad -gateway
 	// value is a configuration mistake, not a spending one, and the sooner it
 	// is reported the less of the run has already happened around it.

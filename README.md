@@ -384,7 +384,7 @@ Three settings are read from the environment:
 |---|---|
 | `COSTCREW_BEHIND_TLS` | `1`, `true` or `yes` is the default of `-behind-tls`, for a deployment that always runs behind the same proxy |
 | `COSTCREW_SIGNUP_CODE` | a joining code: with it set, `/signup` stays open after the first admin exists, and a later account needs the code and starts as a viewer until an admin promotes it; the first account needs it too |
-| `COSTCREW_DEMO` | `1`, `true` or `yes` refuses the supervisor's plan-ask before any call, whoever asks, so nobody spends the owner's model budget from this console; nothing else changes |
+| `COSTCREW_DEMO` | `1`, `true` or `yes`: nobody spends the owner's model budget. The supervisor's plan-ask is refused before any call, the cadence switch cannot be turned on, typryx is not asked at start, and `costcrew-run -live` refuses to run |
 
 From `v0.10.0` the console refuses to start on any address that is not
 loopback (`0.0.0.0:8321`, `:8321`, a LAN address) unless `-behind-tls` is set

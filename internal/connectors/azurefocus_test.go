@@ -53,17 +53,16 @@ var azCols10 = []string{
 	"x_AmortizationClass", "x_InvoiceId",
 }
 
-// azRun writes one export run: dir/<period>/<run>/part_N.csv for each body,
-// and a manifest.json naming every part, submitted at the given time. A
-// manifest of "" is not written; "LIST:<names>" lists those blob names
-// instead of the parts actually written.
+// azRun writes one export run: dir/costs/focus-daily/<period>/<run>/part_0_N.csv
+// for each body, and a manifest.json naming every part with its byte count,
+// submitted at the given time. A submitted time of "" writes no manifest.
 func azRun(t *testing.T, dir, period, run, submitted string, bodies ...string) {
 	t.Helper()
-	var blobs []string
+	var blobs []azBlob
 	for i, b := range bodies {
 		name := fmt.Sprintf("part_0_%04d.csv", i+1)
 		cfWrite(t, dir, filepath.Join("costs", "focus-daily", period, run, name), b)
-		blobs = append(blobs, name)
+		blobs = append(blobs, azBlob{name, int64(len(b))})
 	}
 	if submitted == "" {
 		return
@@ -71,12 +70,22 @@ func azRun(t *testing.T, dir, period, run, submitted string, bodies ...string) {
 	azManifest(t, dir, period, run, submitted, blobs)
 }
 
-func azManifest(t *testing.T, dir, period, run, submitted string, blobs []string) {
+// azBlob is one blob a manifest lists; a size below zero leaves byteCount out.
+type azBlob struct {
+	name string
+	size int64
+}
+
+func azManifest(t *testing.T, dir, period, run, submitted string, blobs []azBlob) {
 	t.Helper()
 	var parts []string
 	for _, b := range blobs {
-		parts = append(parts, fmt.Sprintf(`{"blobName": "costs/focus-daily/%s/%s/%s", "byteCount": 1, "dataRowCount": 1}`,
-			period, run, b))
+		count := ""
+		if b.size >= 0 {
+			count = fmt.Sprintf(`, "byteCount": %d`, b.size)
+		}
+		parts = append(parts, fmt.Sprintf(`{"blobName": "costs/focus-daily/%s/%s/%s"%s, "dataRowCount": 1}`,
+			period, run, b.name, count))
 	}
 	m := fmt.Sprintf(`{
   "manifestVersion": "2024-04-01",
@@ -273,8 +282,9 @@ func TestARunMissingAPartItsManifestListsIsRefusedAndTheEarlierRunStands(t *test
 	}
 	cfWrite(t, dir, filepath.Join("costs", "focus-daily", azPeriod, azRunNew, "part_0_0001.csv"),
 		cfCSV(azCols10, azRow(map[string]string{"BilledCost": "7.00"})))
+	part1 := cfCSV(azCols10, azRow(map[string]string{"BilledCost": "7.00"}))
 	azManifest(t, dir, azPeriod, azRunNew, "2026-10-03T06:00:00Z",
-		[]string{"part_0_0001.csv", "part_0_0002.csv"})
+		[]azBlob{{"part_0_0001.csv", int64(len(part1))}, {"part_0_0002.csv", 100}})
 	msg, err := Import(db, "azure-focus", false, ImportOptions{})
 	if err != nil {
 		t.Fatalf("second Import: %v", err)
@@ -331,15 +341,17 @@ func TestHostileManifestsAreRefusedByName(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			dir := t.TempDir()
 			azRun(t, dir, azPeriod, azRunOld, "2026-10-02T06:00:00Z", cfCSV(azCols10, azRow(nil)))
-			cfWrite(t, dir, filepath.Join("costs", "focus-daily", azPeriod, azRunNew, "part_0_0001.csv"),
-				cfCSV(azCols10, azRow(map[string]string{"BilledCost": "7.00"})))
+			part := cfCSV(azCols10, azRow(map[string]string{"BilledCost": "7.00"}))
+			cfWrite(t, dir, filepath.Join("costs", "focus-daily", azPeriod, azRunNew, "part_0_0001.csv"), part)
 			mp := filepath.Join(dir, "costs", "focus-daily", azPeriod, azRunNew, "manifest.json")
 			if c.link {
 				// The link points at a well-formed manifest NEWER than the old
-				// run's, so following it would choose the new run: only the
-				// refusal to follow a link keeps the period out.
-				target := cfWrite(t, dir, filepath.Join("elsewhere", "manifest.json"),
-					`{"runInfo": {"submittedTime": "2026-10-09T06:00:00Z"}, "blobs": []}`)
+				// run's, listing the new run's part at its true size, so
+				// following it would read the new run: only the refusal to
+				// follow a link keeps the period out.
+				target := cfWrite(t, dir, filepath.Join("elsewhere", "manifest.json"), fmt.Sprintf(
+					`{"runInfo": {"submittedTime": "2026-10-09T06:00:00Z"}, "blobs": [{"blobName": "part_0_0001.csv", "byteCount": %d}]}`,
+					len(part)))
 				if err := os.Symlink(target, mp); err != nil {
 					t.Skip("no symlinks here")
 				}
@@ -394,4 +406,234 @@ func TestRunsOfDifferentPeriodsAreIndependent(t *testing.T) {
 		"azure|2026-09-30|Virtual Machines|payments|Usage|100|G000000002",
 		"azure|2026-10-01|Virtual Machines|payments|Usage|100|G000000002",
 	})
+}
+
+// azFolder is the path of a run folder under dir.
+func azFolder(dir, period, run string) string {
+	return filepath.Join(dir, "costs", "focus-daily", period, run)
+}
+
+// TestTheNewestRunIsChosenByItsManifestNotItsName: the newer run's id sorts
+// FIRST here, so an implementation that took the last folder by name would
+// read the older run.
+func TestTheNewestRunIsChosenByItsManifestNotItsName(t *testing.T) {
+	dir := t.TempDir()
+	azRun(t, dir, azPeriod, "zzzzzzzz-0000-0000-0000-000000000009", "2026-10-02T06:00:00Z",
+		cfCSV(azCols10, azRow(map[string]string{"BilledCost": "9.00"})))
+	azRun(t, dir, azPeriod, "00000000-0000-0000-0000-000000000001", "2026-10-03T06:00:00Z",
+		cfCSV(azCols10, azRow(map[string]string{"BilledCost": "3.00"})))
+	_, db, err := cfImportFresh(t, "azure-focus", dir, nil)
+	if err != nil {
+		t.Fatalf("Import: %v", err)
+	}
+	cfWant(t, cfCharges(t, db, "azure-focus"), []string{
+		"azure|2026-10-01|Virtual Machines|payments|Usage|300|G000000002",
+	})
+}
+
+// TestALoneRunWithoutAManifestDoesNotReplaceTheMonth: with overwrite on, the
+// folder holds one run; if its manifest has not been synced, whether its
+// parts are all there cannot be told, so it does not replace what the store
+// holds for the month.
+func TestALoneRunWithoutAManifestDoesNotReplaceTheMonth(t *testing.T) {
+	dir := t.TempDir()
+	azRun(t, dir, azPeriod, azRunOld, "2026-10-02T06:00:00Z", cfCSV(azCols10, azRow(nil)))
+	_, db, err := cfImportFresh(t, "azure-focus", dir, nil)
+	if err != nil {
+		t.Fatalf("first Import: %v", err)
+	}
+	if err := os.RemoveAll(azFolder(dir, azPeriod, azRunOld)); err != nil {
+		t.Fatal(err)
+	}
+	azRun(t, dir, azPeriod, azRunNew, "", cfCSV(azCols10, azRow(map[string]string{"BilledCost": "0.50"})))
+	msg, err := Import(db, "azure-focus", false, ImportOptions{})
+	if err != nil {
+		t.Fatalf("second Import: %v", err)
+	}
+	cfWant(t, cfCharges(t, db, "azure-focus"), []string{
+		"azure|2026-10-01|Virtual Machines|payments|Usage|100|G000000002",
+	})
+	if !strings.Contains(msg, "manifest.json") {
+		t.Errorf("the refusal does not name the missing manifest:\n%s", msg)
+	}
+}
+
+// TestARunWhosePartIsShorterThanItsManifestSaysIsRefused: a plain CSV cut
+// short by a sync still running parses as a smaller valid file; the byte
+// count the manifest records is what tells.
+func TestARunWhosePartIsShorterThanItsManifestSaysIsRefused(t *testing.T) {
+	dir := t.TempDir()
+	azRun(t, dir, azPeriod, azRunOld, "2026-10-02T06:00:00Z", cfCSV(azCols10, azRow(nil)))
+	_, db, err := cfImportFresh(t, "azure-focus", dir, nil)
+	if err != nil {
+		t.Fatalf("first Import: %v", err)
+	}
+	full := cfCSV(azCols10, azRow(map[string]string{"BilledCost": "4.00"}),
+		azRow(map[string]string{"BilledCost": "5.00", "ChargePeriodStart": "2026-10-02T00:00Z",
+			"ChargePeriodEnd": "2026-10-03T00:00Z"}))
+	cut := full[:strings.LastIndex(strings.TrimSuffix(full, "\n"), "\n")+1] // the last row has not arrived
+	cfWrite(t, dir, filepath.Join("costs", "focus-daily", azPeriod, azRunNew, "part_0_0001.csv"), cut)
+	azManifest(t, dir, azPeriod, azRunNew, "2026-10-03T06:00:00Z", []azBlob{{"part_0_0001.csv", int64(len(full))}})
+	msg, err := Import(db, "azure-focus", false, ImportOptions{})
+	if err != nil {
+		t.Fatalf("second Import: %v", err)
+	}
+	cfWant(t, cfCharges(t, db, "azure-focus"), []string{
+		"azure|2026-10-01|Virtual Machines|payments|Usage|100|G000000002",
+	})
+	if !strings.Contains(msg, "bytes on disk") {
+		t.Errorf("the refusal does not say the part is short:\n%s", msg)
+	}
+}
+
+// TestAFileTheManifestDoesNotListIsNotRead: a part left in the run folder by
+// a sync without deletion, and not in the run's manifest, is named and not
+// read, so its days are not counted on top of the run's.
+func TestAFileTheManifestDoesNotListIsNotRead(t *testing.T) {
+	dir := t.TempDir()
+	azRun(t, dir, azPeriod, azRunNew, "2026-10-03T06:00:00Z", cfCSV(azCols10, azRow(nil)))
+	cfWrite(t, dir, filepath.Join("costs", "focus-daily", azPeriod, azRunNew, "part_9_0001.csv"),
+		cfCSV(azCols10, azRow(map[string]string{"BilledCost": "50.00"})))
+	msg, db, err := cfImportFresh(t, "azure-focus", dir, nil)
+	if err != nil {
+		t.Fatalf("Import: %v", err)
+	}
+	cfWant(t, cfCharges(t, db, "azure-focus"), []string{
+		"azure|2026-10-01|Virtual Machines|payments|Usage|100|G000000002",
+	})
+	if !strings.Contains(msg, "part_9_0001.csv") || !strings.Contains(msg, "not listed") {
+		t.Errorf("the unlisted part is not named:\n%s", msg)
+	}
+}
+
+// TestACSVDirectlyInThePeriodFolderIsRefused: a file beside the run folders
+// is in no run; read as a file of its own it would count its days on top of
+// the run's.
+func TestACSVDirectlyInThePeriodFolderIsRefused(t *testing.T) {
+	dir := t.TempDir()
+	azRun(t, dir, azPeriod, azRunNew, "2026-10-03T06:00:00Z", cfCSV(azCols10, azRow(nil)))
+	cfWrite(t, dir, filepath.Join("costs", "focus-daily", azPeriod, "loose.csv"),
+		cfCSV(azCols10, azRow(map[string]string{"BilledCost": "50.00"})))
+	msg, db, err := cfImportFresh(t, "azure-focus", dir, nil)
+	if err != nil {
+		t.Fatalf("Import: %v", err)
+	}
+	cfWant(t, cfCharges(t, db, "azure-focus"), []string{
+		"azure|2026-10-01|Virtual Machines|payments|Usage|100|G000000002",
+	})
+	if !strings.Contains(msg, "loose.csv") {
+		t.Errorf("the loose file is not named:\n%s", msg)
+	}
+}
+
+// TestARunThatKeptNoRowDoesNotReplaceThePeriod: a newer run whose every row is
+// refused (here, another currency) does not replace the month with nothing.
+func TestARunThatKeptNoRowDoesNotReplaceThePeriod(t *testing.T) {
+	dir := t.TempDir()
+	azRun(t, dir, azPeriod, azRunOld, "2026-10-02T06:00:00Z", cfCSV(azCols10, azRow(nil)))
+	_, db, err := cfImportFresh(t, "azure-focus", dir, nil)
+	if err != nil {
+		t.Fatalf("first Import: %v", err)
+	}
+	azRun(t, dir, azPeriod, azRunNew, "2026-10-03T06:00:00Z",
+		cfCSV(azCols10, azRow(map[string]string{"BillingCurrency": "EUR"})))
+	msg, err := Import(db, "azure-focus", false, ImportOptions{})
+	if err != nil {
+		t.Fatalf("second Import: %v", err)
+	}
+	cfWant(t, cfCharges(t, db, "azure-focus"), []string{
+		"azure|2026-10-01|Virtual Machines|payments|Usage|100|G000000002",
+	})
+	if !strings.Contains(msg, "kept no row") || !strings.Contains(msg, "EUR") {
+		t.Errorf("the refusal does not say why:\n%s", msg)
+	}
+}
+
+// TestARunWhosePartsHaveNotArrivedKeepsTheEarlierRun: a newer run folder that
+// holds only its manifest so far still takes part in choosing the newest, and
+// being incomplete it is refused, rather than the older run being read as if
+// it were the latest.
+func TestARunWhosePartsHaveNotArrivedKeepsTheEarlierRun(t *testing.T) {
+	dir := t.TempDir()
+	azRun(t, dir, azPeriod, azRunOld, "2026-10-02T06:00:00Z", cfCSV(azCols10, azRow(nil)))
+	azManifest(t, dir, azPeriod, azRunNew, "2026-10-03T06:00:00Z", []azBlob{{"part_0_0001.csv", 10}})
+	msg, db, err := cfImportFresh(t, "azure-focus", dir, nil)
+	if err != nil {
+		t.Fatalf("Import: %v", err)
+	}
+	if got := cfCharges(t, db, "azure-focus"); len(got) != 0 {
+		t.Errorf("the older run was read while a newer one is arriving: %v", got)
+	}
+	if !strings.Contains(msg, azRunNew) || !strings.Contains(msg, "part_0_0001.csv") {
+		t.Errorf("the refusal does not name the incomplete run:\n%s", msg)
+	}
+}
+
+// TestTheDryRunReadsOnlyTheNewestRun: Test says what Import would do, run
+// rule included, and writes nothing.
+func TestTheDryRunReadsOnlyTheNewestRun(t *testing.T) {
+	dir := t.TempDir()
+	azRun(t, dir, azPeriod, azRunOld, "2026-10-02T06:00:00Z", cfCSV(azCols10, azRow(nil)))
+	azRun(t, dir, azPeriod, azRunNew, "2026-10-03T06:00:00Z", cfCSV(azCols10, azRow(nil)))
+	st := openFocusStore(t)
+	cfSave(t, st.DB(), "azure-focus", dir, nil)
+	res, ok, err := Test(st.DB(), "azure-focus", func(string) string { return "" })
+	if err != nil || !ok {
+		t.Fatalf("Test: ok=%v err=%v %s", ok, err, res)
+	}
+	if !strings.Contains(res, "Would read 1 file") || !strings.Contains(res, "superseded") {
+		t.Errorf("the dry run does not read the newest run alone:\n%s", res)
+	}
+	if n := cfCount(st.DB(), `SELECT COUNT(*) FROM cloud_focus_rows`); n > 0 {
+		t.Errorf("the dry run wrote %d rows", n)
+	}
+}
+
+// TestAManifestTimeWithNoZoneIsReadAsUTC: the manifest writes some of its
+// times with no zone; a submittedTime written that way is read as UTC.
+func TestAManifestTimeWithNoZoneIsReadAsUTC(t *testing.T) {
+	dir := t.TempDir()
+	azRun(t, dir, azPeriod, azRunOld, "2026-10-02T06:00:00", cfCSV(azCols10, azRow(nil)))
+	azRun(t, dir, azPeriod, azRunNew, "2026-10-03T06:00:00.5234447",
+		cfCSV(azCols10, azRow(map[string]string{"BilledCost": "2.00"})))
+	_, db, err := cfImportFresh(t, "azure-focus", dir, nil)
+	if err != nil {
+		t.Fatalf("Import: %v", err)
+	}
+	cfWant(t, cfCharges(t, db, "azure-focus"), []string{
+		"azure|2026-10-01|Virtual Machines|payments|Usage|200|G000000002",
+	})
+}
+
+// TestRunPrefixesWithUnderscoresAndNonASCIIAreKeptApart: the store's rows of
+// another run are found by path prefix; a run id that is a prefix of another,
+// and folder names with '_' or non-ASCII letters, must neither match too much
+// nor too little.
+func TestRunPrefixesWithUnderscoresAndNonASCIIAreKeptApart(t *testing.T) {
+	dir := t.TempDir()
+	root := filepath.Join(dir, "експорт_витрат")
+	azRunIn := func(run, submitted, cost string) {
+		body := cfCSV(azCols10, azRow(map[string]string{"BilledCost": cost}))
+		cfWrite(t, root, filepath.Join(azPeriod, run, "part_0_0001.csv"), body)
+		m := fmt.Sprintf(`{"runInfo": {"submittedTime": %q}, "blobs": [{"blobName": "x/%s/part_0_0001.csv", "byteCount": %d}]}`,
+			submitted, run, len(body))
+		cfWrite(t, root, filepath.Join(azPeriod, run, "manifest.json"), m)
+	}
+	// The older run's id has the newer run's id as its prefix, so a prefix
+	// compared without the closing slash would keep the older run's rows.
+	azRunIn("run_10", "2026-10-02T06:00:00Z", "1.00")
+	_, db, err := cfImportFresh(t, "azure-focus", dir, nil)
+	if err != nil {
+		t.Fatalf("first Import: %v", err)
+	}
+	azRunIn("run_1", "2026-10-03T06:00:00Z", "2.00")
+	if _, err := Import(db, "azure-focus", false, ImportOptions{}); err != nil {
+		t.Fatalf("second Import: %v", err)
+	}
+	cfWant(t, cfCharges(t, db, "azure-focus"), []string{
+		"azure|2026-10-01|Virtual Machines|payments|Usage|200|G000000002",
+	})
+	if n := cfCount(db, `SELECT COUNT(*) FROM cloud_focus_rows WHERE connector='azure-focus'`); n != 1 {
+		t.Errorf("%d rows in the store, want the newest run's one", n)
+	}
 }

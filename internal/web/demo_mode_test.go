@@ -1,6 +1,9 @@
 package web_test
 
 import (
+	"net/url"
+
+	"github.com/TAIPANBOX/costcrew/internal/crew"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -38,5 +41,33 @@ func TestDemoModeRefusesThePlanAskBeforeAnyCall(t *testing.T) {
 	}
 	if !strings.Contains(body, "demo mode") {
 		t.Errorf("the refusal does not say demo mode refused it:\n%s", trimTo(body, 3000))
+	}
+}
+
+// TestDemoModeRefusesSwitchingTheCadenceOn: the cadence switch turns on the
+// clock-driven crew, which spends through costcrew-run -due. In demo mode it
+// is refused on, whoever asks, and turning it off still works.
+func TestDemoModeRefusesSwitchingTheCadenceOn(t *testing.T) {
+	h := start(t)
+	t.Setenv("COSTCREW_DEMO", "1")
+	h.signUp(t, "boss", "boss-password-2026")
+	code, loc := h.post(t, "/cadence", url.Values{
+		"enabled": {"on"}, "ceiling": {"25.00"}, "csrf": {h.csrf(t, "/cadence")},
+	})
+	if code != 303 || !strings.Contains(loc, "demo") {
+		t.Errorf("POST /cadence in demo mode = %d %s, want a redirect naming demo mode", code, loc)
+	}
+	enabled, _, _, _, err := crew.CadenceSettings(h.st.DB())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if enabled {
+		t.Error("demo mode switched the clock-driven crew on")
+	}
+	code, loc = h.post(t, "/cadence", url.Values{
+		"ceiling": {"0.00"}, "csrf": {h.csrf(t, "/cadence")},
+	})
+	if code != 303 || strings.Contains(loc, "msg=") {
+		t.Errorf("turning the switch off in demo mode = %d %s, want a clean redirect", code, loc)
 	}
 }

@@ -234,6 +234,12 @@ func main() {
 	if *typryxMax < 0 {
 		log.Fatalf("costcrew: -typryx-max-asks must be zero or more, got %d", *typryxMax)
 	}
+	// In demo mode nothing that can be metered is asked: a hosted typryx
+	// backend bills per answer.
+	if auth.DemoMode() && typryxBase != "" {
+		log.Print("CostCrew: demo mode (COSTCREW_DEMO): -typryx-url is set and typryx is not asked")
+		typryxBase = ""
+	}
 	tx := typryx.New(typryxBase, typryx.KeyFromEnv(), typryx.DefaultTimeout)
 	focus, err := connectors.CheckFocusInput(connectors.FocusInput{
 		Main: *focusDir, OpenAI: *focusDirOpenAI, Every: *focusEvery, ReplaceGenerated: *focusReplace,
@@ -628,8 +634,8 @@ func run(addr, dir string, scfg stack.Config, gatewayURL, gatewayOpenAIURL strin
 		log.Print("          you hand the address to anyone.")
 	}
 	if auth.DemoMode() {
-		log.Print("CostCrew: demo mode (COSTCREW_DEMO): the supervisor's plan-ask is refused " +
-			"before any call, so nobody can spend the owner's model budget from this console")
+		log.Print("CostCrew: demo mode (COSTCREW_DEMO): the plan-ask is refused before any call, " +
+			"the cadence switch cannot be turned on and typryx is not asked")
 	}
 
 	if gatewayURL == "" && gatewayOpenAIURL == "" {
