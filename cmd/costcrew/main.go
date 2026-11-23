@@ -628,7 +628,8 @@ func run(addr, dir string, scfg stack.Config, gatewayURL, gatewayOpenAIURL strin
 		log.Print("          you hand the address to anyone.")
 	}
 	if auth.DemoMode() {
-		log.Print("CostCrew: demo mode, nobody can spend the owner's model budget")
+		log.Print("CostCrew: demo mode (COSTCREW_DEMO): the supervisor's plan-ask is refused " +
+			"before any call, so nobody can spend the owner's model budget from this console")
 	}
 
 	if gatewayURL == "" && gatewayOpenAIURL == "" {

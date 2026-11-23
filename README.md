@@ -108,17 +108,21 @@ flowchart TB
 - **Consumes**: billing exports and vendor usage APIs, never another service's
   store. Eighteen connectors: AWS Data Exports (FOCUS 1.0 and 1.2, read from a
   synced folder), Cost Explorer, GCP billing export (a FOCUS CSV folder
-  exported from BigQuery), Azure Cost Management, Kubecost, OpenCost, TokenFuse
+  exported from BigQuery), Azure Cost Management (its FOCUS export, read from a
+  synced folder), Kubecost, OpenCost, TokenFuse
   FOCUS export, Anthropic, OpenAI and OpenRouter usage, Compute Optimizer, AWS Cost
   Explorer and GCP Recommender and Azure Advisor rightsizing recommendations,
   AWS Budgets recommended threshold, GCP Cost Recommender and Azure Advisor
-  budget-shaped recommendations, SaaS seats. Twelve built, six documented, and
+  budget-shaped recommendations, SaaS seats. Thirteen built, five documented, and
   every entry declares whether running it is metered per call.
 - **Produces**: twenty-three event types on the shared agent-event bus, all of
   them registered in `agent-passport` SPEC 6.2 under the source `costcrew`,
   schema v0.2. The runner (`costcrew-run`) also writes `tool_call` events to the
   same bus when `-stack-events` is set; that word is the estate's shared one, not
-  one this console declares.
+  one this console declares. The console's own downloads (allocation, showback,
+  general ledger, budgets, results, reconciliation) are CSV in its own shapes,
+  not FOCUS. A FOCUS 1.1 file is written by one separate binary only,
+  `costcrew-cloudability`, for Apptio Cloudability (see below).
 - **Enforces**: nothing. `enforced: false` is stamped on every `budget_threshold`
   event, and `internal/enforce` is a separate binary the console never imports.
   The console makes no outbound call while serving a page, with two exceptions:
@@ -136,6 +140,15 @@ flowchart TB
 is no longer an analyst. Stopping a runaway is TokenFuse's job, ending an
 authority is Vouchryx's, and the console over both is Genaryx.
 
+That includes the analyst's monthly guard: the console reports an analyst who
+went past it, on the card and as a `budget_threshold` event with no verdict
+(`internal/crew/guard.go`), and blocks nothing. What stops a live run is the
+runner and the gateway. `costcrew-run` reserves each call's worst case against
+its run ceiling, `-ceiling` (stack-k8s passes it as `$(COSTCREW_CEILING)`),
+before the call is made, and refuses a task whose worst case is over its own
+per-task guard. It sends the tighter of the ceiling and the task's guard to the
+TokenFuse gateway as `x-fuse-budget-usd`, and the gateway refuses a call past it.
+
 **Money is found, never saved.** Nothing is saved until somebody acts and the
 invoice changes. The seeded estate is blunt about what that means: the crew has
 found 1,254.35 and cost 3,871.35 across 310 tasks, and the Results page prints
@@ -149,7 +162,10 @@ where everything reports a number is one where several of them are invented. The
 refusal it will not talk around is per-agent AI spend: a generated charge carries
 a model and a workload, never an agent, and that becomes answerable only when the
 calls go through TokenFuse with an agent id. Cost per outcome computes once an
-import carries tagged outcomes.
+import carries tagged outcomes. It counts each tagged call as one outcome,
+where verdryx counts a run once under its last tag; how the two would agree is
+a design note, [docs/cost-per-outcome-from-verdryx.md](docs/cost-per-outcome-from-verdryx.md),
+and is not built.
 
 ## Who decides what
 
@@ -361,6 +377,14 @@ from that proxy, and without the flag its cookies would never be marked
 Secure even though the browser's own connection is HTTPS end to end. The
 first account created at `/signup` becomes the admin of that installation, so
 make one before you hand anybody the address.
+
+Three settings are read from the environment:
+
+| Variable | Meaning |
+|---|---|
+| `COSTCREW_BEHIND_TLS` | `1`, `true` or `yes` is the default of `-behind-tls`, for a deployment that always runs behind the same proxy |
+| `COSTCREW_SIGNUP_CODE` | a joining code: with it set, `/signup` stays open after the first admin exists, and a later account needs the code and starts as a viewer until an admin promotes it; the first account needs it too |
+| `COSTCREW_DEMO` | `1`, `true` or `yes` refuses the supervisor's plan-ask before any call, whoever asks, so nobody spends the owner's model budget from this console; nothing else changes |
 
 From `v0.10.0` the console refuses to start on any address that is not
 loopback (`0.0.0.0:8321`, `:8321`, a LAN address) unless `-behind-tls` is set

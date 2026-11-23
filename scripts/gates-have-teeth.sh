@@ -6313,6 +6313,104 @@ run_case $'safer defaults pass: a reworded refusal that still names both flags i
 	$'"(or COSTCREW_INSECURE_HTTP). Refusing to start", addr)' \
 	$'"(or COSTCREW_INSECURE_HTTP). Refusing to start; nothing was written", addr)'
 
+run_case $'azure focus: every export run of a period is read, not only the newest' \
+	fail \
+	./internal/connectors \
+	$'^TestOnlyTheNewestExportRunOfAPeriodIsCounted$' \
+	$'charges differ' \
+	internal/connectors/azurefocus.go \
+	$'if azurePeriodFolder.MatchString(segs[i]) {' \
+	$'if false && azurePeriodFolder.MatchString(segs[i]) {'
+run_case $'azure focus: an earlier run\'s rows stay in the store beside the newest run' \
+	fail \
+	./internal/connectors \
+	$'^TestARunReplacedOnDiskReplacesItsRowsInTheStore$' \
+	$'charges differ' \
+	internal/connectors/azurefocus.go \
+	$'if _, err := tx.Exec(`DELETE FROM cloud_focus_rows WHERE `+where, args...); err != nil {' \
+	$'if _, err := tx.Exec(`DELETE FROM cloud_focus_rows WHERE 1=0 AND `+where, args...); err != nil {'
+run_case $'azure focus: a run with a refused part lands the parts that were read' \
+	fail \
+	./internal/connectors \
+	$'^TestARunWithARefusedPartIsRolledBackWhole$' \
+	$'charges differ' \
+	internal/connectors/cloudfocus.go \
+	$'\t\t\t\trefused = refusal\n\t\t\t\tbreak' \
+	$'\t\t\t\tsum.FileRefusals = append(sum.FileRefusals, refusal)\n\t\t\t\tcontinue'
+run_case $'azure focus: a part the manifest lists is not looked for' \
+	fail \
+	./internal/connectors \
+	$'^TestARunMissingAPartItsManifestListsIsRefusedAndTheEarlierRunStands$' \
+	$'charges differ' \
+	internal/connectors/azurefocus.go \
+	$'if !have[base] {' \
+	$'if false && !have[base] {'
+run_case $'azure focus: a run with no manifest is ordered anyway' \
+	fail \
+	./internal/connectors \
+	$'^TestTwoRunsWithoutAManifestAreRefusedNotGuessed$' \
+	$'was imported' \
+	internal/connectors/azurefocus.go \
+	$'reason = fmt.Sprintf("%s has no manifest.json", n)' \
+	$'_ = n'
+run_case $'azure focus: two runs submitted at one instant are told apart by name' \
+	fail \
+	./internal/connectors \
+	$'^TestTwoRunsSubmittedAtTheSameInstantAreRefused$' \
+	$'a tie was broken' \
+	internal/connectors/azurefocus.go \
+	$'if r := p.runs[n]; r != chosen && r.submitted.Equal(chosen.submitted) {' \
+	$'if r := p.runs[n]; r != chosen && false {'
+run_case $'azure focus: a manifest is followed through a link' \
+	fail \
+	./internal/connectors \
+	$'^TestHostileManifestsAreRefusedByName$' \
+	$'was imported' \
+	internal/connectors/azurefocus.go \
+	$'if !st.Mode().IsRegular() {' \
+	$'if false {'
+run_case $'azure focus: the minute timestamp is accepted for every cloud reader' \
+	fail \
+	./internal/connectors \
+	$'^TestTheMinuteTimestampIsAzuresAloneAndTheAWSReaderStaysStrict$' \
+	$'the AWS reader accepted' \
+	internal/connectors/cloudfocus.go \
+	$'if err != nil && conf.minuteTimes {' \
+	$'if err != nil {'
+run_case $'azure focus: the FOCUS 1.0 minute timestamp is refused' \
+	fail \
+	./internal/connectors \
+	$'^TestAnAzureFocus10FileIsReadWithMinuteTimestampsAndXInvoiceId$' \
+	$'charges differ' \
+	internal/connectors/cloudfocus.go \
+	$'return time.Parse(azureMinuteLayout, v)' \
+	$'return t, err'
+run_case $'azure focus: x_InvoiceId is not read when InvoiceId is absent' \
+	fail \
+	./internal/connectors \
+	$'^TestAnAzureFocus10FileIsReadWithMinuteTimestampsAndXInvoiceId$' \
+	$'charges differ' \
+	internal/connectors/cloudfocus.go \
+	$'if row.Invoice == "" && conf.invoiceAlt != "" {' \
+	$'if false {'
+run_case $'azure focus pass: the superseded-run sentence reworded is not a fault' \
+	pass \
+	./internal/connectors \
+	$'^TestOnlyTheNewestExportRunOfAPeriodIsCounted$' \
+	$'' \
+	internal/connectors/cloudfocus.go \
+	$'superseded by a newer run of the same period, not read (%s).' \
+	$'superseded by a newer run of the same period, left unread (%s).'
+
+run_case $'demo mode: the plan-ask reaches the gateway while demo mode is on' \
+	fail \
+	./internal/web \
+	$'^TestDemoModeRefusesThePlanAskBeforeAnyCall$' \
+	$'demo mode reached the gateway' \
+	internal/web/planning.go \
+	$'\tif auth.DemoMode() {\n\t\ts.refusePlanAsk(' \
+	$'\tif false && auth.DemoMode() {\n\t\ts.refusePlanAsk('
+
 echo
 if [ -z "${TEETH_LIST:-}" ] && [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'

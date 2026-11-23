@@ -80,6 +80,7 @@ type Recorder interface {
 var readers = map[string]Reader{
 	"aws-data-exports":            cloudFocusReader(awsDataExportsSpec),
 	"gcp-billing-export":          cloudFocusReader(gcpBillingExportSpec),
+	"azure-focus":                 cloudFocusReader(azureFocusSpec),
 	"tokenfuse-focus":             tokenFuseFocusReader,
 	"aws-rightsizing":             awsRightsizingReader,
 	"gcp-recommender":             gcpRecommenderReader,
@@ -220,14 +221,25 @@ var Catalogue = []Connector{
 	{
 		ID: "azure-focus", Name: "Azure Cost Management (FOCUS)", Provider: "azure",
 		Kind: ExportDrop, Feeds: "charges", Metered: false,
-		Auth:     "a storage account key or a managed identity with blob read",
-		CostNote: "The export is free; you pay blob storage for what it writes.",
-		Note: "The reader is not written; the export's shape and cost are documented " +
-			"so the decision can be made before it is.",
-		Doc: "https://learn.microsoft.com/en-us/azure/cost-management-billing/",
-		Inputs: []Input{{Name: "container", Label: "Blob container",
-			Hint: "where the scheduled export writes"}},
-		Cannot: "Reservation utilisation is a separate export. This one is charges.",
+		Auth: "none for the reader: it reads files already delivered to a folder",
+		CostNote: "The export is free; you pay blob storage for what it writes, and for the " +
+			"reads when you sync it.",
+		Note: "Reads the \"Cost and usage details (FOCUS)\" export (dataset 1.0, 1.0r2 or " +
+			"1.2-preview) as CSV or CSV.gz from a folder you synced the storage container to; " +
+			"there is no Azure SDK in this binary, and the folder is walked recursively. Create " +
+			"the export as CSV with Gzip, daily, month to date. Each run folder of a period " +
+			"([YYYYMMDD-YYYYMMDD]/[RunID]/) holds the whole period so far, so only the newest run " +
+			"is read, newest by its manifest.json; with Overwrite data off, keep the manifests in " +
+			"the sync. A run is read whole or not at all, and the newest run replaces whatever an " +
+			"earlier run of its period put in the store. USD only. BilledCost lands, so usage a " +
+			"reservation covered bills 0 and the reservation is a Purchase on its own line. The " +
+			"team comes from the Tags column, key team_tag (default team). Built from Microsoft's " +
+			"published column list and a hand-written file in that shape.",
+		Doc:    "https://learn.microsoft.com/en-us/azure/cost-management-billing/dataset-schema/cost-usage-details-focus",
+		Inputs: cloudFocusInputs("Folder the export was synced to", "the local path of the synced storage container"),
+		Cannot: "It does not fetch from blob storage, read Parquet, convert other currencies, " +
+			"build the amortized (EffectiveCost) view, or feed the commitments table. Reservation " +
+			"utilisation is a separate export.",
 	},
 	{
 		ID: "kubecost", Name: "Kubecost", Provider: "kubernetes",
