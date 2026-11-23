@@ -293,9 +293,13 @@ func readTokenFuseFocus(db *sql.DB, cfg map[string]string, opt ImportOptions) (*
 	if path == "" {
 		return nil, fmt.Errorf("no folder is configured; set the path and save before importing")
 	}
-	files, skipped, err := csvFolder(path)
+	files, skipped, err := gatewayFolder(path)
 	if err != nil {
 		return nil, err
+	}
+	var emptyFolders []string
+	if len(files) == 0 {
+		emptyFolders = append(emptyFolders, path)
 	}
 	// A second gateway door (invariant 102): the OpenAI-wire gateway writes
 	// its own trace and its own export, and the export does not say which door
@@ -310,9 +314,12 @@ func readTokenFuseFocus(db *sql.DB, cfg map[string]string, opt ImportOptions) (*
 			return nil, fmt.Errorf("the OpenAI-wire door's folder is the main folder (%s); each door "+
 				"writes its own export, and one folder read as both would name every call twice", openai)
 		}
-		more, moreSkipped, err := csvFolder(openai)
+		more, moreSkipped, err := gatewayFolder(openai)
 		if err != nil {
 			return nil, fmt.Errorf("the OpenAI-wire door's folder: %w", err)
+		}
+		if len(more) == 0 {
+			emptyFolders = append(emptyFolders, openai)
 		}
 		for _, f := range more {
 			doorOf[f] = DoorOpenAI
@@ -320,6 +327,17 @@ func readTokenFuseFocus(db *sql.DB, cfg map[string]string, opt ImportOptions) (*
 		files = append(files, more...)
 		skipped = append(skipped, moreSkipped...)
 		twoDoors = true
+	}
+
+	// Nothing to read anywhere: say so and stop, before the generated-estate
+	// refusal, which would otherwise blame the estate for an empty folder.
+	if len(files) == 0 {
+		sum := newFocusSummary()
+		sum.EmptyFolders = emptyFolders
+		for _, name := range skipped {
+			sum.FileRefusals = append(sum.FileRefusals, skippedNote(name))
+		}
+		return sum, nil
 	}
 
 	// Refusal 1: a generated estate is not mixed with real money. Checked
@@ -346,12 +364,6 @@ func readTokenFuseFocus(db *sql.DB, cfg map[string]string, opt ImportOptions) (*
 	// second guarantee, beside DryRun itself, that nothing it does can
 	// persist: even a bug that tried to write would be undone here.
 	defer tx.Rollback()
-
-	if wipe {
-		if err := replaceGeneratedEstate(tx); err != nil {
-			return nil, err
-		}
-	}
 
 	var ins *sql.Stmt
 	if !opt.DryRun {
@@ -394,6 +406,7 @@ func readTokenFuseFocus(db *sql.DB, cfg map[string]string, opt ImportOptions) (*
 
 	sum := newFocusSummary()
 	sum.twoDoors = twoDoors
+	sum.EmptyFolders = emptyFolders
 	for _, name := range skipped {
 		sum.FileRefusals = append(sum.FileRefusals, skippedNote(name))
 	}
@@ -461,6 +474,28 @@ func readTokenFuseFocus(db *sql.DB, cfg map[string]string, opt ImportOptions) (*
 		}
 	}
 
+	// The launcher's (or the person's) yes to replacing the generated estate
+	// is spent only on real money: the estate goes once at least one call this
+	// import kept is spend the daily ledger will carry. An export of blocked or
+	// fallback-priced calls only lands those calls and leaves the estate, since
+	// wiping it left charges empty, the next start seeded the estate again and
+	// the next import wiped it again.
+	wiped := false
+	if wipe {
+		spend, err := spendRows(tx, processed)
+		if err != nil {
+			return nil, err
+		}
+		if spend > 0 {
+			if err := replaceGeneratedEstate(tx); err != nil {
+				return nil, err
+			}
+			wiped = true
+		} else {
+			sum.KeptGenerated = true
+		}
+	}
+
 	if !opt.DryRun {
 		if err := deriveCharges(tx, daysTouched); err != nil {
 			return nil, err
@@ -468,7 +503,7 @@ func readTokenFuseFocus(db *sql.DB, cfg map[string]string, opt ImportOptions) (*
 		if err := deriveAttribution(tx, daysTouched); err != nil {
 			return nil, err
 		}
-		if wipe && opt.Rec != nil {
+		if wiped && opt.Rec != nil {
 			// "info", never "": the shared envelope's severity is a closed
 			// enum and the stack emitter refuses a value outside it. This
 			// line passed "" from the day it was written, and every test
@@ -492,6 +527,23 @@ func readTokenFuseFocus(db *sql.DB, cfg map[string]string, opt ImportOptions) (*
 	}
 
 	return sum, nil
+}
+
+// spendRows counts the calls of the files this import kept that the daily
+// ledger carries as spend: admitted, and priced from the book.
+func spendRows(tx *sql.Tx, shas []string) (int, error) {
+	if len(shas) == 0 {
+		return 0, nil
+	}
+	ph := strings.TrimSuffix(strings.Repeat("?,", len(shas)), ",")
+	args := make([]any, len(shas))
+	for i, h := range shas {
+		args[i] = h
+	}
+	var n int
+	err := tx.QueryRow(`SELECT COUNT(*) FROM ai_calls WHERE file_sha256 IN (`+ph+`)
+		AND blocked=0 AND NOT `+FallbackPricedSQL, args...).Scan(&n)
+	return n, err
 }
 
 func hasGeneratedCharges(db *sql.DB) (bool, error) {
@@ -1253,6 +1305,11 @@ type focusSummary struct {
 	// import re-reads the whole folder, so an older file's copies are written
 	// and replaced again each time, and a row count would grow with that.
 	Superseded int
+	// EmptyFolders names the configured folders that held no export yet.
+	EmptyFolders []string
+	// KeptGenerated is true when the generated estate was to be replaced and
+	// was kept, because no call this import kept is spend.
+	KeptGenerated bool
 	// Unfiled counts the gateway's refusals that name no agent and no key,
 	// by reason, so the sentence can say what they are (errUnfiledRefusal).
 	Unfiled map[string]int
@@ -1578,6 +1635,13 @@ func (s *focusSummary) Sentence(dryRun bool) string {
 	}
 	if n := len(s.FileRefusals); n > 0 {
 		fmt.Fprintf(&b, " %d file%s not read: %s.", n, plural(n), strings.Join(s.FileRefusals, "; "))
+	}
+	for _, f := range s.EmptyFolders {
+		fmt.Fprintf(&b, " %s holds no export yet (no *.csv or *.csv.gz file).", f)
+	}
+	if s.KeptGenerated {
+		b.WriteString(" The generated estate was kept: no call in these files is spend " +
+			"(every one was blocked or priced at the gateway's fallback rate), so nothing replaced it.")
 	}
 	return b.String()
 }

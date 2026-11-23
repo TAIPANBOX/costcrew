@@ -79,6 +79,25 @@ func csvFolder(path string) (files, skipped []string, err error) {
 	return files, skipped, nil
 }
 
+// gatewayFolder is csvFolder for the gateway export reader, with one
+// difference: a folder that exists and holds no export yet is zero files, not
+// an error. A launcher creates the folder before the gateway writes into it,
+// and wires the OpenAI-wire door's folder on machines that have no such
+// gateway; refusing there refused the main door's calls too. A folder that is
+// not there, or whose only candidates are links, is still refused by name.
+func gatewayFolder(path string) (files, skipped []string, err error) {
+	files, skipped, err = focusFolder(path)
+	if err != nil {
+		return nil, nil, err
+	}
+	if len(files) == 0 && len(skipped) > 0 {
+		return nil, nil, fmt.Errorf("no regular *.csv or *.csv.gz files in %s; passed over, "+
+			"each a symbolic link or not a regular file, not followed: %s", path,
+			strings.Join(boundedNames(skipped), ", "))
+	}
+	return files, skipped, nil
+}
+
 // boundedNames is the first focusRefusalsShown names and a count of the rest.
 func boundedNames(names []string) []string {
 	if len(names) <= focusRefusalsShown {

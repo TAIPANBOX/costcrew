@@ -663,15 +663,20 @@ func TestHostileInput(t *testing.T) {
 		assertNoRows(t, db)
 	})
 
+	// An empty folder is zero files, named in the sentence, nothing written:
+	// a launcher creates the folder before the gateway writes into it. It was
+	// an error until 2026-11-23, and an empty second door's folder then
+	// refused the main door's calls too (invariant 114).
 	t.Run("an empty folder", func(t *testing.T) {
 		dir := t.TempDir()
-		_, _, err := importFrom(t, dir)
-		if err == nil {
-			t.Fatal("Import accepted a folder with no CSV files")
+		msg, db, err := importFrom(t, dir)
+		if err != nil {
+			t.Fatalf("an empty folder is an error: %v", err)
 		}
-		if !strings.Contains(err.Error(), dir) {
-			t.Errorf("the refusal does not name the folder: %v", err)
+		if !strings.Contains(msg, dir) || !strings.Contains(msg, "no export yet") {
+			t.Errorf("the sentence does not name the empty folder: %s", msg)
 		}
+		assertNoRows(t, db)
 	})
 
 	t.Run("a folder with one good and one bad file", func(t *testing.T) {

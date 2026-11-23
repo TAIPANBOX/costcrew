@@ -6313,6 +6313,47 @@ run_case $'safer defaults pass: a reworded refusal that still names both flags i
 	$'"(or COSTCREW_INSECURE_HTTP). Refusing to start", addr)' \
 	$'"(or COSTCREW_INSECURE_HTTP). Refusing to start; nothing was written", addr)'
 
+run_case $'gateway export: an empty door folder refuses the whole import again' \
+	fail \
+	./internal/connectors \
+	$'^TestAnEmptyOpenAIDoorFolderDoesNotBlockTheMainDoor$' \
+	$'refused the whole import' \
+	internal/connectors/csvfolder.go \
+	$'\treturn files, skipped, nil\n}\n\n// boundedNames' \
+	$'\tif len(files) == 0 {\n\t\treturn nil, nil, fmt.Errorf("no *.csv or *.csv.gz files found in %s", path)\n\t}\n\treturn files, skipped, nil\n}\n\n// boundedNames'
+run_case $'gateway export: the generated estate is wiped with no spend in the import' \
+	fail \
+	./internal/connectors \
+	$'^TestReplaceGeneratedKeepsTheEstateWhenNoCallIsSpend$' \
+	$'for an export with no spend in it' \
+	internal/connectors/tokenfusefocus.go \
+	$'\t\tif spend > 0 {' \
+	$'\t\tif spend >= 0 {'
+run_case $'gateway export: a blocked call is counted as spend for the wipe' \
+	fail \
+	./internal/connectors \
+	$'^TestReplaceGeneratedKeepsTheEstateWhenNoCallIsSpend$' \
+	$'for an export with no spend in it' \
+	internal/connectors/tokenfusefocus.go \
+	$'AND blocked=0 AND NOT `+FallbackPricedSQL, args...).Scan(&n)' \
+	$'AND 1=1`, args...).Scan(&n)'
+run_case $'estate: the seed runs again over a store that holds imported calls' \
+	fail \
+	./internal/estate \
+	$'^TestSeedDoesNotReseedOverImportedCalls$' \
+	$'over a store that holds imported calls' \
+	internal/estate/seed.go \
+	$'\t\tif imported > 0 {\n\t\t\treturn 0, nil' \
+	$'\t\tif false {\n\t\t\treturn 0, nil'
+run_case $'gateway export pass: the kept-estate sentence reworded is not a fault' \
+	pass \
+	./internal/connectors \
+	$'^TestReplaceGeneratedKeepsTheEstateWhenNoCallIsSpend$' \
+	$'' \
+	internal/connectors/tokenfusefocus.go \
+	$'so nothing replaced it.")' \
+	$'so it was left in place.")'
+
 echo
 if [ -z "${TEETH_LIST:-}" ] && [ -n "$(git status --porcelain)" ]; then
 	printf 'the tree is not clean after the run, so a mutation was left behind.\n'

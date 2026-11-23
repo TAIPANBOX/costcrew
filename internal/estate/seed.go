@@ -48,6 +48,23 @@ func Seed(db *sql.DB) (int, error) {
 	if have > 0 {
 		return 0, nil
 	}
+	// A store that holds imported gateway calls is not a fresh installation,
+	// even when none of them was spend and charges is empty: seeding it put
+	// the generated estate back on every start, and the next import with the
+	// replace-generated yes wiped it again.
+	var imported int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master
+		WHERE type='table' AND name='ai_calls'`).Scan(&imported); err != nil {
+		return 0, err
+	}
+	if imported > 0 {
+		if err := db.QueryRow(`SELECT EXISTS(SELECT 1 FROM ai_calls)`).Scan(&imported); err != nil {
+			return 0, err
+		}
+		if imported > 0 {
+			return 0, nil
+		}
+	}
 
 	tx, err := db.Begin()
 	if err != nil {

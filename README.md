@@ -337,7 +337,9 @@ pages fill on their own.** Start the console with `-focus-dir` (the main
 gateway's `tokenfuse focus-export` folder) and, for a second door,
 `-focus-dir-openai`; it reads them at start and every `-focus-every` (15
 minutes by default), and the connector's page says what the last read found
-or why it found nothing. A console that still holds the generated estate it
+or why it found nothing. A folder that exists and holds no export yet reads as nothing to
+read, so a second door's folder wired on a machine without that gateway does
+not stop the first. A console that still holds the generated estate it
 starts with reads nothing until the launcher adds `-focus-replace-generated`
 or a person imports once from the connector's page.
 
@@ -346,7 +348,7 @@ or a person imports once from the connector's page.
 | `-focus-dir DIR` (or `COSTCREW_FOCUS_DIR`) | the main gateway's export folder; empty, the default, leaves the connector to its page |
 | `-focus-dir-openai DIR` (or `COSTCREW_FOCUS_DIR_OPENAI`) | the OpenAI-wire door's export folder; needs `-focus-dir` |
 | `-focus-every DURATION` | how often the folders are read again (default `15m`, at least `1m`; `0` reads once) |
-| `-focus-replace-generated` | the launcher's yes to replacing the generated estate on the first read that finds real calls |
+| `-focus-replace-generated` | the launcher's yes to replacing the generated estate on the first read that finds real spend; a read whose calls were all blocked or priced at the gateway's fallback rate lands them and keeps the estate |
 
 ## Run it
 
