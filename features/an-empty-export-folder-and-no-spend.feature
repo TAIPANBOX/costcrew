@@ -56,3 +56,24 @@ Feature: An empty export folder reads nothing, and no spend replaces nothing
     Given a store with no charges and no imported calls
     When the console starts
     Then the generated estate is seeded
+
+  @test:TestAnEmptyMainFolderDoesNotBlockTheOpenAIDoor
+  Scenario: An empty main folder does not stop the second door
+    Given the main folder exists and is empty and the OpenAI-wire door's
+      folder holds an export
+    When the gateway export is imported
+    Then the OpenAI-wire door's calls land
+
+  @test:TestReplaceGeneratedKeepsTheEstateForFallbackPricedCalls
+  Scenario: Calls priced at the gateway's fallback rate do not replace the estate
+    Given a console holding the generated estate, the yes to replace it, and
+      an export whose every call was priced at the gateway's fallback rate
+    When the gateway export is imported
+    Then the calls land and the generated charges stay
+
+  @test:TestSeedReseedsAStoreHoldingOnlyCallsThatWereNotSpend
+  Scenario: A store an older build wiped is seeded again once
+    Given a store whose ledger is empty and whose imported calls were all
+      blocked or priced at the fallback rate
+    When the console starts
+    Then the generated estate is seeded again

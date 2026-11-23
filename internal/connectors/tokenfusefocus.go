@@ -482,11 +482,13 @@ func readTokenFuseFocus(db *sql.DB, cfg map[string]string, opt ImportOptions) (*
 	// the next import wiped it again.
 	wiped := false
 	if wipe {
-		spend, err := spendRows(tx, processed)
+		spend, err := hasSpend(tx)
 		if err != nil {
 			return nil, err
 		}
-		if spend > 0 {
+		// A commitment purchase is real money too, though it lands in
+		// commitments and not in charges.
+		if spend || sum.CommitmentRows > 0 {
 			if err := replaceGeneratedEstate(tx); err != nil {
 				return nil, err
 			}
@@ -529,21 +531,16 @@ func readTokenFuseFocus(db *sql.DB, cfg map[string]string, opt ImportOptions) (*
 	return sum, nil
 }
 
-// spendRows counts the calls of the files this import kept that the daily
-// ledger carries as spend: admitted, and priced from the book.
-func spendRows(tx *sql.Tx, shas []string) (int, error) {
-	if len(shas) == 0 {
-		return 0, nil
-	}
-	ph := strings.TrimSuffix(strings.Repeat("?,", len(shas)), ",")
-	args := make([]any, len(shas))
-	for i, h := range shas {
-		args[i] = h
-	}
-	var n int
-	err := tx.QueryRow(`SELECT COUNT(*) FROM ai_calls WHERE file_sha256 IN (`+ph+`)
-		AND blocked=0 AND NOT `+FallbackPricedSQL, args...).Scan(&n)
-	return n, err
+// hasSpend is whether ai_calls holds a call the daily ledger carries as
+// spend: admitted, and priced from the book. Asked of the whole table, not of
+// this import's files: while the generated estate is still there no real
+// spend has ever landed, so any such row is this import's, and the question
+// needs no list of files the size of the folder.
+func hasSpend(tx *sql.Tx) (bool, error) {
+	var ok bool
+	err := tx.QueryRow(`SELECT EXISTS(SELECT 1 FROM ai_calls WHERE blocked=0 AND NOT ` +
+		FallbackPricedSQL + `)`).Scan(&ok)
+	return ok, err
 }
 
 func hasGeneratedCharges(db *sql.DB) (bool, error) {
@@ -1640,8 +1637,8 @@ func (s *focusSummary) Sentence(dryRun bool) string {
 		fmt.Fprintf(&b, " %s holds no export yet (no *.csv or *.csv.gz file).", f)
 	}
 	if s.KeptGenerated {
-		b.WriteString(" The generated estate was kept: no call in these files is spend " +
-			"(every one was blocked or priced at the gateway's fallback rate), so nothing replaced it.")
+		b.WriteString(" The generated estate was kept: nothing these files carry is spend the ledger " +
+			"counts (no call admitted and priced from the book, no commitment purchase), so nothing replaced it.")
 	}
 	return b.String()
 }

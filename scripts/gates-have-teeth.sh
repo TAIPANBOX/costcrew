@@ -6327,16 +6327,32 @@ run_case $'gateway export: the generated estate is wiped with no spend in the im
 	$'^TestReplaceGeneratedKeepsTheEstateWhenNoCallIsSpend$' \
 	$'for an export with no spend in it' \
 	internal/connectors/tokenfusefocus.go \
-	$'\t\tif spend > 0 {' \
-	$'\t\tif spend >= 0 {'
+	$'\t\tif spend || sum.CommitmentRows > 0 {' \
+	$'\t\tif spend || sum.CommitmentRows >= 0 {'
 run_case $'gateway export: a blocked call is counted as spend for the wipe' \
 	fail \
 	./internal/connectors \
 	$'^TestReplaceGeneratedKeepsTheEstateWhenNoCallIsSpend$' \
 	$'for an export with no spend in it' \
 	internal/connectors/tokenfusefocus.go \
-	$'AND blocked=0 AND NOT `+FallbackPricedSQL, args...).Scan(&n)' \
-	$'AND 1=1`, args...).Scan(&n)'
+	$'FROM ai_calls WHERE blocked=0 AND NOT ` +' \
+	$'FROM ai_calls WHERE 1=1 AND NOT ` +'
+run_case $'gateway export: a fallback-priced call is counted as spend for the wipe' \
+	fail \
+	./internal/connectors \
+	$'^TestReplaceGeneratedKeepsTheEstateForFallbackPricedCalls$' \
+	$'for an export of fallback-priced calls only' \
+	internal/connectors/tokenfusefocus.go \
+	$'FROM ai_calls WHERE blocked=0 AND NOT ` +\n\t\tFallbackPricedSQL + `)`' \
+	$'FROM ai_calls WHERE blocked=0 AND NOT ` +\n\t\t`0`+`)`'
+run_case $'gateway export: the estate is wiped again after the import derived its rows' \
+	fail \
+	./internal/connectors \
+	$'^TestReplacingTheEstateKeepsWhatTheImportDerived$' \
+	$'the attribution this import derived is gone' \
+	internal/connectors/tokenfusefocus.go \
+	$'\t\tif err := deriveAttribution(tx, daysTouched); err != nil {\n\t\t\treturn nil, err\n\t\t}' \
+	$'\t\tif err := deriveAttribution(tx, daysTouched); err != nil {\n\t\t\treturn nil, err\n\t\t}\n\t\tif wiped {\n\t\t\tif err := replaceGeneratedEstate(tx); err != nil {\n\t\t\t\treturn nil, err\n\t\t\t}\n\t\t}'
 run_case $'estate: the seed runs again over a store that holds imported calls' \
 	fail \
 	./internal/estate \
@@ -6345,6 +6361,14 @@ run_case $'estate: the seed runs again over a store that holds imported calls' \
 	internal/estate/seed.go \
 	$'\t\tif imported > 0 {\n\t\t\treturn 0, nil' \
 	$'\t\tif false {\n\t\t\treturn 0, nil'
+run_case $'estate: a store holding only calls that were not spend is never seeded again' \
+	fail \
+	./internal/estate \
+	$'^TestSeedReseedsAStoreHoldingOnlyCallsThatWereNotSpend$' \
+	$'was not seeded' \
+	internal/estate/seed.go \
+	$'AND COALESCE(price_basis,\'\') IN (\'\', \'book\', \'known\'))`).Scan(&imported)' \
+	$'OR 1=1)`).Scan(&imported)'
 run_case $'gateway export pass: the kept-estate sentence reworded is not a fault' \
 	pass \
 	./internal/connectors \

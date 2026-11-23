@@ -3,6 +3,7 @@ package estate
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/TAIPANBOX/costcrew/internal/money"
 	"github.com/TAIPANBOX/costcrew/internal/world"
@@ -58,7 +59,18 @@ func Seed(db *sql.DB) (int, error) {
 		return 0, err
 	}
 	if imported > 0 {
-		if err := db.QueryRow(`SELECT EXISTS(SELECT 1 FROM ai_calls)`).Scan(&imported); err != nil {
+		// Spend, by the ledger's rule (connectors.FallbackPricedSQL, restated
+		// because that package imports this one): admitted and priced from the
+		// book. A store holding only blocked or fallback-priced calls is
+		// seeded, which repairs one an older build wiped in a loop; the
+		// importer keeps the estate for such calls now. A table from before
+		// price_basis existed is judged by blocked alone.
+		err := db.QueryRow(`SELECT EXISTS(SELECT 1 FROM ai_calls WHERE blocked=0
+			AND COALESCE(price_basis,'') IN ('', 'book', 'known'))`).Scan(&imported)
+		if err != nil && strings.Contains(err.Error(), "no such column") {
+			err = db.QueryRow(`SELECT EXISTS(SELECT 1 FROM ai_calls WHERE blocked=0)`).Scan(&imported)
+		}
+		if err != nil {
 			return 0, err
 		}
 		if imported > 0 {
