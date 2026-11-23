@@ -6313,6 +6313,191 @@ run_case $'safer defaults pass: a reworded refusal that still names both flags i
 	$'"(or COSTCREW_INSECURE_HTTP). Refusing to start", addr)' \
 	$'"(or COSTCREW_INSECURE_HTTP). Refusing to start; nothing was written", addr)'
 
+run_case $'azure focus: every export run of a period is read, not only the newest' \
+	fail \
+	./internal/connectors \
+	$'^TestOnlyTheNewestExportRunOfAPeriodIsCounted$' \
+	$'charges differ' \
+	internal/connectors/azurefocus.go \
+	$'if azurePeriodFolder.MatchString(segs[i]) {' \
+	$'if false && azurePeriodFolder.MatchString(segs[i]) {'
+run_case $'azure focus: an earlier run\'s rows stay in the store beside the newest run' \
+	fail \
+	./internal/connectors \
+	$'^TestARunReplacedOnDiskReplacesItsRowsInTheStore$' \
+	$'charges differ' \
+	internal/connectors/azurefocus.go \
+	$'if _, err := tx.Exec(`DELETE FROM cloud_focus_rows WHERE `+where, args...); err != nil {' \
+	$'if _, err := tx.Exec(`DELETE FROM cloud_focus_rows WHERE 1=0 AND `+where, args...); err != nil {'
+run_case $'azure focus: a run with a refused part lands the parts that were read' \
+	fail \
+	./internal/connectors \
+	$'^TestARunWithARefusedPartIsRolledBackWhole$' \
+	$'charges differ' \
+	internal/connectors/cloudfocus.go \
+	$'\t\t\t\trefused = refusal\n\t\t\t\tbreak' \
+	$'\t\t\t\tsum.FileRefusals = append(sum.FileRefusals, refusal)\n\t\t\t\tcontinue'
+run_case $'azure focus: a part the manifest lists is not looked for' \
+	fail \
+	./internal/connectors \
+	$'^TestARunMissingAPartItsManifestListsIsRefusedAndTheEarlierRunStands$' \
+	$'charges differ' \
+	internal/connectors/azurefocus.go \
+	$'\t\tif !ok {\n\t\t\treturn nil, nil, fmt.Sprintf("its manifest.json lists %s and the folder does not hold it' \
+	$'\t\tif !ok {\n\t\t\tcontinue\n\t\t}\n\t\tif false {\n\t\t\treturn nil, nil, fmt.Sprintf("its manifest.json lists %s and the folder does not hold it'
+run_case $'azure focus: a run with no manifest is read anyway' \
+	fail \
+	./internal/connectors \
+	$'^TestALoneRunWithoutAManifestDoesNotReplaceTheMonth$' \
+	$'charges differ' \
+	internal/connectors/azurefocus.go \
+	$'\t\t\t\tr.err = errNoManifest' \
+	$'\t\t\t\t_ = errNoManifest'
+run_case $'azure focus: two runs submitted at one instant are told apart by name' \
+	fail \
+	./internal/connectors \
+	$'^TestTwoRunsSubmittedAtTheSameInstantAreRefused$' \
+	$'a tie was broken' \
+	internal/connectors/azurefocus.go \
+	$'if r := p.runs[n]; r != chosen && r.submitted.Equal(chosen.submitted) {' \
+	$'if r := p.runs[n]; r != chosen && false {'
+run_case $'azure focus: a manifest is followed through a link' \
+	fail \
+	./internal/connectors \
+	$'^TestHostileManifestsAreRefusedByName$' \
+	$'was imported' \
+	internal/connectors/azurefocus.go \
+	$'if !st.Mode().IsRegular() {' \
+	$'if false {'
+run_case $'azure focus: the minute timestamp is accepted for every cloud reader' \
+	fail \
+	./internal/connectors \
+	$'^TestTheMinuteTimestampIsAzuresAloneAndTheAWSReaderStaysStrict$' \
+	$'the AWS reader accepted' \
+	internal/connectors/cloudfocus.go \
+	$'if err != nil && conf.minuteTimes {' \
+	$'if err != nil {'
+run_case $'azure focus: the FOCUS 1.0 minute timestamp is refused' \
+	fail \
+	./internal/connectors \
+	$'^TestAnAzureFocus10FileIsReadWithMinuteTimestampsAndXInvoiceId$' \
+	$'charges differ' \
+	internal/connectors/cloudfocus.go \
+	$'return time.Parse(azureMinuteLayout, v)' \
+	$'return t, err'
+run_case $'azure focus: x_InvoiceId is not read when InvoiceId is absent' \
+	fail \
+	./internal/connectors \
+	$'^TestAnAzureFocus10FileIsReadWithMinuteTimestampsAndXInvoiceId$' \
+	$'charges differ' \
+	internal/connectors/cloudfocus.go \
+	$'if row.Invoice == "" && conf.invoiceAlt != "" {' \
+	$'if false {'
+run_case $'azure focus: the newest run is the last one by name' \
+	fail \
+	./internal/connectors \
+	$'^TestTheNewestRunIsChosenByItsManifestNotItsName$' \
+	$'charges differ' \
+	internal/connectors/azurefocus.go \
+	$'if chosen == nil || r.submitted.After(chosen.submitted) {' \
+	$'if chosen == nil || r.name > chosen.name {'
+run_case $'azure focus: a part shorter than its manifest records is read' \
+	fail \
+	./internal/connectors \
+	$'^TestARunWhosePartIsShorterThanItsManifestSaysIsRefused$' \
+	$'charges differ' \
+	internal/connectors/azurefocus.go \
+	$'if size := want[base]; size >= 0 && f.size != size {' \
+	$'if size := want[base]; false && size >= 0 && f.size != size {'
+run_case $'azure focus: a part its manifest does not list is read' \
+	fail \
+	./internal/connectors \
+	$'^TestAFileTheManifestDoesNotListIsNotRead$' \
+	$'charges differ' \
+	internal/connectors/azurefocus.go \
+	$'if _, listed := want[base]; listed {' \
+	$'if _, listed := want[base]; listed || true {'
+run_case $'azure focus: a CSV straight in the period folder is read as a file' \
+	fail \
+	./internal/connectors \
+	$'^TestACSVDirectlyInThePeriodFolderIsRefused$' \
+	$'the loose file is not named' \
+	internal/connectors/azurefocus.go \
+	$'if len(segs) >= 2 && azurePeriodFolder.MatchString(segs[len(segs)-2]) {' \
+	$'if false {'
+run_case $'azure focus: a run that kept no row replaces the period' \
+	fail \
+	./internal/connectors \
+	$'^TestARunThatKeptNoRowDoesNotReplaceThePeriod$' \
+	$'charges differ' \
+	internal/connectors/cloudfocus.go \
+	$'\t\t\tif kept == 0 {' \
+	$'\t\t\tif false {'
+run_case $'azure focus: a run folder holding only its manifest is not seen' \
+	fail \
+	./internal/connectors \
+	$'^TestARunWhosePartsHaveNotArrivedKeepsTheEarlierRun$' \
+	$'the older run was read' \
+	internal/connectors/azurefocus.go \
+	$'if _, err := os.Lstat(filepath.Join(dir, e.Name(), "manifest.json")); err == nil {' \
+	$'if false {'
+run_case $'azure focus: a run prefix is compared without its closing slash' \
+	fail \
+	./internal/connectors \
+	$'^TestRunPrefixesWithUnderscoresAndNonASCIIAreKeptApart$' \
+	$'charges differ' \
+	internal/connectors/azurefocus.go \
+	$'rp := period + "/" + run + "/"' \
+	$'rp := period + "/" + run'
+run_case $'azure focus: a manifest time with no zone is refused' \
+	fail \
+	./internal/connectors \
+	$'^TestAManifestTimeWithNoZoneIsReadAsUTC$' \
+	$'charges differ' \
+	internal/connectors/azurefocus.go \
+	$'t, err = time.Parse("2006-01-02T15:04:05.999999999", v)' \
+	$'_ = v'
+run_case $'azure focus pass: the superseded-run sentence reworded is not a fault' \
+	pass \
+	./internal/connectors \
+	$'^TestOnlyTheNewestExportRunOfAPeriodIsCounted$' \
+	$'' \
+	internal/connectors/cloudfocus.go \
+	$'superseded by a newer run of the same period, not read (%s).' \
+	$'superseded by a newer run of the same period, left unread (%s).'
+
+run_case $'demo mode: the cadence switch can be turned on' \
+	fail \
+	./internal/web \
+	$'^TestDemoModeRefusesSwitchingTheCadenceOn$' \
+	$'demo mode switched the clock-driven crew on' \
+	internal/web/cadence.go \
+	$'\tif enabled && auth.DemoMode() {' \
+	$'\tif false && enabled && auth.DemoMode() {'
+run_case $'demo mode: costcrew-run -live spends' \
+	fail \
+	./tools/run \
+	$'^TestDemoModeRefusesALiveRun$' \
+	$'was not refused by name' \
+	tools/run/main.go \
+	$'\tif live && auth.DemoMode() {' \
+	$'\tif false && live && auth.DemoMode() {'
+run_case $'demo mode: typryx is asked at start' \
+	fail \
+	./internal/manifest \
+	$'^TestDemoModeAsksTypryxNothing$' \
+	$'a demo console asked typryx' \
+	cmd/costcrew/main.go \
+	$'\tif auth.DemoMode() && typryxBase != "" {' \
+	$'\tif false && auth.DemoMode() && typryxBase != "" {'
+run_case $'demo mode: the plan-ask reaches the gateway while demo mode is on' \
+	fail \
+	./internal/web \
+	$'^TestDemoModeRefusesThePlanAskBeforeAnyCall$' \
+	$'demo mode reached the gateway' \
+	internal/web/planning.go \
+	$'\tif auth.DemoMode() {\n\t\ts.refusePlanAsk(' \
+	$'\tif false && auth.DemoMode() {\n\t\ts.refusePlanAsk('
 run_case $'gateway export: an empty door folder refuses the whole import again' \
 	fail \
 	./internal/connectors \

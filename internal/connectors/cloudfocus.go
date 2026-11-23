@@ -130,6 +130,11 @@ type cloudSpec struct {
 	id        string   // the connector id, also charges.provenance
 	source    string   // the desk the rows are filed under
 	providers []string // ProviderName values accepted by default
+
+	// What only some providers write (azurefocus.go says why for each).
+	minuteTimes bool   // also accept "2006-01-02T15:04Z", no seconds
+	invoiceAlt  string // read this column when InvoiceId is absent or empty
+	exportRuns  bool   // [YYYYMMDD-YYYYMMDD]/[RunID]/ folders: newest run only
 }
 
 var awsDataExportsSpec = cloudSpec{
@@ -206,6 +211,8 @@ type cloudConfig struct {
 	teamKeys             []string
 	providers            map[string]bool // lower-cased
 	providerList         string
+	minuteTimes          bool
+	invoiceAlt           string
 }
 
 func settingMB(cfg map[string]string, key string, def int64) (int64, error) {
@@ -268,6 +275,7 @@ func parseCloudConfig(spec cloudSpec, cfg map[string]string) (cloudConfig, error
 		c.providers[strings.ToLower(n)] = true
 	}
 	c.providerList = strings.Join(names, ", ")
+	c.minuteTimes, c.invoiceAlt = spec.minuteTimes, spec.invoiceAlt
 	return c, nil
 }
 
@@ -348,60 +356,78 @@ func readCloudFocus(spec cloudSpec, db *sql.DB, cfg map[string]string, opt Impor
 	sum.Ignored = ignored
 	touched := map[string]bool{}
 	seen := map[string]bool{}
-	for i, f := range files {
-		if f.size > conf.maxFile {
-			sum.FileRefusals = append(sum.FileRefusals, fmt.Sprintf(
-				"%s: %d bytes on disk, over the %d MB limit (max_file_mb)", f.rel, f.size, conf.maxFileMB))
-			continue
+
+	var units []cloudUnit
+	if spec.exportRuns {
+		plan := planExportRuns(files)
+		units = plan.units
+		sum.FileRefusals = append(sum.FileRefusals, plan.refusals...)
+		sum.Superseded, sum.SupersededFiles = plan.superseded, plan.supersededFiles
+	} else {
+		for _, f := range files {
+			units = append(units, cloudUnit{files: []cloudFile{f}})
 		}
-		sha, err := sha256OfFile(f.abs)
-		if err != nil {
-			sum.FileRefusals = append(sum.FileRefusals, fmt.Sprintf("%s: hashing: %v", f.rel, err))
-			continue
+	}
+
+	spN := 0
+	savepoint := func(prefix string) string {
+		spN++
+		return fmt.Sprintf("%s_%d", prefix, spN)
+	}
+	rollback := func(sp string) error {
+		if w == nil {
+			return nil
+		}
+		if _, err := tx.Exec("ROLLBACK TO " + sp); err != nil {
+			return err
+		}
+		_, err := tx.Exec("RELEASE " + sp)
+		return err
+	}
+	// readOne reads one file inside its own savepoint. refusal is the file's
+	// reason for not landing (its savepoint already rolled back); err is a
+	// store failure that ends the import. pending is what the enclosing unit
+	// has read but not yet merged, so the overflow check sees it.
+	readOne := func(f cloudFile, pending uint64) (local *cloudSummary, stale []string, sha, refusal string, dup bool, err error) {
+		if f.size > conf.maxFile {
+			return nil, nil, "", fmt.Sprintf("%s: %d bytes on disk, over the %d MB limit (max_file_mb)",
+				f.rel, f.size, conf.maxFileMB), false, nil
+		}
+		sha, herr := sha256OfFile(f.abs)
+		if herr != nil {
+			return nil, nil, "", fmt.Sprintf("%s: hashing: %v", f.rel, herr), false, nil
 		}
 		// The same bytes twice (a file copied beside itself) are one file:
 		// their rows would collide on (sha256, row number) and the sentence
 		// would count them twice.
 		if seen[sha] {
-			sum.Duplicates++
-			continue
+			return nil, nil, sha, "", true, nil
 		}
 		seen[sha] = true
-
-		sp := fmt.Sprintf("cloud_focus_file_%d", i)
+		sp := savepoint("cloud_focus_file")
 		if w != nil {
 			if _, err := tx.Exec("SAVEPOINT " + sp); err != nil {
-				return "", err
+				return nil, nil, "", "", false, err
 			}
 		}
 		local, stale, ferr := processCloudFile(spec, conf, f, sha, w)
-		if ferr != nil {
-			sum.FileRefusals = append(sum.FileRefusals, fmt.Sprintf("%s: %v", f.rel, ferr))
-			if w != nil {
-				if _, err := tx.Exec("ROLLBACK TO " + sp); err != nil {
-					return "", err
-				}
-				if _, err := tx.Exec("RELEASE " + sp); err != nil {
-					return "", err
-				}
-			}
-			continue
-		}
-		if sum.AbsTotal > math.MaxInt64-local.AbsTotal {
+		if ferr == nil && sum.AbsTotal+pending > math.MaxInt64-local.AbsTotal {
 			ferr = errors.New("the folder's amounts add up past what a 64-bit count of micro-dollars can hold")
 		}
 		if ferr != nil {
-			sum.FileRefusals = append(sum.FileRefusals, fmt.Sprintf("%s: %v", f.rel, ferr))
-			if w != nil {
-				if _, err := tx.Exec("ROLLBACK TO " + sp); err != nil {
-					return "", err
-				}
-				if _, err := tx.Exec("RELEASE " + sp); err != nil {
-					return "", err
-				}
+			if err := rollback(sp); err != nil {
+				return nil, nil, "", "", false, err
 			}
-			continue
+			return nil, nil, sha, fmt.Sprintf("%s: %v", f.rel, ferr), false, nil
 		}
+		if w != nil {
+			if _, err := tx.Exec("RELEASE " + sp); err != nil {
+				return nil, nil, "", "", false, err
+			}
+		}
+		return local, stale, sha, "", false, nil
+	}
+	land := func(local *cloudSummary, stale []string) {
 		sum.FilesRead++
 		sum.merge(local)
 		for d := range local.Days {
@@ -410,10 +436,103 @@ func readCloudFocus(spec cloudSpec, db *sql.DB, cfg map[string]string, opt Impor
 		for _, d := range stale {
 			touched[d] = true
 		}
+	}
+
+	for _, u := range units {
+		if u.period == "" {
+			f := u.files[0]
+			local, stale, _, refusal, dup, err := readOne(f, 0)
+			switch {
+			case err != nil:
+				return "", err
+			case dup:
+				sum.Duplicates++
+			case refusal != "":
+				sum.FileRefusals = append(sum.FileRefusals, refusal)
+			default:
+				land(local, stale)
+			}
+			continue
+		}
+
+		// One export run is one unit: every part lands or none does, so a
+		// period is never half the new run and half the old one.
+		sp := savepoint("cloud_focus_run")
 		if w != nil {
+			if _, err := tx.Exec("SAVEPOINT " + sp); err != nil {
+				return "", err
+			}
+		}
+		type got struct {
+			local *cloudSummary
+			stale []string
+		}
+		var read []got
+		var shas []string
+		var pending uint64
+		dups := 0
+		refused := ""
+		for _, f := range u.files {
+			local, stale, sha, refusal, dup, err := readOne(f, pending)
+			if err != nil {
+				return "", err
+			}
+			if dup {
+				dups++
+				continue
+			}
+			shas = append(shas, sha)
+			if refusal != "" {
+				refused = refusal
+				break
+			}
+			pending += local.AbsTotal
+			read = append(read, got{local, stale})
+		}
+		// A run that kept no row at all (every row refused: another currency,
+		// a ProviderName the setting does not name) must not replace the
+		// period with nothing.
+		if refused == "" {
+			kept := 0
+			for _, g := range read {
+				kept += g.local.Rows
+			}
+			if kept == 0 {
+				refused = "it kept no row (every row was refused)"
+				for _, g := range read {
+					if len(g.local.Refusals) > 0 {
+						refused += "; the first: " + g.local.Refusals[0]
+						break
+					}
+				}
+			}
+		}
+		if refused != "" {
+			if err := rollback(sp); err != nil {
+				return "", err
+			}
+			for _, h := range shas {
+				delete(seen, h)
+			}
+			sum.FileRefusals = append(sum.FileRefusals, fmt.Sprintf(
+				"%s/%s: export run not read, because %s; the period keeps what it held before", u.period, u.run, refused))
+			continue
+		}
+		if w != nil {
+			gone, err := dropOtherRuns(tx, spec.id, u.period, u.run)
+			if err != nil {
+				return "", err
+			}
+			for _, d := range gone {
+				touched[d] = true
+			}
 			if _, err := tx.Exec("RELEASE " + sp); err != nil {
 				return "", err
 			}
+		}
+		sum.Duplicates += dups
+		for _, g := range read {
+			land(g.local, g.stale)
 		}
 	}
 
@@ -735,8 +854,12 @@ func parseCloudRow(conf cloudConfig, rec []string, col map[string]int, tagCol in
 		return row, fmt.Errorf("ServiceName is empty")
 	}
 	row.Invoice, row.SubAccount = field("InvoiceId"), field("SubAccountId")
+	invoiceCol := "InvoiceId"
+	if row.Invoice == "" && conf.invoiceAlt != "" {
+		row.Invoice, invoiceCol = field(conf.invoiceAlt), conf.invoiceAlt
+	}
 	for _, c := range []struct{ n, v string }{
-		{"ServiceName", row.Service}, {"InvoiceId", row.Invoice}, {"SubAccountId", row.SubAccount}} {
+		{"ServiceName", row.Service}, {invoiceCol, row.Invoice}, {"SubAccountId", row.SubAccount}} {
 		if err := fieldTooLong(c.n, c.v); err != nil {
 			return row, err
 		}
@@ -753,11 +876,11 @@ func parseCloudRow(conf cloudConfig, rec []string, col map[string]int, tagCol in
 	row.Micros = micros
 
 	startStr, endStr := field("ChargePeriodStart"), field("ChargePeriodEnd")
-	st, err := time.Parse(time.RFC3339, startStr)
+	st, err := parseCloudTime(conf, startStr)
 	if err != nil {
 		return row, fmt.Errorf("ChargePeriodStart %q does not parse as RFC 3339", startStr)
 	}
-	en, err := time.Parse(time.RFC3339, endStr)
+	en, err := parseCloudTime(conf, endStr)
 	if err != nil {
 		return row, fmt.Errorf("ChargePeriodEnd %q does not parse as RFC 3339", endStr)
 	}
@@ -790,6 +913,20 @@ func parseCloudRow(conf cloudConfig, rec []string, col map[string]int, tagCol in
 		row.Team, row.TeamFound, row.TagUnusable = team, found, unusable
 	}
 	return row, nil
+}
+
+// azureMinuteLayout is Azure's FOCUS 1.0 timestamp: "2024-01-01T00:00Z",
+// minutes and no seconds (its 1.0r2 revision added the seconds).
+const azureMinuteLayout = "2006-01-02T15:04Z07:00"
+
+// parseCloudTime reads RFC 3339, and the minute form only for a connector
+// whose provider writes it, so widening Azure never loosens AWS or Google.
+func parseCloudTime(conf cloudConfig, v string) (time.Time, error) {
+	t, err := time.Parse(time.RFC3339, v)
+	if err != nil && conf.minuteTimes {
+		return time.Parse(azureMinuteLayout, v)
+	}
+	return t, err
 }
 
 var (
@@ -963,6 +1100,9 @@ type cloudSummary struct {
 	Corrections  int
 	Duplicates   int
 	Ignored      int
+
+	Superseded      []string // export runs a newer run of their period replaced, the first few
+	SupersededFiles int
 }
 
 func newCloudSummary(conf cloudConfig) *cloudSummary {
@@ -1118,6 +1258,10 @@ func (s *cloudSummary) Sentence(dryRun bool) string {
 	}
 	if n := s.Duplicates; n > 0 {
 		fmt.Fprintf(&b, " %d file%s repeated an earlier file's bytes and %s counted once.", n, plural(n), map[bool]string{true: "was", false: "were"}[n == 1])
+	}
+	if n := s.SupersededFiles; n > 0 {
+		fmt.Fprintf(&b, " %d file%s in earlier export runs superseded by a newer run of the same period, not read (%s).",
+			n, plural(n), strings.Join(s.Superseded, "; "))
 	}
 	if n := s.Ignored; n > 0 {
 		fmt.Fprintf(&b, " %d file%s ignored (Parquet, zip or a link: this reader reads CSV and CSV.gz).", n, plural(n))

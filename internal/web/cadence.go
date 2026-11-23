@@ -10,6 +10,7 @@ package web
 
 import (
 	"fmt"
+	"github.com/TAIPANBOX/costcrew/internal/auth"
 	"net/http"
 	"strings"
 	"time"
@@ -169,6 +170,14 @@ func (s *Server) setCadence(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	enabled := r.PostFormValue("enabled") == "on"
+	// internal/auth's rule: in demo mode nobody spends the owner's model
+	// budget. The switch turns on the clock-driven crew, which spends through
+	// costcrew-run -due, so it is refused on; turning it off stays allowed.
+	if enabled && auth.DemoMode() {
+		redirectMsg(w, r, "/cadence", "demo mode is on (COSTCREW_DEMO): the clock-driven crew "+
+			"cannot be switched on, because nobody spends the owner's model budget here")
+		return
+	}
 	ceiling, err := money.Parse(r.PostFormValue("ceiling"))
 	if err != nil {
 		redirectMsg(w, r, "/cadence", "the ceiling must look like 25.00")

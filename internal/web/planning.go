@@ -392,6 +392,15 @@ func (s *Server) askPlan(w http.ResponseWriter, r *http.Request) {
 		s.refusePlanAsk(w, view, u, label, month, 0, "no active supervisor analyst is on the roster")
 		return
 	}
+	// internal/auth's rule: in demo mode nobody spends the owner's model
+	// budget, whatever their role. This is the one request the console can
+	// spend on, so the rule is held here, before anything is priced or sent.
+	if auth.DemoMode() {
+		s.refusePlanAsk(w, view, u, label, month, 0,
+			"demo mode is on (COSTCREW_DEMO): nobody spends the owner's model budget here, "+
+				"so the call is refused before it is made")
+		return
+	}
 
 	spent, err := crew.SpendInMonth(s.db, month)
 	if err != nil {
