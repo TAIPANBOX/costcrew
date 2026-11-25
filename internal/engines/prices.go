@@ -86,10 +86,6 @@ var prices = map[string]Price{
 		InPerM: 0.2574, OutPerM: 1.0287,
 		Recorded: "2026-08-24", Source: "@measured, GET openrouter.ai/api/v1/models",
 	},
-	"openrouter/moonshotai/kimi-k2": {
-		InPerM: 0.57, OutPerM: 2.30,
-		Recorded: "2026-08-24", Source: "@measured, GET openrouter.ai/api/v1/models",
-	},
 	"openrouter/anthropic/claude-sonnet-5": {
 		InPerM: 2.00, OutPerM: 10.00,
 		Recorded: "2026-11-22", Source: "@measured, GET openrouter.ai/api/v1/models/anthropic/claude-sonnet-5/endpoints",
