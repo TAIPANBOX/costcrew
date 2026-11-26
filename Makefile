@@ -25,6 +25,8 @@ COVER_OUT ?= cover.out
 cover:
 	go test ./internal/... -coverpkg=./internal/... -coverprofile=$(COVER_OUT)
 	go tool cover -func=$(COVER_OUT) | tail -1
+	go tool cover -func=$(COVER_OUT)
+	awk 'NR>1{k=$$1; n[k]=$$2; if($$3>c[k])c[k]=$$3; if(!(k in c))c[k]=$$3} END{for(k in n) if(c[k]==0) print "UNCOV", n[k], k}' $(COVER_OUT) | sort -k3
 
 run:
 	go run ./cmd/costcrew -data ./local
