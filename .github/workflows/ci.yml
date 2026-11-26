@@ -33,7 +33,7 @@
 # `teeth`, are now jobs that wait for the pieces and are red unless every piece
 # passed. A piece that is skipped or cancelled is not a pass.
 #
-# `gate` is `build-lint` + `tests` + `tests-web` + `race-bindings`.
+# `gate` is `build-lint` + `tests` + `tests-web` + `race-bindings` + `coverage`.
 # `teeth` is the `teeth-shard` matrix.
 name: ci
 on:
@@ -181,11 +181,37 @@ jobs:
       - name: the teeth shards partition every case
         run: ./scripts/teeth-shards-cover-every-case.sh
 
+  # Coverage across packages, exactly as `make cover` measures it (see the
+  # Makefile for why -coverpkg), against .coverage-floor, with the total and
+  # its slack in the job summary. Part of `gate`.
+  coverage:
+    name: coverage floor
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.27.4'
+          check-latest: false
+      - name: make cover
+        run: make cover COVER_OUT="$RUNNER_TEMP/cover.out"
+      - name: coverage is not below the floor
+        run: |
+          go tool cover -func="$RUNNER_TEMP/cover.out" > "$RUNNER_TEMP/coverage.txt"
+          ./scripts/coverage-floor.sh check "$RUNNER_TEMP/coverage.txt"
+      - name: the coverage floor only rises
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --no-tags --depth=1 origin "$GITHUB_BASE_REF"
+          git show FETCH_HEAD:.coverage-floor > "$RUNNER_TEMP/base-floor" 2>/dev/null || rm -f "$RUNNER_TEMP/base-floor"
+          ./scripts/coverage-floor.sh ratchet "$RUNNER_TEMP/base-floor"
+
   # The required check `gate`. It does no work itself: it waits for the four
   # jobs above and is red unless every one of them passed. Like `teeth` below,
   # it keeps a name branch protection already requires.
   gate:
-    needs: [build-lint, tests, tests-web, race-bindings]
+    needs: [build-lint, tests, tests-web, race-bindings, coverage]
     if: always()
     runs-on: ubuntu-24.04
     steps:
@@ -195,9 +221,10 @@ jobs:
           TESTS: ${{ needs.tests.result }}
           TESTS_WEB: ${{ needs.tests-web.result }}
           RACE_BINDINGS: ${{ needs.race-bindings.result }}
+          COVERAGE: ${{ needs.coverage.result }}
         run: |
           bad=0
-          for result in "build-lint=$BUILD_LINT" "tests=$TESTS" "tests-web=$TESTS_WEB" "race-bindings=$RACE_BINDINGS"; do
+          for result in "build-lint=$BUILD_LINT" "tests=$TESTS" "tests-web=$TESTS_WEB" "race-bindings=$RACE_BINDINGS" "coverage=$COVERAGE"; do
             case "$result" in
               *=success) ;;
               *) echo "gate: $result, so the gate did not pass" >&2; bad=1 ;;
