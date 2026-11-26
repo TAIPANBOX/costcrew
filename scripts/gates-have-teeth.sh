@@ -462,16 +462,16 @@ run_case $'ci required checks: a job is added that the gate does not wait for' \
 	$'^TestTheRequiredChecksWaitForEveryJob$' \
 	$'NOT WAITED FOR' \
 	.github/workflows/ci.yml \
-	$'needs: [build-lint, tests, tests-web, race-bindings]' \
-	$'needs: [build-lint, tests, race-bindings]'
+	$'needs: [build-lint, tests, tests-web, race-bindings, coverage]' \
+	$'needs: [build-lint, tests, race-bindings, coverage]'
 run_case $'ci required checks: the gate is skipped, not red, when a job it needs fails' \
 	fail \
 	./internal/manifest \
 	$'^TestTheRequiredChecksWaitForEveryJob$' \
 	$'SKIPPED NOT RED' \
 	.github/workflows/ci.yml \
-	$'needs: [build-lint, tests, tests-web, race-bindings]\n    if: always()\n' \
-	$'needs: [build-lint, tests, tests-web, race-bindings]\n'
+	$'needs: [build-lint, tests, tests-web, race-bindings, coverage]\n    if: always()\n' \
+	$'needs: [build-lint, tests, tests-web, race-bindings, coverage]\n'
 run_case $'ci required checks: the gate waits for a job and never reads its result' \
 	fail \
 	./internal/manifest \
