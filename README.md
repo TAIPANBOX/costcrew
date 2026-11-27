@@ -866,7 +866,7 @@ estate-gates repository's own PROVEN record:
 ```sh
 go test ./...                        # 1966 tests, 33 packages
 ./scripts/features-are-bound.sh      # every scenario bound to a named test, both ways
-./scripts/gates-have-teeth.sh        # 650 cases: each gate is made to fail on purpose
+./scripts/gates-have-teeth.sh        # 681 cases: each gate is made to fail on purpose
 make cover                           # statement coverage; CI holds it above .coverage-floor (90.6% measured 2026-11-27, target 90)
 gofmt -l . && go vet ./...
 ```

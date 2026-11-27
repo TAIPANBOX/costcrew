@@ -84,7 +84,7 @@ health path passed.
 ## Gates
 
 ```sh
-go test ./...                        # 1887 tests, 32 packages
+go test ./...                        # 1966 tests, 33 packages
 ./scripts/gates-have-teeth.sh        # 681 cases; needs a clean tree; TEETH_SHARD=i/N runs one of N shards
 ./scripts/teeth-shards-cover-every-case.sh  # the shards partition the cases: none missing, none twice; with no N, also what ci.yml runs and the plan
 ./scripts/teeth-plan.sh 8 [LOG...]  # remake scripts/teeth-shard-plan.tsv from the seconds in green teeth logs (CI logs work)
