@@ -134,3 +134,32 @@ func TestTheSupervisorsPassRunsFromTheSprintPage(t *testing.T) {
 		t.Errorf("a sprint id that is not a number: %d, want 404", code)
 	}
 }
+
+// Closing and reopening a period from the chargeback page: a reopen with no
+// reason is refused and the period stays closed; with one, it opens.
+func TestAPeriodIsReopenedFromTheConsoleOnlyWithAReason(t *testing.T) {
+	h := start(t)
+	h.signUp(t, "owner", "owner-password-2026")
+	months, err := finops.Months(h.st.DB())
+	if err != nil || len(months) < 2 {
+		t.Fatalf("months %v, %v", months, err)
+	}
+	p := months[1]
+	if code, loc := h.post(t, "/chargeback/close", url.Values{"period": {p}, "csrf": {h.csrf(t, "/chargeback")}}); code != http.StatusSeeOther || strings.Contains(loc, "msg=") {
+		t.Fatalf("close: %d %s", code, loc)
+	}
+	code, loc := h.post(t, "/chargeback/reopen", url.Values{"period": {p}, "reason": {" "}, "csrf": {h.csrf(t, "/chargeback")}})
+	if code != http.StatusSeeOther || !strings.Contains(loc, url.QueryEscape("that needs a reason")) {
+		t.Errorf("reopen with no reason: %d %s", code, loc)
+	}
+	if closed, _ := finops.IsClosed(h.st.DB(), p); !closed {
+		t.Fatal("a reopen with no reason opened the period")
+	}
+	code, loc = h.post(t, "/chargeback/reopen", url.Values{"period": {p}, "reason": {"a late credit note"}, "csrf": {h.csrf(t, "/chargeback")}})
+	if code != http.StatusSeeOther || loc != "/chargeback?period="+p {
+		t.Errorf("reopen: %d %s", code, loc)
+	}
+	if closed, _ := finops.IsClosed(h.st.DB(), p); closed {
+		t.Error("the period is still closed after a reopen with a reason")
+	}
+}

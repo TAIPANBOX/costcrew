@@ -130,3 +130,77 @@ func TestARightsizingExportIsReadGzippedAndABrokenGzipIsNamed(t *testing.T) {
 		t.Errorf("the import said %q; it does not name the broken gzip", msg)
 	}
 }
+
+func TestBudgetRecommendationRowsRefuseByName(t *testing.T) {
+	type parser func([]string, map[string]int) (budgetRecRow, error)
+	cases := []struct {
+		reader, header string
+		row            func() []string
+		parse          parser
+		field, value   string
+		want           string
+	}{
+		{"aws", budgetRecAWSHeader, budgetRecAWSRowFields, parseAWSBudgetsRecommendedRow, "CurrencyCode", "EUR", `currency "EUR", this reader is USD only`},
+		{"gcp", budgetRecGCPHeader, budgetRecGCPRowFields, parseGCPCostRecommenderBudgetRow, "currency_code", "JPY", `currency "JPY", this reader is USD only`},
+		{"gcp", budgetRecGCPHeader, budgetRecGCPRowFields, parseGCPCostRecommenderBudgetRow, "recommended_budget_amount", "two grand", `recommended_budget_amount "two grand" does not parse`},
+		{"gcp", budgetRecGCPHeader, budgetRecGCPRowFields, parseGCPCostRecommenderBudgetRow, "month", "2026-9x", `month "2026-9x" is not a month`},
+		{"azure", budgetRecAzureHeader, budgetRecAzureRowFields, parseAzureAdvisorBudgetRow, "Currency", "GBP", `currency "GBP", this reader is USD only`},
+		{"azure", budgetRecAzureHeader, budgetRecAzureRowFields, parseAzureAdvisorBudgetRow, "RecommendedBudgetAmount", "$780", `RecommendedBudgetAmount "$780" does not parse`},
+		{"azure", budgetRecAzureHeader, budgetRecAzureRowFields, parseAzureAdvisorBudgetRow, "Month", "20x6-09", `the Month column "20x6-09" is not a month`},
+	}
+	for _, c := range cases {
+		t.Run(c.reader+" "+c.field, func(t *testing.T) {
+			if _, err := c.parse(c.row(), colIndex(c.header)); err != nil {
+				t.Fatalf("the valid row was refused: %v", err)
+			}
+			_, err := c.parse(withField(c.row(), c.header, c.field, c.value), colIndex(c.header))
+			if err == nil || !strings.Contains(err.Error(), c.want) {
+				t.Fatalf("%s=%q: %v, want %q", c.field, c.value, err, c.want)
+			}
+		})
+	}
+}
+
+func TestABudgetMonthIsYearDashMonth(t *testing.T) {
+	for s, want := range map[string]bool{
+		"2026-09": true, "2026-12": true, "2026-10": true, "2026-01": true,
+		"2026-00": false, "2026-13": false, "2026-9": false, "2026/09": false,
+		"2O26-09": false, "September": false, "": false,
+	} {
+		if got := validBudgetRecMonth(s); got != want {
+			t.Errorf("validBudgetRecMonth(%q) = %v, want %v", s, got, want)
+		}
+	}
+}
+
+// A gzipped budget export is read; a ragged row in it is refused by name and
+// counted, and the rows around it still land.
+func TestABudgetExportIsReadGzippedAndARaggedRowIsNamed(t *testing.T) {
+	dir := t.TempDir()
+	f, err := os.Create(filepath.Join(dir, "budgets.csv.gz"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	zw := gzip.NewWriter(f)
+	body := budgetRecAWSHeader + "\n" +
+		strings.Join(budgetRecAWSRowFields(), ",") + "\n" +
+		"111111111111,research\n"
+	if _, err := zw.Write([]byte(body)); err != nil {
+		t.Fatal(err)
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+
+	msg, db, err := csvReaderImport(t, "aws-budgets-recommended", dir)
+	if err != nil {
+		t.Fatalf("import: %v", err)
+	}
+	if n := csvReaderRows(t, db, "budget_recommendations"); n != 1 {
+		t.Errorf("%d budget recommendations, want the one whole row", n)
+	}
+	if !strings.Contains(msg, "budgets.csv.gz row 2: 2 field(s), header has 5") {
+		t.Errorf("the import said %q; it does not name the ragged row", msg)
+	}
+}
