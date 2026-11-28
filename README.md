@@ -855,10 +855,9 @@ folder readers have since been added). This run used
 dropped from the command (#69); closed by `v0.2.1`, the first image that
 carries `-gateway`.
 
-**Not proven by this run:** the crew at its ordinary cadence rather than by
-hand; a board carrying real cloud bills; the FOCUS import, severity fixed,
-run again against a live box. Full detail, rows dated 2026-09-17, in the
-estate-gates repository's own PROVEN record:
+This run started the crew by hand (`costcrew-run -live -only 294`), on the
+generated estate and the box's AI spend. Full detail, rows dated 2026-09-17,
+in the estate-gates repository's own PROVEN record:
 [github.com/TAIPANBOX/estate-gates](https://github.com/TAIPANBOX/estate-gates).
 
 ## Gates
